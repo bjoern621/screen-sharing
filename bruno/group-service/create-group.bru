@@ -39,7 +39,8 @@ docs {
   Draws a group key and hands it back with the id its streams live under.
   Nothing is stored, because there is nothing to store: the group exists by somebody holding the key, and the id is that key's own keyed digest.
 
-  The group key is the invite. Holding one is what lets somebody join, friends share it once, and it never expires, so a person is removed from a group by drawing a new one rather than by any button in the app.
+  The group key is the invite.
+  Holding one is what lets somebody join, friends share it once, and it never expires, so a person is removed from a group by drawing a new one rather than by any button in the app.
 
   It is the whole secret, so the response is the only time it is readable.
   The post-response script writes it and the prefix (`groupId` plus a slash) into the environment, where every later request reads them.

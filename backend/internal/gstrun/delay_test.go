@@ -63,8 +63,8 @@ func TestADelayLineWithoutALinkCarriesNoWindow(t *testing.T) {
 	}
 }
 
-// A line that is not a reading is not one, which is the whole of what a reader pointed at a child's
-// standard output needs: an unrelated line there is the ordinary case.
+// A line that is not a reading is not one, the whole of what a reader pointed at a child's standard
+// output needs: an unrelated line there is the ordinary case.
 func TestALineThatIsNotADelayIsNotRead(t *testing.T) {
 	for _, line := range []string{
 		"",
@@ -81,11 +81,10 @@ func TestALineThatIsNotADelayIsNotRead(t *testing.T) {
 // The reading is the pipeline's own, taken while it runs.
 //
 // videotestsrc is-live=true stamps each buffer when it produces it, so the figure at the element
-// after it is the wall clock the pipeline spent on that frame, which is what the whole measurement
-// is: a subtraction and not a setting.
+// after it is the wall clock the pipeline spent on that frame: a subtraction and not a setting.
 func TestARunTimesItsOwnPipeline(t *testing.T) {
-	// Two intervals of the reporter's own second, so the run writes a reading and is not racing the
-	// first tick.
+	// Two intervals of the reporter's own second, so the run writes a reading and is not racing
+	// the first tick.
 	ctx, stop := context.WithTimeout(t.Context(), 2500*time.Millisecond)
 	defer stop()
 
@@ -183,7 +182,7 @@ func TestAShedCountIsAbsentWhereNothingCountsOne(t *testing.T) {
 
 // The queue's depth is what separates a frame on its way from one thrown away.
 // Counted at the ends alone, every frame in the queue reads as dropped and stops reading that way
-// once it leaves, which is a cumulative total that goes down.
+// once it leaves, a cumulative total that goes down.
 func TestFramesInTheShedAreNotCountedAsDropped(t *testing.T) {
 	held := uint64(0)
 	c := &shedCount{level: func() uint64 { return held }}
@@ -209,8 +208,8 @@ func TestFramesInTheShedAreNotCountedAsDropped(t *testing.T) {
 }
 
 // A total that counts down is a readout counting backwards in front of whoever is watching it.
-// The three readings are taken one after another, so one of them moving under the other two is
-// ordinary, and the figure holds where it got to.
+// The three readings are taken one after another, so one of them moving under the other two
+// is ordinary, and the figure holds where it got to.
 func TestADropTotalNeverCountsDown(t *testing.T) {
 	held := uint64(0)
 	c := &shedCount{level: func() uint64 { return held }}
@@ -230,9 +229,9 @@ func TestADropTotalNeverCountsDown(t *testing.T) {
 }
 
 // The depth is read off the element by property, through a type assertion, and a figure that stops
-// matching goes to zero rather than to an error: a zero depth counts every frame in flight as
-// dropped, which is the reading this whole count exists to avoid.
-// So the assertion is held against what a queue actually answers.
+// matching goes to zero rather than to an error: a zero depth counts every frame in flight
+// as dropped, the reading this whole count exists to avoid.
+// So the assertion is held against what a queue answers.
 func TestAQueuesDepthIsReadAndNotAssumed(t *testing.T) {
 	gst.Init()
 
@@ -246,7 +245,7 @@ func TestAQueuesDepthIsReadAndNotAssumed(t *testing.T) {
 		t.Errorf("an idle queue reads as holding %d buffers, want none", got)
 	}
 	if _, ok := el.ObjectProperty("current-level-buffers").(uint32); !ok {
-		t.Errorf("the depth no longer reads as uint32, so queueLevel needs the width the binding answers: %T",
+		t.Errorf("the depth reads as %T, so queueLevel needs the width the binding answers",
 			el.ObjectProperty("current-level-buffers"))
 	}
 }

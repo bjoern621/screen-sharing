@@ -13,13 +13,12 @@ import (
 // read off the draft and off what this machine answered.
 //
 // Assembled in this layer because it is the one holding both.
-// The rules package holds neither on purpose: it is what every domain package registers into,
+// The rules package holds neither: every domain package registers into it,
 // so it may import none of them.
 //
 // Every declared axis is filled on every pass, including the ones no rule reads.
-// A rule naming an axis nobody answered would bind nothing,
-// and read on screen as a combination the app allows,
-// indistinguishable from one nobody constrained,
+// A rule naming an axis nobody answered would bind nothing, and read on screen as a combination
+// the app allows, indistinguishable from one nobody constrained,
 // so the evaluator asserts rather than defaulting.
 
 // factsOf reads one draft into the rule vocabulary.
@@ -28,8 +27,8 @@ import (
 // An empty reading matches no rule that names a value, so an unstated fact greys nothing,
 // which is the answer availability gives for an engine it could not derive.
 func factsOf(d Deps, s settings.Settings) rules.Facts {
-	// The two controls are read as they stand and the row they address is derived beside them, so a
-	// pair no row carries answers the two field axes and leaves the derived ones empty.
+	// The two controls are read as they stand and the row they address is derived beside them,
+	// so a pair no row carries answers the two field axes and leaves the derived ones empty.
 	// That is the honest reading: the draft does name a format and an encoder, and it names no codec.
 	codec, known := capabilities.Get(s.Publish.Codec())
 	family := ""
@@ -88,8 +87,8 @@ func factsEngineOf(s settings.Settings) string {
 }
 
 // verdictsOf is what the rules say about one draft, evaluated per read and never held.
-// It is the one entry point the form reads availability through,
-// so a greying, a note and a numeric control's ends are three readings of one evaluation.
+// It is the one entry point the form reads availability through, so a greying, a note
+// and a numeric control's ends are three readings of one evaluation.
 func verdictsOf(d Deps, s settings.Settings) rules.Verdicts {
 	return rules.Evaluate(factsOf(d, s))
 }

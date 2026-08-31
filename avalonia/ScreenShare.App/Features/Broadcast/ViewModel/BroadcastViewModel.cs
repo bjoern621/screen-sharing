@@ -39,8 +39,8 @@ namespace ScreenShare.App.Features.Broadcast.ViewModel;
 /// They are drawn disabled and carrying why, the treatment the settings form gives a blocked concept: removing
 /// them would hide that the capability is missing.
 ///
-/// Stop is the one that is real, and pressing it writes nothing here: the reply carries no state and what the
-/// stream became arrives on the event stream.
+/// Stop is the one that is real, and pressing it writes nothing here: the reply carries no state and what
+/// the stream became arrives on the event stream.
 /// </summary>
 public sealed class BroadcastViewModel : Observable
 {
@@ -72,8 +72,8 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// Settings the config card was last resolved against.
-    /// A pipeline emits a sample a second and its settings do not move while it runs, so an unchanged pipeline is
-    /// not re-resolved per event.
+    /// A pipeline emits a sample a second and its settings do not move while it runs, so an unchanged pipeline
+    /// is not re-resolved per event.
     /// </summary>
     private Settings? _described;
 
@@ -87,8 +87,8 @@ public sealed class BroadcastViewModel : Observable
     public event Action<BroadcastAction>? ActionRequested;
 
     /// <param name="form">
-    /// Settings the backend is holding, handed to the preview and read nowhere else on this screen: its
-    /// end-to-end route needs the leg a viewer receives on.
+    /// Settings the backend is holding, handed to the preview and read nowhere else on this screen:
+    /// its end-to-end route needs the leg a viewer receives on.
     /// A different thing from <see cref="_form"/>, what the running pipeline's settings resolved to.
     /// </param>
     /// <param name="dispatch">
@@ -110,8 +110,8 @@ public sealed class BroadcastViewModel : Observable
         Stats = new HeaderStatsViewModel();
 
         // The one card here that asks the backend for anything.
-        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the seam, the
-        // running state and the leg a viewer receives on rather than the composed reading alone.
+        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the seam,
+        // the running state and the leg a viewer receives on rather than the composed reading alone.
         Preview = new PreviewViewModel(backend, form, session, dispatch);
         Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
@@ -119,18 +119,19 @@ public sealed class BroadcastViewModel : Observable
         Plots = new PlotsViewModel();
 
         // Synthetic publishers belong on this screen because they are what this machine is putting on the relay,
-        // which is what this screen is about. The one publish above them is the real one.
+        // which is what this screen is about.
+        // The one publish above them is the real one.
         TestStreams = new TestStreamsViewModel();
         Log = new SessionLogViewModel(OpenLogAsync, dispatch);
 
-        // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one of the
-        // three works.
+        // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one
+        // of the three works.
         PauseCommand = new DelegateCommand(() => Request(BroadcastAction.Pause), static () => false);
         ForceKeyframeCommand = new DelegateCommand(() => Request(BroadcastAction.ForceKeyframe), static () => false);
         ReconnectCommand = new DelegateCommand(() => Request(BroadcastAction.Reconnect), static () => false);
 
-        // Ending a stream crosses to the backend and the encoder it brings down, so the button waits on the
-        // answer and refuses a second press while the first is out.
+        // Ending a stream crosses to the backend and the encoder it brings down, so the button waits
+        // on the answer and refuses a second press while the first is out.
         StopCommand = new PendingCommand(() => PerformAsync(_backend.StopPublishAsync), dispatch, () => IsLive);
 
         // The one thing a card raises as news.
@@ -172,8 +173,8 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// Synthetic publishers this machine runs, a row per slot.
-    /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable from
-    /// its own row alone.
+    /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable
+    /// from its own row alone.
     /// </summary>
     public TestStreamsViewModel TestStreams { get; }
 
@@ -371,8 +372,8 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// Viewer rows: one per reader the relay named on this stream's path, in the relay's own order.
-    /// Nothing is sorted or ranked here: a table that promoted the struggling viewer would move, every pass, the
-    /// row a reader had learned the position of.
+    /// Nothing is sorted or ranked here: a table that promoted the struggling viewer would move, every pass,
+    /// the row a reader had learned the position of.
     /// No path in the snapshot, an unreachable relay and nothing publishing all come out as no rows, and the count
     /// beside this says which.
     /// </summary>
@@ -395,10 +396,10 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// Log lines, newest first: what the event stream reported ended, and who started or stopped watching.
-    /// Interleaved by time rather than split into two lists, the useful reading of a pipeline that died being the
-    /// viewers that left in the same second.
-    /// Ordered here rather than in the session, which holds both as they happened while the card reads them as
-    /// news.
+    /// Interleaved by time rather than split into two lists, the useful reading of a pipeline that died being
+    /// the viewers that left in the same second.
+    /// Ordered here rather than in the session, which holds both as they happened while the card reads them
+    /// as news.
     /// </summary>
     private static IReadOnlyList<LogLine> Recorded(
         IReadOnlyList<SessionExit> exits, IReadOnlyList<AudienceChange> audience)

@@ -7,8 +7,8 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Setup flow against a backend that holds its answers instead of answering out of a dictionary.
-/// <see cref="SeededBackend"/> answers before the call returns, so every resolve through it is trivially the
-/// latest and the ordering guards never trip.
+/// <see cref="SeededBackend"/> answers before the call returns, so every resolve through it is trivially
+/// the latest and the ordering guards never trip.
 /// </summary>
 public sealed class SetupResolveTests
 {
@@ -25,10 +25,10 @@ public sealed class SetupResolveTests
     private static SetupViewModel Flow(DeferredBackend backend) => Flows.Setup(backend);
 
     /// <summary>
-    /// Reads every state once and stops before the reconnect delay, so nothing is left dialling behind the
-    /// assertions.
-    /// Not awaited: the reads land before <c>Start</c> returns, and the task it hands back is the loop that
-    /// follows the event stream.
+    /// Reads every state once and stops before the reconnect delay, so nothing is left dialling behind
+    /// the assertions.
+    /// Not awaited: the reads land before <c>Start</c> returns, and the task it hands back is the loop
+    /// following the event stream.
     /// </summary>
     private static void Load(Session session)
     {
@@ -37,8 +37,8 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// Unresolved is a state and not a gap: every group draws its unresolved branch, because a render pass
-    /// that waited for the socket would be a window that does not paint.
+    /// Unresolved is a state and not a gap: every group draws its unresolved branch,
+    /// a render pass that waited for the socket being a window that does not paint.
     /// </summary>
     [Fact]
     public void BeforeTheFirstFormLandsTheFlowDrawsNoGroupAndPublishesNothing()
@@ -65,9 +65,8 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// A resolve is side-effect free and answers the same form for the same draft, so asking again buys
-    /// nothing.
-    /// The render function runs on every notification, which is dozens of times a second.
+    /// A resolve is side-effect free and answers the same form for the same draft, so asking again buys nothing.
+    /// The render function runs on every notification, dozens of times a second.
     /// </summary>
     [Fact]
     public async Task RenderingAnUnchangedDraftAsksTheBackendNothing()
@@ -116,9 +115,9 @@ public sealed class SetupResolveTests
 
     /// <summary>
     /// Writes made while a resolve is out cost one round trip between them, not one each.
-    /// A slider dragged across its range writes a step per pointer move, and an answer about a step the reader
-    /// has already passed is dropped on arrival, so asking per step buys the reader nothing and keeps a socket
-    /// and a backend busy for the length of the drag.
+    /// A slider dragged across its range writes a step per pointer move,
+    /// and an answer about a step the reader has already passed is dropped on arrival.
+    /// Asking per step keeps a socket and a backend busy for the length of the drag and buys the reader nothing.
     /// </summary>
     [Fact]
     public async Task WritesDuringAResolveAreAskedAboutOnceWhenItLands()
@@ -133,8 +132,8 @@ public sealed class SetupResolveTests
         Assert.Equal(2, backend.Resolves);
         Assert.Equal(30, backend.Draft(1).Publish.Fps);
 
-        // The answer describes a draft the reader has left, so what it carries is drawn and the run asks once
-        // more, about what they are holding now.
+        // The answer describes a draft the reader has left, so what it carries is drawn
+        // and the run asks once more, about the draft in hand.
         await backend.AnswerAsync(1);
 
         Assert.Equal(3, backend.Resolves);
@@ -149,12 +148,12 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// Why the token alone is not enough: cancellation is cooperative, so a superseded call can already hold
-    /// its answer and deliver it after the newer one.
-    /// The request number is what drops it.
+    /// Why the token alone is not enough: cancellation is cooperative,
+    /// so a superseded call can already hold its answer and deliver it after the newer one.
+    /// The request number drops it.
     ///
-    /// The retry is where two reads are out at once: every other path waits for the answer in flight, and this
-    /// one is the reader saying the call it is waiting on is not coming back.
+    /// The retry is where two reads are out at once: every other path waits for the answer in flight,
+    /// and this one is the reader saying the call it waits on is not coming back.
     /// </summary>
     [Fact]
     public async Task AStaleAnswerArrivingLastDoesNotOverwriteTheNewerForm()
@@ -203,7 +202,7 @@ public sealed class SetupResolveTests
     /// <summary>
     /// What the encoder probe needs: a resolve reads what has been probed rather than probing, so the forms
     /// answered before the probe lands grey no codec for missing hardware.
-    /// The round-trip guard is what would keep them on screen, since the draft has not moved.
+    /// The round-trip guard would keep them on screen, the draft not having moved.
     /// </summary>
     [Fact]
     public async Task NewsThatTheAnswerMovedMakesTheFlowAskAgainForTheSameDraft()
@@ -223,7 +222,7 @@ public sealed class SetupResolveTests
 
     /// <summary>
     /// A failure that re-armed the round-trip guard would make the next render pass resolve, fail and render
-    /// again, hammering an absent socket for as long as the window is open.
+    /// again, hammering an absent socket for as long as the window stays open.
     /// </summary>
     [Fact]
     public void ABackendThatCannotAnswerSaysSoAndIsNotAskedAgainByRendering()
@@ -244,10 +243,9 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// The settings read has no draft in front of it, so a failure on the first one leaves nothing for a
-    /// draft change to restart.
-    /// The notice clears because every output is written on every pass, including the branch that turns it
-    /// off.
+    /// The settings read has no draft in front of it,
+    /// so a failure on the first one leaves nothing for a draft change to restart.
+    /// The notice clears because every output is written on every pass, including the branch that clears it.
     /// </summary>
     [Fact]
     public async Task LookingAgainAsksOnceMoreAndTheAnswerClearsTheNotice()
@@ -269,10 +267,10 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// The case nearly every start meets: the app launches the backend and reaches it a moment later, so the
-    /// flow's opening read is the one call that fails.
-    /// The session dials every couple of seconds either way, so the recovery is news the flow listens to
-    /// rather than a timer of its own.
+    /// The case nearly every start meets: the app launches the backend and reaches it a moment later,
+    /// so the flow's opening read is the one call that fails.
+    /// The session dials every couple of seconds either way,
+    /// so the recovery is news the flow listens to rather than a timer of its own.
     /// </summary>
     [Fact]
     public async Task ABackendThatCameBackIsAskedAgainWithoutTheButton()
@@ -281,8 +279,7 @@ public sealed class SetupResolveTests
         var session = new Session(backend, action => action());
         var flow = Flows.Setup(backend, session);
 
-        // The opening read never got as far as a resolve, so there is no draft a keystroke could restart it
-        // from.
+        // The opening read never got as far as a resolve, so no draft is there for a keystroke to restart it from.
         Assert.True(flow.IsUnavailable);
         Assert.Equal(0, backend.Resolves);
 
@@ -303,8 +300,8 @@ public sealed class SetupResolveTests
     }
 
     /// <summary>
-    /// The session announces every state the backend sends while it is up, so a flow reacting to "reachable"
-    /// rather than to the moment it became reachable would resolve on each of them.
+    /// The session announces every state the backend sends while it is up,
+    /// so a flow reacting to "reachable" rather than to the edge into it would resolve on each of them.
     /// </summary>
     [Fact]
     public async Task ABackendThatIsSimplyUpDoesNotMakeTheFlowAskAgain()

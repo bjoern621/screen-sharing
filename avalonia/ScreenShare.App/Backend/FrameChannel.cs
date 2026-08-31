@@ -8,10 +8,11 @@ namespace ScreenShare.App.Backend;
 /// One consumer's subscription to one decode's frames, over the second service on the control socket: handles,
 /// never pixels (<c>docs/ipc-api.md</c>).
 ///
-/// <b>Draws nothing and imports nothing.</b> What it owns is the call: the subscribe that opens it, the releases
-/// and render sizes going back, and the events coming out.
-/// Which handle type this machine's compositor can open, and what becomes of an imported slot, belong to the
-/// control that draws (<c>Features/Viewer/Tile</c>).
+/// <b>Draws nothing and imports nothing.</b>
+/// What it owns is the call: the subscribe that opens it, the releases and render sizes going back,
+/// and the events coming out.
+/// Which handle type this machine's compositor can open, and what becomes of an imported slot,
+/// belong to the control that draws (<c>Features/Viewer/Tile</c>).
 ///
 /// <b>The protocol is a loan, and the release is the whole of the flow control.</b> Every frame handed over takes
 /// a slot out of the backend's pool, and the slot comes back only when this side says so.
@@ -20,23 +21,23 @@ namespace ScreenShare.App.Backend;
 /// The release rides this call rather than a second one, one outliving its subscription freeing a slot of a pool
 /// that is gone.
 ///
-/// <b>Opens no picture.</b> <see cref="IBackend.StartReceiveAsync"/> opens a relay decode, the publish opens its
-/// own preview, <see cref="IBackend.StartMonitorPreviewAsync"/> opens a monitor's, and a subscription to a
-/// picture nothing is producing is refused.
+/// <b>Opens no picture.</b>
+/// <see cref="IBackend.StartReceiveAsync"/> opens a relay decode, the publish opens its own preview,
+/// <see cref="IBackend.StartMonitorPreviewAsync"/> opens a monitor's,
+/// and a subscription to a picture nothing is producing is refused.
 /// The separation lets a decode outlive the window drawing it.
 ///
-/// <b>The first message names which picture, and nothing after it differs.</b> A relay decode goes by stream and
-/// leg, the running publish's preview by nothing at all since there is at most one publish, a monitor by its
-/// index.
+/// <b>The first message names which picture, and nothing after it differs.</b>
+/// A relay decode goes by stream and leg,
+/// the running publish's preview by nothing at all since there is at most one publish, a monitor by its index.
 /// </summary>
 public sealed class FrameChannel : IAsyncDisposable
 {
     private readonly AsyncDuplexStreamingCall<FramesRequest, FrameEvent> _call;
 
     /// <summary>
-    /// One writer at a time, which is all a gRPC request stream takes.
-    /// A release comes from wherever a frame finished drawing and a render size from wherever the tile was
-    /// measured.
+    /// One writer at a time, all a gRPC request stream takes.
+    /// A release comes from wherever a frame finished drawing and a render size from wherever the tile was measured.
     /// </summary>
     private readonly SemaphoreSlim _writing = new(1, 1);
 
@@ -84,11 +85,11 @@ public sealed class FrameChannel : IAsyncDisposable
 
     /// <summary>
     /// Subscribes to one of this machine's monitors, read live so a screen can be picked by looking at it.
-    /// The index is the whole identity: <c>publish.monitor</c> holds it and the catalog enumerates outputs under
-    /// it, so a size or a name here would send the catalog back.
+    /// The index is the whole identity: <c>publish.monitor</c> holds it and the catalog enumerates outputs under it,
+    /// so a size or a name here would send the catalog back.
     /// Opens no capture, as <see cref="OpenAsync"/> opens no decode.
-    /// <see cref="IBackend.StartMonitorPreviewAsync"/> reads the screen, so a call for a monitor nothing is
-    /// previewing is refused.
+    /// <see cref="IBackend.StartMonitorPreviewAsync"/> reads the screen,
+    /// so a call for a monitor nothing is previewing is refused.
     /// </summary>
     public static Task<FrameChannel> OpenMonitorAsync(
         FrameService.FrameServiceClient client,
@@ -101,8 +102,8 @@ public sealed class FrameChannel : IAsyncDisposable
 
     /// <summary>
     /// Opens the call and says what it is for.
-    /// One method whatever the subscription names, the kinds differing in which arm of the oneof they fill and in
-    /// nothing else.
+    /// One method whatever the subscription names, the kinds differing in which arm of the oneof they fill
+    /// and in nothing else.
     /// </summary>
     private static async Task<FrameChannel> SubscribeAsync(
         FrameService.FrameServiceClient client,
@@ -122,9 +123,9 @@ public sealed class FrameChannel : IAsyncDisposable
         }
         catch
         {
-            // The call belongs to this method until it is handed over.
-            // A failed subscribe would leave a call nobody holds, keeping the backend's side alive until the
-            // connection itself went.
+            // Call belongs to this method until handed over.
+            // A failed subscribe leaves a call nobody holds,
+            // keeping the backend's side alive until the connection goes.
             await channel.DisposeAsync().ConfigureAwait(false);
             throw;
         }
@@ -141,8 +142,8 @@ public sealed class FrameChannel : IAsyncDisposable
 
     /// <summary>
     /// Hands one slot back, naming the pool it came from.
-    /// The generation is echoed rather than assumed: a renegotiation re-announces the pool, and a release that
-    /// crossed that announcement on the wire names a pool that is gone.
+    /// The generation is echoed rather than assumed: a renegotiation re-announces the pool,
+    /// and a release that crossed that announcement on the wire names a pool that is gone.
     /// The backend discards such a release instead of freeing a slot of the pool that replaced it.
     /// </summary>
     public Task ReleaseAsync(ulong generation, uint slot, ulong serial)
@@ -153,9 +154,9 @@ public sealed class FrameChannel : IAsyncDisposable
 
     /// <summary>
     /// How many pixels this consumer will draw the frames at.
-    /// A bound and not a size: the receive pipeline's scaler fixates inside it and corrects the pixel aspect
-    /// ratio, so a tile smaller than its stream has the conversion done at its own size and a larger one gets the
-    /// stream's own size rather than an upscale nobody asked for.
+    /// A bound and not a size: the receive pipeline's scaler fixates inside it and corrects the pixel aspect ratio,
+    /// so a tile smaller than its stream has the conversion done at its own size
+    /// and a larger one gets the stream's own size rather than an upscale nobody asked for.
     /// Zero in either dimension leaves the pipeline where it is.
     /// </summary>
     public Task RenderSizeAsync(int width, int height)
@@ -183,8 +184,8 @@ public sealed class FrameChannel : IAsyncDisposable
         }
         catch (Exception)
         {
-            // A broken call is an ended call, which is what this method was asked for.
-            // The dispose below is what releases it.
+            // A broken call is an ended call, what this method was asked for.
+            // The dispose below releases it.
         }
 
         _call.Dispose();

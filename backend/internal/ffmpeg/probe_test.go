@@ -12,8 +12,8 @@ import (
 )
 
 // probeTimeout bounds one test encode.
-// Two frames at 320x240 return well under a second, so it catches only an encoder that takes the
-// frames and emits nothing.
+// Two frames at 320x240 return well under a second, so it catches only an encoder that takes
+// the frames and emits nothing.
 const probeTimeout = 20 * time.Second
 
 // probeStream is a stream any ffmpeg build encodes: the software encoder they all carry,
@@ -26,14 +26,14 @@ func probeStream() settings.Settings {
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
 	// The defaults hold the default codec's step, and this row's ladder has no such step.
-	// Clearing is what the repair does in the app, and it leaves the builder on the step this row
-	// declares.
+	// Clearing is what the repair does in the app,
+	// and it leaves the builder on the step this row declares.
 	s.Publish.Effort, s.Publish.Tune = "", ""
 	return s
 }
 
-// Both the lavfi graphs and the encoder arguments are wire formats, so a filter spelled wrong fails
-// a measurement where the publish it predicts would have run.
+// Both the lavfi graphs and the encoder arguments are wire formats,
+// so a filter spelled wrong fails a measurement where the publish it predicts would have run.
 // Hence the real binary, on both ends of the content range.
 func TestEncodeProbeAgainstFfmpeg(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
@@ -64,8 +64,8 @@ func TestEncodeProbeAgainstFfmpeg(t *testing.T) {
 	}
 }
 
-// The ceiling says whether a measurement found the encoder or the generator, which holds only while
-// it generates the frames the encode does and stops at the muxer.
+// The ceiling says whether a measurement found the encoder or the generator,
+// which holds only while it generates the frames the encode does and stops at the muxer.
 func TestProbeCeilingAgainstFfmpeg(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
 	if err != nil {
@@ -80,8 +80,8 @@ func TestProbeCeilingAgainstFfmpeg(t *testing.T) {
 	}
 }
 
-// A figure about the encoder the settings name holds only while the probe's encoder half is the
-// publish command's own.
+// A figure about the encoder the settings name holds only while the probe's encoder half
+// is the publish command's own.
 func TestEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	s := probeStream()
 	probe, err := BuildEncodeProbeArgs(s, 320, 240, 2, true)
@@ -108,8 +108,8 @@ func TestEncodeProbeIgnoresTheTransport(t *testing.T) {
 	}
 }
 
-// A combination the form starts and the probe refuses costs nothing visible until the frames are
-// already being discarded.
+// A combination the form starts and the probe refuses costs nothing visible until the frames
+// are already being discarded.
 func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if _, gap := c.EngineGap(capabilities.EngineFfmpeg); !c.Implemented || gap {

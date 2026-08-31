@@ -6,34 +6,37 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Settings draft being edited, and the last form the backend resolved it to.
 ///
-/// <b>One owner of both, for the whole window.</b> The setup wizard configures what this machine sends and the
-/// viewer how it receives; a draft each would be two copies of one fact, the wizard's commit persisting the
-/// whole message and overwriting watch settings its copy never saw
-/// (<c>docs/development-principles.md</c>, "Stateless").
+/// <b>One owner of both, for the whole window.</b>
+/// The setup wizard configures what this machine sends and the viewer how it receives;
+/// a draft each would be two copies of one fact, the wizard's commit persisting the whole message
+/// and overwriting watch settings its copy never saw (<c>docs/development-principles.md</c>, "Stateless").
 ///
-/// Sibling of <see cref="Session"/>: the session owns the running state the backend reports, this owns the
-/// settings nobody has committed. Neither derives anything from the other.
+/// Sibling of <see cref="Session"/>: the session owns the running state the backend reports,
+/// this owns the settings nobody has committed.
+/// Neither derives anything from the other.
 ///
-/// <b>Decides nothing.</b> Which controls exist, which values they offer, which are greyed and why, what the
-/// configuration costs and whether it can be published all arrive decided from
-/// <see cref="IBackend.ResolveFormAsync"/> (<c>docs/ipc-api.md</c>, "The rule").
+/// <b>Decides nothing.</b>
+/// Which controls exist, which values they offer, which are greyed and why, what the configuration costs
+/// and whether it can be published all arrive decided from <see cref="IBackend.ResolveFormAsync"/>
+/// (<c>docs/ipc-api.md</c>, "The rule").
 ///
-/// <b>The resolve is a round trip, and that shapes the class.</b> The backend answers over a socket, so a
-/// render pass that waited would freeze the window it is drawing.
-/// The last form answered with is <b>explicit state</b>, every reader <b>reads it continuously</b> and awaits
-/// nothing, and a draft change starts a resolve whose answer lands later and raises <see cref="Changed"/>.
+/// <b>The resolve is a round trip, and that shapes the class.</b>
+/// The backend answers over a socket, so a render pass that waited would freeze the window it is drawing.
+/// The last form answered with is <b>explicit state</b>, every reader <b>reads it continuously</b>
+/// and awaits nothing, and a draft change starts a resolve whose answer lands later and raises <see cref="Changed"/>.
 /// A window with no form yet is a state rather than a gap.
 ///
 /// Three properties make that safe on every keystroke.
-/// <see cref="Sync"/> is <b>idempotent</b>: a draft still equal to the one last asked about asks nothing, so a
-/// render pass reconciles unconditionally.
-/// <b>One resolve is out at a time</b>, and the answer asks for whatever the draft has become since: a slider
-/// dragged across its range writes a step per pointer move, and a round trip per step is a socket carrying
-/// answers about drafts the reader passed through, all but the last of them dropped on arrival.
+/// <see cref="Sync"/> is <b>idempotent</b>: a draft still equal to the one last asked about asks nothing,
+/// so a render pass reconciles unconditionally.
+/// <b>One resolve is out at a time</b>, and the answer asks for whatever the draft has become since:
+/// a slider dragged across its range writes a step per pointer move,
+/// and a round trip per step is a socket carrying answers about drafts the reader passed through,
+/// all but the last of them dropped on arrival.
 /// The reader waits one round trip either way, so the ones in between buy nothing.
-/// And <b>the latest answer wins</b>: each resolve carries a request number, an answer no longer waited for is
-/// dropped rather than drawn over a newer draft's form, and an answer about a draft the reader has moved off is
-/// drawn without being taken back into the draft.
+/// And <b>the latest answer wins</b>: each resolve carries a request number,
+/// an answer nothing is waiting for is dropped rather than drawn over a newer draft's form,
+/// and an answer about a draft the reader has moved off is drawn without being taken back into the draft.
 ///
 /// <see cref="Persist"/> holds the same shape for the write half, and for the same reason.
 /// </summary>
@@ -53,18 +56,19 @@ public sealed class FormSession
     private Form? _form;
 
     /// <summary>
-    /// Settings being edited. Null until the stored settings arrive.
+    /// Settings being edited.
+    /// Null until the stored settings arrive.
     /// Never read for meaning: a value goes in and the answer that comes back is what is drawn.
-    /// Written in place by <see cref="Write"/>, so nothing else holds this instance: the backend is handed a
-    /// copy and the form keeps its own.
+    /// Written in place by <see cref="Write"/>, so nothing else holds this instance: the backend is handed a copy
+    /// and the form keeps its own.
     /// </summary>
     private Settings? _draft;
 
     /// <summary>
-    /// Draft the backend was last asked about: the copy handed to the resolve, replaced by the settings its
-    /// answer carried.
-    /// Never mutated once set, so comparing the draft against it says whether anything moved, which is the whole
-    /// round-trip guard.
+    /// Draft the backend was last asked about: the copy handed to the resolve,
+    /// replaced by the settings its answer carried.
+    /// Never mutated once set, so comparing the draft against it says whether anything moved,
+    /// which is the whole round-trip guard.
     /// </summary>
     private Settings? _asked;
 
@@ -176,23 +180,26 @@ public sealed class FormSession
     public Settings? Draft => _draft;
 
     /// <summary>
-    /// Settings the backend is holding. Null until the opening read answers.
+    /// Settings the backend is holding.
+    /// Null until the opening read answers.
     /// Read where a call has to name a value the backend will act on rather than one the reader is looking at.
-    /// The leg a decode opens on is the case that exists: the backend reads that decode's other knobs out of
-    /// these same settings, so naming the draft's leg would run half a panel's choices and hold the rest back.
+    /// The leg a decode opens on is the case that exists:
+    /// the backend reads that decode's other knobs out of these same settings,
+    /// so naming the draft's leg would run half a panel's choices and hold the rest back.
     /// </summary>
     public Settings? Stored => _stored;
 
     /// <summary>
-    /// Whether the form on screen answers for the draft as it now stands, which is the two messages carrying the
-    /// same settings.
-    /// False from a write until the answer about it lands, and that window is what a control checks before taking
-    /// a value off the form: what the form carries there is what the reader held a round trip ago, and assigning
-    /// it would put a thumb back under the pointer or unmark a card that was just clicked.
+    /// Whether the form on screen answers for the draft as it stands,
+    /// which is the two messages carrying the same settings.
+    /// False from a write until the answer about it lands,
+    /// and that window is what a control checks before taking a value off the form:
+    /// what the form carries there is what the reader held a round trip ago,
+    /// and assigning it would put a thumb back under the pointer or unmark a card that was just clicked.
     /// A repair therefore reaches a control on the answer that carries it.
     ///
-    /// Compared against the answer rather than against the draft last handed over, those two being equal from the
-    /// moment a resolve starts and saying nothing about what is drawn.
+    /// Compared against the answer rather than against the draft last handed over,
+    /// those two being equal from the moment a resolve starts and saying nothing about what is drawn.
     /// </summary>
     public bool IsAnswered => _form is not null && _draft is not null && _draft.Equals(_form.Settings);
 
@@ -217,17 +224,18 @@ public sealed class FormSession
 
     /// <summary>
     /// Read in flight, a completed task when none is.
-    /// For the caller that has to know the screen caught up with the draft rather than was merely asked to: a
-    /// test waits on it instead of sleeping, and no render path touches it.
+    /// For the caller that has to know the screen caught up with the draft rather than was merely asked to:
+    /// a test waits on it instead of sleeping, and no render path touches it.
     /// Never faults on a cancellation, a cancelled resolve being one this class asked for.
     /// </summary>
     public Task Settled { get; private set; } = Task.CompletedTask;
 
     /// <summary>
     /// Asks for the form this draft resolves to, unless the backend has already been asked for it.
-    /// <b>Idempotent, which makes it safe on a render pass.</b> The resolve is side-effect free and answers the
-    /// same form for the same draft (<c>docs/ipc-api.md</c>), so a draft still equal to the one last handed over
-    /// has nothing to learn from a second round trip, landed or in flight.
+    /// <b>Idempotent, which makes it safe on a render pass.</b>
+    /// The resolve is side-effect free and answers the same form for the same draft (<c>docs/ipc-api.md</c>),
+    /// so a draft still equal to the one last handed over has nothing to learn from a second round trip, landed
+    /// or in flight.
     /// A hundred render passes cost the one call.
     /// </summary>
     public void Sync()
@@ -311,15 +319,16 @@ public sealed class FormSession
     /// <summary>
     /// Stores the draft as it stands, and answers once the write has landed.
     ///
-    /// What a staged group's commit runs: nothing in such a group reaches the backend as it is edited, so a
-    /// screen drawing one needs a way to say "these, now".
-    /// The write is the whole settings message either way, so it goes down the queue an applied field's
-    /// keystroke uses: two unary calls carry no ordering between them, and the older snapshot landing last is
-    /// what <see cref="Persist"/> exists to prevent.
+    /// What a staged group's commit runs: nothing in such a group reaches the backend as it is edited,
+    /// so a screen drawing one needs a way to say "these, now".
+    /// The write is the whole settings message either way,
+    /// so it goes down the queue an applied field's keystroke uses: two unary calls carry no ordering between them,
+    /// and the older snapshot landing last is what <see cref="Persist"/> exists to prevent.
     ///
-    /// <b>Safe to run twice.</b> It names a state, that these are the stored settings, so a second run with
-    /// nothing changed asks for a state that already holds (<c>docs/development-principles.md</c>, "Effects
-    /// across a process boundary").
+    /// <b>Safe to run twice.</b>
+    /// It names a state, that these are the stored settings,
+    /// so a second run with nothing changed asks for a state that already holds
+    /// (<c>docs/development-principles.md</c>, "Effects across a process boundary").
     /// Whether it landed is <see cref="Unsaved"/>; this answers when the attempt is over either way.
     /// </summary>
     public Task SaveAsync()
@@ -354,15 +363,15 @@ public sealed class FormSession
         // A preset is applied to a form the reader is looking at, and a form was resolved from a draft.
         var draft = Assert.NotNull(_draft, "a preset the reader applied was offered beside a draft");
 
-        // Copied because the store holds its message for as long as the list is on screen: assigning the
-        // instance would let the next keystroke edit the preset.
+        // Copied because the store holds its message for as long as the list is on screen:
+        // assigning the instance would let the next keystroke edit the preset.
         draft.Publish = publish.Clone();
         Sync();
 
-        // The question a field write asks, asked about every field this one moved: settings themselves, or a
-        // proposal a commit turns into settings?
-        // Publish settings are staged, so this stores nothing and a preset being tried out is not what the next
-        // stream starts on.
+        // The question a field write asks, asked about every field this one moved: settings themselves,
+        // or a proposal a commit turns into settings?
+        // Publish settings are staged, so this stores nothing
+        // and a preset being tried out is not what the next stream starts on.
         // Read off the form rather than stated here, so a group that becomes applied is stored by this write too.
         if (AppliesToGroup(SettingsDraft.PublishGroup))
         {
@@ -380,10 +389,10 @@ public sealed class FormSession
     /// (<c>docs/ipc-api.md</c>, "The rule"), so a group that gains a field is one this puts back with nothing
     /// here to edit.
     ///
-    /// <b>One write, not one per field.</b> The whole group reaches the draft before anything is asked or
-    /// stored, so the resolve sees the whole reset and an applied group is stored once.
-    /// A reset is one change of mind about a group rather than a burst of writes a reader could have made by
-    /// hand.
+    /// <b>One write, not one per field.</b>
+    /// The whole group reaches the draft before anything is asked or stored, so the resolve sees the whole reset
+    /// and an applied group is stored once.
+    /// A reset is one change of mind about a group rather than a burst of writes a reader could have made by hand.
     /// </summary>
     public void Reset(string groupKey)
     {
@@ -431,8 +440,9 @@ public sealed class FormSession
     /// <summary>
     /// Whether a write to this field is the setting itself, which the form states per group (<c>form.proto</c>,
     /// <c>FieldGroup.applied</c>).
-    /// False for a key no drawn group carries, and before the first form lands: what a field means arrives from
-    /// the backend, so a write it has said nothing about is held rather than stored on a guess.
+    /// False for a key no drawn group carries, and before the first form lands:
+    /// what a field means arrives from the backend,
+    /// so a write it has said nothing about is held rather than stored on a guess.
     /// </summary>
     private bool Applies(string key)
     {
@@ -458,10 +468,11 @@ public sealed class FormSession
     /// <summary>
     /// Whether a write to any field of one settings group is the setting itself.
     /// Not the same question as <see cref="Applies"/>: the form groups the screen by what the reader is deciding
-    /// and a key by which message holds the value, so one settings group's fields reach the screen spread over
-    /// several form groups (<c>backend/internal/form/keys.go</c>).
-    /// Any one of them being applied makes the write a setting, that being the field the backend would otherwise
-    /// never be handed.
+    /// and a key by which message holds the value,
+    /// so one settings group's fields reach the screen spread over several form groups
+    /// (<c>backend/internal/form/keys.go</c>).
+    /// Any one of them being applied makes the write a setting,
+    /// that being the field the backend would otherwise never be handed.
     /// </summary>
     private bool AppliesToGroup(string group)
     {
@@ -549,8 +560,7 @@ public sealed class FormSession
                 catch (OperationCanceledException)
                 {
                     // The call carries no token, so nothing here cancels it.
-                    // A transport reporting one anyway leaves the last sentence standing rather than claiming a
-                    // write landed.
+                    // A transport reporting one anyway keeps the last sentence rather than claiming a write landed.
                 }
             }
         }
@@ -559,8 +569,8 @@ public sealed class FormSession
             // Whatever ended the loop, the next write has to be able to start another run.
             // A flag left set by a task nobody awaits stops settings being stored for the rest of the session.
             //
-            // Cleared before the waiters are answered: one of them may write again from its continuation, and a
-            // run that answered while still claiming to run would take that write onto a queue nothing drains.
+            // Cleared before the waiters are answered: one of them may write again from its continuation,
+            // and a run that answered while still claiming to run would take that write onto a queue nothing drains.
             _persisting = false;
 
             var written = _written;
@@ -571,14 +581,15 @@ public sealed class FormSession
 
     /// <summary>
     /// Takes the answer to one write, on the UI loop.
-    /// <b><see cref="Adopt"/> deliberately does not clear this.</b> A resolve is a read and can be answered while
-    /// a write to the same backend is failing, so a successful read clearing the sentence would drop the news the
-    /// reader needs: what the screen shows is not what is stored.
+    /// <b><see cref="Adopt"/> deliberately does not clear this.</b>
+    /// A resolve is a read and can be answered while a write to the same backend is failing,
+    /// so a successful read clearing the sentence would drop the news the reader needs:
+    /// what the screen shows is not what is stored.
     /// </summary>
     /// <param name="stored">
-    /// What the backend now holds, null where the write did not land.
+    /// What the backend holds, null where the write did not land.
     /// The message that went over rather than the draft as it stands, so a keystroke made during the round trip
-    /// leaves the settings reported as not yet stored.
+    /// leaves the settings reported as unstored.
     /// </param>
     private void Persisted(string reason, Settings? stored)
     {
@@ -594,8 +605,8 @@ public sealed class FormSession
 
     /// <summary>
     /// Asks again after a failure.
-    /// Two cases because the opening read has no draft in front of it: with settings in hand it is
-    /// <see cref="Reask"/>, without them the opening read started over.
+    /// Two cases because the opening read has no draft in front of it:
+    /// with settings in hand it is <see cref="Reask"/>, without them the opening read started over.
     /// </summary>
     public void Retry()
     {
@@ -646,8 +657,8 @@ public sealed class FormSession
 
     /// <summary>
     /// Ends one answer's turn, on the UI loop.
-    /// A draft the reader moved to while the answer was out is asked about here, which is the whole of the
-    /// coalescing: writes during a round trip cost one round trip between them.
+    /// A draft the reader moved to while the answer was out is asked about here,
+    /// which is the whole of the coalescing: writes during a round trip cost one round trip between them.
     /// </summary>
     private void Settle()
     {
@@ -658,8 +669,8 @@ public sealed class FormSession
             return;
         }
 
-        // Cleared before the waiters are answered: one of them may write from its continuation, and a run that
-        // answered while still claiming to run would leave that write waiting on a source nothing completes.
+        // Cleared before the waiters are answered: one of them may write from its continuation,
+        // and a run that answered while still claiming to run would leave that write on a source nothing completes.
         var caught = _caught;
         _caught = null;
         Settled = Task.CompletedTask;
@@ -680,8 +691,8 @@ public sealed class FormSession
         try
         {
             // Only the opening read sees what the backend is holding.
-            // Every read after it is asked about a draft, and the answer describes that draft rather than the
-            // other side's settings.
+            // Every read after it is asked about a draft,
+            // and the answer describes that draft rather than the other side's settings.
             Settings? stored = null;
             if (draft is null)
             {
@@ -707,10 +718,11 @@ public sealed class FormSession
     /// <summary>
     /// Takes one answer, on the UI loop.
     /// The only write of <c>_form</c>, <c>_draft</c> and <c>_asked</c>.
-    /// <b>The latest answer wins.</b> Cancellation is cooperative, so a call can hold its form by the time the
-    /// token is set and land after a newer one.
-    /// The request number makes that harmless rather than rare: an answer nothing is waiting for is dropped and
-    /// the newer form stands.
+    /// <b>The latest answer wins.</b>
+    /// Cancellation is cooperative, so a call can hold its form by the time the token is set
+    /// and land after a newer one.
+    /// The request number makes that harmless rather than rare: an answer nothing is waiting for is dropped
+    /// and the newer form stands.
     /// </summary>
     private void Adopt(Form form, Settings? stored, int request)
     {
@@ -738,10 +750,10 @@ public sealed class FormSession
         // Adopted whole rather than merged: where the backend walked a forbidden value to a legal one, merging
         // would be this class picking which half to keep.
         //
-        // The draft is a copy and the form keeps its own, because the controls write the draft in place and a
-        // write reaching into the form would edit the answer the screen is drawing.
-        // The form's copy is what the next pass compares against, so a repaired draft counts as asked about and
-        // settles here rather than costing a second round trip, which is the contract's idempotency.
+        // The draft is a copy and the form keeps its own, because the controls write the draft in place
+        // and a write reaching into the form would edit the answer the screen is drawing.
+        // The form's copy is what the next pass compares against, so a repaired draft counts as asked about
+        // and settles here rather than costing a second round trip, which is the contract's idempotency.
         //
         // Taken only where the draft is still the one this answer describes.
         // A control moved while the answer was out holds a value newer than the repaired one, and adopting here
@@ -759,11 +771,11 @@ public sealed class FormSession
 
     /// <summary>
     /// Takes one refusal, on the UI loop.
-    /// The form being drawn is kept and gains the sentence saying why there is no newer one: the last answer the
-    /// backend gave is still the last answer it gave.
-    /// <b><c>_asked</c> is left where it was, and that is load-bearing.</b> Cleared, the render pass this raises
-    /// would find a draft the backend has not been asked about, resolve, fail and render again, hammering an
-    /// absent socket for as long as the window is open.
+    /// The form being drawn is kept and gains the sentence saying why there is no newer one:
+    /// the last answer the backend gave is still the last answer it gave.
+    /// <b><c>_asked</c> is left where it was, and that is load-bearing.</b>
+    /// Cleared, the render pass this raises would find a draft the backend has not been asked about, resolve, fail
+    /// and render again, hammering an absent socket for as long as the window is open.
     /// Asking again is <see cref="Retry"/>, which a reader runs when there is something new to expect.
     /// </summary>
     private void Fail(string reason, int request)
@@ -781,10 +793,10 @@ public sealed class FormSession
 
     /// <summary>
     /// Asks again for the draft on screen, because what the backend would answer has moved.
-    /// The encoder probe landing raises it: forms resolved before it grey nothing for missing hardware, and the
-    /// ones after it do.
-    /// Clearing <c>_asked</c> is the whole of it: the draft is unchanged, so the round-trip guard would otherwise
-    /// skip a read already answered against facts that have since changed.
+    /// The encoder probe landing raises it: forms resolved before it grey nothing for missing hardware,
+    /// and the ones after it do.
+    /// Clearing <c>_asked</c> is the whole of it: the draft is unchanged,
+    /// so the round-trip guard would otherwise skip a read already answered against facts that have since changed.
     /// </summary>
     private void Reask()
     {

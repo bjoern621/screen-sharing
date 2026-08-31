@@ -10,8 +10,8 @@ namespace ScreenShare.App.Features.Viewer.PopOut.View;
 /// <summary>
 /// One stream, in a window of its own.
 ///
-/// Fullscreen here is a property of this window, where the main window's fullscreen names a stream, so one stream
-/// fills one monitor while another fills a second.
+/// Fullscreen here is a property of this window, where the main window's fullscreen names a stream,
+/// so one stream fills one monitor while another fills a second.
 /// Hence fullscreen being no member of <c>LayoutMode</c>.
 ///
 /// Closing returns the stream to its slot in the grid and stops no decode: stopping is the rail's toggle.
@@ -31,8 +31,7 @@ public partial class PopOutWindow : Window
         DataContext = tile;
         _tile = tile;
 
-        // Opened at the stream's own shape, so a 21:9 capture does not arrive letterboxed into a 16:9 window nobody
-        // asked for.
+        // Opened at the stream's own shape, so a 21:9 capture does not arrive letterboxed into a 16:9 window.
         Height = Math.Round(Width / tile.Aspect) + 1;
     }
 
@@ -54,15 +53,15 @@ public partial class PopOutWindow : Window
     /// <summary>
     /// State to give this window back when it stops filling a screen, null while nothing has filled it.
     /// Remembered rather than assumed, so a window that was maximised does not come back as a normal one.
-    /// Null also leaves a fullscreen this app did not ask for alone: a desktop can fill a window itself, and a
-    /// pass reading the window state as its own would take that back.
+    /// Null also leaves a fullscreen this app did not ask for alone: a desktop can fill a window itself,
+    /// and a pass reading the window state as its own would take that back.
     /// </summary>
     private WindowState? _restore;
 
     /// <summary>
     /// Fills a screen with this window, or gives it back the state it was in.
-    /// Called by the pass reconciling windows against the arrangement, and idempotent like the rest of it: asking
-    /// for the state the window is already in changes nothing.
+    /// Called by the pass reconciling windows against the arrangement, and idempotent like the rest of it:
+    /// asking for the state the window is already in changes nothing.
     /// Which monitor is filled is not decided here, a fullscreen window filling the screen it is already on.
     /// </summary>
     public void SetFullscreen(bool fullscreen)

@@ -12,8 +12,8 @@ import (
 )
 
 // The D-Bus half of the ScreenCast conversation.
-// Every method is asynchronous, so each call registers a match for the Response signal of a Request
-// path it makes predictable through a handle_token, then blocks for it.
+// Every method is asynchronous, so each call registers a match for the Response signal first,
+// on a Request path a handle_token makes predictable, then blocks for it.
 
 type options = map[string]dbus.Variant
 
@@ -22,8 +22,8 @@ type client struct {
 	sender string
 }
 
-// request calls a portal method taking the options map alone, CreateSession, and blocks for its
-// Response.
+// request calls a portal method taking the options map alone, CreateSession,
+// and blocks for its Response.
 func (c *client) request(method string, opts options) (options, error) {
 	return c.await(method, func(reqToken string) *dbus.Call {
 		opts["handle_token"] = dbus.MakeVariant(reqToken)
@@ -53,8 +53,8 @@ func (c *client) requestStart(session dbus.ObjectPath) (options, error) {
 	})
 }
 
-// await installs the Response match for the Request path a token makes predictable, invokes the
-// method, and answers the results map the Response carries.
+// await installs the Response match for the Request path a token makes predictable,
+// invokes the method, and answers the results map the Response carries.
 // The match goes in before the invocation, so a Response arriving immediately is still caught.
 // A non-zero response code is a cancelled picker or a portal-side failure, and leaves as an error.
 func (c *client) await(method string, invoke func(reqToken string) *dbus.Call) (options, error) {
@@ -107,8 +107,8 @@ func (c *client) openPipeWireRemote(session dbus.ObjectPath) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	// os.NewFile answers nil for a negative descriptor, which is what a portal that reports its
-	// failure in the reply rather than as a D-Bus error leaves.
+	// os.NewFile answers nil for a negative descriptor,
+	// which is what a portal reporting its failure in the reply rather than as a D-Bus error leaves.
 	// The capture child inherits this file at a fixed position,
 	// so a closed slot is refused before it travels that far.
 	f := os.NewFile(uintptr(fd), "pipewire-remote")
@@ -143,8 +143,8 @@ func firstNode(results options) (uint32, error) {
 	return streams[0].Node, nil
 }
 
-// senderToken is the caller's unique bus name reshaped for a Request object path: leading colon
-// dropped, dots turned into underscores.
+// senderToken is the caller's unique bus name reshaped for a Request object path:
+// leading colon dropped, dots turned into underscores.
 func senderToken(conn *dbus.Conn) string {
 	assert.IsNotNil(conn, "a sender token names a connected bus")
 	assert.Assert(len(conn.Names()) > 0, "a connected bus has a unique name")
@@ -155,10 +155,10 @@ func senderToken(conn *dbus.Conn) string {
 
 var tokenSeq atomic.Uint64
 
-// newToken is a handle_token unique within the process, which is as far as uniqueness has to reach:
+// newToken is a handle_token unique within the process, as far as uniqueness has to reach:
 // the sender name already scopes a Request path to this connection.
-// Two concurrent Opens draw from this counter, and a number handed out twice puts both of them on
-// one Request object path.
+// Two concurrent Opens draw from this counter,
+// and a number handed out twice puts both of them on one Request object path.
 func newToken() string {
 	return fmt.Sprintf("screenshare%d", tokenSeq.Add(1))
 }

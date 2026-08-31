@@ -13,10 +13,10 @@ import (
 // One consumer's subscription to one receiver's frames: slots, serials and drops.
 // What a slot physically is stays in share.go and the platform files.
 //
-// A frame is a loan: it takes a slot out of the pool, and the slot comes back only when the
-// consumer releases it.
-// A consumer that stops releasing runs at its own rate and never sees a torn picture, and the
-// decode keeps running and drops the frames it has nowhere to put.
+// A frame is a loan: it takes a slot out of the pool, and the slot comes back only when
+// the consumer releases it.
+// A consumer that stops releasing runs at its own rate and never sees a torn picture, and
+// the decode keeps running and drops the frames it has nowhere to put.
 
 type Frame struct {
 	Generation uint64
@@ -37,19 +37,19 @@ type Event struct {
 //
 // The loan is the real bound: at most slotCount frames are outstanding, so the queue reaches
 // this depth only where a pool announcement meets a full set of loans.
-// A queue that fills is a consumer that stopped reading its own stream, which is not a case to
-// buffer through.
+// A queue that fills is a consumer that stopped reading its own stream, which is not a case
+// to buffer through.
 const eventBuffer = slotCount + 4
 
 // Subscription is one consumer's view of one receiver's frames.
 //
-// It ends on Close or with the pipeline, and both show on Events: the channel closes, and Err
-// says why.
+// Ends on Close or with the pipeline, and both show on Events:
+// the channel closes, and Err says why.
 type Subscription struct {
 	receiver *Receiver
 	events   chan Event
-	// done closes with the events channel, and every send checks it under mu, so a
-	// producer racing a Close cannot send on a closed channel.
+	// done closes with the events channel, and every send checks it under mu, so
+	// a producer racing a Close cannot send on a closed channel.
 	done chan struct{}
 
 	mu sync.Mutex
@@ -61,13 +61,15 @@ type Subscription struct {
 	generation uint64
 	serial     uint64
 	dropped    uint64
-	// width and height are the open pool's size. A frame of another size is a
-	// renegotiation, not something to write into a slot too small for it.
+	// width and height are the open pool's size.
+	// A frame of another size is a renegotiation,
+	// not something to write into a slot too small for it.
 	width, height int
-	// lent holds the serial each slot was lent for. Zero: free for this side to write.
+	// lent holds the serial each slot was lent for.
+	// Zero: free for this side to write.
 	lent [slotCount]uint64
-	// renderSize is this consumer's ask. The receiver draws at the largest across its
-	// consumers.
+	// renderSize is this consumer's ask.
+	// The receiver draws at the largest across its consumers.
 	renderSize renderSize
 	ended      bool
 	err        error
@@ -75,8 +77,8 @@ type Subscription struct {
 
 // Subscribe opens one consumer's view of this receiver's frames.
 //
-// It allocates no pool: a pool matches the memory a frame turned out to be in, and no frame has
-// arrived.
+// Allocates no pool: a pool matches the memory a frame turned out to be in,
+// and no frame has arrived.
 // The first one opens it, and the consumer learns the pool as the subscription's first event.
 func (r *Receiver) Subscribe() *Subscription {
 	sub := &Subscription{
@@ -153,8 +155,8 @@ func (s *Subscription) Close() {
 }
 
 // finish ends the subscription once, with its reason.
-// It is endLocked with the lock taken around it, so the producer's way of ending and the
-// consumer's are one sequence.
+// endLocked with the lock taken around it,
+// so the producer's way of ending and the consumer's are one sequence.
 func (s *Subscription) finish(err error) {
 	s.mu.Lock()
 	ended := s.ended
@@ -174,8 +176,8 @@ func (s *Subscription) finish(err error) {
 
 // offer hands one decoded frame to this consumer, and is the whole producer side.
 //
-// It runs on the sink's streaming thread and never blocks: what it cannot do now is a dropped
-// frame rather than a wait.
+// Runs on the sink's streaming thread and never blocks:
+// what it cannot do now is a dropped frame rather than a wait.
 func (s *Subscription) offer(sample *gst.Sample) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -216,14 +218,14 @@ func (s *Subscription) offer(sample *gst.Sample) {
 		s.dropped = 0
 	default:
 		// The consumer stopped reading its own stream.
-		// The slot goes back rather than being lent to nobody, and the frame counts as
-		// dropped like any other the consumer had no room for.
+		// The slot goes back rather than being lent to nobody, and the frame counts
+		// as dropped like any other the consumer had no room for.
 		s.lent[slot] = 0
 		s.dropped++
 	}
 }
 
-// poolFor opens a pool where there is none, and where the frame no longer fits the one there is.
+// poolFor opens a pool where there is none, and where the frame has outgrown the one there is.
 //
 // A slot is allocated at one size, so a picture of another size cannot be copied into it.
 // Either renegotiation, a source that resized or a render size that moved the scaler's output,
@@ -267,13 +269,13 @@ func (s *Subscription) freeSlot() int {
 	return -1
 }
 
-// endLocked is the whole of ending a subscription with mu held: the flags, the pool and both
-// channels.
-// Stated once and wrapped by finish, so the producer's path and the consumer's cannot end a
-// subscription differently.
+// endLocked is the whole of ending a subscription with mu held:
+// the flags, the pool and both channels.
+// Stated once and wrapped by finish,
+// so the producer's path and the consumer's cannot end a subscription differently.
 //
-// The receiver is dropped from outside: taking its lock under this one inverts the order the
-// teardown path takes them in.
+// The receiver is dropped from outside: taking its lock under this one inverts the order
+// the teardown path takes them in.
 func (s *Subscription) endLocked(err error) {
 	assert.Assert(!s.ended, "a subscription ends once", s.receiver.name)
 
@@ -302,8 +304,7 @@ func frameSize(sample *gst.Sample) (int, int) {
 
 // fanOut hands one sample to every consumer.
 //
-// It runs on the sink's streaming thread and must not wait: every offer drops rather than
-// blocks.
+// Runs on the sink's streaming thread and must not wait: every offer drops rather than blocks.
 func (r *Receiver) fanOut(sample *gst.Sample) {
 	r.mu.Lock()
 	subs := make([]*Subscription, len(r.subs))
@@ -352,8 +353,8 @@ func (r *Receiver) dropSub(sub *Subscription) {
 }
 
 // endSubs tells every consumer the pipeline is over, in the pipeline's own words.
-// ReceiveExit carries the same fact on the control stream; this says it on the call each consumer
-// is blocked reading.
+// ReceiveExit carries the same fact on the control stream.
+// This says it on the call each consumer is blocked reading.
 func (r *Receiver) endSubs(message string) {
 	r.mu.Lock()
 	subs := r.subs

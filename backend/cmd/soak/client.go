@@ -35,8 +35,8 @@ func dial(sock string) (*grpc.ClientConn, v1.ControlServiceClient, error) {
 	return conn, v1.NewControlServiceClient(conn), nil
 }
 
-// waitReady dials until the backend answers a handshake, so a run can start the backend and the
-// probe together.
+// waitReady dials until the backend answers a handshake,
+// so a run can start the backend and the probe together.
 func waitReady(ctx context.Context, c v1.ControlServiceClient, within time.Duration) error {
 	deadline := time.Now().Add(within)
 	var last error

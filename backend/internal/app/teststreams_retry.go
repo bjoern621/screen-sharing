@@ -12,30 +12,27 @@ import (
 )
 
 // testStreamBackoff is the wait before each relaunch of a synthetic publisher that died on its own.
-// Its last entry is the wait the slot then keeps, because an always-on set has no attempt budget to
-// spend.
+// Its last entry is the wait the slot then keeps, an always-on set having no attempt budget to spend.
 //
-// A publish gives up, since settings this machine cannot run fail the same way every time
+// A publish gives up, settings this machine cannot run failing the same way every time
 // (publish_retry.go).
-// The synthetic set is the other case: it runs one fixed pipeline that either works here or never
-// did, and what it waits out is usually the relay, which this process starts before and outlives.
-// Giving up would leave the roster empty for the rest of the run over an outage that ended a minute
-// in.
+// The synthetic set is the other case: one fixed pipeline that either works here or never did,
+// waiting out the relay, which this process starts before and outlives.
+// Giving up would leave the roster empty for the rest of the run,
+// over an outage that ended a minute in.
 var testStreamBackoff = []time.Duration{
 	2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second, 30 * time.Second,
 }
 
 // testStreamHealthy is how long a publisher has to have run for its slot to count as working on this
 // machine.
-// One that reaches it met something that moved underneath it rather than a pipeline that cannot
-// start, so the next outage begins on the first delay instead of the one the last streak walked up
-// to.
+// One that reaches it met something that moved underneath it rather than a pipeline that cannot start,
+// so the next outage begins on the first delay,
+// instead of the one the last streak walked up to.
 const testStreamHealthy = 30 * time.Second
 
-// testStreamWait is how long slot i waits before the relaunch that follows attempts relaunches
-// already spent.
-// The ladder is walked once and then held, because there is no attempt at which the set stops being
-// wanted.
+// testStreamWait is how long a slot waits before the relaunch that follows attempts already spent.
+// The ladder is walked once and then held: no attempt makes the set stop being wanted.
 func testStreamWait(attempts int) time.Duration {
 	assert.Assert(attempts >= 0, "a relaunch counts the attempts before it", attempts)
 
@@ -45,12 +42,14 @@ func testStreamWait(attempts int) time.Duration {
 	return testStreamBackoff[attempts]
 }
 
-// testStreamEnded takes the exit of one slot's child: it releases the slot, arms the relaunch while
-// the set still wants it, and reports the failure once per outage.
+// testStreamEnded takes the exit of one slot's child: it releases the slot,
+// arms the relaunch while the set still wants it,
+// and reports the failure once per outage.
 //
-// slot is the entry the dead child was launched into, and it is held against what the map carries
-// now for the reason publishEnded holds its run: a stop and a restart both replace the entry, so an
-// exit arriving after either belongs to a stream the app has already moved off.
+// slot is the entry the dead child was launched into, held against what the map carries,
+// for the reason publishEnded holds its run:
+// a stop and a restart both replace the entry,
+// so an exit arriving after either belongs to a stream the app moved off.
 func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail string, logPath string) {
 	assert.IsNotNil(slot, "an exit belongs to the slot that produced it")
 
@@ -68,8 +67,8 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 		if stderrTail != "" {
 			message += "\n" + stderrTail
 		}
-		// Read before the lock, the membership snapshot being written by the poll rather than by anything
-		// holding procMu.
+		// Read before the lock, the membership snapshot being written by the poll,
+		// rather than by anything holding procMu.
 		cause = a.membership().failure()
 	}
 
@@ -91,30 +90,31 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 	a.procMu.Unlock()
 
 	// One sentence per outage rather than one per attempt.
-	// The ladder never gives up, so a relay that stays down would otherwise write a line into the
-	// session log at the last delay for the rest of the run.
-	// spent being zero is what marks the exit as the start of a streak: a slot already relaunched is
-	// still inside the outage its first exit reported.
+	// The ladder never gives up,
+	// so a relay that stays down would otherwise write a line into the session log at the last delay,
+	// for the rest of the run.
+	// spent being zero marks the exit as the start of a streak:
+	// a slot already relaunched is still inside the outage its first exit reported.
 	if err == nil || spent == 0 {
-		// The exit says why this one stopped and the count beside it says how many are left.
-		// A publisher that died on its own moves the count with nothing having been called, the case the
-		// state event exists for.
+		// The exit says why this one stopped and the count beside it how many are left.
+		// A publisher that died on its own moves the count with nothing having been called,
+		// the case the state event exists for.
 		a.emit(wire.TestStreamExitEvent(message, logPath, cause))
 	}
 	a.emitTestStreamState()
 }
 
-// armTestStreamLocked schedules slot i's relaunch as the attempt after spent, firing once the
-// ladder's wait has passed.
+// armTestStreamLocked schedules slot i's relaunch as the attempt after spent,
+// firing once the ladder's wait has passed.
 // The caller holds procMu.
 //
-// cause, message and logPath are what the child this relaunch follows left behind, held on the
-// waiting slot so the set says why one row carries no publisher.
+// cause, message and logPath are what the child this relaunch follows left behind,
+// held on the waiting slot so the set says why one row carries no publisher.
 //
-// The waiting slot is placed before the timer is armed, so a fire that beats this call's return
-// blocks on the lock and finds the slot it belongs to rather than a window with none.
-// A slot that is waiting is still a slot the set holds, which is what keeps a second launch out of
-// it.
+// The waiting slot is placed before the timer is armed,
+// so a fire beating this call's return blocks on the lock,
+// and finds the slot it belongs to rather than a window with none.
+// A waiting slot is still a slot the set holds, which keeps a second launch out of it.
 func (a *App) armTestStreamLocked(i int, spent int, cause *screensharev1.Text, message, logPath string) {
 	assert.Assert(spent >= 0, "a relaunch counts the attempts before it", spent)
 	assert.Assert(a.testStreams[i] == nil, "a slot arms its relaunch with nothing in it", i)
@@ -131,8 +131,8 @@ func (a *App) armTestStreamLocked(i int, spent int, cause *screensharev1.Text, m
 // a stop, a restart and a shutdown each replace or drop the entry this is held against.
 //
 // A relaunch that cannot start re-arms rather than ending the slot's life, for the reason the ladder
-// holds: a launcher missing at this moment is the machine's state and not the set's, and the set is
-// wanted until something says otherwise.
+// holds: a launcher missing at this moment is the machine's state, not the set's,
+// and the set is wanted until something says otherwise.
 func (a *App) fireTestStreamRetry(i int, slot *testStream) {
 	assert.IsNotNil(slot, "a fired relaunch is the slot that armed it")
 

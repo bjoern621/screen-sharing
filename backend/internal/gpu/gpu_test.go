@@ -2,8 +2,8 @@ package gpu
 
 import "testing"
 
-// The vendor strings the drivers write, held to so a parse that stops reading one of them fails
-// here rather than by leaving a driver-scoped gap unmatched on the machine it was written for.
+// The vendor strings the drivers write, held to here,
+// so a parse that stops reading one fails here rather than by leaving a driver-scoped gap unmatched.
 func TestParseVendorStrings(t *testing.T) {
 	cases := []struct {
 		name string
@@ -52,8 +52,8 @@ func TestParseVendorStrings(t *testing.T) {
 	}
 }
 
-// A release packs into one figure that orders the way the releases do, which is the whole of what a
-// fix bound asks of it.
+// A release packs into one figure ordering the way the releases do,
+// which is the whole of what a fix bound asks of it.
 func TestVersionOrders(t *testing.T) {
 	ordered := []int{
 		Version(25, 3, 0),

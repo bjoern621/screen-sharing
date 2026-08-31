@@ -15,9 +15,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// The draft says which relay is being asked about, so a request carrying none is refused: checking
-// the relay nobody named would answer every leg unaddressed, which reads as news about the relay on
-// screen.
+// The draft says which relay is being asked about, so a request carrying none is refused:
+// checking the relay nobody named would answer every leg unaddressed,
+// which reads as news about the relay on screen.
 func TestCheckRelayRefusesARequestWithNoDraft(t *testing.T) {
 	server := New(&fakeBackend{}, events.New(), "test")
 
@@ -30,8 +30,8 @@ func TestCheckRelayRefusesARequestWithNoDraft(t *testing.T) {
 	}
 }
 
-// A relay that answers nothing is a response and never a status: the call succeeds and every leg
-// carries its own verdict (docs/ipc-api.md, "Errors").
+// A relay that answers nothing is a response and never a status:
+// the call succeeds and every leg carries its own verdict (docs/ipc-api.md, "Errors").
 func TestARelayAnsweringNothingIsStillAnAnswer(t *testing.T) {
 	backend := &fakeBackend{legs: []reach.Result{
 		{Leg: "rtsp", Address: "rtsps://relay:8322", Verdict: reach.Unreachable, Detail: "i/o timeout"},

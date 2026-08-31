@@ -34,10 +34,9 @@
     </Style>
 
     <!--
-      The action shows on hover, while its stream is in the grid, and while a press is being
-      answered.
-      The third case is not spare: a press makes the row's command unavailable, an unavailable
-      control takes no pointer, and the entry would hide the spinner as it started turning.
+      The action shows on hover, while its stream is in the grid, and while a press is being answered.
+      The third case is not spare: a press makes the row's command unavailable,
+      an unavailable control takes no pointer, and the entry would hide the spinner as it started turning.
     -->
     <Style Selector="Button.entry Button.action">
       <Setter Property="Opacity" Value="0" />
@@ -51,9 +50,6 @@
 
   <!--
     A rail of what the relay carries, beside a grid of what the reader asked to see.
-    The arrangement crosses no contract: the backend describes decodes, and a decode is not a tile
-    (docs/ipc-api.md).
-
     No title bar, no nav strip and no status band, the shell owning all three.
   -->
   <Grid ColumnDefinitions="Auto,*,Auto">
@@ -71,7 +67,7 @@
                      IsVisible="{Binding !IsRailCollapsed}" />
 
           <!--
-            Opens the watch group, which this screen draws and the publish wizard does not
+            Opens the watch group, drawn by this screen and not by the publish wizard
             (Features/Fields/Model/GroupPlacement.cs).
           -->
           <Button Grid.Column="1" Theme="{StaticResource IconButton}"
@@ -89,8 +85,8 @@
 
         <!--
           Who else is in the group, above the list of what they are sending.
-          Gone with the names when the rail is collapsed: a member list is names, and a column narrowed to
-          its dots has nothing left of one to draw.
+          Gone with the names when the rail is collapsed: a member list is names,
+          and a column narrowed to its dots has none left to draw.
         -->
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"
                     IsVisible="{Binding !IsRailCollapsed}">
@@ -108,8 +104,8 @@
 
         <!--
           Left-aligned rather than centred: it belongs to the line above it and not to the empty grid.
-          The arc takes that line's hue and not the banner's failure red, this notice standing in for a
-          list rather than reporting a fault.
+          The arc takes that line's hue and not the banner's failure red,
+          this notice standing in for a list rather than reporting a fault.
         -->
         <Border DockPanel.Dock="Top"
                 Background="Transparent"
@@ -131,8 +127,8 @@
                   <Button.ContextFlyout>
                     <MenuFlyout>
                       <!--
-                        One item per leg the catalog offered, none of them greyed: whether a leg
-                        carries this stream is answered against the stream when the viewer opens,
+                        One item per leg the catalog offered, none greyed.
+                        Whether a leg carries this stream is answered against the stream when the viewer opens,
                         and the relay snapshot can be older than the stream.
                       -->
                       <MenuItem Header="Open in player" ItemsSource="{Binding Legs}">
@@ -141,8 +137,8 @@
                         </MenuItem.Icon>
                         <!--
                           The tick reads whether the leg is open.
-                          A ToggleType would write its own IsChecked on the click, reporting a call
-                          the backend has yet to answer.
+                          A ToggleType would write its own IsChecked on the click, reporting a call the backend
+                          has yet to answer.
                         -->
                         <MenuItem.ItemContainerTheme>
                           <ControlTheme TargetType="MenuItem" x:DataType="vm:WatchLegViewModel"
@@ -155,11 +151,10 @@
                       </MenuItem>
 
                       <!--
-                        A roster of its own, the legs a browser reaches not being the legs a player
-                        does.
-                        No tick on these rows: a tab belongs to the browser, so this side can
-                        neither read whether it is open nor close it, and the row names an action
-                        where every other row here names a state.
+                        A roster of its own, the legs a browser reaches not being the legs a player does.
+                        No tick on these rows: a tab belongs to the browser, so this side can neither read
+                        whether it is open nor close it.
+                        The row names an action where every other row here names a state.
                       -->
                       <MenuItem Header="Open in browser" ItemsSource="{Binding BrowserLegs}">
                         <MenuItem.Icon>
@@ -178,8 +173,7 @@
 
                       <!--
                         Printed rather than offered.
-                        A greyed row in this product is an action some configuration took away,
-                        which these are not.
+                        A greyed row in this product reads as an action some configuration took away.
                       -->
                       <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Tracks}" />
                       <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Detail}" />
@@ -196,14 +190,15 @@
                                Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
 
                     <!--
-                      One control and not one per leg: which protocol a tile receives on is a
-                      setting the backend resolves, not a choice this entry offers.
+                      One control and not one per leg:
+                      which protocol a tile receives on is a setting the backend resolves,
+                      not a choice this entry offers.
 
-                      It runs the entry's own command, so a press landing beside the glyph does the
-                      same thing. What it owns alone is the wait.
+                      Runs the entry's own command, so a press landing beside the glyph does the same thing.
+                      What it owns alone is the wait.
 
-                      A button rather than a toggle, a bare toggle arriving wearing Fluent beside
-                      controls that wear the design (avalonia/README.md).
+                      A button rather than a toggle, a bare toggle arriving wearing Fluent beside controls
+                      that wear the design (avalonia/README.md).
                     -->
                     <Button Grid.Column="2" Classes="action"
                             Classes.on="{Binding IsTiled}"
@@ -224,9 +219,7 @@
       </DockPanel>
     </Border>
 
-    <!--
-      No summary and no hint here: the shell's status band prints both off this same view model.
-    -->
+    <!-- No summary and no hint here: the shell's status band prints both off this same view model. -->
     <DockPanel Grid.Column="1" Margin="{StaticResource InsetPanel}">
 
       <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -239,18 +232,17 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemContainerTheme>
             <ControlTheme TargetType="ContentPresenter" x:DataType="tile:TileViewModel">
-              <!-- What the panel arranges by. Attached values, never a data context. -->
               <Setter Property="view:TileGrid.Aspect" Value="{Binding Aspect}" />
-              <Setter Property="view:TileGrid.IsStaged" Value="{Binding IsFocused}" />
+              <Setter Property="view:TileGrid.IsFocusedTile" Value="{Binding IsFocused}" />
             </ControlTheme>
           </ItemsControl.ItemContainerTheme>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="tile:TileViewModel">
               <!--
                 The one host that draws the plate.
-                A stream whose picture went elsewhere keeps its slot here, whether it popped out into
-                a window of its own or filled this one, so which of the two a card draws is the
-                host's to state (Features/Viewer/Tile/View/TileCard.axaml.cs).
+                A stream whose picture went elsewhere keeps its slot here, popped out or fullscreen,
+                so which of the two a card draws is the host's to state
+                (Features/Viewer/Tile/View/TileCard.axaml.cs).
               -->
               <tiles:TileCard PictureElsewhere="{Binding PictureElsewhere}" />
             </DataTemplate>
@@ -261,8 +253,8 @@
     </DockPanel>
 
     <!--
-      A fixed width, because a column that reflowed would move the controls under the reader's
-      hand; a column rather than a flyout, because a leg is changed while the next tile is watched
+      A fixed width: a column that reflowed would move the controls under the reader's hand.
+      A column rather than a flyout: a leg is changed while the next tile is watched,
       and a flyout would close on every click.
     -->
     <Border Grid.Column="2"
@@ -276,12 +268,12 @@
     </Border>
 
     <!--
-      The stream filling this window, over every column rather than inside the grid: fullscreen is
-      a property of the window and not an arrangement of tiles, so the rail and the grid go and the
-      shell takes its bands off the window too (Features/Shell/ViewModel/ShellViewModel.cs).
+      The stream filling this window, over every column rather than inside the grid: fullscreen is a property
+      of the window and not an arrangement of tiles, so the rail and the grid go and the shell takes its bands
+      off the window too (Features/Shell/ViewModel/ShellViewModel.cs).
 
-      A TileGrid of one card letterboxes the picture, rather than a second definition of a
-      letterbox living here (Features/Viewer/Model/TileLayout.cs).
+      A TileGrid of one card letterboxes the picture, rather than a second definition of a letterbox living
+      here (Features/Viewer/Model/TileLayout.cs).
     -->
     <Panel Grid.Column="0" Grid.ColumnSpan="3"
            Background="{StaticResource TileBrush}"

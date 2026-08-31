@@ -16,12 +16,12 @@ import (
 // TestSurface is one row of what the test streams draw: the picture, the colour it is drawn in, and
 // whatever travels beside it.
 //
-// The colour sits on the row and not on the set because the set is built to be watched. Standard
-// range throughout leaves a viewer's HDR path unexercised, and a tone-mapped tile is only readable
-// against one drawn as it arrived.
+// The colour sits on the row and not on the set, the set being built to be watched.
+// Standard range throughout leaves a viewer's HDR path unexercised, and a tone-mapped tile is only
+// readable against one drawn as it arrived.
 type TestSurface struct {
-	// Pattern is the videotestsrc pattern, and what tells simultaneous test streams apart on
-	// screen.
+	// Pattern is the videotestsrc pattern, and what tells simultaneous test streams apart
+	// on screen.
 	Pattern string
 	// Format is the pixel layout drawn into, Colorimetry the colour drawn in.
 	// Stating both keeps the carriage a property of this table, where leaving either to the source
@@ -31,8 +31,9 @@ type TestSurface struct {
 	// Audio is the second track's codec, spelled as the audio capability table spells it, and empty
 	// where the row carries picture alone.
 	//
-	// On the row for the colour's reason. A tile's volume, the meter beside it and two streams
-	// sounding at once are the viewer's audio path, and silence throughout reaches none of them.
+	// On the row for the colour's reason.
+	// A tile's volume, the meter beside it and two streams sounding at once are the viewer's audio
+	// path, and silence throughout reaches none of them.
 	// One row rather than every row, which leaves a silent tile to compare against and stops the grid
 	// playing all of itself at once.
 	Audio string
@@ -40,8 +41,8 @@ type TestSurface struct {
 	// It travels in the stream name, so it is what a viewer picking off the roster reads before
 	// anything has decoded.
 	//
-	// An expectation, never a claim: a decode's own findings are reported off the pipeline, so an
-	// HDR-labelled row whose tile draws no HDR badge is the failure this makes visible.
+	// An expectation, never a claim: a decode's own findings are reported off the pipeline, so
+	// an HDR-labelled row whose tile draws no HDR badge is the failure this makes visible.
 	Label string
 }
 
@@ -62,14 +63,14 @@ const (
 )
 
 // testAudio codes the sounding row.
-// Opus, since every leg here carries it, WebRTC included, which leaves that row watchable over all
+// Opus, every leg here carrying it, WebRTC included, which leaves that row watchable over all
 // of them instead of over the AAC-carrying ones alone.
 const testAudio = "opus"
 
 // testAudioWave is what the sounding row plays, testAudioVolume how loud.
 //
-// Noise rather than a tone or a tick, the meter beside a tile being one of the things this row is
-// for: a meter needs a signal that does not stop.
+// Noise rather than a tone or a tick, the meter beside a tile being one of the things this row
+// is for: a meter needs a signal that does not stop.
 // Between ticks it would read silence, and one sine frequency plays for as long as the backend
 // lives.
 // A fifth of full scale lands near -30 dBFS, quiet enough to leave running.
@@ -80,12 +81,12 @@ const (
 
 // testSurfaces go to the slots in order, the list repeating past its end.
 //
-// Second place puts the HDR row inside the set this process brings up by itself. A viewer having to
-// ask for the whole list before an HDR tile appeared would leave that path untried on an ordinary
-// run.
+// Second place puts the HDR row inside the set this process brings up by itself.
+// A viewer having to ask for the whole list before an HDR tile appeared would leave that path
+// untried on an ordinary run.
 //
-// It is High 10 H.264: the native tile decodes it and browsers do not, which is why every other row
-// holds 4:2:0 and keeps the relay's browser page served.
+// High 10 H.264: the native tile decodes it and browsers do not, so every other row holds 4:2:0 and
+// keeps the relay's browser page served.
 //
 // Third place puts the sounding row in that same starting set, on the same grounds.
 var testSurfaces = []TestSurface{
@@ -99,15 +100,15 @@ var testSurfaces = []TestSurface{
 
 // TestSurfaceOf is the i-th test stream's surface, the rows repeating past the end of the list.
 func TestSurfaceOf(i int) TestSurface {
-	// Go's remainder keeps the sign, so a negative index would land inside the slice.
+	// Go's remainder keeps the sign, so a negative i indexes out of range rather than wrapping.
 	assert.Assert(i >= 0, "a test stream is numbered from zero", i)
 	return testSurfaces[i%len(testSurfaces)]
 }
 
 // BuildTestStreamArgs is the gst-launch-1.0 argv that publishes one synthetic stream to the relay
 // under name.
-// Re-served on every listener, so the native grid, the web grid and a per-stream viewer meet it on
-// the terms they meet a real stream on.
+// Re-served on every listener, so the native grid, the web grid and a per-stream viewer meet it
+// on the terms they meet a real stream on.
 // The leg is RTSP whatever s.Transport holds, and the encode H.264, decoded at eight bits per
 // component everywhere.
 // timeoverlay shows motion and latency, and takes a ten-bit surface as readily as an eight-bit one.
@@ -145,8 +146,8 @@ func BuildTestStreamArgs(s settings.Settings, name string, surface TestSurface) 
 		"!",
 	}
 	audio := testAudioBranch(surface)
-	// An attached track leaves the sink waiting on two pads, and the queue is what stops one pad's
-	// stall reaching back up the other branch.
+	// An attached track leaves the sink waiting on two pads, and the queue stops one pad's stall
+	// reaching back up the other branch.
 	// A publish pipeline places the same queue on the same grounds (gstpipeline.go).
 	if len(audio) > 0 {
 		args = append(args, "queue", "!")
@@ -158,15 +159,15 @@ func BuildTestStreamArgs(s settings.Settings, name string, surface TestSurface) 
 // testAudioBranch runs a sounding row's track from the synthetic source to the sink's mux pad, and
 // is nil for a silent one.
 //
-// Encoder, the parser framing its output, and the rate pinned in the capsfilter all come off the
-// audio capability table, which codes a test stream through the elements a publish codes through
-// instead of a second set of names free to drift.
-// What a publish branch carries and this one drops is the converter pair: audiotestsrc yields the
-// rate and channel count it is asked for, where a monitor yields whatever its device runs at.
+// Encoder, the parser framing its output, and the rate pinned in the capsfilter all come off
+// the audio capability table, which codes a test stream through the elements a publish codes
+// through instead of a second set of names free to drift.
+// What a publish branch carries and this one drops is the converter pair: audiotestsrc yields
+// the rate and channel count it is asked for, where a monitor yields whatever its device runs at.
 //
-// A codec the table does not carry, or one no GStreamer element codes, is a broken table and not an
-// unequipped machine: both row and table live in this repo, and a missing element surfaces from the
-// launched child.
+// A codec the table does not carry, or one no GStreamer element codes, is a broken table and not
+// an unequipped machine: both row and table live in this repo, and a missing element surfaces
+// from the launched child.
 func testAudioBranch(surface TestSurface) []string {
 	if surface.Audio == "" {
 		return nil

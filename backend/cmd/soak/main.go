@@ -1,19 +1,20 @@
-// The soak probe: it drives the control contract with random legal settings and states what the
-// backend did about them.
+// The soak probe drives the control contract with random legal settings
+// and states what the backend did about them.
 //
 // Three questions, one binary:
 //
-//	form     what the resolver owes every draft: repairs settle, an offered option is legal, a
-//	         greying names a reason, a publishable draft renders a command.
+//	form     what the resolver owes every draft: repairs settle, an offered option is legal,
+//	         a greying names a reason, a publishable draft renders a command.
 //	encode   what an encoder does on the machine: a hardware family reaches the GPU encode engine
 //	         and a software one does not, and the timing brackets are not zero.
-//	publish  what a running stream reports: frames arrive at the rate that was asked for, the
-//	         bitrate lands near the ceiling, nothing is dropped, nothing retries, and a stop leaves
-//	         no child behind.
+//	publish  what a running stream reports: frames arrive at the rate that was asked for,
+//	         the bitrate lands near the ceiling, nothing is dropped, nothing retries,
+//	         and a stop leaves no child behind.
 //	multi    what a second and third encode cost the first.
 //
-// It talks to whatever backend the endpoint names, so a run that must not touch the user's own
-// instance points XDG_RUNTIME_DIR and XDG_CONFIG_HOME at a directory of its own.
+// It talks to whatever backend the endpoint names,
+// so a run that must not touch the user's own instance
+// points XDG_RUNTIME_DIR and XDG_CONFIG_HOME at a directory of its own.
 package main
 
 import (
@@ -106,9 +107,9 @@ func main() {
 	fmt.Printf("soak %s: seed %d, backend pid %d, socket %s, findings in %s\n",
 		*mode, *seed, watched, *sock, *out)
 
-	// A stream and its synthetic publishers outlive whatever started them, so a run that follows an
-	// interrupted one opens on what that one left. A measurement is refused while anything
-	// publishes, which would be the whole run.
+	// A stream and its synthetic publishers outlive whatever started them,
+	// so a run that follows an interrupted one opens on what that one left.
+	// A measurement is refused while anything publishes, which would be the whole run.
 	if *reset {
 		_ = withTimeout(ctx, 30*time.Second, func(call context.Context) error {
 			_, err := control.StopPublish(call, &v1.StopPublishRequest{})
@@ -117,8 +118,9 @@ func main() {
 		_ = run.setLoad(ctx, 0)
 	}
 
-	// The probe once, as a shell owes: without it no codec is greyed for missing hardware, and the
-	// run would spend itself measuring encoders this machine has no silicon for.
+	// The probe once, as a shell owes:
+	// without it no codec is greyed for missing hardware,
+	// and the run would spend itself measuring encoders this machine has no silicon for.
 	if err := run.probeEncoders(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "the encoder probe did not finish:", err)
 	}
@@ -254,8 +256,8 @@ func (s *session) families(ctx context.Context) (map[string]string, error) {
 	return out, nil
 }
 
-// codecOf is the encode a draft names, as the catalog spells it: the row its format and its encoder
-// address between them.
+// codecOf is the encode a draft names, as the catalog spells it:
+// the row its format and its encoder address between them.
 // Empty for a pair no row carries, which is what the form greys and the repair walks off.
 func (s *session) codecOf(settings *v1.Settings) string {
 	format, encoder := readField(settings, "publish.format"), readField(settings, "publish.encoder")
@@ -269,10 +271,10 @@ func (s *session) codecOf(settings *v1.Settings) string {
 	return ""
 }
 
-// codecPair is the two fields a draft names one encoder by, and false for a name the catalog does not
-// carry.
-// The run names an encoder the way a person does, and the settings hold the pair, so the translation
-// is here rather than on the command line.
+// codecPair is the two fields a draft names one encoder by,
+// and false for a name the catalog does not carry.
+// The run names an encoder the way a person does, and the settings hold the pair,
+// so the translation is here rather than on the command line.
 func (s *session) codecPair(name string) (format, encoder string, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -325,8 +327,9 @@ func (s *session) curve(codec, family string, load int, fps, share float64, delt
 
 // watchMemory reads the backend's process tree on an interval and reports what it never gives back.
 //
-// The reading is the whole tree, so a publish child that is never reaped counts as much as a heap
-// that grows: both are the process holding what it stopped needing.
+// The reading is the whole tree,
+// so a publish child that is never reaped counts as much as a heap that grows:
+// both are the process holding what it stopped needing.
 func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
@@ -334,10 +337,10 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		// base is the first reading past startup and never moves, so the drift a run ends on is
-		// measured against where it opened.
-		// settled moves to each reading that was reported, which is what keeps one climb from being
-		// reported again on every tick that follows it.
+		// base is the first reading past startup and never moves,
+		// so the drift a run ends on is measured against where it opened.
+		// settled moves to each reading that was reported,
+		// which keeps one climb from being reported again on every tick that follows it.
 		var base, settled, latest *treeSample
 		defer func() { s.reportDrift(base, latest) }()
 
@@ -368,8 +371,8 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 
 			grown := sample.RootRSSKiB - settled.RootRSSKiB
 			elapsed := sample.At.Sub(settled.At).Minutes()
-			// A tenth of a gigabyte an hour is a leak an all-day share meets and a cache does not, so
-			// the bar sits there rather than at the point where the machine is already in trouble.
+			// A tenth of a gigabyte an hour is a leak an all-day share meets and a cache does not,
+			// so the bar sits there rather than where the machine is already in trouble.
 			if elapsed >= 5 && grown > 96*1024 && float64(grown)/elapsed > 8*1024 {
 				s.report.report("backend.memory_growth", "backend/rss",
 					fmt.Sprintf("the backend holds %d MiB more than %.0f minutes ago, %0.1f MiB a minute",
@@ -402,11 +405,12 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 	return done
 }
 
-// reportDrift states what the process tree held at the end of a run against what it held at the
-// start, whether or not the climb was steep enough to be reported while it happened.
+// reportDrift states what the process tree held at the end of a run
+// against what it held at the start,
+// whether or not the climb was steep enough to be reported while it happened.
 //
-// A threshold answers yes or no, and what a leak hunt needs is the figure: a run drifting 3 MiB a
-// minute passes every bar here and is a gigabyte over a working day.
+// A threshold answers yes or no, and what a leak hunt needs is the figure:
+// a run drifting 3 MiB a minute passes every bar here and is a gigabyte over a working day.
 func (s *session) reportDrift(base, last *treeSample) {
 	if base == nil || last == nil {
 		return
@@ -436,8 +440,8 @@ func (s *session) reportDrift(base, last *treeSample) {
 		}, nil)
 }
 
-// probeEncoders runs the probe and takes the catalog it lands, so what the run measures is what
-// this machine was found able to run.
+// probeEncoders runs the probe and takes the catalog it lands,
+// so what the run measures is what this machine was found able to run.
 func (s *session) probeEncoders(ctx context.Context) error {
 	err := withTimeout(ctx, 3*time.Minute, func(call context.Context) error {
 		_, err := s.control.ProbeEncoders(call, &v1.ProbeEncodersRequest{})
@@ -469,11 +473,11 @@ func (s *session) usable() map[string]bool {
 	return out
 }
 
-// dumpField prints what a resolve says about one control: the value it holds, the ends it is offered
-// between and the entries beside them.
+// dumpField prints what a resolve says about one control:
+// the value it holds, the ends it is offered between and the entries beside them.
 //
-// A control's shape is what a reader sees, and a probe that only asserts about it leaves nobody able
-// to look.
+// A control's shape is what a reader sees,
+// and a probe that only asserts about it leaves nobody able to look.
 func (s *session) dumpField(ctx context.Context, key string) error {
 	settings, err := s.settled(ctx)
 	if err != nil {

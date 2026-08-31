@@ -22,17 +22,17 @@ import (
 // The parent cannot measure any of it.
 // A delay is a subtraction against the pipeline's own clock and the transport's own link counters,
 // and both live in this process, where the pipeline does.
-// What crosses is the reading and never a verdict: how the stages add up is the parent's, which is
-// where the receiving side's stages are known too.
+// What crosses is the reading and never a verdict: how the stages add up is the parent's, where
+// the receiving side's stages are known too.
 //
 // The line goes on standard output beside the caps and the pointer, under a prefix of its own, and
 // the parent's reader skips a line it does not recognise.
 
 // DelayPrefix leads the line one delay reading is reported on, as JSON.
 //
-// JSON rather than the whitespace fields a position takes, because half of this reading is absent on
-// a leg that measures no link: presence is the message, and a field spelled as a number would report
-// an unmeasured window as a window of nothing.
+// JSON rather than the whitespace fields a position takes, half of this reading being absent
+// on a leg that measures no link: presence is the message, and a field spelled as a number would
+// report an unmeasured window as a window of nothing.
 const DelayPrefix = "screenshare-delay "
 
 // DelayFlag names the element a frame's delay is measured at, as an argument after the subcommand
@@ -43,17 +43,18 @@ const DelayFlag = "--delay="
 
 // ShedFlag names the queue that drops what the encoder could not take, counted at both its ends.
 // Reported beside the delay because the two are one reading: a leg short of the capture rate costs
-// frames here and would otherwise cost delay, so what was dropped is what the delay did not grow by.
+// frames here and would otherwise cost delay, so what was dropped is what the delay did not grow
+// by.
 const ShedFlag = "--shed="
 
-// delayInterval is how often a reading is written, the cadence progressreport prints at and the
-// cadence the backend samples a decode at.
+// delayInterval is how often a reading is written, the cadence progressreport prints at and
+// the cadence the backend samples a decode at.
 const delayInterval = time.Second
 
 // Delay is one reading of what this pipeline costs a frame.
 //
-// Transit and Frames are cumulative, so the parent divides two readings by the interval between them
-// rather than trusting this side's cadence, which is what every other counter here is read under.
+// Transit and Frames are cumulative, so the parent divides two readings by the interval between
+// them rather than trusting this side's cadence, the split every other counter here is read under.
 // The link figures are the transport's own and are absent on a leg that keeps none: an RTSP or WHIP
 // sink states no window and times no round trip.
 type Delay struct {
@@ -68,19 +69,19 @@ type Delay struct {
 	// LinkMs is the delivery window the publish leg settled on with the relay, the delay every packet
 	// is held for so a lost one has room to be sent again.
 	LinkMs *float64 `json:"linkMs,omitempty"`
-	// RttMs is the round trip to the relay on this leg, which is what says whether LinkMs has room for
-	// a retransmission at all.
+	// RttMs is the round trip to the relay on this leg, which is what says whether LinkMs has room
+	// for a retransmission at all.
 	RttMs *float64 `json:"rttMs,omitempty"`
 }
 
 // linkSource is the sink factory whose stats structure states a leg's own delivery delay and round
 // trip, and the two fields it states them under.
 //
-// A table because which counter means what is the element's knowledge, the shape internal/receive
-// reads its transport counters through.
-// Only the sinks listed here are asked at all: reading a property off an element that has none is a
-// GLib warning on a pipeline that is working, and a publish carries sinks that count bytes and draw
-// pictures beside the one on the wire.
+// A table, which counter means what being the element's knowledge, the shape internal/receive reads
+// its transport counters through.
+// Only the sinks listed here are asked at all: reading a property off an element that has none
+// is a GLib warning on a pipeline that is working, and a publish carries sinks that count bytes and
+// draw pictures beside the one on the wire.
 type linkSource struct {
 	window string
 	rtt    string
@@ -98,8 +99,8 @@ var linkSources = map[string]linkSource{
 // An element the pipeline does not hold, or one whose pad grows on request, measures nothing rather
 // than ending the run, an unmeasured publish being a publish.
 //
-// Attached before the pipeline plays and never from the reporting goroutine, so the probe is on the
-// pad ahead of the first frame across it.
+// Attached before the pipeline plays and never from the reporting goroutine, so the probe
+// is on the pad ahead of the first frame across it.
 func watchDelay(pipeline gst.Pipeline, element string) *pipedelay.Probe {
 	assert.Assert(element != "", "a delay measurement names the element it is taken at")
 
@@ -146,13 +147,13 @@ func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Pr
 //
 // A queue keeps no drop counter of its own, so the pair at its ends is what there is, and the depth
 // is what separates a frame still on its way from one thrown away.
-// Written by the streaming threads and read by the reporting one, which is what makes them atomic;
-// the depth is a property read on the reporting thread alone.
+// Written by the streaming threads and read by the reporting one, hence atomic.
+// The depth is a property read on the reporting thread alone.
 type shedCount struct {
 	in  atomic.Uint64
 	out atomic.Uint64
-	// dropped is the highest figure any reading reached, which is what makes a total that only
-	// counts up out of three readings taken one after another.
+	// dropped is the highest figure any reading reached, making a total that only counts up out
+	// of three readings taken one after another.
 	dropped atomic.Uint64
 	// level is how many buffers the queue holds at this moment, nil where nothing states one.
 	// A function rather than the element, so what a reading does with a depth can be stated without
@@ -192,16 +193,16 @@ func watchShed(pipeline gst.Pipeline, element string) *shedCount {
 }
 
 // Read is what the shed has dropped, and false for a pipeline carrying none.
-// Safe on a nil count, which is that pipeline.
+// Safe on a nil count, that pipeline.
 //
 // What went in less what came out less what is in the queue at this moment.
-// The queue's depth is not the same one frame at every reading, so the pair alone counts every frame
-// in flight as dropped and uncounts it once it leaves, which is a total that goes down: a readout
+// The queue's depth is not the same one frame at every reading, so the pair alone counts every
+// frame in flight as dropped and uncounts it once it leaves, a total that goes down: a readout
 // counting backwards in front of whoever is watching it.
 //
-// The three readings are taken one after another, so a frame crossing between two of them lands on
-// one side or the other, and the high-water mark is what keeps that from moving the figure
-// backwards. A dropped frame is never undropped.
+// The three readings are taken one after another, so a frame crossing between two of them lands
+// on one side or the other, and the high-water mark keeps that from moving the figure backwards.
+// A dropped frame is never undropped.
 func (c *shedCount) Read() (uint64, bool) {
 	if c == nil {
 		return 0, false
@@ -233,11 +234,10 @@ func (c *shedCount) held() uint64 {
 
 // queueLevel reads a queue's own depth, in buffers.
 //
-// The property is a guint, which the binding answers as uint32. The other widths are here
-// because a figure read through a type assertion that stops matching goes quietly to zero, and a
-// zero depth counts every frame in flight as dropped.
-// An element that is no queue answers something else and reads as no depth at all, which is what it
-// has.
+// The property is a guint, which the binding answers as uint32.
+// The other widths are here because a figure read through a type assertion that stops matching goes
+// quietly to zero, and a zero depth counts every frame in flight as dropped.
+// An element that is no queue answers something else and reads as no depth, which is what it has.
 func queueLevel(el gst.Element) func() uint64 {
 	return func() uint64 {
 		switch level := el.ObjectProperty("current-level-buffers").(type) {
@@ -332,8 +332,8 @@ func numberOf(v any) (float64, bool) {
 // ParseDelay reads one reported reading back, false for a line that is not one.
 //
 // Beside the writer so the two spellings are one, as ParsePointer is.
-// A line that does not parse answers false rather than asserting: the reader is pointed at a child's
-// whole standard output, where an unrelated line is the ordinary case.
+// A line that does not parse answers false rather than asserting: the reader is pointed
+// at a child's whole standard output, where an unrelated line is the ordinary case.
 func ParseDelay(line string) (Delay, bool) {
 	rest, ok := strings.CutPrefix(line, DelayPrefix)
 	if !ok {

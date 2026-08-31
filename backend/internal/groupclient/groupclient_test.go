@@ -9,8 +9,8 @@ import (
 )
 
 // The service's own answers, as internal/groupsvc spells them.
-// A client reading another spelling asks a real service for fields it never answers, which is a
-// token that never arrives and a membership nobody states.
+// A client reading another spelling asks a real service for fields it never answers,
+// which is a token that never arrives and a membership nobody states.
 
 // service records what each request carried and answers what the route it names answers.
 type service struct {
@@ -41,8 +41,8 @@ func started(t *testing.T, s *service) (*Client, string) {
 	return New(), srv.URL
 }
 
-// The names on the wire are the service's, and every one of them names what it carries: the group's
-// key, the member's secret, the relay's access token.
+// The names on the wire are the service's, and every one names what it carries:
+// the group's key, the member's secret, the relay's access token.
 func TestTheWireCarriesTheNamesTheServiceReads(t *testing.T) {
 	s := &service{answer: map[string]any{
 		"relayAccessToken": "a.b.c",
@@ -120,8 +120,8 @@ func TestStatingPresenceAnswersTheGroup(t *testing.T) {
 	if len(held.Members) != 2 || !held.Members[0].Publishing || held.Members[1].DisplayName != "Ada" {
 		t.Errorf("the group is %+v, want both members and what each is doing", held.Members)
 	}
-	// Publishing false under a list that would not answer is not a member sending nothing, and the
-	// client carries the difference rather than flattening it.
+	// Publishing false under a list that would not answer is not a member sending nothing,
+	// and the client carries the difference rather than flattening it.
 	if !held.PublishingUnread {
 		t.Errorf("State = %+v, and drops the list the service could not read", held)
 	}
@@ -143,8 +143,9 @@ func TestReleasingAMemberWithNoLeaseSucceeds(t *testing.T) {
 	}
 }
 
-// A refusal carries the service's own sentence and its status, so a caller can tell a name another
-// member holds from a service that is not answering, and show the reason either way.
+// A refusal carries the service's own sentence and its status,
+// so a caller can tell a name another member holds from a service that is not answering,
+// and show the reason either way.
 func TestARefusalCarriesTheServicesOwnAnswer(t *testing.T) {
 	s := &service{status: http.StatusConflict, answer: map[string]any{"error": "that name is taken in this group"}}
 	c, base := started(t, s)
@@ -172,8 +173,9 @@ func TestARefusalCarriesTheServicesOwnAnswer(t *testing.T) {
 	}
 }
 
-// The held token is minted from a base, a group key and a member secret together, so a change to any
-// of them mints again rather than reusing a credential for a member or a group this app has left.
+// The held token is minted from a base, a group key and a member secret together,
+// so a change to any of them mints again
+// rather than reusing a credential for a member or a group this app has left.
 func TestAHeldTokenBelongsToWhatMintedIt(t *testing.T) {
 	s := &service{answer: map[string]any{
 		"relayAccessToken": "a.b.c",
@@ -204,8 +206,8 @@ func TestAHeldTokenBelongsToWhatMintedIt(t *testing.T) {
 	}
 }
 
-// A group key is what lets anybody join the group, and every error text is selectable, so the key
-// never reaches a sentence a reader can copy out of the app.
+// A group key is what lets anybody join the group, and every error text is selectable,
+// so the key never reaches a sentence a reader can copy out of the app.
 func TestNoSecretReachesAnErrorText(t *testing.T) {
 	c := New()
 	const key = "a-group-key"

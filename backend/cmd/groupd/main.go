@@ -1,15 +1,15 @@
-// Command groupd serves group keys, relay access tokens, the stream index and the membership those
-// are enforced against.
+// Command groupd serves group keys, relay access tokens, the stream index,
+// and the membership those are enforced against.
 //
-// A binary of its own because it is a separate machine's: the backend runs on a publisher's
-// desktop, this runs beside the relay, where the signing key lives and where the relay fetches it.
-// Shared with the backend is the path derivation, which is why both live in this repository
-// (internal/group).
+// A binary of its own because it is a separate machine's:
+// the backend runs on a publisher's desktop, this runs beside the relay,
+// where the signing key lives and where the relay fetches it.
+// Shared with the backend is the path derivation, so both live in this repository (internal/group).
 //
 // A signing key and a reachable relay API are all it takes.
-// The signing key is the one thing on disk. Presence leases are held in memory and nowhere else: a
-// restart forgets them, and every live app states its own again within one refresh interval
-// (internal/membership).
+// The signing key is the one thing on disk.
+// Presence leases are held in memory alone: a restart forgets them,
+// and every live app states its own again within one refresh interval (internal/membership).
 package main
 
 import (
@@ -33,13 +33,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
-// main serves keys, tokens and the index on the address given, or prints one operator credential and
-// exits where -api-token asks for it.
+// main serves keys, tokens and the index on the address given,
+// or prints one operator credential and exits where -api-token asks for it.
 //
-// An unreadable key and an unservable address are Umgebungsfehler, and both end this process
-// through logger.Errorf.
-// A hard stop is the right answer to either: a service that reached neither has nothing left to
-// serve, and the alternative is a process that is up and refusing every request.
+// An unreadable key and an unservable address are Umgebungsfehler,
+// and both end this process through logger.Errorf:
+// a service that reached neither has nothing left to serve,
+// and the alternative is a process that is up and refusing every request.
 func main() {
 	listen := flag.String("listen", "127.0.0.1:9443", "address to serve on")
 	scrapeListen := flag.String("metrics", "", "address to serve the Prometheus scrape on, off where empty")
@@ -49,7 +49,7 @@ func main() {
 	operatorWindow := flag.Duration("api-token", 0, "print a token granting the relay's API for this long and exit, for an operator reading that API directly")
 	flag.Parse()
 
-	// Checked before the key is read, because reading it is what would draw one.
+	// Before the key is read, because reading it would draw one.
 	if *operatorWindow > 0 {
 		if err := operatorKeyPresent(*keyPath); err != nil {
 			logger.Errorf("%v", err)
@@ -67,9 +67,10 @@ func main() {
 		return
 	}
 
-	// The relay checks its API the way it checks a stream, so this reads through with a token of its
-	// own: signed here, granting the API action alone, handed to nobody.
-	// Minted per call, because a stored one expires while this process runs.
+	// The relay checks its API the way it checks a stream,
+	// so this reads through with a token of its own:
+	// signed here, granting the API action alone, handed to nobody.
+	// Minted per call, a stored one expiring while this process runs.
 	client := relay.NewAuthorized(func() string { return apiToken(signer) })
 	reader := &relayStreams{host: *relayHost, apiPort: *relayAPIPort, client: client}
 
@@ -85,23 +86,23 @@ func main() {
 	service := groupsvc.New(signer, reader, members, srtKeys)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
-	// A listener of its own, and off unless a deployment asks for one.
-	// What it carries is who is in which group, which is the group's business and not the internet's,
-	// so where it binds and who may reach it is the deployment's decision the way the relay's own
-	// metrics listener is (deploy/mediamtx-groups.yml).
+	// A listener of its own, off unless a deployment asks for one.
+	// It carries who is in which group,
+	// so where it binds and who may reach it is the deployment's decision,
+	// as the relay's own metrics listener is (deploy/mediamtx-groups.yml).
 	if *scrapeListen != "" {
 		go serveScrape(*scrapeListen, metrics.NewExporter(members, service))
 	}
 
-	// Loopback by default and no TLS of its own: the reverse proxy in front encrypts every leg to
-	// this, to the relay and to the player page, and a second terminator behind it would be a second
-	// certificate to renew (docs/plan.md).
+	// Loopback by default and no TLS of its own:
+	// the reverse proxy in front encrypts every leg to this, to the relay and to the player page,
+	// and a second terminator behind it would be a second certificate to renew (docs/plan.md).
 	//
 	// Every phase is bounded, not the headers alone.
-	// The routes are small JSON over a local hop, so a request that has not finished in this long is
-	// a caller that stopped rather than a slow one, and an unbounded phase holds a connection and a
-	// goroutine for as long as it cares to.
-	// The write bound is the loosest of the three because GET /streams reads the relay's API first,
+	// The routes are small JSON over a local hop,
+	// so a request outlasting these bounds is a caller that stopped rather than a slow one,
+	// and an unbounded phase holds a connection and a goroutine indefinitely.
+	// The write bound is the loosest because GET /streams reads the relay's API first,
 	// and that read carries a timeout of its own.
 	server := &http.Server{
 		Addr:              *listen,
@@ -118,9 +119,9 @@ func main() {
 
 // serveScrape answers scrapes for as long as this process runs.
 //
-// A listener that will not come up is an Umgebungsfehler and leaves the service running: a port
-// another process holds costs the deployment its readings, where stopping over one costs every
-// member their group.
+// A listener that will not come up is an Umgebungsfehler and leaves the service running:
+// a held port costs the deployment its readings,
+// where stopping over one costs every member their group.
 func serveScrape(listen string, exporter *metrics.Exporter) {
 	assert.Assert(listen != "", "a scrape is served somewhere")
 	assert.IsNotNil(exporter, "a scrape is answered by an exporter")
@@ -144,15 +145,15 @@ func serveScrape(listen string, exporter *metrics.Exporter) {
 
 // reapEvery is how often lapsed leases are swept.
 //
-// Well inside membership.Lease, so a member who stopped refreshing loses what they hold within a
-// moment of the lease running out even where nobody else's call notices first.
+// Well inside membership.Lease, so a member who stopped refreshing loses what they hold soon after
+// the lease runs out, even where nobody else's call notices first.
 const reapEvery = 5 * time.Second
 
 // reap closes what lapsed leases still hold, for as long as this process runs.
 //
 // The only timer in the service.
-// A relay that would not answer a list is an Umgebungsfehler and leaves a run partial rather than
-// stopping the process, so it is reported and the next tick tries again.
+// A relay that would not answer a list is an Umgebungsfehler:
+// the run is left partial, reported, and the next tick tries again.
 func reap(members *membership.Registry) {
 	assert.IsNotNil(members, "a sweep runs against the registry holding the leases")
 
@@ -176,15 +177,15 @@ func reap(members *membership.Registry) {
 
 // apiWindow bounds the credential the index reads through.
 // Short: signed for one request, reaching nothing but the relay beside this process.
-// Not shorter: the relay checks the window against its own clock, and two clocks agree to within
-// seconds rather than exactly.
+// Not shorter: the relay checks the window against its own clock,
+// and two clocks agree to within seconds rather than exactly.
 const apiWindow = time.Minute
 
 // apiToken signs the credential one read of the relay's API carries.
 //
-// A failed signature yields an empty credential rather than stopping the process: the relay refuses
-// the request, the index answers an empty listing, and keys and tokens go on being handed out,
-// the half that does not depend on the relay being readable.
+// A failed signature yields an empty credential rather than stopping the process:
+// the relay refuses the request, the index answers an empty listing,
+// and keys and tokens go on being handed out, those not depending on the relay being readable.
 func apiToken(signer *token.Signer) string {
 	signed, err := signer.Sign("index", token.APIPermissions(), time.Now(), apiWindow)
 	if err != nil {
@@ -196,16 +197,15 @@ func apiToken(signer *token.Signer) string {
 
 // printOperatorToken writes a credential for the relay's own API to stdout.
 //
-// The relay grants its API, its metrics and its playback endpoints to nothing a group token carries
-// (deploy/mediamtx-groups.yml), so reading them takes a token signed with this key and asked for
-// here.
-// Printed rather than served, and there is no route that answers it: what makes a caller an operator
-// is standing at the shell of the machine the key is on, and a route would make it holding a group
-// key like everybody else.
+// The relay grants its API, metrics and playback endpoints to nothing a group token carries
+// (deploy/mediamtx-groups.yml), so reading them takes a token signed with this key.
+// Printed rather than served by a route:
+// what makes a caller an operator is standing at the shell of the machine the key is on,
+// where a route would make it holding a group key like everybody else.
 //
 // The window is the caller's, where the index's is fixed at apiWindow.
-// A person reading the API works in sessions rather than in single requests, and a credential that
-// outlives the session is one signed again.
+// A person reading the API works in sessions rather than single requests,
+// and a credential that outlives the session is one signed again.
 func printOperatorToken(signer *token.Signer, window time.Duration) {
 	assert.IsNotNil(signer, "a printed token is signed with the key this process read")
 	assert.Assert(window > 0, "a printed token carries a window with something in it", window)
@@ -219,11 +219,11 @@ func printOperatorToken(signer *token.Signer, window time.Duration) {
 
 // operatorKeyPresent refuses to print a token where the signing key is not already on disk.
 //
-// The relay authenticates against the public half of whichever key this service publishes, so a
-// token signed with one drawn for this run is refused there with a 401 naming nothing, and the run
-// leaves a second private key beside whichever one is real.
-// The serving path draws on purpose, a first start having nothing to read; this one cannot, because
-// what it prints is worth something only against a key the relay already trusts.
+// The relay authenticates against the public half of whichever key this service publishes,
+// so a token signed with one drawn for this run is refused there with a 401 naming nothing,
+// and the run leaves a second private key beside whichever one is real.
+// The serving path draws on purpose, a first start having nothing to read;
+// this one cannot, what it prints being worth something only against a key the relay already trusts.
 func operatorKeyPresent(path string) error {
 	if path == "" {
 		return errors.New("an operator token is signed with the key the relay publishes, so -api-token needs -key naming the file holding it")
@@ -236,10 +236,10 @@ func operatorKeyPresent(path string) error {
 
 // signerFrom reads the signing key, drawing one and storing it where the file is absent.
 //
-// Stored because a restart that drew a new key would invalidate every token in flight and every
-// relay's cached JWKS at once.
-// An empty path draws one and keeps it in memory, which a test deployment wants and a real one must
-// not have.
+// Stored because a restart that drew another key would invalidate every token in flight
+// and every relay's cached JWKS at once.
+// An empty path draws one and keeps it in memory,
+// which a test deployment wants and a real one must not.
 func signerFrom(path string) (*token.Signer, error) {
 	if path == "" {
 		logger.Warnf("no signing key file given, so this run draws one and forgets it on exit")
@@ -294,26 +294,27 @@ func store(path string, signer *token.Signer) error {
 	return nil
 }
 
-// relayStreams reads the relay's own path list, which is where the index's answer comes from.
-// Which streams exist is the relay's fact and never this service's, so nothing here is written when
-// a stream starts or cleared when one ends.
+// relayStreams reads the relay's own path list, which the index's answer comes from.
+// Which streams exist is the relay's fact,
+// so nothing here is written when a stream starts or cleared when one ends.
 type relayStreams struct {
 	host    string
 	apiPort int
 	client  *relay.Client
 }
 
-// Paths narrows the relay's answer to what a member is told: the readers and byte counters it
-// carries beside each path stop here (internal/groupsvc, Stream).
+// Paths narrows the relay's answer to what a member is told:
+// the readers and byte counters beside each path stop here (internal/groupsvc, Stream).
 func (r *relayStreams) Paths() []groupsvc.Stream {
 	assert.IsNotNil(r.client, "a relay reader holds a client to read through")
 
-	// A path that carries nothing yet crosses too, with Ready false.
-	// Dropping it here would leave the field with one value it could ever hold, and a viewer waiting
-	// on a publisher that has connected but not established a track would see the row vanish from the
-	// index while a relay read directly shows it starting.
-	// The relay configures one wildcard path, so a path it lists at all is one something connected to
-	// rather than one an operator wrote down (deploy/mediamtx-groups.yml).
+	// A path carrying nothing crosses too, with Ready false.
+	// Dropping it would leave Ready with one value it could ever hold,
+	// and a viewer waiting on a publisher that connected without establishing a track
+	// would see the row vanish from the index while a direct relay read shows it starting.
+	// The relay configures one wildcard path,
+	// so a path it lists is one something connected to rather than one an operator wrote down
+	// (deploy/mediamtx-groups.yml).
 	status := r.client.Fetch(r.host, r.apiPort)
 	out := make([]groupsvc.Stream, 0, len(status.Paths))
 	for _, p := range status.Paths {
@@ -324,8 +325,8 @@ func (r *relayStreams) Paths() []groupsvc.Stream {
 
 // relayConnections is the relay this service enforces membership against.
 //
-// The client is addressed by host and port per call, where the registry holds a relay and not an
-// address, so this is where the one this process was pointed at is bound in.
+// The client is addressed by host and port per call, where the registry holds a relay rather than
+// an address, so the address this process was pointed at is bound in here.
 type relayConnections struct {
 	host    string
 	apiPort int

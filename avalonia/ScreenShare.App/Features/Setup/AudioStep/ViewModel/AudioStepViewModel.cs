@@ -12,16 +12,18 @@ namespace ScreenShare.App.Features.Setup.AudioStep.ViewModel;
 /// Audio group of the resolved form, drawn as the list it is instead of by the generic renderer.
 ///
 /// No state of its own.
-/// Which kinds exist, what each is called, which devices sit inside one, which are greyed and why all arrive
-/// through <see cref="FieldGroupViewModel"/> already decided (<c>docs/ipc-api.md</c>, "The rule").
+/// Which kinds exist, what each is called, which devices sit inside one, which are greyed
+/// and why all arrive through <see cref="FieldGroupViewModel"/> already decided (<c>docs/ipc-api.md</c>, "The rule").
 ///
-/// This class's is placement. Every entry of the list carries the same four controls, so the generic renderer
-/// draws their labels, their paragraphs and every option's paragraph once per entry. Here the entries are rows
-/// under one set of column heads, and each control's copy is written once, on the head it stands in.
+/// What this class owns is placement.
+/// Every entry of the list carries the same four controls, so the generic renderer draws their labels, their paragraphs
+/// and every option's paragraph once per entry.
+/// Here the entries are rows under one set of column heads, and each control's copy is written once,
+/// on the head it stands in.
 ///
-/// The list grows and shrinks through the settings, as the contract has it: the trailing row is the form's own
-/// row past the end, so picking a kind on it writes the entry, and the button on a row picks the absent kind,
-/// which is what takes one off.
+/// The list grows and shrinks through the settings, as the contract has it:
+/// the trailing row is the form's own row past the end, so picking a kind on it writes the entry,
+/// and the button on a row picks the absent kind, which is what takes one off.
 ///
 /// Outputs only, written by <see cref="Apply"/> on every pass, the branches that turn a control off included.
 /// </summary>
@@ -52,8 +54,9 @@ public sealed class AudioStepViewModel : Observable
         Rows = [];
         UnderList = [];
 
-        // The group is rendered by the flow owning the draft, so a change arrives as a notification and never as
-        // a copy held here (docs/development-principles.md, "State is written explicitly and read continuously").
+        // The group is rendered by the flow owning the draft, so a change arrives as a notification
+        // and never as a copy held here (docs/development-principles.md, "State is written explicitly
+        // and read continuously").
         _group.PropertyChanged += (_, _) => Apply();
         ((INotifyCollectionChanged)_group.Fields).CollectionChanged += (_, _) => Apply();
 
@@ -75,15 +78,15 @@ public sealed class AudioStepViewModel : Observable
 
     /// <summary>
     /// Whether the form carries this group at all.
-    /// False before the first resolve and for a backend that does not describe the step, and the card is then not
-    /// drawn rather than drawn empty.
+    /// False before the first resolve and for a backend that does not describe the step,
+    /// and the card is then not drawn rather than drawn empty.
     /// </summary>
     public bool IsResolved { get => _isResolved; private set => Set(ref _isResolved, value); }
 
     /// <summary>
     /// Source control of the form's row past the end of the list, null where the form drew none.
-    /// Picking a kind on it is the write that adds an entry, so the button carrying it says that rather than
-    /// naming the absent kind it holds.
+    /// Picking a kind on it is the write that adds an entry,
+    /// so the button carrying it says that rather than naming the absent kind it holds.
     /// </summary>
     public FieldViewModel? Add { get => _add; private set => Set(ref _add, value); }
 
@@ -124,8 +127,8 @@ public sealed class AudioStepViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: rows are kept by entry index and the group hands back the same controls by key, so an
-    /// unchanged pass assigns the same references and reconciles onto equal lists.
+    /// Safe to run twice: rows are kept by entry index and the group hands back the same controls by key,
+    /// so an unchanged pass assigns the same references and reconciles onto equal lists.
     /// </summary>
     public void Apply()
     {
@@ -156,8 +159,9 @@ public sealed class AudioStepViewModel : Observable
             row.Take(field);
         }
 
-        // The form draws one row past the last entry the settings carry, so the trailing one is what a reader
-        // grows the list by and what states the absent kind for every row above it.
+        // The form draws one row past the last entry the settings carry,
+        // so the trailing one is what a reader grows the list by,
+        // and what states the absent kind for every row above it.
         var trailing = entries.Count == 0 ? -1 : entries.Keys.Last();
         Add = trailing < 0 ? null : entries[trailing].Source;
         HasAdd = Add is not null;
@@ -189,8 +193,8 @@ public sealed class AudioStepViewModel : Observable
     }
 
     /// <summary>
-    /// The sentence over the columns naming what reaches a running stream, off one row: every row draws the same
-    /// controls, and whether one is live is the control's answer rather than the entry's.
+    /// The sentence over the columns naming what reaches a running stream, off one row:
+    /// every row draws the same controls, and whether one is live is the control's answer rather than the entry's.
     /// </summary>
     private static string LiveLineOf(AudioSourceRowViewModel? row)
     {

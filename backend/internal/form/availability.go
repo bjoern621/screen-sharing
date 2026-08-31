@@ -1,22 +1,22 @@
 package form
 
-// Which controls the current settings leave usable, and what greys the ones they do not
-// (docs/field-availability.md).
+// Which controls the current settings leave usable, and what greys the ones they
+// do not (docs/field-availability.md).
 //
-// Every verdict reads a table - capabilities, transport, gpupath, publish - and restates nothing
-// those tables carry.
-// What this file adds is the statement: a code and the identifiers it is about, never a sentence
-// (statements.go), so the wording stays the surface's and what is true stays here.
+// Every verdict reads a table (capabilities, transport, gpupath, publish)
+// and restates nothing those tables carry.
+// What this file adds is the statement: a code and the identifiers it is about,
+// never a sentence (statements.go), so the wording stays the surface's and what is true stays here.
 //
 // Two contracts govern every rule below.
 // A disabled control says why, which form.go asserts on each field it renders.
-// Where two facts block one field, the reason names the one the user can act on: B-frames under
-// software x264 name the families that take a count, not the mode.
+// Where two facts block one field, the reason names the one the user can act on:
+// B-frames under software x264 name the families that take a count, not the mode.
 //
 // An unresolved fact withholds nothing.
-// The tables are compiled in, so the only facts that can be missing are the machine's - a capture
-// backend with no publisher names no engine, an unprobed machine states no verdict - and both leave
-// the control live.
+// The tables are compiled in, so the only facts that can be missing are the machine's:
+// a capture backend with no publisher names no engine, an unprobed machine states no verdict.
+// Both leave the control live.
 
 import (
 	"slices"
@@ -39,8 +39,8 @@ import (
 
 // fieldState decides one control's visibility and availability.
 //
-// An unknown key is a caller inventing a control: a plain enabled state for it would put a widget on
-// screen that no rule here governs and no repair moves.
+// An unknown key is a caller inventing a control: a plain enabled state for it would put a widget
+// on screen that no rule here governs and no repair moves.
 // The key is the row's own, which for a repeated control is the template rather than one entry's,
 // since the statement is about the control.
 func fieldState(d Deps, s settings.Settings, key string, entry int) state {
@@ -49,9 +49,9 @@ func fieldState(d Deps, s settings.Settings, key string, entry int) state {
 
 // fieldStateOf answers the same question against an evaluation the caller already holds.
 //
-// A resolve asks it of every control and of every option of every control, and availabilityOf walks
-// the whole rule registry, so the evaluation is made once where the draft it describes is fixed and
-// handed down (form.go, repair.go).
+// A resolve asks it of every control and of every option of every control,
+// and availabilityOf walks the whole rule registry, so the evaluation is made once where the draft
+// it describes is fixed and handed down (form.go, repair.go).
 func fieldStateOf(av availability, key string, entry int) state {
 	rule, ok := availabilityRules[key]
 	assert.Assert(ok, "an availability question names a field the form declares", key)
@@ -65,14 +65,15 @@ func fieldStateOf(av availability, key string, entry int) state {
 
 // optionState decides one entry of a select or radio, within the field named by key.
 //
-// A field with no option-level rule leaves every entry enabled: whole-control greying is
-// fieldState's, and repeating it per entry would grey a dropdown twice over.
+// A field with no option-level rule leaves every entry enabled:
+// whole-control greying is fieldState's,
+// and repeating it per entry would grey a dropdown twice over.
 func optionState(d Deps, s settings.Settings, key, value string, entry int) (enabled bool, reason *screensharev1.Text) {
 	return optionStateOf(availabilityOf(d, s), key, value, entry)
 }
 
-// optionStateOf answers the same question against an evaluation the caller already holds, for the
-// reason fieldStateOf takes one.
+// optionStateOf answers the same question against an evaluation the caller already holds,
+// for the reason fieldStateOf takes one.
 func optionStateOf(av availability, key, value string, entry int) (enabled bool, reason *screensharev1.Text) {
 	_, declared := availabilityRules[key]
 	assert.Assert(declared, "an option question names a field the form declares", key)
@@ -85,33 +86,34 @@ func optionStateOf(av availability, key, value string, entry int) (enabled bool,
 	return reason == nil, reason
 }
 
-// availabilityRules is one row per field the form declares, each deciding that control's state from
-// the draft and the machine.
+// availabilityRules is one row per field the form declares, each deciding that control's state
+// from the draft and the machine.
 //
-// A table rather than a switch (docs/development-principles.md): a control added to keys.go and left
-// out here fails the lookup above instead of rendering as a plain enabled widget, and a row that
-// decides nothing says so rather than falling through a default nobody reads.
+// A table rather than a switch (docs/development-principles.md): a control added to keys.go
+// and left out here fails the lookup above instead of rendering as a plain enabled widget,
+// and a row that decides nothing says so rather than falling through a default nobody reads.
 var availabilityRules = map[string]func(availability) state{
 	// The connection group.
-	// A listener port is a knob of one protocol and hides with it, the hidden treatment's own case: a
-	// user on SRT has no reason to read what the RTMP listener's port means.
+	// A listener port is a knob of one protocol and hides with it, the hidden treatment's own case:
+	// a user on SRT has no reason to read what the RTMP listener's port means.
 	KeyName:      func(availability) state { return availabilityLive() },
 	KeyRelayHost: func(availability) state { return availabilityLive() },
-	// A reading and never a control. Encryption follows the relay's address and is stored nowhere
-	// (settings.Relay.Tls), so there is nothing here to set: the box says what the connection does,
+	// A reading and never a control.
+	// Encryption follows the relay's address and is stored nowhere (settings.Relay.Tls),
+	// so there is nothing here to set: the box says what the connection does,
 	// and the field above it is what changes the answer.
 	KeyRelayTls: func(availability) state {
 		return availabilityDisabled(say(encryptionFollowsTheAddress))
 	},
 	KeyGroupKey: func(availability) state { return availabilityLive() },
-	// A name is claimed per group when joining, so no capture backend, encoder or leg on this screen
-	// rules one out.
+	// A name is claimed per group when joining, so no capture backend, encoder
+	// or leg on this screen rules one out.
 	// An empty name greys nothing either: it is refused where a group is joined (control.JoinGroup),
 	// and this control is where that refusal is answered.
 	KeyDisplayName: func(availability) state { return availabilityLive() },
 	KeyAPIPort:     func(availability) state { return availabilityLive() },
-	// Every listener port follows both legs, because the relay serves one listener per protocol in
-	// both directions and the number here is what each of them is addressed on (reachesOver).
+	// Every listener port follows both legs, because the relay serves one listener per protocol
+	// in both directions and the number here is what each of them is addressed on (reachesOver).
 	// HLS reaches the same rule from the other side: the relay serves it and ingests nothing over it,
 	// so the publish half of the question is never the one that answers.
 	KeySrtPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilitySrt)) },
@@ -121,7 +123,8 @@ var availabilityRules = map[string]func(availability) state{
 	KeyHlsPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityHls)) },
 	KeyMoqPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityMoq)) },
 
-	// Greyed per entry rather than per control: a greyed entry and its reason name the thing to change.
+	// Greyed per entry rather than per control: a greyed entry
+	// and its reason name the thing to change.
 	KeyTransport: func(availability) state { return availabilityLive() },
 	KeyFormat:    func(availability) state { return availabilityLive() },
 	KeyEncoder:   func(availability) state { return availabilityLive() },
@@ -132,18 +135,18 @@ var availabilityRules = map[string]func(availability) state{
 	// The pointer greys per entry and never as a control: every backend serves at least one mode.
 	KeyCursor: func(availability) state { return availabilityLive() },
 
-	// The pixel format carries a note about the viewer's machine (decodeNote) and greys for one fact
-	// only: on the device path that converts nothing the encoder picks the layout, so the control
-	// would otherwise show a value the stream does not carry.
+	// The pixel format carries a note about the viewer's machine (decodeNote)
+	// and greys for one fact only: on the device path that converts nothing the encoder picks
+	// the layout, so the control would otherwise show a value the stream does not carry.
 	KeyChroma: func(av availability) state {
 		if reason := av.encoderColourReason(); reason != nil {
 			return availabilityDisabled(reason)
 		}
 		return availabilityNoted(av.decodeNote())
 	},
-	// Two facts block the colour range, and the encoder-colour path outranks the format's own: under
-	// it neither colour field reaches the stream, so naming RGB would send the user changing a control
-	// that changes nothing.
+	// Two facts block the colour range, and the encoder-colour path outranks the format's own:
+	// under it neither colour field reaches the stream, so naming RGB would send the user changing
+	// a control that changes nothing.
 	KeyColorRange: func(av availability) state {
 		if reason := av.encoderColourReason(); reason != nil {
 			return availabilityDisabled(reason)
@@ -155,8 +158,8 @@ var availabilityRules = map[string]func(availability) state{
 	},
 
 	// The rate-control knobs.
-	// Three facts decide each, weighed by the knob helper in the order docs/field-availability.md
-	// states.
+	// Three facts decide each, weighed by the knob helper
+	// in the order docs/field-availability.md states.
 	KeyCq: func(av availability) state {
 		return av.knob(KeyCq, av.mode().usesCq, say(cqOnlyInConstantQuality))
 	},
@@ -164,8 +167,9 @@ var availabilityRules = map[string]func(availability) state{
 		return av.knob(KeyBitrateM, av.mode().usesBitrate, say(bitrateNotInMode, argMode(av.s.Publish.Mode)))
 	},
 	// The ceiling and the buffer holding it answer together.
-	// A bitrate mode is bounded by its target, so both come with the mode alone; a quality target is
-	// free of the rate, so both need an encoder that holds it in a VBV and a ceiling to hold.
+	// A bitrate mode is bounded by its target, so both come with the mode alone;
+	// a quality target is free of the rate,
+	// so both need an encoder that holds it in a VBV and a ceiling to hold.
 	KeyMaxrateM: func(av availability) state {
 		st := av.knob(KeyMaxrateM, av.mode().usesMaxrate && av.encoderBounds(), av.ceilingReason())
 		if st.enabled {
@@ -180,8 +184,8 @@ var availabilityRules = map[string]func(availability) state{
 	// The keyframe interval is no rate-control concept, so no mode withholds it.
 	// Only an encoder element with no property for it does.
 	KeyGop: func(av availability) state { return av.knob(KeyGop, true, nil) },
-	// Two independent facts block B-frames, so the reason names the one that applies rather than
-	// always blaming the mode.
+	// Two independent facts block B-frames, so the reason names the one that applies rather
+	// than always blaming the mode.
 	// Which families take a count is the family table's, so the statement lists them from it.
 	KeyBframes: func(av availability) state {
 		usesBframes := av.mode().usesBframes
@@ -194,8 +198,8 @@ var availabilityRules = map[string]func(availability) state{
 	},
 	// The effort step follows the codec's own row rather than its family's, because the ladder does:
 	// the steps are the encoder's identifiers, so two codecs of one family can offer different ones.
-	// The entries this control lists and the step a build spends come off that same row, which keeps
-	// the greying and the encode in step.
+	// The entries this control lists and the step a build spends come off that same row,
+	// which keeps the greying and the encode in step.
 	KeyEffort: func(av availability) state {
 		ladder := av.codec.Effort
 		pinned := ladder.PinsIn(av.s.Publish.Mode)
@@ -210,8 +214,9 @@ var availabilityRules = map[string]func(availability) state{
 	},
 	// The tune reads the same row, being the other half of one decision: how hard the encoder works,
 	// and what it works towards.
-	// Either ladder can be declared without the other - the Vulkan rows tune and take no effort step,
-	// the VAAPI ones declare neither - so each control asks about its own.
+	// Either ladder can be declared without the other, the Vulkan rows tuning
+	// and taking no effort step and the VAAPI ones declaring neither,
+	// so each control asks about its own.
 	KeyTune: func(av availability) state {
 		ladder := av.codec.Tune
 		pinned := ladder.PinsIn(av.s.Publish.Mode)
@@ -223,10 +228,10 @@ var availabilityRules = map[string]func(availability) state{
 		return av.knob(KeyTune, len(ladder.Steps) > 0 && !pinned, reason)
 	},
 
-	// The audio codec is read only where the stream has a track to code, so with no source the control
-	// is inert rather than wrong.
-	// Greyed rather than hidden: the codec is a general concept, so the statement says why it does not
-	// apply here.
+	// The audio codec is read only where the stream has a track to code,
+	// so with no source the control is inert rather than wrong.
+	// Greyed rather than hidden: the codec is a general concept,
+	// so the statement says why it does not apply here.
 	KeyAudioCodec: func(av availability) state {
 		if len(av.s.Publish.Recorded()) == 0 {
 			return availabilityDisabled(say(audioCodecNeedsSource))
@@ -235,8 +240,9 @@ var availabilityRules = map[string]func(availability) state{
 	},
 
 	// One entry of the source list.
-	// The kind is always editable, because it is what an entry is: setting it to none is how an entry
-	// is taken off, and greying it would leave a source nobody can remove.
+	// The kind is always editable, because it is what an entry is:
+	// setting it to none is how an entry is taken off,
+	// and greying it would leave a source nobody can remove.
 	KeyAudioSource: func(availability) state { return availabilityLive() },
 
 	// What is inside the kind, which only some kinds have more than one of.
@@ -267,10 +273,11 @@ var availabilityRules = map[string]func(availability) state{
 		return availabilityLive()
 	},
 
-	// The DRM download strategy is the hidden treatment's own example: a knob of the kmsgrab scanout
-	// path and of nothing else, whose help would teach a user on any other backend nothing.
-	// Under kmsgrab it greys rather than hiding a second time, which would make it appear and vanish
-	// while the user changes codecs.
+	// The DRM download strategy is the hidden treatment's own example:
+	// a knob of the kmsgrab scanout path and of nothing else, whose help would teach a user
+	// on any other backend nothing.
+	// Under kmsgrab it greys rather than hiding a second time, which would make it appear
+	// and vanish while the user changes codecs.
 	KeyDrmMap: func(av availability) state {
 		if av.s.Publish.Capture != availabilityKmsgrab {
 			return availabilityHidden()
@@ -280,10 +287,10 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return availabilityLive()
 	},
-	// ddagrab selects an output by index and the X backends crop the X screen to the monitor's
-	// geometry.
-	// A backend that takes no index names itself, so the surface can state what that one captures
-	// instead.
+	// ddagrab selects an output by index
+	// and the X backends crop the X screen to the monitor's geometry.
+	// A backend that takes no index names itself,
+	// so the surface can state what that one captures instead.
 	KeyMonitor: func(av availability) state {
 		if slices.Contains(availabilityMonitorless, av.s.Publish.Capture) {
 			return availabilityDisabled(say(captureTakesNoMonitor, argCapture(av.s.Publish.Capture)))
@@ -294,27 +301,27 @@ var availabilityRules = map[string]func(availability) state{
 	// satisfies, so no combination leaves a dead control.
 	KeyCaptureMemory: func(av availability) state { return availabilityNoted(av.frameMemoryNote()) },
 
-	// The per-protocol knobs, hidden with their protocol like the listener ports: each names a
-	// mechanism of one leg of one transport.
+	// The per-protocol knobs, hidden with their protocol like the listener ports:
+	// each names a mechanism of one leg of one transport.
 	KeySrtPublishLatencyMs: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilitySrt)
 	},
-	// Greyed per entry on an encrypted relay rather than as a control, so the value that works stays
-	// selectable: a disabled dropdown still showing "udp" would name the refusal and offer no way out
-	// of it (rtspProtocolReason).
+	// Greyed per entry on an encrypted relay rather than as a control,
+	// so the value that works stays selectable: a disabled dropdown still showing "udp" would name
+	// the refusal and offer no way out of it (rtspProtocolReason).
 	KeyRtspPublishProtocol: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp)
 	},
-	// The SRT window and the RTP lower transport belong to the link rather than to one reader, so they
-	// follow either receiver (watchesOver).
+	// The SRT window and the RTP lower transport belong to the link rather than to one reader,
+	// so they follow either receiver (watchesOver).
 	KeySrtWatchLatencyMs: func(av availability) state {
 		return availabilityShownFor(av.watchesOver(availabilitySrt))
 	},
 	KeyRtspWatchProtocol: func(av availability) state {
 		return availabilityShownFor(av.watchesOver(availabilityRtsp))
 	},
-	// The jitter buffer is the tile receiver's alone: a player buffers by reorder queue rather than by
-	// time.
+	// The jitter buffer is the tile receiver's alone:
+	// a player buffers by reorder queue rather than by time.
 	KeyRtspWatchLatencyMs: func(av availability) state {
 		return availabilityShownFor(av.s.Viewer.TileWatchTransport == availabilityRtsp)
 	},
@@ -322,17 +329,18 @@ var availabilityRules = map[string]func(availability) state{
 	KeyUplinkMbps:         func(availability) state { return availabilityLive() },
 	KeyTileWatchTransport: func(availability) state { return availabilityLive() },
 
-	// The render chain is live whatever leg is chosen: what a decode converts its frames with is a
-	// property of this machine's GStreamer rather than of the protocol they arrived over.
+	// The render chain is live whatever leg is chosen: what a decode converts its frames
+	// with is a property of this machine's GStreamer rather than of the protocol they arrived over.
 	KeyRenderChain: func(availability) state { return availabilityLive() },
 
-	// What refuses an output resolution is one entry rather than the control, so a frame path that
-	// resizes nothing leaves the source size standing (outputResolutionReason).
+	// What refuses an output resolution is one entry rather than the control,
+	// so a frame path that resizes nothing leaves the source size standing (outputResolutionReason).
 	KeyOutputResolution: func(availability) state { return availabilityLive() },
 }
 
-// availabilityOptionRules is the option half of the same table: one row per field whose entries grey
-// individually, each answering why this combination rules a value out.
+// availabilityOptionRules is the option half of the same table:
+// one row per field whose entries grey individually,
+// each answering why this combination rules a value out.
 // A field with no row here greys no entry.
 var availabilityOptionRules = map[string]func(availability, string) *screensharev1.Text{
 	KeyCapture:           availability.captureReason,
@@ -349,8 +357,8 @@ var availabilityOptionRules = map[string]func(availability, string) *screenshare
 	KeyCaptureMemory:     availability.frameMemoryReason,
 	KeyCursor:            availability.cursorReason,
 	KeyOutputResolution:  availability.outputResolutionReason,
-	// Both legs, one rule: RTSPS covers the control connection and neither direction's RTP travels
-	// inside it over UDP.
+	// Both legs, one rule: RTSPS covers the control connection
+	// and neither direction's RTP travels inside it over UDP.
 	KeyRtspPublishProtocol: availability.rtspProtocolReason,
 	KeyRtspWatchProtocol:   availability.rtspProtocolReason,
 	// The tile decodes through a GStreamer pipeline, so its roster is that engine's carriage rows.
@@ -368,29 +376,30 @@ func availabilityLive() state {
 	return state{visible: true, enabled: true}
 }
 
-// availabilityNoted is a control that stays editable and means something its label does not describe
-// here.
-// A nil note yields a plain live control, which keeps a caller from branching on whether it has one.
+// availabilityNoted is a control that stays editable
+// and means something its label does not describe here.
+// A nil note yields a plain live control,
+// which keeps a caller from branching on whether it has one.
 func availabilityNoted(note *screensharev1.Text) state {
 	return state{visible: true, enabled: true, note: note}
 }
 
-// availabilityDisabled is a control the combination blocks, with the statement shown in place of the
-// value.
+// availabilityDisabled is a control the combination blocks,
+// with the statement shown in place of the value.
 func availabilityDisabled(reason *screensharev1.Text) state {
 	assert.IsNotNil(reason, "a disabled control says why")
 	return state{visible: true, enabled: false, reason: reason}
 }
 
 // availabilityHidden is a backend implementation knob outside the one selection it belongs to.
-// Enabled because nothing draws it: the disabled-says-why contract would otherwise demand a
-// statement for a widget never on screen.
+// Enabled because nothing draws it: the disabled-says-why contract would otherwise demand
+// a statement for a widget never on screen.
 func availabilityHidden() state {
 	return state{visible: false, enabled: true}
 }
 
-// availabilityShownFor is the hidden treatment as a condition, for a knob that appears with the one
-// protocol it belongs to.
+// availabilityShownFor is the hidden treatment as a condition,
+// for a knob that appears with the one protocol it belongs to.
 func availabilityShownFor(shown bool) state {
 	if !shown {
 		return availabilityHidden()
@@ -398,24 +407,25 @@ func availabilityShownFor(shown bool) state {
 	return availabilityLive()
 }
 
-// availability is what a rule reads beyond the fixed tables: the machine, the draft and the facts
-// derived from them.
+// availability is what a rule reads beyond the fixed tables: the machine, the draft
+// and the facts derived from them.
 //
-// They are derived here rather than inside each rule because each is a lookup with a failure mode of
-// its own, and a rule repeating one would be a second place the same "not resolved" case is decided.
+// They are derived here rather than inside each rule because each is a lookup with a failure mode
+// of its own, and a rule repeating one would be a second
+// place the same "not resolved" case is decided.
 type availability struct {
 	deps Deps
 	s    settings.Settings
 
 	// verdicts is what the rule system says about this draft.
-	// Every fact the domain tables state arrives through it rather than being looked up per site, so a
-	// control's greying and the publish's own refusal are two readings of one evaluation
-	// (internal/rules).
+	// Every fact the domain tables state arrives through it rather than being looked up per site,
+	// so a control's greying and the publish's own refusal
+	// are two readings of one evaluation (internal/rules).
 	verdicts rules.Verdicts
 
 	// engine is the publish engine the selected capture backend runs.
-	// Empty exactly where the settings name a backend this app has no publisher for, which a
-	// hand-edited settings file can do.
+	// Empty exactly where the settings name a backend this app has no publisher for,
+	// which a hand-edited settings file can do.
 	// Every rule keyed by engine then withholds nothing, a fact nobody stated being no limit.
 	engine string
 
@@ -425,22 +435,23 @@ type availability struct {
 	codec      capabilities.Codec
 	knownCodec bool
 
-	// path is the frame-memory row of the selected capture backend and the codec's family on that
-	// engine, onDevicePath whether the pair has one.
+	// path is the frame-memory row of the selected capture backend
+	// and the codec's family on that engine, onDevicePath whether the pair has one.
 	// A pair rather than a property of either end: the portal capture shares memory with a VAAPI
 	// encoder and not with an x264 one.
 	path         gpupath.Path
 	onDevicePath bool
 
-	// entry is which entry of the audio source list the question is about, noEntry for a control
-	// belonging to no list.
-	// It rides here rather than as a second argument to every rule, since a rule that does not repeat
-	// has no use for it and a table with two signatures would be two tables.
+	// entry is which entry of the audio source list the question is about,
+	// noEntry for a control belonging to no list.
+	// It rides here rather than as a second argument to every rule,
+	// since a rule that does not repeat has no use
+	// for it and a table with two signatures would be two tables.
 	entry int
-	// source is that entry, which for the row past the end of the list is the default: no kind, unity
-	// gain, unmuted.
-	// That is what the row a reader grows the list by holds, so a rule reading it needs no branch for
-	// the row not stored yet.
+	// source is that entry, which for the row past the end
+	// of the list is the default: no kind, unity gain, unmuted.
+	// The row a reader grows the list by holds exactly that, so a rule reading it needs no branch
+	// for the row nothing stored.
 	source settings.AudioSource
 }
 
@@ -463,15 +474,15 @@ func availabilityOf(d Deps, s settings.Settings) availability {
 }
 
 // mode is what the selected rate-control concept needs from the encoder.
-// A mode the table does not name needs nothing, which greys every knob with its own statement rather
-// than offering knobs no builder would read.
+// A mode the table does not name needs nothing, which greys every knob with its own statement
+// rather than offering knobs no builder would read.
 func (av availability) mode() availabilityMode {
 	return availabilityModes[av.s.Publish.Mode]
 }
 
 // family is what the selected codec's encoder family takes.
-// A codec outside the table has no family, and the zero row takes neither field, so both grey naming
-// who does take them.
+// A codec outside the table has no family, and the zero row takes neither field,
+// so both grey naming who does take them.
 func (av availability) family() availabilityFamily {
 	if !av.knownCodec {
 		return availabilityFamily{}
@@ -480,15 +491,15 @@ func (av availability) family() availabilityFamily {
 }
 
 // The greying rules.
-// Each returns the statement shown in place of the value it withholds, nil where the value reaches
-// the encoder.
+// Each returns the statement shown in place of the value it withholds,
+// nil where the value reaches the encoder.
 
 // captureReason states why this machine cannot run a capture backend.
 //
-// The verdict and the statement are both publish's, read through rather than restated: the catalog
-// shows the same list and has to give the same answer.
+// The verdict and the statement are both publish's, read through rather than restated:
+// the catalog shows the same list and has to give the same answer.
 //
-// A privilege the backend needs is deliberately not a greying (publish.Grant).
+// A privilege the backend needs is no greying (publish.Grant).
 // The process either holds it or the capture dies at launch and nothing can tell which in advance,
 // so the entry stays selectable and what it needs granted rides on the option as a note.
 func (av availability) captureReason(capture string) *screensharev1.Text {
@@ -500,7 +511,8 @@ func (av availability) captureReason(capture string) *screensharev1.Text {
 	return reason
 }
 
-// transportReason states why the selected capture backend's engine cannot carry a publish transport.
+// transportReason states why the selected capture
+// backend's engine cannot carry a publish transport.
 // The map from backend to carriable transports is publish's, so a transport known to some backend
 // and absent from this one is one whose sink this engine has no serialization for.
 func (av availability) transportReason(name string) *screensharev1.Text {
@@ -519,9 +531,9 @@ func (av availability) transportReason(name string) *screensharev1.Text {
 // legElementReason states that this install carries none of the elements the leg's sink is made of,
 // nil where it does or where nothing asked.
 //
-// The other half of what the encoder probe answers: an encoder that runs says nothing about the sink
-// after it, and an install carrying an older WHIP element than the one this app builds passes every
-// codec probe there is and dies at launch on the sink.
+// The other half of what the encoder probe answers: an encoder that runs says nothing
+// about the sink after it, and an install carrying an older WHIP element than the one this app
+// builds passes every codec probe there is and dies at launch on the sink.
 // The GStreamer engine alone, which is the engine whose sink is a named element rather than a muxer
 // inside the ffmpeg build (encoders.Availability.Legs).
 func (av availability) legElementReason(name string) *screensharev1.Text {
@@ -542,16 +554,18 @@ func (av availability) legElementReason(name string) *screensharev1.Text {
 // formatReason states why this combination cannot publish a bitstream format.
 //
 // The format's own two facts, in the order the user can act on them.
-// Whether anything here produces it comes first, since "no AV1 encoder on this machine" is what
-// stops a search for the right transport, and the publish leg's carriage second, that being the one
-// a different transport fixes.
+// Whether anything here produces it comes first, since "no AV1 encoder on this machine"
+// is what stops a search for the right transport, and the publish leg's carriage second,
+// that being the one a different transport fixes.
 //
 // Nothing about one encoder is stated here.
-// Several encoders reach a format and they are out for reasons of their own, so a format greys under
-// one statement covering all of them and the control below says which encoder is missing what.
+// Several encoders reach a format and they are out for reasons of their own,
+// so a format greys under one statement covering all of them and the control below says
+// which encoder is missing what.
 //
-// A leg this engine cannot serialize at all states nothing about any format: that refusal belongs to
-// the transport control, and greying every format under it would name the wrong one.
+// A leg this engine cannot serialize at all states nothing about any format:
+// that refusal belongs to the transport control,
+// and greying every format under it would name the wrong one.
 func (av availability) formatReason(format string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
@@ -586,13 +600,13 @@ func (av availability) formatRuns(format string) bool {
 
 // encoderReason states why this combination cannot produce the selected format with an encoder.
 //
-// The pair is what greys: an encoder that codes the format elsewhere and not here says so through
-// its row, and one that codes the format nowhere says that instead, naming the formats it does
-// produce so the way out is on the statement.
+// The pair is what greys: an encoder that codes the format elsewhere and not here says
+// so through its row, and one that codes the format nowhere says that instead,
+// naming the formats it does produce so the way out is on the statement.
 //
 // What the publish leg carries is absent, being a fact about the format alone (formatReason).
-// Greying every encoder under it would send a user through the whole list for a refusal none of them
-// can lift.
+// Greying every encoder under it would send a user
+// through the whole list for a refusal none of them can lift.
 func (av availability) encoderReason(encoder string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
@@ -614,15 +628,16 @@ func (av availability) encoderReason(encoder string) *screensharev1.Text {
 // engine, nil where it runs.
 //
 // Three facts withhold one, weighed by what the user can act on.
-// A probe that could not run the encoder outranks every table fact, since "no NVIDIA encoder on this
-// machine" is the message that stops a search elsewhere.
+// A probe that could not run the encoder outranks every table fact,
+// since "no NVIDIA encoder on this machine" is the message that stops a search elsewhere.
 // Below it sit the engine's own gap and the roadmap.
 func (av availability) rowReason(c capabilities.Codec) *screensharev1.Text {
 	if reason := av.probeReason(c); reason != nil {
 		return reason
 	}
-	// The rule binds on the engine alone and names the codec it takes, so one evaluation answers for
-	// every entry of both dropdowns rather than for the selected row alone.
+	// The rule binds on the engine alone and names the codec it takes,
+	// so one evaluation answers for every entry
+	// of both dropdowns rather than for the selected row alone.
 	if reasons := av.verdicts.ValueReasons(rules.AxisCodec, c.Name); len(reasons) > 0 {
 		return reasons[0]
 	}
@@ -632,19 +647,19 @@ func (av availability) rowReason(c capabilities.Codec) *screensharev1.Text {
 	return nil
 }
 
-// probeReason states why this machine's probe could not run a codec on the selected engine, nil
-// where it ran or was never asked.
+// probeReason states why this machine's probe could not run a codec on the selected engine,
+// nil where it ran or was never asked.
 //
-// A failed probe means different things per engine and family, and naming the wrong one sends the
-// user after the wrong fix.
-// On the ffmpeg engine a hardware codec needs a card the machine may not have and a software one
-// needs its library compiled into the build.
-// On the GStreamer engine the element is missing from the registry instead, its plugin not installed
-// or, for the hardware families, finding no device to register it for.
+// A failed probe means different things per engine and family,
+// and naming the wrong one sends the user after the wrong fix.
+// On the ffmpeg engine a hardware codec needs a card the machine may not have and a software
+// one needs its library compiled into the build.
+// On the GStreamer engine the element is missing from the registry instead,
+// its plugin not installed or, for the hardware families, finding no device to register it for.
 // Which of the two a verdict is follows the family and not the engine.
 //
-// An engine with no verdicts at all is an unprobed machine rather than one with nothing usable, so
-// it greys nothing.
+// An engine with no verdicts at all is an unprobed machine
+// rather than one with nothing usable, so it greys nothing.
 func (av availability) probeReason(c capabilities.Codec) *screensharev1.Text {
 	probed, ok := av.deps.Encoders.Usable[av.engine]
 	if !ok {
@@ -656,8 +671,8 @@ func (av availability) probeReason(c capabilities.Codec) *screensharev1.Text {
 	family, ok := availabilityFamilies[c.Family]
 	if !ok {
 		// Which half is missing is the family's fact, and this row names a family no table here carries.
-		// The probe's verdict still holds, so the codec greys under what is known rather than under a
-		// guessed half.
+		// The probe's verdict still holds, so the codec greys under what is known rather
+		// than under a guessed half.
 		return say(probeFailed, argEngine(av.engine), argCodec(c.Name))
 	}
 	if family.needsDevice {
@@ -666,15 +681,15 @@ func (av availability) probeReason(c capabilities.Codec) *screensharev1.Text {
 	return say(probeNoBuild, argEngine(av.engine), argCodec(c.Name))
 }
 
-// carryBlockReason states that the publish leg has no mapping for a bitstream, naming the engine
-// that lacks it and where the combination would have worked.
+// carryBlockReason states that the publish leg has no mapping for a bitstream,
+// naming the engine that lacks it and where the combination would have worked.
 //
-// The engine belongs in the statement because the same protocol carries a format on one engine and
-// not the other: ffmpeg's WHIP muxer publishes H.264 alone where the GStreamer one payloads VP8 and
-// VP9 with it.
-// A reason naming the protocol alone would send a user hunting for another transport where another
-// capture backend is the fix, so both ways out are named where the tables hold them, and each is an
-// argument the surface may or may not receive.
+// The engine belongs in the statement because the same protocol carries a format on one engine
+// and not the other: ffmpeg's WHIP muxer publishes H.264
+// alone where the GStreamer one payloads VP8 and VP9 with it.
+// A reason naming the protocol alone would send a user hunting for another transport
+// where another capture backend is the fix, so both ways out are named where the tables hold them,
+// and each is an argument the surface may or may not receive.
 func (av availability) carryBlockReason(format string) *screensharev1.Text {
 	other := capabilities.EngineGst
 	if av.engine == capabilities.EngineGst {
@@ -694,9 +709,9 @@ func (av availability) carryBlockReason(format string) *screensharev1.Text {
 
 // chromaReason states why the selected codec cannot be handed a pixel format.
 //
-// Two facts block one and the capability table carries both: a format the codec's encoder codes on
-// no engine is absent from its Chromas, and one only the other engine's encoder takes carries a gap
-// naming that engine.
+// Two facts block one and the capability table carries both: a format the codec's encoder codes
+// on no engine is absent from its Chromas, and one only the other engine's encoder takes carries
+// a gap naming that engine.
 // The gap's code passes through, since it already says which library or element is the limit.
 func (av availability) chromaReason(chroma string) *screensharev1.Text {
 	if !av.knownCodec {
@@ -729,8 +744,8 @@ func (av availability) modeReason(mode string) *screensharev1.Text {
 
 // colorRangeReason states why the stream would not carry a colour range.
 // The capability table declares it per codec and engine: an encoder signalling no colour
-// description, and a format with no colour range field, both leave a full-range publish watched as
-// limited whatever the form said.
+// description, and a format with no colour range field, both leave a full-range publish watched
+// as limited whatever the form said.
 func (av availability) colorRangeReason(value string) *screensharev1.Text {
 	if !av.knownCodec || av.engine == "" {
 		return nil
@@ -743,11 +758,11 @@ func (av availability) colorRangeReason(value string) *screensharev1.Text {
 
 // tuneReason states why this engine's wrapper cannot aim at a step the codec's ladder carries.
 //
-// The ladder is the encoder's and the knob is the wrapper's, so the two can differ: libaom takes a
-// tune on ffmpeg where av1enc has no such property, and oneVPL's scenario reaches Intel's runtime
-// through ffmpeg alone.
-// The step stays offered and greys with the engine named, as a chroma one engine codes does, and the
-// untuned step is on no gap so a greyed control always has somewhere to walk to.
+// The ladder is the encoder's and the knob is the wrapper's, so the two can differ:
+// libaom takes a tune on ffmpeg where av1enc has no such property,
+// and oneVPL's scenario reaches Intel's runtime through ffmpeg alone.
+// The step stays offered and greys with the engine named, as a chroma one engine codes does,
+// and the untuned step is on no gap so a greyed control always has somewhere to walk to.
 func (av availability) tuneReason(value string) *screensharev1.Text {
 	if !av.knownCodec || av.engine == "" {
 		return nil
@@ -760,10 +775,10 @@ func (av availability) tuneReason(value string) *screensharev1.Text {
 
 // cursorReason states why the selected capture backend does not serve a pointer mode.
 //
-// It reads the rules and nothing else, the whole fact being theirs: what a backend does with the
-// pointer is a per-backend table written as rules (internal/publish/cursor.go), and the one limit
-// that is this app's rather than any backend's, that nothing carries a pointer position to a viewer,
-// is a rule beside them.
+// It reads the rules and nothing else, the whole fact being theirs:
+// what a backend does with the pointer is a per-backend table written as rules
+// (internal/publish/cursor.go), and the one limit that is this app's rather than any backend's,
+// that nothing carries a pointer position to a viewer, is a rule beside them.
 // Both bind on the metadata mode, and both cross.
 func (av availability) cursorReason(value string) *screensharev1.Text {
 	if reasons := av.verdicts.ValueReasons(KeyCursor, value); len(reasons) > 0 {
@@ -774,10 +789,11 @@ func (av availability) cursorReason(value string) *screensharev1.Text {
 
 // audioReason states why this capture backend records no such source.
 //
-// Two facts withhold one and publish.AudioAvailable holds both: the platform's session serves it
-// with nothing, and the engine the backend runs has no element that opens it.
-// It is read through rather than restated, a second copy here being what would let the form grey a
-// source the publish opens, or offer one the publish then refuses (docs/domain-model.md).
+// Two facts withhold one and publish.AudioAvailable holds both:
+// the platform's session serves it with nothing,
+// and the engine the backend runs has no element that opens it.
+// It is read through rather than restated, a second copy here being what would let the form grey
+// a source the publish opens, or offer one the publish then refuses (docs/domain-model.md).
 //
 // A capture backend no registry carries reaches neither half, so the platform table answers alone:
 // the engine is unknown, and greying on a guess would name a limit the machine may not have.
@@ -794,9 +810,9 @@ func (av availability) audioReason(source string) *screensharev1.Text {
 //
 // Two independent facts withhold one: the capture backend's publish engine has no encoder element
 // for the codec, and the publish transport carries no track in that codec's bitstream format.
-// The first is the audio table's own gap and the second the carriage table's, and the statement
-// names whichever applies, since the fix differs - another capture backend against another codec on
-// the same one.
+// The first is the audio table's own gap and the second the carriage table's,
+// and the statement names whichever applies, the fix differing:
+// another capture backend against another codec on the same one.
 func (av availability) audioCodecReason(name string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
@@ -818,8 +834,8 @@ func (av availability) audioCodecReason(name string) *screensharev1.Text {
 		return nil
 	}
 	// The codecs that would have worked: what this engine codes and this leg carries.
-	// Empty on a leg that carries none, and the statement then reads as the shorter fact rather than
-	// trailing off.
+	// Empty on a leg that carries none,
+	// and the statement then reads as the shorter fact rather than trailing off.
 	return say(legCarriesNoAudioCodec,
 		argTransport(av.s.Publish.Transport),
 		argAudioCodec(a.Name),
@@ -827,18 +843,19 @@ func (av availability) audioCodecReason(name string) *screensharev1.Text {
 		argAudioCodecs(capabilities.AudioNamesFor(av.engine, carriage.Audio)))
 }
 
-// frameMemoryReason states why this capture backend and codec cannot publish through a frame memory.
+// frameMemoryReason states why this capture backend
+// and codec cannot publish through a frame memory.
 //
-// Both deciding facts come off the pair table: whether the pair has a device path at all, and what
-// that path does to the colour (docs/field-availability.md).
-// A greyed device value carries the cost it would have paid, so the value that accepts that cost
-// stays live.
+// Both deciding facts come off the pair table: whether the pair has a device path at all,
+// and what that path does to the colour (docs/field-availability.md).
+// A greyed device value carries the cost it would have paid,
+// so the value that accepts that cost stays live.
 //
-// Auto and the system copy are never greyed: auto answers with whichever path costs the user nothing
-// and system memory is the path every pair has.
+// Auto and the system copy are never greyed: auto answers with whichever path costs the user
+// nothing and system memory is the path every pair has.
 //
-// Every statement names both ends, since neither decides on its own and switching either side is a
-// way to reach the path.
+// Every statement names both ends, since neither decides on its own and switching either side
+// is a way to reach the path.
 func (av availability) frameMemoryReason(memory string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
@@ -871,18 +888,18 @@ func (av availability) frameMemoryReason(memory string) *screensharev1.Text {
 // outputResolutionReason states why this pair cannot be asked for a scaled picture.
 //
 // One case has it, and it is about where the frames are rather than about the size.
-// On a device path the only thing that can resize them is the filter already on that path, and a
-// colour-trading row has none: the encoder reads the captured surfaces directly.
-// The ffmpeg builder refuses such a run, so the entry greys with the same fact rather than being
-// offered into a refusal.
+// On a device path the only thing that can resize them is the filter already on that path,
+// and a colour-trading row has none: the encoder reads the captured surfaces directly.
+// The ffmpeg builder refuses such a run, so the entry greys with the same fact rather
+// than being offered into a refusal.
 //
 // Having such a row is not enough, the run has to be taking it, which staysOnDevice answers.
 // The statement offers the system copy as the way across, so the same fact on a run that already
-// downloads every frame would name a fix already applied and grey a scale that path's CPU filter can
-// perform.
+// downloads every frame would name a fix already applied
+// and grey a scale that path's CPU filter can perform.
 //
-// The source size is never greyed: it is what every pair does, and a control with every entry out
-// teaches nothing.
+// The source size is never greyed: it is what every pair does,
+// and a control with every entry out teaches nothing.
 func (av availability) outputResolutionReason(value string) *screensharev1.Text {
 	if value == "" || !av.staysOnDevice() || !av.path.Colour.TradesColour() {
 		return nil
@@ -895,14 +912,14 @@ func (av availability) outputResolutionReason(value string) *screensharev1.Text 
 //
 // RTSPS encrypts the control connection, and RTP over UDP is a second flow beside it that no part
 // of that handshake covers.
-// Interleaving puts the media inside the TLS connection, so it is the encrypted session's only
-// lower transport rather than its faster one (internal/transport, EncryptedRtspProtocol).
+// Interleaving puts the media inside the TLS connection, so it is the encrypted session's
+// only lower transport rather than its faster one (internal/transport, EncryptedRtspProtocol).
 //
 // Every relay serves RTSPS alone, so the answer does not follow the address
 // (deploy/mediamtx-groups.yml).
 // Serves both legs, the session being encrypted the same way whichever end negotiates it.
-// The publish leg refuses the same value in transport.RTSP ValidatePublishSettings and the watch leg
-// in SetWatchOption, so a draft reaching either with "udp" was greyed here first.
+// The publish leg refuses the same value in transport.RTSP ValidatePublishSettings
+// and the watch leg in SetWatchOption, so a draft reaching either with "udp" was greyed here first.
 func (av availability) rtspProtocolReason(value string) *screensharev1.Text {
 	if value == transport.EncryptedRtspProtocol {
 		return nil
@@ -911,10 +928,10 @@ func (av availability) rtspProtocolReason(value string) *screensharev1.Text {
 }
 
 // watchLegReason states why a viewer on this engine cannot receive the stream over a transport.
-// Two facts withhold one: the receiver has no form of that protocol at all, and the relay does not
-// re-serve this bitstream format on that listener.
-// An SRT viewer opened on a VP9 stream connects and receives nothing, MPEG-TS having no mapping for
-// it, which is why the choice is answered per format.
+// Two facts withhold one: the receiver has no form of that protocol at all,
+// and the relay does not re-serve this bitstream format on that listener.
+// An SRT viewer opened on a VP9 stream connects and receives nothing,
+// MPEG-TS having no mapping for it, so the choice is answered per format.
 //
 // A format no implemented codec produces narrows nothing: hiding a choice on absent information
 // would hide one that would have worked.
@@ -936,15 +953,15 @@ func (av availability) watchLegReason(engine, name string) *screensharev1.Text {
 
 // renderChainReason states why this machine cannot render through a chain, nil for one it can.
 //
-// The one availability rule that asks the machine rather than a table: whether a chain runs is
-// whether this GStreamer registers the element factories it is built from, which no compiled-in list
-// can answer.
-// The receive package asks, and this turns its answer into the chain and the first element it needs
-// and does not have.
+// The one availability rule that asks the machine rather than a table:
+// whether a chain runs is whether this GStreamer registers the element factories it is built from,
+// which no compiled-in list can answer.
+// The receive package asks, and this turns its answer into the chain
+// and the first element it needs and does not have.
 //
 // A name no chain carries is not greyed.
-// It is a settings file naming a chain this build dropped, which the repair moves off on the same
-// resolve.
+// It is a settings file naming a chain this build dropped,
+// which the repair moves off on the same resolve.
 // Refusing it here would grey an entry no list offers.
 func (av availability) renderChainReason(name string) *screensharev1.Text {
 	for _, c := range receive.Chains() {
@@ -961,11 +978,11 @@ func (av availability) renderChainReason(name string) *screensharev1.Text {
 // watchesOver reports whether anything on this machine receives over the named transport: the tile,
 // set to one leg, or a player, openable on any leg this machine has a receiver for.
 //
-// The two receivers are asked different questions, which is the difference between what each of
-// their settings decides.
+// The two receivers are asked different questions, which is the difference
+// between what each of their settings decides.
 // A tile receives over the leg TileWatchTransport names and over no other.
-// A player is opened per press on whichever leg the reader picked and stores none, so every leg
-// this machine has a player for is one a press can reach.
+// A player is opened per press on whichever leg the reader picked and stores none,
+// so every leg this machine has a player for is one a press can reach.
 // Asking a stored leg here hid knobs that were in force: a player opened over RTSP reads
 // RtspWatchProtocol whatever a setting says.
 // The browser is the same press, so every leg the relay serves a page for is one an address gets
@@ -979,33 +996,33 @@ func (av availability) watchesOver(name string) bool {
 		transport.CanWatch(name, transport.EngineBrowser)
 }
 
-// reachesOver reports whether anything on this machine builds an address on the relay's listener for
-// the named transport, publishing or watching.
+// reachesOver reports whether anything on this machine builds an address on the relay's listener
+// for the named transport, publishing or watching.
 //
-// The relay serves one listener per protocol and both directions are addressed on it, so the port
-// belongs to neither leg alone: SRT.WatchURL and rtspAddress read the same setting the publish leg
-// does (internal/transport).
-// Asked of the publish leg by itself, the number a viewer still dials disappears from the screen the
-// moment publishing moves elsewhere, which leaves a setting in force that nothing shows and nothing
-// can change (docs/field-availability.md, "The rule").
+// The relay serves one listener per protocol and both directions are addressed on it,
+// so the port belongs to neither leg alone: SRT.WatchURL and rtspAddress read the same setting
+// the publish leg does (internal/transport).
+// Asked of the publish leg by itself, the number a viewer still dials disappears from the screen
+// the moment publishing moves elsewhere, which leaves a setting in force that nothing shows
+// and nothing can change (docs/field-availability.md, "The rule").
 func (av availability) reachesOver(name string) bool {
 	return av.s.Publish.Transport == name || av.watchesOver(name)
 }
 
-// knob weighs the three facts that decide a rate-control control: the mode's concept uses it, the
-// codec's encoder has it, and the capture backend's engine forwards the value.
+// knob weighs the three facts that decide a rate-control control: the mode's concept uses it,
+// the codec's encoder has it, and the capture backend's engine forwards the value.
 // uses carries the first two, already weighed by the caller, reason being their statement.
 // The engine's own rule is read here.
 //
-// An engine that forwards a knob the mode marks unused leaves a note rather than a greying, so the
-// field states what the value does there instead of feeding the encoder a number the form never
-// showed.
-// An engine that drops the knob in every mode outranks the mode's own reason: no rate control brings
-// the control back, so naming the mode would send the user hunting for a switch that changes
-// nothing.
+// An engine that forwards a knob the mode marks unused leaves a note rather than a greying,
+// so the field states what the value does there instead
+// of feeding the encoder a number the form never showed.
+// An engine that drops the knob in every mode outranks the mode's own reason:
+// no rate control brings the control back, so naming the mode would send the user hunting
+// for a switch that changes nothing.
 // encoderBounds is whether this encoder bounds the selected mode's rate at all.
-// Only constant quality asks: a bitrate mode is bounded by the target it names, where a quality
-// target is free of the rate unless the element holds it inside a VBV.
+// Only constant quality asks: a bitrate mode is bounded by the target it names,
+// where a quality target is free of the rate unless the element holds it inside a VBV.
 func (av availability) encoderBounds() bool {
 	if av.s.Publish.Mode != capabilities.ModeCrf {
 		return true
@@ -1014,14 +1031,15 @@ func (av availability) encoderBounds() bool {
 }
 
 // ceilingStated is whether the settings name a ceiling for a buffer to hold.
-// Zero is a value here, an unbounded quality target, so the window that would size it has nothing to
-// do (internal/form, fieldMaxrateBounds).
+// Zero is a value here, an unbounded quality target, so the window that would size it has nothing
+// to do (internal/form, fieldMaxrateBounds).
 func (av availability) ceilingStated() bool {
 	return av.s.Publish.Mode != capabilities.ModeCrf || av.s.Publish.MaxrateM > 0
 }
 
-// ceilingNote is what the ceiling carries while it is editable: that this encoder cannot code
-// constant quality without one, or what the VAAPI elements derive theirs from.
+// ceilingNote is what the ceiling carries while it is editable:
+// that this encoder cannot code constant quality without one,
+// or what the VAAPI elements derive theirs from.
 // The two cannot both apply, the va rows taking no ceiling in constant quality at all.
 func (av availability) ceilingNote() *screensharev1.Text {
 	if capabilities.QualityCeilingRequired(av.s.Publish.Codec(), av.engine) &&
@@ -1031,8 +1049,8 @@ func (av availability) ceilingNote() *screensharev1.Text {
 	return av.vaapiCeilingNote()
 }
 
-// ceilingReason names which of the two facts withholds the ceiling: the mode bounding nothing, or
-// this encoder having no form of a bounded quality target.
+// ceilingReason names which of the two facts withholds the ceiling: the mode bounding nothing,
+// or this encoder having no form of a bounded quality target.
 func (av availability) ceilingReason() *screensharev1.Text {
 	if !av.mode().usesMaxrate {
 		return say(maxrateOnlyInConstrained)
@@ -1040,8 +1058,8 @@ func (av availability) ceilingReason() *screensharev1.Text {
 	return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec()))
 }
 
-// windowReason names which of the three facts withholds the buffer, the ceiling's own two first: a
-// window sizes a ceiling, so it has nothing to say where there is none to hold.
+// windowReason names which of the three facts withholds the buffer, the ceiling's own two first:
+// a window sizes a ceiling, so it has nothing to say where there is none to hold.
 func (av availability) windowReason() *screensharev1.Text {
 	switch {
 	case !av.mode().usesVbv:
@@ -1068,8 +1086,8 @@ func (av availability) knob(key string, uses bool, reason *screensharev1.Text) s
 	return availabilityLive()
 }
 
-// engineRule finds the rule governing a knob for this engine, codec and mode, false where the
-// builder treats the knob exactly as the mode table says.
+// engineRule finds the rule governing a knob for this engine, codec and mode,
+// false where the builder treats the knob exactly as the mode table says.
 // Earlier rows win, so a mode-specific reason precedes a codec-wide one.
 func (av availability) engineRule(key string) (availabilityEngineRule, bool) {
 	for _, r := range availabilityEngineRules {
@@ -1094,12 +1112,12 @@ func (av availability) engineRule(key string) (availabilityEngineRule, bool) {
 	return availabilityEngineRule{}, false
 }
 
-// vaapiCeilingNote states the bound the GStreamer VAAPI elements place on a VBR burst ceiling, nil
-// where the settings sit inside it.
-// Those elements express the target as a percentage of the ceiling and take 50% at the lowest, so a
-// ceiling above twice the target has no form there and the GStreamer builder refuses it.
-// A note rather than a greying, since the knob is forwarded: the field stays live and carries the
-// bound.
+// vaapiCeilingNote states the bound the GStreamer VAAPI elements place on a VBR burst ceiling,
+// nil where the settings sit inside it.
+// Those elements express the target as a percentage of the ceiling and take 50% at the lowest,
+// so a ceiling above twice the target has no form there and the GStreamer builder refuses it.
+// A note rather than a greying, since the knob is forwarded:
+// the field stays live and carries the bound.
 func (av availability) vaapiCeilingNote() *screensharev1.Text {
 	if av.engine != capabilities.EngineGst || av.s.Publish.Mode != capabilities.ModeVbr {
 		return nil
@@ -1113,8 +1131,8 @@ func (av availability) vaapiCeilingNote() *screensharev1.Text {
 	return say(vaapiCeilingBound, argMaxrateMbps(av.s.Publish.BitrateM*2), argBitrateMbps(float64(av.s.Publish.BitrateM)))
 }
 
-// staysOnDevice reports whether this run hands the encoder the frames the capture produced, without
-// a trip through system memory.
+// staysOnDevice reports whether this run hands the encoder the frames the capture produced,
+// without a trip through system memory.
 //
 // It reads the row and the value together, the two facts gpupath.Resolve reads.
 // Auto reads the colour verdict as well: it takes a device path only where that path costs nothing,
@@ -1126,10 +1144,10 @@ func (av availability) staysOnDevice() bool {
 	return !(av.s.Publish.CaptureMemory == gpupath.MemoryAuto && av.path.Colour.TradesColour())
 }
 
-// frameMemoryNote states which import carries the frames on the direct path, and on the path that
-// converts nothing, what that costs.
-// The field that chose the trade states the cost beside the import, rather than leaving it to the
-// two colour fields it overrides.
+// frameMemoryNote states which import carries the frames on the direct path,
+// and on the path that converts nothing, what that costs.
+// The field that chose the trade states the cost beside the import,
+// rather than leaving it to the two colour fields it overrides.
 func (av availability) frameMemoryNote() *screensharev1.Text {
 	if !av.staysOnDevice() {
 		return nil
@@ -1138,10 +1156,10 @@ func (av availability) frameMemoryNote() *screensharev1.Text {
 }
 
 // encoderColourReason states why the colour fields do not reach this stream, nil where they do.
-// On the path that converts nothing the encoder reads the captured surface on its own terms and
-// signals what it chose, so both fields grey with the row's cost and Repair moves each onto what the
-// encoder signals: a greyed field showing something other than what the run produces is the
-// disagreement the form and the publish exist to prevent.
+// On the path that converts nothing the encoder reads the captured surface on its own terms
+// and signals what it chose, so both fields grey with the row's cost
+// and Repair moves each onto what the encoder signals: a greyed field showing something
+// other than what the run produces is the disagreement the form and the publish exist to prevent.
 func (av availability) encoderColourReason() *screensharev1.Text {
 	if !av.onDevicePath || av.s.Publish.CaptureMemory != gpupath.MemoryGpuEncoderColor {
 		return nil
@@ -1152,16 +1170,16 @@ func (av availability) encoderColourReason() *screensharev1.Text {
 	return wire.GpuPathCost(av.path)
 }
 
-// decodeNote states what decoding this stream costs a viewer, nil for a codec the table does not
-// carry.
+// decodeNote states what decoding this stream costs a viewer,
+// nil for a codec the table does not carry.
 //
-// A note and never a block: every format has a software decoder, so the choice is between a viewer's
-// GPU and a viewer's cores.
-// Where some hardware decodes the pair the statement names those decode families, which ones they
-// are being the whole point of the choice.
+// A note and never a block: every format has a software decoder,
+// so the choice is between a viewer's GPU and a viewer's cores.
+// Where some hardware decodes the pair the statement names those decode families,
+// which ones they are being the whole point of the choice.
 // Where none does, it names the software element and one family whose limit stands for the rest,
-// since the others are out for reasons of their own and listing them states again what the first
-// already shows.
+// since the others are out for reasons of their own and listing
+// them states again what the first already shows.
 func (av availability) decodeNote() *screensharev1.Text {
 	if !av.knownCodec {
 		return nil
@@ -1195,16 +1213,16 @@ func (av availability) decodeNote() *screensharev1.Text {
 		argFormat(av.codec.Format), argChroma(av.s.Publish.Chroma), argDecoder(software), argDecodeFamily(limited))
 }
 
-// The tables the rules read, each stating a fact the Go domain packages do not carry: which capture
-// backends take no monitor, what a family's encoders take, and how each engine's builder departs
-// from the mode table.
+// The tables the rules read, each stating a fact the Go domain packages do not carry:
+// which capture backends take no monitor, what a family's encoders take,
+// and how each engine's builder departs from the mode table.
 
-// availabilityKmsgrab is the one capture backend a field is gated on by name: the DRM download
-// strategy is a knob of its scanout path and of nothing else.
+// availabilityKmsgrab is the one capture backend a field is gated on by name:
+// the DRM download strategy is a knob of its scanout path and of nothing else.
 const availabilityKmsgrab = "kmsgrab"
 
-// The transport names the per-protocol knobs are gated on, spelled as the transport registry keys
-// them.
+// The transport names the per-protocol knobs are gated on,
+// spelled as the transport registry keys them.
 // A name the registry does not carry would gate a control on a protocol nothing publishes
 // (TestEveryGatedTransportIsRegistered).
 const (
@@ -1217,17 +1235,17 @@ const (
 )
 
 // availabilityMonitorless is the capture backends that take no monitor index.
-// What each captures instead follows from the backend, so the statement names the backend and the
-// surface says what that one grabs, the same sentence its entry in the capture dropdown already
-// writes.
+// What each captures instead follows from the backend, so the statement names the backend
+// and the surface says what that one grabs,
+// the same sentence its entry in the capture dropdown already writes.
 var availabilityMonitorless = []string{availabilityKmsgrab, "gdigrab", "portal"}
 
 // availabilityFullRangeChromas are the pixel formats carrying no quantization range choice at all.
 // RGB is full range by construction, leaving the colour range control nothing to decide under it.
 var availabilityFullRangeChromas = []string{"gbrp"}
 
-// availabilityMode is what one rate-control concept needs from the encoder, the first of the three
-// facts that decide a rate-control field.
+// availabilityMode is what one rate-control concept needs from the encoder,
+// the first of the three facts that decide a rate-control field.
 // It states which controls the mode uses, not what any encoder does with them.
 type availabilityMode struct {
 	// usesCq: crf alone targets a quantizer.
@@ -1236,19 +1254,19 @@ type availabilityMode struct {
 	usesBitrate bool
 	// usesMaxrate: vbr sets a burst ceiling over the target, and crf one over a target it has not,
 	// which is the same ceiling and the same rate buffer holding it.
-	// Whether the encoder has a form of it is the codec's answer (capabilities.QualityCeiling),
-	// weighed after this one.
+	// Whether the encoder has a form of it is the codec's answer
+	// (capabilities.QualityCeiling), weighed after this one.
 	usesMaxrate bool
 	// usesVbv: cbr and vbr bound the rate with a buffer of tunable size, and so does a bounded crf.
 	usesVbv bool
-	// usesBframes: the lossy bitrate and quality modes gain from B-frames, where the family counts
-	// them.
+	// usesBframes: the lossy bitrate and quality modes gain from B-frames,
+	// where the family counts them.
 	usesBframes bool
 }
 
 // availabilityModes is what each rate-control mode needs, keyed as capabilities names the modes.
-// A mode outside the table needs nothing, which answers a hand-edited settings file naming one no
-// builder implements.
+// A mode outside the table needs nothing, which answers a hand-edited settings file naming
+// one no builder implements.
 var availabilityModes = map[string]availabilityMode{
 	capabilities.ModeCbr:      {usesBitrate: true, usesVbv: true},
 	capabilities.ModeVbr:      {usesBitrate: true, usesMaxrate: true, usesVbv: true, usesBframes: true},
@@ -1257,23 +1275,23 @@ var availabilityModes = map[string]availabilityMode{
 	capabilities.ModeLossless: {},
 }
 
-// availabilityFamily is what an encoder family's encoders take and where they come from, the second
-// of the three facts a rate-control field is decided by.
+// availabilityFamily is what an encoder family's encoders take and where they come from,
+// the second of the three facts a rate-control field is decided by.
 type availabilityFamily struct {
 	// takesBframes: a family with no property for the count greys the field whatever the rate-control
 	// mode, and the builders pin it off rather than forwarding a value the encoder would ignore.
-	// The effort step is no such field: it follows the codec's own ladder, one family's codecs being
-	// free to declare different ones.
+	// The effort step is no such field: it follows the codec's own ladder,
+	// one family's codecs being free to declare different ones.
 	takesBframes bool
 	// needsDevice: whether the encoders come with a device rather than with a build.
-	// An absent encoder is then the machine's answer (no such GPU, or no driver exposing that encode
-	// entrypoint) where a software one's is the build's.
+	// An absent encoder is then the machine's answer (no such GPU,
+	// or no driver exposing that encode entrypoint) where a software one's is the build's.
 	needsDevice bool
 }
 
 // availabilityFamilies is one row per encoder family capabilities declares.
-// Every family has a row (TestEveryEncoderFamilyStatesWhatItsEncodersTake): one missing here reaches
-// no verdict of its own and would grey under the engine's name instead.
+// Every family has a row (TestEveryEncoderFamilyStatesWhatItsEncodersTake):
+// one missing here reaches no verdict of its own and would grey under the engine's name instead.
 var availabilityFamilies = map[string]availabilityFamily{
 	capabilities.FamilySoftware: {},
 	capabilities.FamilyNvenc:    {takesBframes: true, needsDevice: true},
@@ -1283,17 +1301,17 @@ var availabilityFamilies = map[string]availabilityFamily{
 	capabilities.FamilyV4l2:     {needsDevice: true},
 	capabilities.FamilyRkmpp:    {needsDevice: true},
 	capabilities.FamilyVulkan:   {needsDevice: true},
-	// The device is the Mac, so the encoders are there on every machine that runs the framework at all
-	// and absent on every machine that does not.
+	// The device is the Mac, so the encoders are there on every machine that runs the framework
+	// at all and absent on every machine that does not.
 	capabilities.FamilyVideoToolbox: {needsDevice: true},
 }
 
-// availabilityFamiliesWith lists the families whose row sets a flag, for a statement naming who takes
-// a field rather than one family written in by hand.
+// availabilityFamiliesWith lists the families whose row sets a flag,
+// for a statement naming who takes a field rather than one family written in by hand.
 // The list follows the table when a family gains the field.
 //
-// The order is capabilities.Families' own, so the statement reads the same on every call rather than
-// in the map's iteration order of the moment.
+// The order is capabilities.Families' own, so the statement reads the same on every call rather
+// than in the map's iteration order of the moment.
 func availabilityFamiliesWith(flag func(availabilityFamily) bool) []string {
 	var out []string
 	for _, name := range capabilities.Families {
@@ -1306,17 +1324,18 @@ func availabilityFamiliesWith(flag func(availabilityFamily) bool) []string {
 	return out
 }
 
-// availabilityEngineRule is one place where a publish engine's encoder builder departs from the mode
-// table: a knob the mode uses that the engine ignores, or one the engine forwards in a mode the
-// table marks unused.
+// availabilityEngineRule is one place where a publish engine's encoder builder departs
+// from the mode table: a knob the mode uses that the engine ignores,
+// or one the engine forwards in a mode the table marks unused.
 // It is the third of the three facts.
 //
-// Whether a value the mode needs reaches the encoder depends on which engine builds the command, the
-// two expressing the same modes through different properties: the GStreamer nvcodec and QSV elements
-// carry no rate buffer, and the vpx elements read a constant-quality bitrate as a cap.
+// Whether a value the mode needs reaches the encoder depends on which engine builds the command,
+// the two expressing the same modes through different properties: the GStreamer nvcodec
+// and QSV elements carry no rate buffer,
+// and the vpx elements read a constant-quality bitrate as a cap.
 //
-// A knob an encoder library has no form of at all is a rule with no engine, both builders hitting
-// the same wall.
+// A knob an encoder library has no form of at all is a rule with no engine,
+// both builders hitting the same wall.
 // The rules mirror encoderArgs in ffmpeg/encoders.go and gstEncoder in publish/gstencoders.go.
 type availabilityEngineRule struct {
 	// engine is empty for a rule describing the library rather than a builder, and then holds on both.
@@ -1328,7 +1347,7 @@ type availabilityEngineRule struct {
 	codecs   []string
 	families []string
 	// modes selects the rate-control modes the rule covers.
-	// Empty covers every mode, which is what makes such a rule outrank the mode's own reason.
+	// Empty covers every mode, so such a rule outranks the mode's own reason.
 	modes []string
 	// forwards is true where the builder sends the value though the mode table marks the knob unused,
 	// false where it ignores a value the mode would use.
@@ -1338,8 +1357,8 @@ type availabilityEngineRule struct {
 	reason screensharev1.TextCode
 }
 
-// The table decides which knobs a builder never reads, so a malformed row is an Entwicklungsfehler
-// and fails at load.
+// The table decides which knobs a builder never reads,
+// so a malformed row is an Entwicklungsfehler and fails at load.
 //
 // A row naming no knob governs nothing and would sit in the table doing nothing visible.
 // One carrying no reason would grey or annotate a control with no code behind the sentence.
@@ -1357,11 +1376,12 @@ func init() {
 var availabilityEngineRules = []availabilityEngineRule{
 	// VAAPI is the one family whose effort step reaches a single engine.
 	// Every other element that codes a laddered codec takes its steps through a property of its own,
-	// speed-preset, cpu-used or preset, and the nvcodec elements take the same p1-p7 steps ffmpeg does.
+	// speed-preset, cpu-used or preset,
+	// and the nvcodec elements take the same p1-p7 steps ffmpeg does.
 	//
-	// An encoder that cannot bound the burst at all has no VBR mode, declared as a mode gap in the
-	// capability table, so no row withholds the ceiling field for that case: a rule would grey a field
-	// under a mode that cannot be selected.
+	// An encoder that cannot bound the burst at all has no VBR mode,
+	// declared as a mode gap in the capability table, so no row withholds the ceiling field
+	// for that case: a rule would grey a field under a mode that cannot be selected.
 	{
 		engine:   capabilities.EngineFfmpeg,
 		knob:     KeyEffort,
@@ -1406,9 +1426,9 @@ var availabilityEngineRules = []availabilityEngineRule{
 }
 
 // availabilityChromaBlock states that a codec cannot encode a pixel format on either engine.
-// Planar RGB carries its own code: RGB reaches an encoder only through HEVC's Range Extensions or
-// VP9's identity matrix, a coding-tool fact rather than a subsampling limit, and a reader told only
-// "cannot encode gbrp" would go looking for a setting that would fix it.
+// Planar RGB carries its own code: RGB reaches an encoder only through HEVC's Range Extensions
+// or VP9's identity matrix, a coding-tool fact rather than a subsampling limit,
+// and a reader told only "cannot encode gbrp" would go looking for a setting that would fix it.
 func availabilityChromaBlock(chroma, codec string) *screensharev1.Text {
 	if chroma == "gbrp" {
 		return say(codecCodesNoRGB, argCodec(codec))
@@ -1416,13 +1436,13 @@ func availabilityChromaBlock(chroma, codec string) *screensharev1.Text {
 	return say(codecCannotEncodeChroma, argCodec(codec), argChroma(chroma))
 }
 
-// availabilityExactColourReach states how an encoder family is reached on the device with the colour
-// the form shows, nil where the pair table declares no such row.
+// availabilityExactColourReach states how an encoder family is reached on the device
+// with the colour the form shows, nil where the pair table declares no such row.
 //
-// It is the way out the greyed direct value carries, and the one the dropdown cannot show by itself:
-// the fix is another capture backend rather than another value of this field.
-// Assembled from the row, so it names whichever pair the table declares rather than a platform
-// written in here.
+// It is the way out the greyed direct value carries, and the one the dropdown cannot show
+// by itself: the fix is another capture backend rather than another value of this field.
+// Assembled from the row, so it names whichever pair
+// the table declares rather than a platform written in here.
 func availabilityExactColourReach(family string) *screensharev1.Text {
 	for _, p := range gpupath.Paths {
 		if p.Family != family || p.Colour.TradesColour() {
@@ -1435,11 +1455,12 @@ func availabilityExactColourReach(family string) *screensharev1.Text {
 
 // audioDeviceReason states why one entry cannot record from a device it is offered.
 //
-// It refuses nothing: what is inside a kind is what the machine answered, and a selection it stopped
-// answering for is kept with a note rather than greyed, an application that is not running being one
-// that may be running when the stream starts (audio.go).
-// The row exists because every control that offers entries is answered for here, which makes a later
-// refusal a line in this file rather than a new mechanism.
+// It refuses nothing: what is inside a kind is what the machine answered,
+// and a selection it stopped answering for is kept with a note rather than greyed,
+// an application that is not running being one that may be running
+// when the stream starts (audio.go).
+// The row exists because every control that offers entries is answered for here,
+// which makes a later refusal a line in this file rather than a new mechanism.
 func (av availability) audioDeviceReason(string) *screensharev1.Text {
 	return nil
 }

@@ -20,8 +20,8 @@ func rtmpTestStream() settings.Settings {
 	}
 }
 
-// rtmpPath is where the fixture's stream lives on the relay: every relay authenticates, so a machine
-// in no group publishes under the prefix anybody may watch.
+// rtmpPath is where the fixture's stream lives on the relay: every relay authenticates, so
+// a machine in no group publishes under the prefix anybody may watch.
 const rtmpPath = "public/alice"
 
 func TestRTMPRegistered(t *testing.T) {

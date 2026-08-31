@@ -1,36 +1,40 @@
 # The reverse proxy in front of the relay and the group service.
 #
-# Every leg that can be encrypted is, and one certificate covers all of them: ACME lives here
-# because MediaMTX has none of its own, and putting a terminator behind this one would be a
-# second certificate to renew for the same name.
+# Every leg that can be encrypted is, under one certificate:
+# ACME lives here because MediaMTX has none of its own,
+# and a terminator behind this one would be a second certificate to renew for the same name.
 #
-# What it does not front is SRT. That leg is UDP with no TLS at all, and what protects it is
-# a passphrase per path prefix in the relay's own configuration - stated there rather than
-# implied here, because a reader looking for "where is SRT encrypted" should find the answer
-# beside the listener and not by noticing an absence in this file.
+# SRT is not fronted.
+# That leg is UDP with no TLS at all, and a passphrase per path prefix protects it,
+# stated in the relay's own configuration beside the listener rather than implied by an absence here.
 #
-# It does not front the relay's HTTP API either. A token this deployment issues grants
-# publishing and reading under one group and nothing else, so an API reachable from outside
-# would be an endpoint every caller is refused at, and the relay binds it to loopback.
+# The relay's HTTP API is not fronted either.
+# A token this deployment issues grants publishing and reading under one group and nothing else,
+# so an API reachable from outside would be an endpoint every caller is refused at,
+# and the relay binds it to loopback.
 #
-# The name and the upstreams are environment variables because two deployments run this one
-# file: compose reaches the other containers by service name, and a NixOS host runs all three
-# on loopback (modules/screenshare-proxy.nix in the nixos-config repository). The defaults are
-# the loopback ones, so the file is valid on its own and `caddy validate` needs no environment.
+# The name and the upstreams are environment variables because two deployments run this one file:
+# compose reaches the other containers by service name,
+# and a NixOS host runs all three on loopback
+# (modules/screenshare-proxy.nix in the nixos-config repository).
+# The defaults are the loopback ones,
+# so the file is valid on its own and `caddy validate` needs no environment.
 # One routing table, because two would drift.
 
-# Caddy binds an admin API to 127.0.0.1:2019 unless told otherwise, and it reconfigures the
-# server that answers it. In a Kubernetes pod that loopback belongs to the relay and the group
-# service as well, so leaving it up would let either of them rewrite this table. Nothing
-# reconfigures the proxy while it runs: this file is the whole of what it serves, and a change
-# to it arrives as a new image.
+# Caddy binds an admin API to 127.0.0.1:2019 unless told otherwise,
+# and that API reconfigures the server answering it.
+# In a Kubernetes pod the loopback belongs to the relay and the group service as well,
+# so leaving it up lets either of them rewrite this table.
+# Nothing reconfigures the proxy while it runs:
+# this file is the whole of what it serves, and a change to it arrives as a new image.
 {
 	admin off
 }
 
 {$SCREENSHARE_DOMAIN:localhost} {
-	# The group service: keys, tokens and the index. It is the only thing here a client
-	# talks to before it publishes, and the only one holding a secret of its own.
+	# The group service: keys, tokens and the index.
+	# The only thing here a client talks to before it publishes,
+	# and the only one holding a secret of its own.
 	handle /groups* {
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
@@ -42,32 +46,32 @@
 	}
 
 	# Presence, stated by every member's own app on the loop that polls the relay.
-	# Fronted like the routes above and for the same reason: a member reaches this from
-	# wherever they are, and a group key rides in the body under TLS.
+	# Fronted like the routes above and for the same reason:
+	# a member reaches this from wherever they are, and a group key rides in the body under TLS.
 	handle /members* {
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
-	# The key every token is verified against. The relay fetches it, not a browser, and it
-	# is public by construction: it is what verifies a signature and cannot make one.
+	# The key every token is verified against, fetched by the relay rather than by a browser.
+	# Public by construction: it verifies a signature and cannot make one.
 	handle /jwks.json {
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
-	# /reconcile is deliberately absent, and falls through to the HLS handler below like any
-	# unknown path. It takes no credential at all: it is the relay's own read hook reporting a
-	# path on loopback, and a route to it from outside would be a way for anyone to spend this
-	# host's relay API on demand.
+	# /reconcile has no route here and falls through to the HLS handler below like any unknown path.
+	# It takes no credential at all, being the relay's own read hook reporting a path on loopback,
+	# so a route from outside would let anyone spend this host's relay API on demand.
 
-	# The WebRTC player page, served at the stream's own path and so at the address the HLS
-	# page answers on. The port that told the two apart is gone behind one name on 443, so
-	# the page takes a prefix and this strips it again before the relay, which knows of no
-	# such prefix, sees the request.
+	# The WebRTC player page, served at the stream's own path,
+	# so at the address the HLS page answers on.
+	# One name on 443 carries both and no port tells them apart,
+	# so the page takes a prefix and this strips it again
+	# before the relay, which knows no such prefix, sees the request.
 	#
 	# Before the signalling below, because the page fetches its own /whep relative to itself
-	# and the suffix matcher there would proxy that one with the prefix still on it. A session
-	# resource addressed from the root falls into that matcher instead and reaches the same
-	# listener.
+	# and the suffix matcher there would proxy that one with the prefix still on it.
+	# A session resource addressed from the root falls into that matcher instead
+	# and reaches the same listener.
 	#
 	# No stream is shadowed: a path starts with its group's prefix, "public" or a digest.
 	@webrtcpage path /webrtc/*
@@ -76,31 +80,33 @@
 		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
 	}
 
-	# WebRTC signalling, which is HTTP and so is the same certificate and the same name.
+	# WebRTC signalling, HTTP and so the same certificate and the same name.
 	#
-	# An endpoint is the stream's own path with /whip or /whep after it, and the exchange it
-	# opens answers a resource one segment further down that a client then PATCHes and DELETEs.
-	# The path therefore ends in the verb rather than starting with it, which is why these are
-	# suffix matchers: a prefix one matches the two names alone, and every real endpoint falls
-	# past it into the HLS handler below and is answered 404 by a server that carries no such
-	# route.
+	# An endpoint is the stream's own path with /whip or /whep after it,
+	# and the exchange it opens answers a resource one segment further down
+	# that a client then PATCHes and DELETEs.
+	# The path ends in the verb rather than starting with it, hence suffix matchers:
+	# a prefix matcher catches the two bare names alone,
+	# and every real endpoint falls past it into the HLS handler below,
+	# answered 404 by a server that carries no such route.
 	@webrtc path */whip */whip/* */whep */whep/*
 	handle @webrtc {
 		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
 	}
 
-	# HLS, which is what a browser with no WebRTC support falls back to. It is segments over
-	# HTTP, so it needs nothing beyond the proxy either.
+	# HLS, what a browser with no WebRTC support falls back to.
+	# Segments over HTTP, so it needs nothing beyond the proxy either.
 	handle {
 		reverse_proxy {$SCREENSHARE_RELAY_HLS:127.0.0.1:8888}
 	}
 }
 
-# RTSP and RTMP are not HTTP, so they are not proxied here at all: the relay has TLS
-# listeners of its own for both, on ports of their own, and pointing them at a certificate is
-# the relay's configuration rather than this one. The asymmetry is the relay's and is left
-# visible - a proxy stanza that claimed to carry them would be one nothing routes.
+# RTSP and RTMP are not HTTP, so nothing here proxies them:
+# the relay holds TLS listeners of its own for both, on ports of their own,
+# and pointing those at a certificate is the relay's configuration rather than this one.
+# A proxy stanza claiming to carry them would be one nothing routes.
 #
-# Media over QUIC is HTTP and is not fronted either. Its session is a CONNECT over HTTP/3, which
-# a listener on TCP 443 never sees, and its certificate answers to rules this one's does not
-# (deploy/mediamtx-groups.yml). It is exposed on the relay's own port for both reasons.
+# Media over QUIC is HTTP and is not fronted either.
+# Its session is a CONNECT over HTTP/3, which a listener on TCP 443 never sees,
+# and its certificate answers to rules this one's does not (deploy/mediamtx-groups.yml).
+# It is exposed on the relay's own port for both reasons.

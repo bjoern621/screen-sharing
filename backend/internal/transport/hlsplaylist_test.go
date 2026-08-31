@@ -12,8 +12,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// masterWithAudio is what the relay answers for a stream carrying sound: the audio rendition is a
-// tag with its URI inside, and the video one is the line under EXT-X-STREAM-INF.
+// masterWithAudio is what the relay answers for a stream carrying sound: the audio rendition
+// is a tag with its URI inside, and the video one is the line under EXT-X-STREAM-INF.
 const masterWithAudio = `#EXTM3U
 #EXT-X-VERSION:10
 #EXT-X-INDEPENDENT-SEGMENTS
@@ -66,8 +66,8 @@ func TestHLSVariantURIRefusesAMasterWithNoStream(t *testing.T) {
 	}
 }
 
-// A gap is a placeholder a client is not to download, and a playlist made of them is a muxer with
-// nothing to serve yet.
+// A gap is a placeholder a client is not to download, and a playlist made of them is a muxer
+// with nothing to serve yet.
 func TestHLSHasSegmentReadsPastGaps(t *testing.T) {
 	if hlsHasSegment(gapPlaylist) {
 		t.Error("hlsHasSegment took a gap for a segment")
@@ -122,8 +122,8 @@ func relayAt(t *testing.T, server *httptest.Server) settings.Settings {
 	return settings.Settings{Relay: settings.Relay{Host: u.Hostname(), HlsPort: port}}
 }
 
-// The source is the video rendition the master named, session and all: that address is what the
-// relay answers, and the one built from settings alone is answered 401.
+// The source is the video rendition the master named, session and all: that address is what
+// the relay answers, and the one built from settings alone is answered 401.
 func TestHLSResolveGstSourceOpensTheRendition(t *testing.T) {
 	server, _, _ := hlsRelay(t, 0)
 
@@ -139,8 +139,8 @@ func TestHLSResolveGstSourceOpensTheRendition(t *testing.T) {
 	}
 }
 
-// The wait is the whole reason the resolve is a read rather than a written address: a playlist of
-// gaps is one hlsdemux2 fails the pipeline on.
+// The wait is the whole reason the resolve is a read rather than a written address: a playlist
+// of gaps is one hlsdemux2 fails the pipeline on.
 func TestHLSResolveWaitsForASegment(t *testing.T) {
 	server, reads, _ := hlsRelay(t, 1)
 
@@ -189,8 +189,8 @@ func TestHLSResolveRefusesWhatTheRelayRefuses(t *testing.T) {
 	}
 }
 
-// ReceiveSource is the one call the receiving side makes, and it covers both ways a source is
-// arrived at.
+// ReceiveSource is the one call the receiving side makes, covering both ways a source is arrived
+// at.
 func TestReceiveSourceCoversBothWays(t *testing.T) {
 	server, _, _ := hlsRelay(t, 0)
 

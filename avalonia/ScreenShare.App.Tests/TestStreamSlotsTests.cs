@@ -5,9 +5,10 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// A count says how many synthetic publishers are up and nothing about which, so a slot whose child died is
-/// visible only as a row of its own: which slot it is, which attempt it is on, why it carries no publisher, and
-/// the two strings a reader takes to a bug report.
+/// A count says how many synthetic publishers are up and nothing about which,
+/// so a slot whose child died is visible only as a row of its own:
+/// which slot it is, which attempt it is on, why it carries no publisher,
+/// and the two strings a reader takes to a bug report.
 /// </summary>
 public sealed class TestStreamSlotsTests
 {

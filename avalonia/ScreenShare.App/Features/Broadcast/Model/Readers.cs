@@ -6,8 +6,8 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
 /// Two facts about a relay reader more than one card states: who it is, and when the relay accepted it.
-/// One place: the viewer table and the session log describe the same connections, and two spellings of "who is
-/// this" let a row and a line disagree about one viewer while reading one roster.
+/// One place: the viewer table and the session log describe the same connections, and two spellings of "who
+/// is this" let a row and a line disagree about one viewer while reading one roster.
 /// </summary>
 public static class Readers
 {

@@ -55,6 +55,6 @@ They are the codes the availability pass produces from the tables (`form/availab
 
 ## Adding a tooltip
 
-- A new field or option: add the sentence to `Copy` under the identifier the backend sends. Nothing renders it specially, and no markup is written.
-- A new reason: the backend adds a code, and the shell adds the sentence for it. A code with no sentence is visible on screen, which is the point at which somebody writes one.
+- A field or option: add the sentence to `Copy` under the identifier the backend sends. Nothing renders it specially, and no markup is written.
+- A reason: the backend adds a code, and the shell adds the sentence for it. A code with no sentence is visible on screen, which is the point at which somebody writes one.
 - A figure on a live screen: name it as the glossary names it, and say what a reader is meant to do with it rather than restating the unit already printed beside it.

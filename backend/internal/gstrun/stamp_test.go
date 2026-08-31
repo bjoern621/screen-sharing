@@ -38,11 +38,12 @@ var stamped = []struct {
 	},
 }
 
-// stampFrames writes a unit a real encoder's stream carries through a parser and a decoder: the
-// stamp is read back on the decoder's input, and the decoder goes on producing pictures.
+// stampFrames writes a unit a real encoder's stream carries through a parser and a decoder:
+// the stamp is read back on the decoder's input, and the decoder goes on producing pictures.
 //
-// The one thing no unit test can state. Whether a decoder skips an unregistered message is the
-// decoder's answer, and a unit this got wrong is a stream that plays nowhere.
+// The one thing no unit test can state.
+// Whether a decoder skips an unregistered message is the decoder's answer, and a unit this got
+// wrong is a stream that plays nowhere.
 func TestStampSurvivesParseAndDecode(t *testing.T) {
 	gst.Init()
 
@@ -55,8 +56,9 @@ func TestStampSurvivesParseAndDecode(t *testing.T) {
 			}
 
 			const frames = 20
-			// key-int-max keeps the stream to one parameter set per few frames, and zerolatency keeps the
-			// encoder from holding pictures back: both shorten the run rather than change what is measured.
+			// key-int-max keeps the stream to one parameter set per few frames, and zerolatency keeps
+			// the encoder from holding pictures back: both shorten the run rather than change what
+			// is measured.
 			pipeline := parsePipeline(t, "videotestsrc num-buffers="+itoa(frames)+" ! "+
 				"video/x-raw,width=320,height=240,framerate=30/1 ! "+
 				c.encoder+" tune=zerolatency key-int-max=10 ! "+c.parser+" ! identity name=stats ! "+
@@ -83,8 +85,8 @@ func TestStampSurvivesParseAndDecode(t *testing.T) {
 	}
 }
 
-// A stamp read off the wire is the instant it was written at, which is what makes a subtraction
-// against it a delay rather than an offset.
+// A stamp read off the wire is the instant it was written at, making a subtraction against it
+// a delay rather than an offset.
 func TestStampCarriesTheClock(t *testing.T) {
 	gst.Init()
 	for _, factory := range []string{"videotestsrc", "x264enc", "h264parse"} {
@@ -114,16 +116,16 @@ func TestStampCarriesTheClock(t *testing.T) {
 	if seen.Load() == 0 {
 		t.Fatal("no stamp reached the sink")
 	}
-	// The whole run is a handful of frames off a test pattern, so an instant read on the far side of
-	// it is seconds old at the very most. A stamp holding anything else is a clock that is not this
-	// one.
+	// The whole run is a handful of frames off a test pattern, so an instant read on the far side
+	// of it is seconds old at the most.
+	// A stamp holding anything else is a clock that is not this one.
 	if d := time.Duration(worst.Load()); d < 0 || d > 10*time.Second {
 		t.Errorf("a stamp read %v old, which is no reading of this clock", d)
 	}
 }
 
-// What the publishing pipeline measured of its own work rides out with the frames, which is what
-// puts those stages in front of a viewer on another machine.
+// What the publishing pipeline measured of its own work rides out with the frames, putting those
+// stages in front of a viewer on another machine.
 // Carried as the running totals, so what a reader divides is its own interval.
 func TestStampCarriesThePublishingSidesReading(t *testing.T) {
 	gst.Init()
@@ -133,16 +135,16 @@ func TestStampCarriesThePublishingSidesReading(t *testing.T) {
 		}
 	}
 
-	// Paced against the clock, which is what the probe measures against: a source pushing as fast as
-	// it can stamps frames for moments that have not arrived, and the probe refuses those rather than
-	// reporting a delay of nothing (internal/pipedelay).
+	// Paced against the clock the probe measures against: a source pushing as fast as it can stamps
+	// frames for moments that have not arrived, and the probe refuses those rather than reporting
+	// a delay of nothing (internal/pipedelay).
 	pipeline := parsePipeline(t, "videotestsrc num-buffers=30 is-live=true ! "+
 		"video/x-raw,width=320,height=240,framerate=30/1 ! "+
 		"x264enc tune=zerolatency ! h264parse ! identity name=stats ! "+
 		"video/x-h264,stream-format=byte-stream,alignment=au ! fakesink name=drawn sync=false")
 
 	window := &linkWindow{}
-	// A leg that states one, which on this pipeline nothing does: the reporting tick is what fills it
+	// A leg that states one, which on this pipeline nothing does: the reporting tick fills it
 	// on a run, and this run plays no sink that keeps a window.
 	ms := 300.0
 	window.take(&ms)

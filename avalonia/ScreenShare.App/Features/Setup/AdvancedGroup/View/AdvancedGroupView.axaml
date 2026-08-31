@@ -7,8 +7,8 @@
   <!--
     Rest of the quality group, in the card every other group is drawn in and with the same row
     (Features/Fields/View/FieldRow.axaml).
-    Every control is edited here rather than printed: the value, the bounds the spinner enforces,
-    the greying and the sentence beside it all arrive in the message (docs/ipc-api.md).
+    Every control is edited here rather than printed: the value, the bounds the spinner enforces, the greying and
+    the sentence beside it all arrive in the message (docs/ipc-api.md).
   -->
 
   <Border Classes="card" Padding="16,14" IsVisible="{Binding HasRows}">

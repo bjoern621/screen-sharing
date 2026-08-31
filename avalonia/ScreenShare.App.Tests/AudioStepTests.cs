@@ -10,9 +10,9 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Audio step's layout: the group's repeated controls as rows, and what the reader can do to the list from them.
 ///
-/// Stated against the properties the markup binds and against no value this module wrote. Which entries exist,
-/// what each control is, which are greyed and what the absent kind is spelled by all arrive on the resolved
-/// form, so a shell that invented any of them fails here (docs/ipc-api.md, "The rule").
+/// Stated against the properties the markup binds and against no value this module wrote.
+/// Which entries exist, what each control is, which are greyed and how the absent kind is spelled
+/// all arrive on the resolved form, so a shell inventing any of them fails here (<c>docs/ipc-api.md</c>, "The rule").
 /// </summary>
 public sealed class AudioStepTests
 {
@@ -24,9 +24,9 @@ public sealed class AudioStepTests
     private sealed record Write(string Key, FieldValue Value);
 
     /// <summary>
-    /// A step over a list holding the kinds named, plus the form's own row past the end and the codec the group
-    /// carries beside the list.
-    /// The trailing row holds the absent kind, as the backend's default entry does
+    /// A step over a list holding the kinds named,
+    /// plus the form's own row past the end and the codec the group carries beside the list.
+    /// Trailing row holds the absent kind, as the backend's default entry does
     /// (<c>backend/internal/settings/audio.go</c>, <c>DefaultAudioSource</c>).
     /// </summary>
     private static (AudioStepViewModel Step, List<Write> Writes) StepOver(params string[] entries)
@@ -78,8 +78,8 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// The device control, greyed on an entry naming no kind, which is what the form answers: there is nothing
-    /// inside the absent kind to pick.
+    /// Device control, greyed on an entry naming no kind, as the form answers:
+    /// the absent kind holds nothing to pick.
     /// </summary>
     private static Field Device(int entry, bool enabled) => new()
     {
@@ -115,8 +115,8 @@ public sealed class AudioStepTests
     };
 
     /// <summary>
-    /// The row past the end of the list is what a reader grows the list by, so it is the button rather than a
-    /// fourth row of controls nobody has filled in.
+    /// Row past the end of the list is what a reader grows the list by,
+    /// so it draws as the button rather than a further row of controls nobody filled in.
     /// </summary>
     [Fact]
     public void TheRowPastTheEndIsTheButtonThatGrowsTheList()
@@ -151,10 +151,7 @@ public sealed class AudioStepTests
         Assert.Equal("publish.audio_sources[1].mute", step.Rows[1].Mute!.Key);
     }
 
-    /// <summary>
-    /// The whole of what this layout is for: a control is named and explained once, over the column, rather than
-    /// once per entry.
-    /// </summary>
+    /// <summary>A control is named and explained once over the column, rather than once per entry.</summary>
     [Fact]
     public void TheCopyIsWrittenPerControlAndDrawnOverTheColumn()
     {
@@ -168,8 +165,8 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// What a change costs the people watching is said once over the columns, and names the controls the form
-    /// marked live rather than a pair this shell wrote down
+    /// What a change costs the people watching is said once over the columns,
+    /// naming the controls the form marked live rather than a pair this shell wrote down
     /// (<c>docs/field-availability.md</c>, "A live stream blocks no field").
     /// </summary>
     [Fact]
@@ -183,8 +180,8 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// Taking a source off is the write the dropdown beside it makes, and the value written is the one the form's
-    /// trailing row holds rather than a kind this shell knows the name of.
+    /// Taking a source off is the write the dropdown beside it makes,
+    /// and the value written is the form's trailing row rather than a kind this shell knows the name of.
     /// </summary>
     [Fact]
     public void TheButtonOnARowWritesTheAbsentKindTheFormNames()
@@ -199,7 +196,7 @@ public sealed class AudioStepTests
         Assert.Equal(Absent, write.Value.Text);
     }
 
-    /// <summary>A row already on the absent kind is one the write would not move, so it offers no button.</summary>
+    /// <summary>A row already on the absent kind is one the write cannot move, so it offers no button.</summary>
     [Fact]
     public void ARowOnTheAbsentKindOffersNoButton()
     {
@@ -209,8 +206,8 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// The group's other controls stay reachable, under the list and in the form's order: between the rows and
-    /// them, every control the backend offered is drawn exactly once.
+    /// Group's other controls stay reachable, under the list and in the form's order:
+    /// between the rows and them, every control the backend offered is drawn exactly once.
     /// </summary>
     [Fact]
     public void TheControlsBelongingToNoEntryAreDrawnUnderTheList()
@@ -222,8 +219,9 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// One line per fact, not per control. An entry naming no kind greys the three controls inside it on the one
-    /// reason, and three copies of that sentence read as three faults.
+    /// One line per fact, not per control.
+    /// An entry naming no kind greys the three controls inside it on one reason,
+    /// and three copies of that sentence read as three faults.
     /// </summary>
     [Fact]
     public void ARowStatesEachReasonOnce()
@@ -235,8 +233,8 @@ public sealed class AudioStepTests
     }
 
     /// <summary>
-    /// The render function is the whole of what a pass writes, so running it again on an unchanged group moves
-    /// nothing (docs/development-principles.md, "One render function").
+    /// Render function is the whole of what a pass writes,
+    /// so running it again on an unchanged group moves nothing (<c>docs/development-principles.md</c>, "One render function").
     /// </summary>
     [Fact]
     public void ASecondPassOverAnUnchangedGroupDrawsTheSameRows()

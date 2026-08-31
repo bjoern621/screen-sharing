@@ -12,10 +12,9 @@ import (
 // What a settings change costs the people watching is decided here, so these run the real decision:
 // a change the running child takes must not reach the teardown, and one it does not take must.
 
-// applierHandle is a running pipeline whose child takes values, as the GStreamer engine's handle
-// does.
-// It records what it was told and whether it was stopped, so a test tells an apply from a relaunch
-// by what happened rather than by what was returned.
+// applierHandle is a running pipeline whose child takes values, like the GStreamer engine's handle.
+// Records what it was told and whether it was stopped,
+// so a test tells an apply from a relaunch by what happened rather than by what was returned.
 type applierHandle struct {
 	applied []settings.Settings
 	fail    error
@@ -48,8 +47,8 @@ func liveStream(t *testing.T) (*App, *applierHandle, settings.Settings) {
 	}
 	handle := &applierHandle{}
 	a := &App{run: &publishRun{settings: s, handle: handle}}
-	// The relaunch branch starts a real child, so a test that took it leaves an encoder running past
-	// the run without this.
+	// The relaunch branch starts a real child,
+	// so without this a test that took it leaves an encoder running past the run.
 	t.Cleanup(func() { endPublish(a) })
 	return a, handle, s
 }
@@ -66,8 +65,8 @@ func endPublish(a *App) {
 	a.stopPreviewLocked()
 }
 
-// A bitrate edit written to the playing child costs no viewer a reconnect, and the run keeps the
-// handle it had.
+// A bitrate edit written to the playing child costs no viewer a reconnect,
+// and the run keeps the handle it had.
 func TestALiveChangeIsWrittenToTheRunningChild(t *testing.T) {
 	a, handle, s := liveStream(t)
 
@@ -83,9 +82,9 @@ func TestALiveChangeIsWrittenToTheRunningChild(t *testing.T) {
 	if len(handle.applied) != 1 || handle.applied[0].Publish.BitrateM != 35 {
 		t.Fatalf("the child was told %+v, want one write carrying 35 Mbit/s", handle.applied)
 	}
-	// The run describes what is publishing, and what is publishing carries the new rate.
-	// A run left on the old settings would report the form's value pending forever, since nothing is
-	// going to restart onto it.
+	// The run describes what is publishing, and what is publishing carries the written rate.
+	// A run left on the old settings would report the form's value pending forever,
+	// since nothing is going to restart onto it.
 	if a.run.settings.Publish.BitrateM != 35 {
 		t.Errorf("the run still describes %d Mbit/s after the write", a.run.settings.Publish.BitrateM)
 	}
@@ -94,15 +93,15 @@ func TestALiveChangeIsWrittenToTheRunningChild(t *testing.T) {
 	}
 }
 
-// The frame rate is the pipeline's own shape, so no property write carries it and the change
-// relaunches whatever else moved with it.
+// The frame rate is the pipeline's own shape, so no property write carries it,
+// and the change relaunches whatever else moved with it.
 func TestANonLiveChangeStopsTheChild(t *testing.T) {
 	a, handle, s := liveStream(t)
 
 	next := s
 	next.Publish.BitrateM, next.Publish.Fps = 35, 30
-	// The launch after the teardown runs a real child, so the assertion is on the teardown and not on
-	// the return: what matters is that the pipeline carrying the stream is gone.
+	// The launch after the teardown runs a real child, so the assertion is on the teardown
+	// and not on the return: what matters is the pipeline carrying the stream being gone.
 	_ = a.restartPublish(next)
 
 	if !handle.stopped {
@@ -114,8 +113,8 @@ func TestANonLiveChangeStopsTheChild(t *testing.T) {
 }
 
 // A write that failed is a child that cannot be told anything, so the change takes the relaunch.
-// Reporting the apply as done would leave the stream on values nobody chose, with the form saying
-// otherwise.
+// Reporting the apply as done would leave the stream on values nobody chose,
+// with the form saying otherwise.
 func TestAFailedWriteFallsBackToTheRelaunch(t *testing.T) {
 	a, handle, s := liveStream(t)
 	handle.fail = errors.New("the socket is gone")
@@ -129,8 +128,8 @@ func TestAFailedWriteFallsBackToTheRelaunch(t *testing.T) {
 	}
 }
 
-// The ffmpeg engine's handle takes nothing and says so by not implementing the applier, so a change
-// there relaunches even where the same change on the other engine is a write.
+// The ffmpeg engine's handle takes nothing and says so by not implementing the applier,
+// so a change there relaunches even where the same change on the other engine is a write.
 func TestAHandleThatTakesNothingRelaunches(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Capture = "x11grab"

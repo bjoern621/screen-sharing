@@ -9,8 +9,9 @@ import (
 )
 
 // Output resolution is one setting for a pair of figures, carried as "1920x1080".
-// The only place that spelling is read or written, so a form control, a refusal and an encoder
-// name one string and the two publish engines cannot read it differently.
+// The only place that spelling is read or written,
+// so a form control, a refusal and an encoder name one string,
+// and the two publish engines cannot read it differently.
 
 // resolutionSeparator joins the two figures.
 // Lowercase 'x', not the multiplication sign a label prints: this value is parsed.
@@ -31,8 +32,8 @@ func (s Size) String() string {
 	return strconv.Itoa(s.Width) + resolutionSeparator + strconv.Itoa(s.Height)
 }
 
-// FormatSize is String for two loose figures, which is what builds an option list from a monitor's
-// dimensions.
+// FormatSize is String for two loose figures,
+// which is what builds an option list from a monitor's dimensions.
 func FormatSize(width, height int) string {
 	return Size{Width: width, Height: height}.String()
 }
@@ -40,8 +41,8 @@ func FormatSize(width, height int) string {
 // ParseSize reads the spelling String writes.
 //
 // Strict on the shape and on both figures, and refusing with an error rather than asserting:
-// the value travels through a file the user owns and can edit, so a malformed one is an
-// Umgebungsfehler on the way back in.
+// the value travels through a file the user owns and can edit,
+// so a malformed one is an Umgebungsfehler on the way back in.
 // Each refusal names which part failed, for whoever has to repair the value.
 func ParseSize(value string) (Size, error) {
 	width, height, found := strings.Cut(value, resolutionSeparator)
@@ -78,8 +79,8 @@ func ParseSize(value string) (Size, error) {
 // OutputSize is the picture the encoder is fed, and whether the capture is scaled to reach it.
 //
 // The empty setting is the capture's own size, neither an error nor a zero size.
-// A caller that gets false adds no scaling stage, so the two answers are separate rather than a
-// zero the caller has to test.
+// A caller that gets false adds no scaling stage,
+// so the two answers are separate rather than a zero the caller has to test.
 func (p Publish) OutputSize() (Size, bool, error) {
 	if p.OutputResolution == "" {
 		return Size{}, false, nil

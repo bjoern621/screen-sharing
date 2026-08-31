@@ -31,13 +31,13 @@ public sealed class WatchSettingsTests
         var viewer = new ViewerViewModel(backend, form, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
 
-        // Stands in for the shell's own render pass: without it a relay snapshot reaches the session and
-        // never the roster drawn from it (Features/Shell/ViewModel/ShellViewModel.cs).
+        // Stands in for the shell's own render pass: without it a relay snapshot reaches the session
+        // and never the roster drawn from it (Features/Shell/ViewModel/ShellViewModel.cs).
         session.Changed += viewer.Apply;
 
         // Reads every running state once and stops before the reconnect delay, so nothing is left dialling
         // behind the assertions.
-        // It is what puts the relay's paths on the roster a decode is opened from.
+        // Puts the relay's paths on the roster a decode is opened from.
         _ = session.Start();
         session.Stop();
 
@@ -71,22 +71,20 @@ public sealed class WatchSettingsTests
 
     /// <summary>
     /// One draft behind both screens.
-    /// The publish persists the whole settings message, so a draft per screen would overwrite the other's
-    /// half.
+    /// The publish persists the whole settings message, so a draft per screen would overwrite the other's half.
     /// </summary>
     [Fact]
     public async Task AWriteInTheViewerIsInWhatTheWizardCommits()
     {
-        // A backend the commit can be pressed against: the seeded fixture has no reachable relay, and a
-        // reachable one is what unlocks the button.
+        // A backend the commit can be pressed against: the seeded fixture has no reachable relay,
+        // and a reachable one is what unlocks the button.
         var backend = new PublishingBackend();
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var viewer = new ViewerViewModel(backend, form, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
 
-        // Reads every running state once and stops before the reconnect delay, so nothing is left dialling
-        // behind the assertions.
+        // Reads every running state once and stops before the reconnect delay.
         _ = session.Start();
         session.Stop();
         await form.Settled;
@@ -102,8 +100,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// Saving hands the whole draft over as a settings write and not as a publish, so a reader who never
-    /// sends keeps what they chose.
+    /// Saving hands the whole draft over as a settings write and not as a publish,
+    /// so a reader who never sends keeps what they chose.
     /// </summary>
     [Fact]
     public async Task SavingKeepsTheDraftWithoutPublishing()
@@ -121,7 +119,7 @@ public sealed class WatchSettingsTests
 
     /// <summary>
     /// A second save asks for a state that already holds, which is a success
-    /// (docs/development-principles.md, "Effects across a process boundary").
+    /// (<c>docs/development-principles.md</c>, "Effects across a process boundary").
     /// </summary>
     [Fact]
     public async Task SavingTwiceIsNotAnError()
@@ -138,7 +136,7 @@ public sealed class WatchSettingsTests
 
     /// <summary>
     /// The refusal is the backend's own sentence, and the button stays pressable.
-    /// A save that succeeds clears it, which is the render function's usual property applied to a string.
+    /// A save that succeeds clears it, the render function's usual property applied to a string.
     /// </summary>
     [Fact]
     public async Task ARefusedSaveShowsTheBackendsSentenceAndClearsOnTheNextOne()
@@ -159,8 +157,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The leg a tile receives on is read through the shared draft on every pass, so a leg changed elsewhere
-    /// reaches the next decode without the window being reopened.
+    /// The leg a tile receives on is read through the shared draft on every pass,
+    /// so a leg changed elsewhere reaches the next decode without the window being reopened.
     /// </summary>
     [Fact]
     public async Task TheTileLegIsReadThroughRatherThanReadOnce()
@@ -196,8 +194,8 @@ public sealed class WatchSettingsTests
     /// <summary>
     /// The leg is the only knob in the group the shell names in a call: the backend reads the render chain
     /// and both jitter buffers out of its own settings as it builds the pipeline.
-    /// Taken off the draft instead, it opens an unkept protocol against kept buffers, and nothing on the
-    /// screen says which half of a staged panel took effect.
+    /// Taken off the draft instead, it opens an unkept protocol against kept buffers,
+    /// and nothing on the screen says which half of a staged panel took effect.
     /// </summary>
     [Fact]
     public async Task ATileOpensOnTheKeptLegAndNotOnTheDraftedOne()
@@ -225,8 +223,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A staged group draws the same controls whether or not it has been kept, so without the notice the
-    /// button has nothing to mean.
+    /// A staged group draws the same controls whether or not it has been kept,
+    /// so without the notice the button has nothing to mean.
     /// </summary>
     [Fact]
     public async Task ThePanelSaysWhenWhatItShowsIsNotWhatIsKept()
@@ -242,8 +240,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The settings travel whole, so an applied field's keystroke stores the watch group with it and the
-    /// panel has no difference left to warn about.
+    /// The settings travel whole, so an applied field's keystroke stores the watch group with it,
+    /// and the panel has no difference left to warn about.
     /// </summary>
     [Fact]
     public async Task AnAppliedWriteElsewhereKeepsTheseSettingsToo()
@@ -262,8 +260,7 @@ public sealed class WatchSettingsTests
 
     /// <summary>
     /// The roster is the catalog's player list, in its order.
-    /// No setting stands behind it: the leg is picked per press, so a row offers every leg a player on this
-    /// machine opens.
+    /// No setting stands behind it: the leg is picked per press, so a row offers every leg a player here opens.
     /// </summary>
     [Fact]
     public async Task ARowOffersTheCatalogsPlayerLegs()
@@ -274,9 +271,7 @@ public sealed class WatchSettingsTests
         Assert.Equal(SeededBackend.PlayerLegs, legs.Select(leg => leg.Value));
     }
 
-    /// <summary>
-    /// The press on an open leg is what closes the player, so the row that names it stays on the menu.
-    /// </summary>
+    /// <summary>The press on an open leg is what closes the player, so the row naming it stays on the menu.</summary>
     [Fact]
     public async Task AnOpenLegIsTickedOnTheMenu()
     {
@@ -291,9 +286,7 @@ public sealed class WatchSettingsTests
 
     // --- The panel, open and closed -----------------------------------------------------
 
-    /// <summary>
-    /// What the reader asked for has happened, and the tiles the panel governs are behind it.
-    /// </summary>
+    /// <summary>What the reader asked for has happened, and the tiles the panel governs are behind it.</summary>
     [Fact]
     public async Task KeepingTheSettingsClosesThePanel()
     {
@@ -307,8 +300,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The sentence explaining the refusal is on this panel, and dismissing it would take that off the screen
-    /// with the fields it is about.
+    /// The sentence explaining the refusal is on this panel,
+    /// so dismissing it would take that off the screen with the fields it is about.
     /// </summary>
     [Fact]
     public async Task ARefusedSaveLeavesThePanelOpen()
@@ -324,8 +317,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A reader who moved a control and then dismissed the panel decided against the change, so nothing is
-    /// stored on the way out.
+    /// A reader who moved a control and then dismissed the panel decided against the change,
+    /// so nothing is stored on the way out.
     /// </summary>
     [Fact]
     public async Task ClosingThePanelKeepsNothing()
@@ -341,10 +334,7 @@ public sealed class WatchSettingsTests
         Assert.True(both.Viewer.Watch.IsUnkept);
     }
 
-    /// <summary>
-    /// Closing a closed panel changes nothing, which lets a commit run it without asking whether it
-    /// has to.
-    /// </summary>
+    /// <summary>Closing a closed panel changes nothing, so a commit can run it unconditionally.</summary>
     [Fact]
     public async Task ClosingAClosedPanelIsNotAnOpen()
     {

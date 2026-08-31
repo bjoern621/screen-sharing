@@ -12,16 +12,16 @@ import (
 
 // What each capture backend can do with the pointer.
 //
-// A table for the reason captureNeeds beside it is one: the same fact was otherwise answered by
-// whoever asked.
-// The axis is the capture backend rather than the codec, which a Gap cannot express, so these are
-// written as rules rather than converted into them (docs/domain-model.md, "One evaluator").
+// A table for the reason captureNeeds beside it is one: the same fact is otherwise answered
+// by whoever asks.
+// The axis is the capture backend rather than the codec, which a Gap cannot express, so these
+// are written as rules rather than converted into them (docs/domain-model.md, "One evaluator").
 
 // cursorServes is the modes each capture backend serves, in Modes order.
 //
 // A backend absent from the map is a bug rather than a backend serving nothing, which init asserts
-// against the registry: a new backend that forgot this table would otherwise offer every mode and
-// pass a flag nothing reads.
+// against the registry: a backend missing here would otherwise offer every mode and pass a flag
+// nothing reads.
 var cursorServes = map[string][]string{
 	// draw_mouse on the two ffmpeg grabbers, show-cursor on the GStreamer one.
 	// None of the three reports a pointer position of its own.
@@ -30,21 +30,21 @@ var cursorServes = map[string][]string{
 	"d3d11screencapturesrc": {cursor.Embedded, cursor.Hidden},
 
 	// draw_mouse on the ffmpeg side, show-pointer on the GStreamer one.
-	// X11 draws the pointer into the image and answers any client asking where it is, which is what
+	// X11 draws the pointer into the image and answers any client asking where it is, what
 	// the metadata mode reads there (internal/pointer).
 	// Only the GStreamer row serves that mode: the publish child reports the position, and the ffmpeg
 	// engine's child is ffmpeg.
 	"x11grab":   {cursor.Embedded, cursor.Hidden},
 	"ximagesrc": {cursor.Embedded, cursor.Hidden, cursor.Metadata},
 
-	// kmsgrab reads the scanout's primary plane, and the pointer is a hardware plane of its own that
-	// the scanout composes at display time.
+	// kmsgrab reads the scanout's primary plane, and the pointer is a hardware plane of its own
+	// that the scanout composes at display time.
 	// Nothing on that path draws it into the frames, so the capture is cursorless whatever it is asked
 	// for, and hidden is the only mode describing what it does.
 	"kmsgrab": {cursor.Hidden},
 
-	// The one backend reporting a pointer position instead of drawing it, which is what cursor_mode's
-	// metadata value selects (internal/portal).
+	// The one backend reporting a pointer position instead of drawing it, what cursor_mode's metadata
+	// value selects (internal/portal).
 	"portal": {cursor.Embedded, cursor.Hidden, cursor.Metadata},
 
 	// -capture_cursor on the ffmpeg side, capture-screen-cursor on the GStreamer one.
@@ -103,12 +103,12 @@ func cursorRules() []rules.Rule {
 		Reason:  screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED,
 	})
 
-	// Where the mode is offered, it says how far the position travels: off the capture, across the
-	// control contract and onto this machine's own screens, which is what the preview draws.
+	// Where the mode is offered, it says how far the position travels: off the capture, across
+	// the control contract and onto this machine's own screens, what the preview draws.
 	// No leg carries it over the relay, so somebody watching from another machine sees no pointer.
 	//
-	// A note and not a refusal, because the mode does what it says on the machine that picks it, and
-	// what it does not do is a fact about what viewers receive rather than about this capture.
+	// A note and not a refusal, the mode doing what it says on the machine that picks it, and what it
+	// does not do being a fact about what viewers receive rather than about this capture.
 	// It binds wherever the mode is not already refused.
 	out = append(out, rules.Rule{
 		Verdict: rules.Note,
@@ -121,10 +121,10 @@ func cursorRules() []rules.Rule {
 
 // cursorRefusal is why a backend does not serve a mode.
 //
-// Two facts rather than one sentence with the backend's name in it, because they send a reader to
-// different places.
-// A capture that cannot draw the pointer is a property of how it reads the screen,
-// and a capture with no position to report is a property of what it reports beside the picture.
+// Two facts rather than one sentence with the backend's name in it, the two sending a reader
+// to different places.
+// A capture that cannot draw the pointer is a property of how it reads the screen, and a capture
+// with no position to report is a property of what it reports beside the picture.
 func cursorRefusal(capture, mode string) screensharev1.TextCode {
 	if mode == cursor.Metadata {
 		return screensharev1.TextCode_TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA
@@ -144,8 +144,8 @@ func serves(capture, mode string) bool {
 }
 
 // gstBool is how a GStreamer element spells a boolean property value.
-// One helper because three elements set the same fact through three differently named properties,
-// and a literal typed per site is one that can come out as "1" at one of them.
+// One helper, three elements setting the same fact through three differently named properties, and
+// a literal typed per site can come out as "1" at one of them.
 func gstBool(on bool) string {
 	if on {
 		return "true"
@@ -155,8 +155,8 @@ func gstBool(on bool) string {
 
 // portalCursor is the pointer setting as the ScreenCast interface's own cursor_mode.
 //
-// A mapping and not a boolean, because the portal's three modes are the settings' three: its
-// metadata value sends the position out of band instead of drawing it.
+// A mapping and not a boolean, the portal's three modes being the settings' three: its metadata
+// value sends the position out of band instead of drawing it.
 func portalCursor(mode string) portal.CursorMode {
 	switch mode {
 	case cursor.Embedded:
@@ -171,8 +171,8 @@ func portalCursor(mode string) portal.CursorMode {
 	}
 }
 
-// CursorServed reports whether the capture backend serves this pointer mode,
-// for a caller choosing a value rather than greying one.
+// CursorServed reports whether the capture backend serves this pointer mode, for a caller choosing
+// a value rather than greying one.
 // A form shows the rules' answer.
 // This is the same table asked directly, for the repair, which has to land on a mode the backend
 // runs.

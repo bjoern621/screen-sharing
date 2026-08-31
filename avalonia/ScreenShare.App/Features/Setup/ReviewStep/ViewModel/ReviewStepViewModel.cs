@@ -8,17 +8,18 @@ namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 /// <summary>
 /// Last step: everything resolved, read back in one place, and the one control that changes the world.
 ///
-/// The tiles draw in the step column and the commit at the foot of the rail, where every other step's Back and
-/// Continue sit (<c>Setup/View/SetupView.axaml</c>).
+/// The tiles draw in the step column and the commit at the foot of the rail, where every other step's Back
+/// and Continue sit (<c>Setup/View/SetupView.axaml</c>).
 /// What the settings owe and what has been saved are the rail's, on every step alike
 /// (<c>Setup/CostRail/ViewModel/CostRailViewModel.cs</c>).
 ///
-/// Outputs are written by <see cref="Apply"/> alone, each coming off a state some other side stated: the tiles
-/// are the groups' own shorthands, the name is the draft's, and whether the button lights is the
-/// <see cref="PublishGate"/>, reading <c>Form.publishable</c>, what is publishing and what the relay said.
+/// Outputs are written by <see cref="Apply"/> alone, each coming off a state some other side stated:
+/// the tiles are the groups' own shorthands, the name is the draft's,
+/// and whether the button lights is the <see cref="PublishGate"/>, reading <c>Form.publishable</c>, what is publishing
+/// and what the relay said.
 ///
-/// The word on the button is that same gate's answer (<see cref="PublishGate.Commit"/>), a stream already on the
-/// air deciding which effect the press is rather than blocking it.
+/// The word on the button is that same gate's answer (<see cref="PublishGate.Commit"/>),
+/// a stream already on the air deciding which effect the press is rather than blocking it.
 /// A ternary at the binding site and a second one beside the call would be one fact written down twice.
 /// </summary>
 public sealed class ReviewStepViewModel : Observable
@@ -29,8 +30,8 @@ public sealed class ReviewStepViewModel : Observable
     /// <param name="back">Moves to the step before this one, the flow's answer rather than a key held here.</param>
     /// <param name="goLive">
     /// What committing means, answering when the backend has answered.
-    /// Owned above this view model: no publisher here, and starting one is an effect on the control plane this
-    /// step has no seam to.
+    /// Owned above this view model: no publisher here,
+    /// and starting one is an effect on the control plane this step has no seam to.
     /// </param>
     /// <param name="dispatch">UI loop the commit's answer is marshalled back to.</param>
     public ReviewStepViewModel(
@@ -47,9 +48,9 @@ public sealed class ReviewStepViewModel : Observable
         _edit = edit;
         Tiles = [];
 
-        // A start crosses to the backend, which persists the settings and launches an encoder on them, so the
-        // button waits rather than going inert: the round trip is long enough for a second press, and the command
-        // is what refuses it.
+        // A start crosses to the backend, which persists the settings and launches an encoder on them,
+        // so the button waits rather than going inert: the round trip is long enough for a second press,
+        // and the command is what refuses it.
         StartSharingCommand = new PendingCommand(goLive, dispatch, () => CanStartSharing);
         BackCommand = new DelegateCommand(back);
 
@@ -73,8 +74,8 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// The commit.
-    /// The button draws its wait from the command's own in-flight field, so a control that looks busy is a call
-    /// that is out.
+    /// The button draws its wait from the command's own in-flight field,
+    /// so a control that looks busy is a call that is out.
     /// </summary>
     public PendingCommand StartSharingCommand { get; }
 
@@ -88,15 +89,15 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// What the button says it will do: start a stream, or restart the one on the air on these settings.
-    /// Read off <see cref="PublishGate.Commit"/> through <see cref="CommitCopy"/>, the same answer the press
-    /// reads, rather than two answers that happen to agree.
+    /// Read off <see cref="PublishGate.Commit"/> through <see cref="CommitCopy"/>, the same answer the press reads,
+    /// rather than two answers that happen to agree.
     /// </summary>
     public string CommitLabel { get => _commitLabel; private set => Set(ref _commitLabel, value); }
 
     /// <summary>
     /// Promise under the button, up to the stream name.
-    /// Two halves because the name sits inside the sentence at full strength, and the sentence tells a reader that
-    /// applying restarts the stream rather than changing it under the viewers.
+    /// Two halves because the name sits inside the sentence at full strength,
+    /// and the sentence tells a reader that applying restarts the stream rather than changing it under the viewers.
     /// </summary>
     public string PromiseLead { get => _promiseLead; private set => Set(ref _promiseLead, value); }
 
@@ -105,8 +106,8 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// Why the button is locked, empty while it is not.
-    /// Never this step's own prose about a setting: a setting's own blocker is in the rail's checks, in the
-    /// words the backend wrote it in.
+    /// Never this step's own prose about a setting: a setting's own blocker is in the rail's checks,
+    /// in the words the backend wrote it in.
     /// </summary>
     public string Blocked { get => _blocked; private set => Set(ref _blocked, value); }
 
@@ -114,8 +115,7 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// Backend's own sentence for a refused start, empty otherwise.
-    /// A second line rather than folded into <see cref="Blocked"/>, being about an attempt rather than a
-    /// precondition.
+    /// A second line rather than folded into <see cref="Blocked"/>, being about an attempt rather than a precondition.
     /// </summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
 
@@ -128,8 +128,8 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Idempotent: the rows are rebuilt from the arguments and reconciled, so two passes over one form produce
-    /// rows that compare equal.
+    /// Idempotent: the rows are rebuilt from the arguments and reconciled,
+    /// so two passes over one form produce rows that compare equal.
     /// </summary>
     /// <param name="gate">Whether the commit is available, which effect it is, and why it is not.</param>
     /// <param name="streamName">Draft's stream name. Empty before a draft has arrived.</param>
@@ -145,9 +145,9 @@ public sealed class ReviewStepViewModel : Observable
 
         Reconcile.Onto(Tiles, ReviewTiles.Of(groups, _edit));
 
-        // Read out of the one table on every pass, the branch that puts the label back to a start included: a
-        // stream that ended takes the word "restart" off the button with it, and a property written only in the
-        // apply branch is one that sticks.
+        // Read out of the one table on every pass, the branch that puts the label back to a start included:
+        // a stream that ended takes the word "restart" off the button with it,
+        // and a property written only in the apply branch is one that sticks.
         var words = CommitCopy.Of(gate.Commit);
         CommitLabel = words.Label;
         PromiseLead = words.Lead;

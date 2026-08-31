@@ -20,36 +20,32 @@ import (
 )
 
 // The effects.
-// Each does the one thing its name says and answers with its empty response message.
+// Each answers with its empty response message, never with the state it produced:
+// what the state became arrives on the event stream (docs/ipc-api.md, "Events").
+// One path into the display keeps the shell that pressed the button
+// and the one that only listened from showing different things.
 //
-// None returns the state it produced (docs/ipc-api.md, "Events"): what the state became arrives on
-// the event stream.
-// One path into the display is what keeps the window that pressed the button and the window that
-// did not from showing different things; the shell that read an answer and the shell that only
-// listened would disagree the first time an effect and an event crossed.
-//
-// The same rule forbids reading state back here to build a richer answer.
-// A state read after the effect is already one event out of date, in a message the contract says
-// carries nothing.
+// Reading state back here for a richer answer is the same fault:
+// a read after the effect is already one event out of date.
 
 // fromBackend turns an untyped backend error into UNAVAILABLE.
 //
-// One helper rather than a judgement per call site: the backend's errors carry no type, so deciding
-// the code by matching on the text would derive the contract's error model from a sentence written
-// for a person, which is the one input that changes without anything failing to compile.
+// One helper rather than a judgement per call site.
+// Backend errors carry no type, so coding them off the text would derive the error model
+// from a sentence written for a person, the one input that changes without breaking the build.
 //
-// UNAVAILABLE is what is left once the other kinds are excluded.
-// Every refusal the request itself earns is made above the backend call, against the arguments or
-// the state: an empty name, a settings message carrying nothing, a count that is not positive,
+// UNAVAILABLE is the residue.
+// Every refusal the request itself earns is made above the backend call, against the arguments
+// or the state: an empty name, a settings message carrying nothing, a count that is not positive,
 // a stream already in force, nothing to apply settings to, a log file that is not there.
-// An Entwicklungsfehler never arrives either, since assert panics in the backend.
-// What remains is the world failing at something it was legal to ask for - a child process that
-// would not start, a store that could not be written, a relay that could not be reached.
+// An Entwicklungsfehler never arrives either, assert panicking in the backend.
+// What is left is the world failing at something legal to ask for: a child that would not start,
+// a store that could not be written, a relay that could not be reached.
 //
-// The cost: a settings combination no engine can build also comes back untyped from StartPublish,
-// and INVALID_ARGUMENT would describe it better.
-// Telling the two apart needs a typed refusal on Backend, and a guess off the sentence that landed
-// wrong would tell a shell to blame the user for a disk that is full.
+// Cost: a settings combination no engine can build also comes back untyped from StartPublish,
+// where INVALID_ARGUMENT would fit better.
+// Telling the two apart needs a typed refusal on Backend.
+// A guess off the sentence, landing wrong, would tell a shell to blame the user for a full disk.
 func fromBackend(what string, err error) error {
 	assert.IsNotNil(err, "a classified failure is a failure", what)
 
@@ -58,15 +54,16 @@ func fromBackend(what string, err error) error {
 
 // draftOf reads the settings off a request that needs them.
 //
-// An absent message and one carrying nothing are the same request, and both are INVALID_ARGUMENT
-// rather than a stream with no name, no relay and no codec: a shell that forgot to attach its draft
-// would otherwise persist that emptiness over the user's settings and find out on the next launch.
+// An absent message and one carrying nothing are the same request:
+// both INVALID_ARGUMENT, rather than a stream with no name, no relay and no codec.
+// A shell that forgot to attach its draft would otherwise persist that emptiness over the settings
+// and find out on the next launch.
 //
-// Emptiness is tested against the zero message rather than one chosen field, so a field added to
-// the contract stays covered without an edit here.
+// Emptiness is tested against the zero message rather than one chosen field,
+// so a field added to the contract stays covered without an edit here.
 func draftOf(m *screensharev1.Settings, verb string) (settings.Settings, error) {
-	// The verb is this file's word for what the caller was doing, never the request's,
-	// so an empty one is a call site leaving a hole in the sentence a person reads.
+	// Verb is this file's word for what the caller was doing, never the request's,
+	// so an empty one leaves a hole in the sentence a person reads.
 	assert.Assert(verb != "", "a refused draft names what it was going to be used for")
 
 	if m == nil || proto.Equal(m, &screensharev1.Settings{}) {
@@ -75,11 +72,11 @@ func draftOf(m *screensharev1.Settings, verb string) (settings.Settings, error) 
 	return wire.ToSettings(m), nil
 }
 
-// presetOf reads one saved way of publishing off a request, refusing an empty one for the reason
-// draftOf refuses an empty draft.
+// presetOf reads one saved way of publishing off a request.
+// An empty one is refused for the reason draftOf refuses an empty draft.
 //
-// A preset is a PublishSettings and nothing else: where the relay is belongs to a deployment and
-// how this machine watches belongs to a viewer, so neither is part of what applying one means.
+// A preset is a PublishSettings and nothing else: where the relay is belongs to a deployment,
+// how this machine watches to a viewer, so neither is part of applying one.
 func presetOf(m *screensharev1.PublishSettings, verb string) (settings.Publish, error) {
 	assert.Assert(verb != "", "a refused preset names what it was going to be used for")
 
@@ -92,9 +89,9 @@ func presetOf(m *screensharev1.PublishSettings, verb string) (settings.Publish, 
 // SaveSettings persists the settings the shell holds, and touches no running stream.
 //
 // Both engines run a child built from an argv and neither takes a value back afterwards,
-// so what reaches a live pipeline is ApplyToStream's business.
-// Two methods because the user's two intentions differ: keep this for next time, and put this on
-// the air now.
+// so reaching a live pipeline is ApplyToStream's business.
+// Two methods because the user's two intentions differ: keep this for next time,
+// and put this on the air.
 func (s *Server) SaveSettings(ctx context.Context, req *screensharev1.SaveSettingsRequest) (*screensharev1.SaveSettingsResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "save")
 	if err != nil {
@@ -128,9 +125,8 @@ func (s *Server) SavePreset(ctx context.Context, req *screensharev1.SavePresetRe
 
 // DeletePreset removes a named preset, and answers NOT_FOUND where no preset carries the name.
 //
-// The store is read before the delete because it does not distinguish the two answers the contract
-// does: settings.DeletePreset rewrites the file without the name, and a name that was never in it
-// is removed as successfully as one that was.
+// The store is read before the delete, settings.DeletePreset rewriting the file without the name
+// and removing an absent name as successfully as a present one.
 // NOT_FOUND is decided here, off the same list the delete walks.
 func (s *Server) DeletePreset(ctx context.Context, req *screensharev1.DeletePresetRequest) (*screensharev1.DeletePresetResponse, error) {
 	name := req.GetName()
@@ -155,16 +151,17 @@ func (s *Server) DeletePreset(ctx context.Context, req *screensharev1.DeletePres
 // StartPublish persists the settings and starts the encoder on them.
 //
 // A start naming a *different* pipeline while a stream is in force is FAILED_PRECONDITION,
-// and a pipeline waiting out a retry backoff is in force: the user asked for it, has not stopped
-// it, it comes back on its own, and the one call that ends a running pipeline ends it too.
+// and a pipeline waiting out a retry backoff is in force:
+// the user asked for it, has not stopped it, it comes back on its own,
+// and the one call that ends a running pipeline ends it too.
 // A different start let through in that gap would put two encoders on one relay path seconds apart.
 //
 // A start naming the pipeline already publishing succeeds and does nothing.
-// It is a request for a state that already holds (docs/development-principles.md, "Effects across a
-// process boundary"): a shell whose answer went missing cannot tell "not done" from "done, answer
-// lost", and asking again is the only move that resolves it.
-// publish.SamePipeline decides sameness here and at the backend, because "these two settings are
-// one stream" is one fact.
+// It is a request for a state that already holds (docs/development-principles.md,
+// "Effects across a process boundary"): a shell whose answer went missing cannot tell "not done"
+// from "done, answer lost", and asking again is the only move that resolves it.
+// publish.SamePipeline decides sameness here and at the backend,
+// "these two settings are one stream" being one fact.
 func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPublishRequest) (*screensharev1.StartPublishResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "publish")
 	if err != nil {
@@ -189,14 +186,15 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 	return &screensharev1.StartPublishResponse{}, nil
 }
 
-// ApplyToStream restarts the running stream on new settings.
+// ApplyToStream restarts the running stream on the settings the request carries.
 //
-// It names a transition rather than a state, which is the documented departure from the
-// idempotency the rest of these effects hold to (docs/development-principles.md, "Effects across a
-// process boundary"): a second apply is a second restart.
+// It names a transition rather than a state,
+// the documented departure from the idempotency of every other effect here
+// (docs/development-principles.md, "Effects across a process boundary").
+// A second apply is a second restart.
 //
-// Nothing publishing is FAILED_PRECONDITION and not a quiet start: an apply asks for the live
-// stream to change, not for a stream the user had stopped to come back.
+// Nothing publishing is FAILED_PRECONDITION and not a quiet start:
+// an apply asks for the live stream to change, not for a stopped one to come back.
 func (s *Server) ApplyToStream(ctx context.Context, req *screensharev1.ApplyToStreamRequest) (*screensharev1.ApplyToStreamResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "apply")
 	if err != nil {
@@ -213,11 +211,11 @@ func (s *Server) ApplyToStream(ctx context.Context, req *screensharev1.ApplyToSt
 	return &screensharev1.ApplyToStreamResponse{}, nil
 }
 
-// StopPublish ends the stream, whether it is running or waiting out a backoff.
+// StopPublish ends the stream, running or waiting out a backoff.
 //
 // It refuses nothing, a stop with nothing publishing included.
-// A stop names what is to be true afterwards, and where that already holds no precondition is left
-// to fail on.
+// A stop names what is to be true afterwards,
+// and where that already holds no precondition is left to fail on.
 func (s *Server) StopPublish(ctx context.Context, req *screensharev1.StopPublishRequest) (*screensharev1.StopPublishResponse, error) {
 	s.backend.StopPublish()
 
@@ -225,11 +223,10 @@ func (s *Server) StopPublish(ctx context.Context, req *screensharev1.StopPublish
 }
 
 // StartWatch opens an external viewer for one stream over one transport.
-// Half a pair is INVALID_ARGUMENT, and a leg that cannot carry the stream's format is
-// FAILED_PRECONDITION.
+// Half a pair is INVALID_ARGUMENT, a leg that cannot carry the stream's format FAILED_PRECONDITION.
 //
-// The transport is per viewer and independent of the publish leg, so one stream can be watched over
-// any leg the relay serves it on.
+// The transport is per viewer and independent of the publish leg,
+// so one stream is watchable over any leg the relay serves it on.
 func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRequest) (*screensharev1.StartWatchResponse, error) {
 	ref := wire.StreamRefOf(req.GetViewer())
 	name, leg := ref.StreamName, ref.Transport
@@ -241,18 +238,17 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 	}
 
 	if err := s.backend.StartWatch(ref); err != nil {
-		// The carriage refusal, which is the world not being ready rather than the request being
-		// malformed: the relay re-serves a stream only on the listeners whose protocol has a payload
-		// mapping for its bitstream, so an SRT viewer opened on a VP9 stream connects and receives
-		// nothing.
-		// Both halves of the pair exist - the leg is one this build serves, the stream one the relay
-		// carries - and what stands in the way is the format the stream is published in at this instant.
+		// Carriage refusal: the world not ready, not a malformed request.
+		// The relay re-serves a stream only on listeners whose protocol carries a payload mapping
+		// for its bitstream, so an SRT viewer opened on a VP9 stream connects and receives nothing.
+		// Both halves exist: the leg one this build serves, the stream one the relay carries.
+		// What stands in the way is the publish format at this instant.
 		// Republished as H.264, the same request succeeds.
-		// The backend's sentence names the format and the legs that do carry it, so the reason reaches
-		// the user intact.
+		// The backend's sentence names the format and the legs that do carry it,
+		// so the reason reaches the user intact.
 		//
-		// A transport this build has no viewer for is INVALID_ARGUMENT under the contract's table, and
-		// the backend says which of the two it is by returning a Refused for it.
+		// A transport this build has no viewer for is INVALID_ARGUMENT under the contract's table,
+		// and the backend separates the two by returning a Refused for it.
 		if refused(err) {
 			return nil, invalidArgument("cannot watch '%s' over %s: %v", name, leg, err)
 		}
@@ -264,7 +260,7 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 // StopWatch closes one open viewer.
 //
 // The pair is checked for the reason StreamRef exists: one stream is watched over several transports
-// at once, so half an identity names a viewer that cannot exist and is INVALID_ARGUMENT.
+// at once, so half an identity names a viewer that cannot exist, and is INVALID_ARGUMENT.
 // A complete pair with no viewer open succeeds, on the ground StopPublish does.
 func (s *Server) StopWatch(ctx context.Context, req *screensharev1.StopWatchRequest) (*screensharev1.StopWatchResponse, error) {
 	ref := wire.StreamRefOf(req.GetViewer())
@@ -282,13 +278,13 @@ func (s *Server) StopWatch(ctx context.Context, req *screensharev1.StopWatchRequ
 
 // OpenInBrowser opens the relay's player page for one stream in the machine's default browser.
 //
-// The pair and its refusals are StartWatch's, for the same reasons: the leg is per reader, and one
-// the stream's format does not cross opens a page that connects and shows nothing.
+// The pair and its refusals are StartWatch's, for the same reasons: the leg is per reader,
+// and one the stream's format does not cross opens a page that connects and shows nothing.
 //
-// A second call opens a second page.
-// That is the documented departure from idempotency (docs/development-principles.md, "Effects
-// across a process boundary"): the effect lands in a program this process does not own, so there is
-// no state to read back, no stop to write, and nothing here reaches the viewer state.
+// A second call opens a second page, the documented departure from idempotency
+// (docs/development-principles.md, "Effects across a process boundary"):
+// the effect lands in a program this process does not own, so there is no state to read back,
+// no stop to write, and nothing here reaches the viewer state.
 func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBrowserRequest) (*screensharev1.OpenInBrowserResponse, error) {
 	ref := wire.StreamRefOf(req.GetViewer())
 	name, leg := ref.StreamName, ref.Transport
@@ -306,18 +302,18 @@ func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBro
 }
 
 // StartReceive opens a decode for one stream on one leg, inside the backend.
-// A decode already open on that pair is the state the call names and succeeds.
+// A decode already open on that pair is the state the call names, and succeeds.
 //
-// The empty-argument refusals and the carriage one are StartWatch's, for the same reasons: the pair
-// is the identity a decode is keyed by, and a leg that cannot carry the stream's format is a
-// request the world is not ready for rather than a malformed one.
-// What differs is the engine the carriage is asked about, a receive pipeline reaching WHEP where no
-// player does, and the backend is what asks.
+// The empty-argument refusals and the carriage one are StartWatch's, for the same reasons:
+// the pair is the identity a decode is keyed by, and a leg that cannot carry the stream's format
+// is the world not being ready rather than a malformed request.
+// What differs is the engine the carriage is asked about,
+// a receive pipeline reaching WHEP where no player does, and the backend is what asks.
 //
 // Tone mapping is not checked here.
 // Whether the stream carries more range than a display shows is known once the decoder negotiates
 // and not before, and whether this machine can roll it down is the backend's registry,
-// so a refusal written here would guess at both.
+// so a refusal here would guess at both.
 func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartReceiveRequest) (*screensharev1.StartReceiveResponse, error) {
 	ref := wire.StreamRefOf(req.GetStream())
 	name, leg := ref.StreamName, ref.Transport
@@ -335,8 +331,7 @@ func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartRecei
 }
 
 // StopReceive closes one running decode.
-// The pair is checked, and a pair nothing is decoding succeeds, both for the reasons StopWatch
-// gives.
+// The pair is checked, and a pair nothing is decoding succeeds, both for StopWatch's reasons.
 func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceiveRequest) (*screensharev1.StopReceiveResponse, error) {
 	ref := wire.StreamRefOf(req.GetStream())
 	if ref.StreamName == "" {
@@ -351,16 +346,15 @@ func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceive
 	return &screensharev1.StopReceiveResponse{}, nil
 }
 
-// StartMonitorPreview reads one of this machine's screens, so the wizard can offer it by its
-// picture rather than by its number.
-// A monitor already being previewed is the state the call names and succeeds.
+// StartMonitorPreview reads one of this machine's screens, so the wizard offers it by its picture
+// rather than by its number.
+// A monitor already being previewed is the state the call names, and succeeds.
 //
 // The index is not checked here, unlike the pair the receive methods take.
-// An empty stream name shows as a hole from the message alone.
-// Every integer is a monitor index somewhere, and whether it is one of this machine's is a fact
-// about the machine.
-// The backend answers that, and a Refused is what separates the index naming no output of this
-// machine (INVALID_ARGUMENT) from a session that cannot read one screen apart from another
+// An empty stream name shows as a hole from the message alone, while every integer is a monitor
+// index somewhere, and whether it is one of this machine's is a fact about the machine.
+// The backend answers that, a Refused separating the index naming no output of this machine
+// (INVALID_ARGUMENT) from a session that cannot read one screen apart from another
 // (FAILED_PRECONDITION).
 func (s *Server) StartMonitorPreview(ctx context.Context, req *screensharev1.StartMonitorPreviewRequest) (*screensharev1.StartMonitorPreviewResponse, error) {
 	monitor := int(req.GetMonitor())
@@ -375,8 +369,7 @@ func (s *Server) StartMonitorPreview(ctx context.Context, req *screensharev1.Sta
 }
 
 // StopMonitorPreview closes one monitor's preview.
-// A monitor nothing is previewing succeeds, for the reason StopReceive takes a decode already
-// closed.
+// A monitor nothing is previewing succeeds, as StopReceive takes a decode already closed.
 func (s *Server) StopMonitorPreview(ctx context.Context, req *screensharev1.StopMonitorPreviewRequest) (*screensharev1.StopMonitorPreviewResponse, error) {
 	s.backend.StopMonitorPreview(int(req.GetMonitor()))
 
@@ -387,7 +380,7 @@ func (s *Server) StopMonitorPreview(ctx context.Context, req *screensharev1.Stop
 //
 // The pair is checked for the reason every receive method checks it.
 // The refusal differs: a decode that is not running is NOT_FOUND rather than a quiet success,
-// this being a request about something absent rather than for a state that already holds.
+// being a request about something absent rather than for a state that already holds.
 // A repeat of a loudness is that state, and succeeds.
 //
 // The volume is not range-checked here.
@@ -412,15 +405,15 @@ func (s *Server) SetReceiveAudio(ctx context.Context, req *screensharev1.SetRece
 // ProbeEncoders test-encodes on every engine, records what this machine can really run,
 // and announces the catalog that result changed.
 //
-// The announcement is why this is a method rather than a flag on GetCatalog: every shell learns on
-// the stream, including the ones that never asked, instead of one shell's read silently moving what
-// a different shell's next resolve says.
+// A method rather than a flag on GetCatalog, for the announcement: every shell learns on the stream,
+// the ones that never asked included, instead of one shell's read moving what a different shell's
+// next resolve says.
 //
 // The catalog is announced unconditionally rather than only where the result moved.
-// The probe is cached for the process lifetime, so a second call is answered from the cache and
-// publishes a state its subscribers already hold; a duplicate whole-state event is harmless by
-// construction, and comparing availabilities to avoid one would be a second definition of when two
-// probe results are the same.
+// The probe is cached for the process lifetime, so a second call is answered from the cache
+// and publishes a state its subscribers already hold.
+// A duplicate whole-state event is harmless by construction, and comparing availabilities to avoid
+// one would be a second definition of when two probe results are the same.
 func (s *Server) ProbeEncoders(ctx context.Context, req *screensharev1.ProbeEncodersRequest) (*screensharev1.ProbeEncodersResponse, error) {
 	s.backend.Encoders(ctx)
 	s.events.Publish(wire.CatalogEvent(s.catalog()))
@@ -430,10 +423,10 @@ func (s *Server) ProbeEncoders(ctx context.Context, req *screensharev1.ProbeEnco
 
 // StartTestStreams launches synthetic publishers, replacing a running set.
 //
-// A count that is not positive is INVALID_ARGUMENT: it names a set of publishers that cannot exist,
+// A count that is not positive is INVALID_ARGUMENT, naming a set of publishers that cannot exist,
 // and stopping them has a method of its own.
 // A count above MaxTestStreams is RESOURCE_EXHAUSTED: each test stream runs its own software
-// encoder, so a large set saturates the machine without testing anything new.
+// encoder, so a large set saturates the machine and tests nothing further.
 //
 // Both refusals are made above the call, where every request-earned refusal in this file is made.
 // Inferring the bound from the backend's error would put a viewer binary that could not be found
@@ -463,8 +456,8 @@ func (s *Server) StopTestStreams(ctx context.Context, req *screensharev1.StopTes
 	return &screensharev1.StopTestStreamsResponse{}, nil
 }
 
-// ForgetPortalConsent drops the stored screen-capture consent, so the next capture asks the
-// compositor to pick again.
+// ForgetPortalConsent drops the stored screen-capture consent,
+// so the next capture asks the compositor to pick again.
 // How a share aimed at the wrong window or monitor is corrected.
 func (s *Server) ForgetPortalConsent(ctx context.Context, req *screensharev1.ForgetPortalConsentRequest) (*screensharev1.ForgetPortalConsentResponse, error) {
 	if err := s.backend.ForgetPortalConsent(); err != nil {
@@ -475,11 +468,11 @@ func (s *Server) ForgetPortalConsent(ctx context.Context, req *screensharev1.For
 
 // CreateGroup draws a group key at the relay named in the request and answers it.
 //
-// Nothing is stored: the group key goes back to the shell, which writes it to the group key field
-// like a value the user typed, so the one write that moves a machine between groups stays where
-// every other settings write is.
-// A relay with no group service and an unreachable one are both the caller's to fix, so each leaves
-// as the backend's own sentence rather than as a group key drawn nowhere.
+// Nothing is stored: the group key goes back to the shell.
+// The shell writes it to the group key field like a value the user typed,
+// so the one write moving a machine between groups stays where every other settings write is.
+// A relay with no group service and an unreachable one are both the caller's to fix,
+// so each leaves as the backend's own sentence rather than as a group key drawn nowhere.
 func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroupRequest) (*screensharev1.CreateGroupResponse, error) {
 	groupKey, groupID, err := s.backend.CreateGroup(wire.ToRelay(req.GetRelay()))
 	if err != nil {
@@ -491,13 +484,13 @@ func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroup
 // JoinGroup joins the group the settings name, drawing this machine's member identity where it holds
 // none and stating its presence at once.
 //
-// A group this machine is already in is the state the call names and succeeds, drawing nothing.
+// A group this machine is already in is the state the call names, and succeeds, drawing nothing.
 //
 // The two preconditions are read off the settings above the call, where every request-earned refusal
-// in this file is made: a machine with no group key names no group to join, and one with no display
-// name has nothing to claim in it.
-// A name another member holds is the third refusal and the backend's to make, the group service being
-// the only side that knows who holds what, and it arrives as a Refused.
+// in this file is made: a machine with no group key names no group to join,
+// and one with no display name has nothing to claim in it.
+// A name another member holds is the third refusal, the backend's to make,
+// the group service being the only side that knows who holds what, and it arrives as a Refused.
 func (s *Server) JoinGroup(ctx context.Context, req *screensharev1.JoinGroupRequest) (*screensharev1.JoinGroupResponse, error) {
 	relay := s.backend.Settings().Relay
 	if relay.GroupKey == "" {
@@ -516,11 +509,10 @@ func (s *Server) JoinGroup(ctx context.Context, req *screensharev1.JoinGroupRequ
 	return &screensharev1.JoinGroupResponse{}, nil
 }
 
-// LeaveGroup releases this machine's presence and drops the identity it held in the group, which the
-// relay answers by closing what this machine had open there.
+// LeaveGroup releases this machine's presence and drops the identity it held in the group.
+// The relay answers by closing what this machine had open there.
 //
-// It refuses nothing, a leave by a machine in no group included: a leave names what is to be true
-// afterwards, and where that already holds no precondition is left to fail on.
+// It refuses nothing, a leave by a machine in no group included, on the ground StopPublish does.
 func (s *Server) LeaveGroup(ctx context.Context, req *screensharev1.LeaveGroupRequest) (*screensharev1.LeaveGroupResponse, error) {
 	if err := s.backend.LeaveGroup(); err != nil {
 		return nil, fromBackend("cannot leave this group", err)
@@ -530,12 +522,12 @@ func (s *Server) LeaveGroup(ctx context.Context, req *screensharev1.LeaveGroupRe
 
 // OpenLog opens one run log in the machine's default application.
 //
-// The path comes off an ExitInfo the backend handed out and a shell constructs none, so an empty
-// path is INVALID_ARGUMENT, the exit having carried no log, and a path that is not there is
-// NOT_FOUND.
+// The path comes off an ExitInfo the backend handed out and a shell constructs none,
+// so an empty path is INVALID_ARGUMENT, the exit having carried no log,
+// and a path that is not there is NOT_FOUND.
 // The second check is made here rather than left to the default handler, which cannot tell the two
-// apart: run logs are rotated, so a log named by an older exit is a file that existed and has since
-// gone, and "no log file at this path" says so.
+// apart: run logs are rotated, so a log named by an older exit is a file that has since gone,
+// and "no log file at this path" says so.
 //
 // A second call opens a second window, the departure OpenInBrowser documents.
 func (s *Server) OpenLog(ctx context.Context, req *screensharev1.OpenLogRequest) (*screensharev1.OpenLogResponse, error) {

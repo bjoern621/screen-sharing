@@ -12,11 +12,11 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// SRT is keyed per prefix out of the relay's path configuration:
-// an entry named "~^<prefix>" is a regex MediaMTX matches against every path under the prefix,
-// and the passphrases inside key both directions of the handshake, measured against v1.20.0.
-// The group service writes the entries through here,
-// from the same derivation the app runs (internal/group, SrtPassphrase).
+// SRT is keyed per prefix out of the relay's path configuration: an entry named "~^<prefix>"
+// is a regex MediaMTX matches against every path under the prefix, and the passphrases inside key
+// both directions of the handshake, measured against v1.20.0.
+// The group service writes the entries through here, from the same derivation the app runs
+// (internal/group, SrtPassphrase).
 
 // srtKeysConf is the slice of a path configuration entry this app owns.
 type srtKeysConf struct {
@@ -24,15 +24,15 @@ type srtKeysConf struct {
 	SrtReadPassphrase    string `json:"srtReadPassphrase"`
 }
 
-// prefixAlphabet is every character a group prefix spells, the id encoding's own and the separator.
-// None is a regex metacharacter,
-// which is what lets a prefix stand inside an anchored regex unquoted.
+// prefixAlphabet is every character a group prefix spells: the id encoding's own, plus
+// the separator.
+// None is a regex metacharacter, so a prefix stands inside an anchored regex unquoted.
 const prefixAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567/"
 
 // EnsureSRTKeys makes the relay key SRT under prefix with passphrase, both directions.
 //
-// Idempotent and read-through:
-// the entry is read, written only where it differs, and nothing is held here.
+// Idempotent and read-through: the entry is read, written only where it differs, and nothing
+// is held here.
 // The relay's configuration is the one copy, so one restarted empty is re-seeded by the next call.
 func (c *Client) EnsureSRTKeys(host string, apiPort int, prefix, passphrase string) error {
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)

@@ -19,20 +19,20 @@ const ffmpegMeterHost = "127.0.0.1"
 // total still answers what the stream costs.
 //
 // ffmpeg derives its own byte figures from the muxer it writes, and the RTP family reports none:
-// a stream published over RTSP reports its frame rate on every sample and its bitrate on none, for
-// the whole run.
-// The tee already carries the encoded packets to whatever wants them, so this is a second reader of
-// the one encode rather than a second encode (ffmpeg.Tap).
+// a stream published over RTSP reports its frame rate on every sample and its bitrate on none,
+// for the whole run.
+// The tee already carries the encoded packets to whatever wants them, so this is a second reader
+// of the one encode rather than a second encode (ffmpeg.Tap).
 //
 // The GStreamer engine answers the same question the same way (gstMeter), and both weigh the video
-// elementary stream rather than the muxed one, so both read a little under what the leg puts on the
-// wire.
+// elementary stream rather than the muxed one, so both read a little under what the leg puts
+// on the wire.
 type ffmpegMeter struct {
 	ln    net.Listener
 	bytes atomic.Int64
 
-	// now and start are the clock the rates are measured against, injectable so a test can hold an
-	// interval still.
+	// now and start are the clock the rates are measured against, injectable so a test can hold
+	// an interval still.
 	now   func() time.Time
 	start time.Time
 
@@ -44,8 +44,8 @@ type ffmpegMeter struct {
 
 // newFfmpegMeter opens the loopback socket the child's tee slave connects to and starts counting.
 //
-// The listener is up before the caller has an argument to put in a command, let alone a child to run
-// it, so the connection the child opens on start always finds a peer.
+// The listener is up before the caller has an argument to put in a command, let alone a child
+// to run it, so the connection the child opens on start always finds a peer.
 func newFfmpegMeter() (*ffmpegMeter, error) {
 	ln, err := net.Listen("tcp", net.JoinHostPort(ffmpegMeterHost, "0"))
 	if err != nil {
@@ -70,7 +70,7 @@ func (m *ffmpegMeter) port() string {
 // count takes the child's connection and drains it.
 // The payload is a copy of what the encoder produced, so it is weighed and discarded, never read.
 //
-// The listener closes on the first connection because a run makes exactly one.
+// The listener closes on the first connection, a run making exactly one.
 // Left open, a later run's slave could land on this port and have its bytes counted against the run
 // that opened it.
 func (m *ffmpegMeter) count() {
@@ -98,8 +98,8 @@ func (m *ffmpegMeter) close() {
 	}
 }
 
-// fill answers the byte figures this sample carries no measurement for, and leaves the rest as the
-// encoder reported them.
+// fill answers the byte figures this sample carries no measurement for, and leaves the rest
+// as the encoder reported them.
 //
 // Only the missing ones: ffmpeg weighs the muxed stream where this weighs the video alone, so
 // replacing a reported figure would swap a measurement for a narrower one.
@@ -128,10 +128,10 @@ func (m *ffmpegMeter) fill(s ffmpeg.Stats) ffmpeg.Stats {
 
 // ffmpegMeterTap is the tee slave the meter counts.
 //
-// Video alone, the question being what the picture costs, and the data muxer because a container
-// around a copy nobody plays is bytes this side would have to weigh and then discount.
-// A slave that cannot be reached is dropped rather than failing the run: a meter is what a figure on
-// screen comes from, and a stream is what the reader asked for.
+// Video alone, the question being what the picture costs, and the data muxer, a container around
+// a copy nobody plays being bytes this side would have to weigh and then discount.
+// A slave that cannot be reached is dropped rather than failing the run: a meter is what a figure
+// on screen comes from, and a stream is what the reader asked for.
 func ffmpegMeterTap(port string) ffmpeg.Tap {
 	assert.Assert(port != "", "a meter slave names the port it writes to")
 

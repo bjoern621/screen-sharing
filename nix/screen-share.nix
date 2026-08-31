@@ -1,23 +1,26 @@
 # NixOS module for the screen-sharing project's privileged kmsgrab capture path.
 #
-# kmsgrab reads the raw KMS scanout framebuffer, and the kernel gates that read behind
-# CAP_SYS_ADMIN: an unprivileged ffmpeg fails with "Failed to open DRM device" even where
-# the /dev/dri node itself is readable.
+# kmsgrab reads the raw KMS scanout framebuffer,
+# and the kernel gates that read behind CAP_SYS_ADMIN:
+# an unprivileged ffmpeg fails with "Failed to open DRM device"
+# even where the /dev/dri node itself is readable.
 #
-# The capability goes on one dedicated wrapper, /run/wrappers/bin/ffmpeg-kmsgrab, executable
-# by the video group, and ffmpeg on PATH gains nothing.
-# Its path is exported as SCREENSHARE_FFMPEG_KMSGRAB, which is what the app runs for kmsgrab
-# capture while every other path stays on the unprivileged ffmpeg.
+# The capability goes on one dedicated wrapper, /run/wrappers/bin/ffmpeg-kmsgrab,
+# executable by the video group, and ffmpeg on PATH gains nothing.
+# Its path is exported as SCREENSHARE_FFMPEG_KMSGRAB, which the app runs for kmsgrab capture,
+# every other path staying on the unprivileged ffmpeg.
 #
-# CAP_SYS_ADMIN is close to full root and the wrapper is a complete ffmpeg that also parses
-# untrusted media, so any video-group member can run arbitrary ffmpeg with that capability.
+# CAP_SYS_ADMIN is close to full root,
+# and the wrapper is a complete ffmpeg that also parses untrusted media,
+# so any video-group member can run arbitrary ffmpeg with that capability.
 # Enable this only where every member of that group is trusted.
-# A Wayland compositor that serves the PipeWire portal or wlroots screencopy needs no
-# capability at all, and that path is preferred where it exists.
+# A Wayland compositor serving the PipeWire portal or wlroots screencopy needs no capability at all,
+# and that path is preferred where it exists.
 #
-# A scanout framebuffer can be GPU tiled or compressed, carrying a nonzero DRM format
-# modifier, which a bare hwdownload fails to map with EINVAL: a capture maps it through
-# hwmap first, on a device the GPU decides (VAAPI on Intel and AMD, Vulkan elsewhere).
+# A scanout framebuffer can be GPU tiled or compressed, carrying a nonzero DRM format modifier,
+# which a bare hwdownload fails to map with EINVAL:
+# a capture maps it through hwmap first, on a device the GPU decides
+# (VAAPI on Intel and AMD, Vulkan elsewhere).
 # The app selects that device per capture (ffmpeg.DrmMaps).
 
 {
@@ -30,28 +33,32 @@
 let
   cfg = config.programs.screenShare;
 
-  # The ffmpeg build the wrapper exposes, with the AMF runtime placed where a
-  # capability-bearing binary can still find it.
+  # The ffmpeg build the wrapper exposes,
+  # with the AMF runtime placed where a capability-bearing binary can still find it.
   #
-  # libavutil dlopens AMD's libamfrt64.so.1 by soname and nothing links it, so it is reached
-  # through a search path rather than through a recorded dependency.
-  # A wrapper carrying file capabilities runs in glibc's secure-execution mode, where
-  # LD_LIBRARY_PATH is ignored, so the variable the dev shell and every packaging layer set
-  # to deliver that runtime never reaches the loader.
-  # Ordinary variables survive, so this affects AMF alone and not the oneVPL runtime behind
-  # QSV, which is located through ONEVPL_SEARCH_PATH.
+  # libavutil dlopens AMD's libamfrt64.so.1 by soname and nothing links it,
+  # so it is reached through a search path rather than through a recorded dependency.
+  # A wrapper carrying file capabilities runs in glibc's secure-execution mode,
+  # where LD_LIBRARY_PATH is ignored,
+  # so the variable the dev shell and every packaging layer set to deliver that runtime
+  # never reaches the loader.
+  # Ordinary variables survive, so this affects AMF alone
+  # and not the oneVPL runtime behind QSV, located through ONEVPL_SEARCH_PATH.
   #
-  # Untreated it is a wrong answer rather than a missing encoder: encoders.Detect probes the
-  # unprivileged ffmpeg, which does find the runtime, so the settings form offers h264_amf,
-  # hevc_amf and av1_amf, and a kmsgrab publish with one of them dies at launch with
-  # "DLL libamfrt64.so.1 failed to open".
+  # Untreated it is a wrong answer rather than a missing encoder:
+  # encoders.Detect probes the unprivileged ffmpeg, which does find the runtime,
+  # so the settings form offers h264_amf, hevc_amf and av1_amf,
+  # and a kmsgrab publish with one of them dies at launch
+  # with "DLL libamfrt64.so.1 failed to open".
   #
-  # The runtime therefore goes on libavutil's own RUNPATH, which the loader honours in
-  # secure-execution mode, and dlopen searches the RUNPATH of the object that calls it, so
-  # the entry belongs on that library and not on the executable.
-  # Patching one copied library keeps this a copy rather than an ffmpeg rebuild: the
-  # executable already lists the original library directory, and prepending the copy resolves
-  # the soname to it while every other library still comes from the original build.
+  # The runtime therefore goes on libavutil's own RUNPATH,
+  # which the loader honours in secure-execution mode,
+  # and dlopen searches the RUNPATH of the object that calls it,
+  # so the entry belongs on that library and not on the executable.
+  # Patching one copied library keeps this a copy rather than an ffmpeg rebuild:
+  # the executable already lists the original library directory,
+  # and prepending the copy resolves the soname to it
+  # while every other library still comes from the original build.
   kmsgrabFFmpeg =
     if cfg.amf == null then
       cfg.ffmpeg
@@ -122,8 +129,8 @@ in
 
   config = lib.mkIf cfg.enable {
     # One capability-bearing copy of ffmpeg under /run/wrappers/bin.
-    # Mode 0750 root:video, so group membership is what authorizes it and CAP_SYS_ADMIN
-    # reaches that group rather than every local user.
+    # Mode 0750 root:video, so group membership is what authorizes it,
+    # and CAP_SYS_ADMIN reaches that group rather than every local user.
     security.wrappers.ffmpeg-kmsgrab = {
       source = "${kmsgrabFFmpeg}/bin/ffmpeg";
       owner = "root";
@@ -132,18 +139,16 @@ in
       capabilities = "cap_sys_admin+ep";
     };
 
-    # This grants the wrapper gate and not raw node access: the DRM primary node is already
-    # reachable through the logind uaccess ACL on the active seat.
+    # This grants the wrapper gate and not raw node access:
+    # the DRM primary node is reachable through the logind uaccess ACL on the active seat.
     users.users.${cfg.user}.extraGroups = [ "video" ];
 
-    # The wrapper by absolute path, so the app depends on nothing having put
-    # /run/wrappers/bin on its inherited PATH.
-    # A session variable reaches a menu-launched GUI, which a login shell's PATH export
-    # would not.
+    # The wrapper by absolute path,
+    # so the app depends on nothing having put /run/wrappers/bin on its inherited PATH.
+    # A session variable reaches a menu-launched GUI, which a login shell's PATH export does not.
     environment.sessionVariables.SCREENSHARE_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
 
-    # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one
-    # takes.
+    # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one takes.
     environment.systemPackages = with pkgs; [
       cfg.ffmpeg
       libva-utils # vainfo: VAAPI encode entrypoints, for the zero-copy path

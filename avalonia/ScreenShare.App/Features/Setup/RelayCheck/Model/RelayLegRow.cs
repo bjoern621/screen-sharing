@@ -14,9 +14,9 @@ public sealed record RelayLegRow
     /// <summary>
     /// The leg, where it was dialled and what came back, or why nothing was dialled.
     ///
-    /// One string, drawn on the one selectable line a check row has: it holds an address and a listener's own
-    /// words, which are what a reader takes into a bug report (<c>CLAUDE.md</c>, "Every error message is
-    /// selectable and copyable").
+    /// One string, drawn on the one selectable line a check row has: it holds an address and a listener's own words,
+    /// which are what a reader takes into a bug report (<c>CLAUDE.md</c>, "Every error message is selectable
+    /// and copyable").
     /// </summary>
     public required string Text { get; init; }
 
@@ -25,8 +25,8 @@ public sealed record RelayLegRow
 
 /// <summary>
 /// The list, built from what the backend answered.
-/// Every word comes from <c>Copy/</c>: the leg names from the vocabulary the dropdowns use, and the reason a leg
-/// went undialled from the statement code beside it.
+/// Every word comes from <c>Copy/</c>: the leg names from the vocabulary the dropdowns use,
+/// and the reason a leg went undialled from the statement code beside it.
 /// What a listener said stays as it arrived, being another machine's words rather than this app's
 /// (api/proto/screenshare/v1/text.proto).
 /// </summary>
@@ -64,8 +64,8 @@ public static class RelayLegRows
 
     /// <summary>
     /// What the row says: the address and the listener's own words, or the reason nothing was dialled.
-    /// The wait rides on the end of a leg that was dialled, which is what tells a port that refused from one
-    /// that was never there.
+    /// The wait rides on the end of a leg that was dialled,
+    /// which is what tells a port that refused from one that was never there.
     /// </summary>
     private static string DetailOf(RelayLeg leg)
     {
@@ -79,11 +79,11 @@ public static class RelayLegRows
     }
 
     /// <summary>
-    /// Exhaustive, so a verdict added to the contract fails here rather than taking whatever a default arm
-    /// would give it.
+    /// Exhaustive, so a verdict added to the contract fails here,
+    /// rather than taking whatever a default arm would give it.
     ///
-    /// A leg nothing dialled is a note and never a fault: the relay binds what it is configured to bind, and a
-    /// red mark against it would send a reader looking for a break that is not there.
+    /// A leg nothing dialled is a note and never a fault: the relay binds what it is configured to bind,
+    /// and a red mark against it would send a reader looking for a break that is not there.
     /// </summary>
     private static CheckState StateOf(RelayLegVerdict verdict) => verdict switch
     {

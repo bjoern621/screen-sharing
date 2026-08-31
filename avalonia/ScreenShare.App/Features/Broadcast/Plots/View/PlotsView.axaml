@@ -91,10 +91,8 @@
           <Panel>
             <!--
               Band brushes and no band: nothing states a congestion interval, so no start and no
-              width are bound and the band stays undrawn. Shading one from this side would be a
-              detection the shell performed.
-              Nothing labels it either, for the same reason: a caption over an interval nobody
-              measured names a window nothing detected.
+              width are bound and the band stays undrawn.
+              Shading or labelling one from this side would be a detection the shell performed.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
                              Secondary="{Binding Loss}"
@@ -108,8 +106,8 @@
             </plots:Sparkline>
 
             <!--
-              The swatch is a rule in the series' own stroke, drawn rather than typed: a dash standing in
-              for one is a glyph whose weight and length the font decides.
+              Rule in the series' own stroke, drawn rather than typed: a dash standing in for one
+              is a glyph whose weight and length the font decides.
             -->
             <StackPanel Orientation="Horizontal"
                         Spacing="{StaticResource GapPanel}"

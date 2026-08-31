@@ -12,22 +12,22 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// colourOptions are the output options carrying a colour value, colourFilters the filters stating
-// one on the frames.
-// A publish command states its colour in both places at once, so lifting one without the other
-// asserts half a description.
+// colourOptions are the output options carrying a colour value,
+// colourFilters the filters stating one on the frames.
+// A publish command states its colour in both places at once,
+// so lifting one without the other asserts half a description.
 var (
 	colourOptions = []string{"-color_range", "-colorspace", "-color_primaries", "-color_trc"}
 	colourFilters = []string{"setparams", "scale", "zscale"}
 )
 
-// elementaryMuxers is what a round trip writes each codec format with: the bitstream and its
-// framing, and nothing able to describe a colour.
-// H.26x carries its framing in Annex B start codes and an AV1 OBU states its own size, so neither
-// needs a muxer to add any.
-// VP9 and VP8 frames state no size, so they travel in IVF, whose 32-byte header holds a fourcc, the
-// picture size, the frame rate and the frame count: no colour field of any kind, and byte-identical
-// between a full-range and a limited-range encode.
+// elementaryMuxers is what a round trip writes each codec format with: the bitstream
+// and its framing, and nothing able to describe a colour.
+// H.26x carries its framing in Annex B start codes and an AV1 OBU states its own size,
+// so neither needs a muxer to add any.
+// VP9 and VP8 frames state no size, so they travel in IVF, whose 32-byte header holds a fourcc,
+// the picture size, the frame rate and the frame count: no colour field of any kind,
+// and byte-identical between a full-range and a limited-range encode.
 //
 // A container would answer in the encoder's place: stream-copying an untagged AV1 stream into MP4
 // under a colour stated on the copy makes the same bytes probe as full-range BT.709.
@@ -39,17 +39,17 @@ var elementaryMuxers = map[string]string{
 	"vp8":  "ivf",
 }
 
-// bitstreamColour names the colour entries each format has a field for, spelled as ffprobe spells
-// them.
+// bitstreamColour names the colour entries each format has a field for,
+// spelled as ffprobe spells them.
 // AV1 codes the whole description in its sequence header.
 // VP9 codes a three-bit colour-space enum and a range bit, so it carries the matrix and the range
 // and has nowhere to put primaries or transfer.
 // VP8 codes one colour-space bit with a single defined value and no range at all (vp8NoFullRange).
 //
-// An entry a format has no field for reads back unsignalled whatever the encoder was told, which is
-// what makes this list an assertion rather than an allowance: the viewer picks that component off
-// the picture size, so the capability table gaps the setting the stream cannot carry instead of
-// offering it.
+// An entry a format has no field for reads back unsignalled whatever the encoder was told,
+// so this list is an assertion rather than an allowance: the viewer picks that component
+// off the picture size, so the capability table gaps
+// the setting the stream cannot carry instead of offering it.
 var bitstreamColour = map[string][]string{
 	"h264": {"color_range", "color_space", "color_primaries", "color_transfer"},
 	"hevc": {"color_range", "color_space", "color_primaries", "color_transfer"},
@@ -61,17 +61,18 @@ var bitstreamColour = map[string][]string{
 // unsignalledColour is what ffprobe prints for an entry the bitstream leaves out.
 const unsignalledColour = "unknown"
 
-// A stream's colour reaches a viewer through the bitstream alone, RTP and MPEG-TS carrying no
-// description of their own.
-// A component the encoder leaves unsignalled is one the viewer picks off the picture size, and it
-// picks limited-range BT.709.
-// A full-range publish is then expanded as limited, which crushes the blacks and clips the whites of
-// the captured screen and leaves the colour-range setting acting on nothing.
+// A stream's colour reaches a viewer through the bitstream alone, RTP
+// and MPEG-TS carrying no description of their own.
+// A component the encoder leaves unsignalled is one the viewer picks off the picture size,
+// and it picks limited-range BT.709.
+// A full-range publish is then expanded as limited, which crushes the blacks
+// and clips the whites of the captured screen
+// and leaves the colour-range setting acting on nothing.
 //
 // So the colour the publish command states is run through a real encode and read back with ffprobe,
-// which is what a viewer's decoder reads.
-// The options and the filters are lifted from BuildPublishArgs rather than restated, so what is
-// asserted is the command a publish runs.
+// off the bitstream a viewer's decoder reads.
+// The options and the filters are lifted from BuildPublishArgs rather than restated,
+// so what is asserted is the command a publish runs.
 func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
 	if err != nil {
@@ -115,10 +116,10 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 					s.Publish.BitrateM = limit
 				}
 
-				// A colour range this engine cannot state is declared as a gap and refused before a command is
-				// built, so the refusal is what gets asserted there.
-				// Encoding it anyway is what the gap exists to prevent: a stream watched in another range than
-				// the form shows.
+				// A colour range this engine cannot state is declared as a gap
+				// and refused before a command is built, so the refusal is what gets asserted there.
+				// Encoding it anyway is what the gap exists to prevent:
+				// a stream watched in another range than the form shows.
 				if gap, gapped := cap.OptionGap(capabilities.EngineFfmpeg, capabilities.OptionColorRange, colorRange); gapped {
 					if _, err := BuildPublishArgs(s, nil); err == nil {
 						t.Fatalf("colour range %s is gapped on this engine, so it must be refused rather than encoded: %s",
@@ -149,8 +150,8 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				}
 				args = append(args, enc...)
 				args = append(args, options...)
-				// A surface encode takes its layout from the upload filter and its encoder reads no software
-				// pixel format, as in BuildPublishArgs.
+				// A surface encode takes its layout from the upload filter
+				// and its encoder reads no software pixel format, as in BuildPublishArgs.
 				if !surface {
 					args = append(args, "-pix_fmt", s.Publish.Chroma)
 				}
@@ -159,8 +160,8 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), encodeTimeout)
 				defer cancel()
 				if out, err := exec.CommandContext(ctx, exe, args...).CombinedOutput(); err != nil {
-					// An absent hardware encoder is the machine's answer rather than the builder's, the split
-					// TestEncoderArgsAgainstFfmpeg makes as well.
+					// An absent hardware encoder is the machine's answer rather than the builder's,
+					// the split TestEncoderArgsAgainstFfmpeg makes as well.
 					if cap.Family == "software" {
 						t.Fatalf("ffmpeg %s: %v\n%s", strings.Join(args, " "), err, out)
 					}
@@ -177,9 +178,9 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 					got := signalled[want.entry]
 					if !slices.Contains(bitstreamColour[cap.Format], want.entry) {
 						// The format has no field for the component, so the viewer picks it off the picture size.
-						// Asserting the unsignalled read keeps bitstreamColour a measurement: a format that starts
-						// carrying a component belongs on the list, and a range that stays unsignalled belongs in a
-						// colour-range gap.
+						// Asserting the unsignalled read keeps bitstreamColour a measurement:
+						// a format that starts carrying a component belongs on the list,
+						// and a range that stays unsignalled belongs in a colour-range gap.
 						if got != unsignalledColour {
 							t.Errorf("%s signals %s=%s where the %s bitstream has no field for it: the format's entry in bitstreamColour is stale",
 								cap.Name, want.entry, got, cap.Format)
@@ -198,8 +199,9 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 
 // The colour a stream claims has to be the colour it holds.
 // A tag stating the range as well as the description makes the conversion to the encoder's pixel
-// format write limited range whatever -color_range says, and full-range white then leaves the
-// capture chain at Y=235 under a bitstream claiming 255, which the viewer expands a second time.
+// format write limited range whatever -color_range says, and full-range white then leaves
+// the capture chain at Y=235 under a bitstream claiming 255,
+// which the viewer expands a second time.
 //
 // White is the frame that shows it: at the top of the range the two spellings are 20 codes apart.
 func TestPublishedFullRangeStaysFullRangeThroughTheColourTag(t *testing.T) {
@@ -237,8 +239,8 @@ func TestPublishedFullRangeStaysFullRangeThroughTheColourTag(t *testing.T) {
 				t.Fatalf("ffmpeg %s: %v\n%s", strings.Join(args, " "), err, out)
 			}
 
-			// The decode asks for the encoder's own layout, so the frame's first byte is the stored luma with
-			// no conversion in between.
+			// The decode asks for the encoder's own layout, so the frame's first byte is the stored luma
+			// with no conversion in between.
 			decode := exec.CommandContext(ctx, exe, "-hide_banner", "-loglevel", "error",
 				"-i", stream, "-frames:v", "1", "-pix_fmt", s.Publish.Chroma, "-f", "rawvideo", "-")
 			frame, err := decode.Output()
@@ -256,16 +258,17 @@ func TestPublishedFullRangeStaysFullRangeThroughTheColourTag(t *testing.T) {
 	}
 }
 
-// yuvChroma is the narrowest YUV format this engine reaches for the codec, a row's chroma list
-// running widest first.
-// Planar RGB is left out: it is full range by construction and carries no colour range, which is why
-// BuildPublishArgs states none for it.
+// yuvChroma is the narrowest YUV format this engine reaches for the codec,
+// a row's chroma list running widest first.
+// Planar RGB is left out: full range by construction and carrying no colour range,
+// so BuildPublishArgs states none for it.
 // colorimetryMode is the rate control this codec is measured under.
 //
-// The colour a stream is coded in is no rate control's business, so any mode the row reaches will
-// do, and the constant-quality one is preferred because it holds the picture still across the codecs
-// while the rate modes each spend a different amount on it.
-// A codec reaching none is one no combination could encode at all, which is a row nothing publishes.
+// The colour a stream is coded in is no rate control's business,
+// so any mode the row reaches will do, and the constant-quality one is preferred because it holds
+// the picture still across the codecs while the rate modes each spend a different amount on it.
+// A codec reaching none is one no combination could encode at all,
+// which is a row nothing publishes.
 func colorimetryMode(t *testing.T, cap capabilities.Codec) string {
 	t.Helper()
 	if capabilities.Reaches(cap.Name, "ffmpeg", capabilities.OptionMode, capabilities.ModeCrf) {
@@ -292,8 +295,8 @@ func yuvChroma(t *testing.T, cap capabilities.Codec) string {
 	return ""
 }
 
-// publishColour lifts the colour out of a built publish command: the output options with their
-// values, and the filter links that tag the frames.
+// publishColour lifts the colour out of a built publish command:
+// the output options with their values, and the filter links that tag the frames.
 func publishColour(t *testing.T, s settings.Settings) (options, filters []string) {
 	t.Helper()
 	args, err := BuildPublishArgs(s, nil)
@@ -317,10 +320,10 @@ func publishColour(t *testing.T, s settings.Settings) (options, filters []string
 	return options, filters
 }
 
-// signalledColour reads back what the bitstream says about its colour, keyed as ffprobe names the
-// entries.
-// An entry the stream leaves out reads "unknown", which is the component a viewer replaces with a
-// guess.
+// signalledColour reads back what the bitstream says about its colour,
+// keyed as ffprobe names the entries.
+// An entry the stream leaves out reads "unknown",
+// which is the component a viewer replaces with a guess.
 func signalledColour(t *testing.T, probe, stream string) map[string]string {
 	t.Helper()
 	out, err := exec.Command(probe, "-v", "error",

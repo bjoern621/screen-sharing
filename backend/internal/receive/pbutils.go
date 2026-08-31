@@ -24,8 +24,8 @@ import (
 // assertions on stderr and the registrations are dropped.
 //
 // Two calls are a smaller thing to own than an init order nothing in this package can reach, so
-// initialization stays with initGStreamer (receive.go), on the first pipeline and after the
-// plugin path is set.
+// initialization stays with initGStreamer (receive.go), on the first pipeline and after
+// the plugin path is set.
 
 // initPbUtils loads the tables pbUtilsCodecDescription reads, and is idempotent.
 func initPbUtils() { C.gst_pb_utils_init() }

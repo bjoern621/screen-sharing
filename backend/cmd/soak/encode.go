@@ -17,11 +17,12 @@ import (
 // A hardware encoder that never submits work is the defect this catches.
 const engineFloorNs = 1_000_000
 
-// runEncode times the configured encoder on generated frames and holds what it did against what
-// the settings asked for.
+// runEncode times the configured encoder on generated frames
+// and holds what it did against what the settings asked for.
 //
-// The measurement needs no screen, so it reaches every codec on the machine without a capture
-// consent, and it runs the encoder the form named rather than a stand-in.
+// The measurement needs no screen,
+// so it reaches every codec on the machine without a capture consent,
+// and it runs the encoder the form named rather than a stand-in.
 func runEncode(ctx context.Context, run *session, rng *rand.Rand, until time.Time) error {
 	families, err := run.families(ctx)
 	runnable := run.usable()
@@ -105,8 +106,9 @@ func runEncode(ctx context.Context, run *session, rng *rand.Rand, until time.Tim
 					fmt.Sprintf("the backend died measuring %s: %v", codec, err), fields, settings)
 				return fmt.Errorf("the backend is gone after measuring %s: %w", codec, err)
 			}
-			// The probe is what a form greys against, so an encoder it passed and the machine cannot
-			// run is the probe answering for a codec it never really started.
+			// The probe is what a form greys against,
+			// so an encoder it passed and the machine cannot run
+			// is the probe answering for a codec it never really started.
 			kind := "encode.measure_failed"
 			if runnable[codec] && status.Code(err) != codes.Canceled && status.Code(err) != codes.DeadlineExceeded {
 				kind = "encode.probed_usable_but_unrunnable"
@@ -159,9 +161,9 @@ func checkRate(run *session, codec, family string, rate *v1.EncodeRate, delta tr
 
 // runMulti measures what a second, third and fourth encode on this machine costs the first.
 //
-// The synthetic publishers are the load: each runs its own software encoder, so the ramp says what
-// competing encodes do to the one being timed, and a hardware encoder that shares no silicon with
-// them should barely move.
+// The synthetic publishers are the load: each runs its own software encoder,
+// so the ramp says what competing encodes do to the one being timed,
+// and a hardware encoder that shares no silicon with them barely moves.
 func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time) error {
 	families, err := run.families(ctx)
 	if err != nil {
@@ -185,8 +187,8 @@ func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time
 		run.report.setIteration(iteration)
 
 		// A codec per ramp, so the run covers what each engine does under competition.
-		// Both fields, an encoder being addressed by the pair: the format alone would leave whichever
-		// encoder the draft arrived on producing it.
+		// Both fields, an encoder being addressed by the pair:
+		// the format alone would leave whichever encoder the draft arrived on producing it.
 		codecs := run.codecNames()
 		draft := proto.Clone(settings).(*v1.Settings)
 		if len(codecs) > 0 {
@@ -201,8 +203,9 @@ func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time
 				return err
 			}
 		}
-		// A rate every encoder takes. What this mode measures is what competing encodes cost, and a
-		// draft carrying a rate one of them refuses would measure nothing at all.
+		// A rate every encoder takes.
+		// What this mode measures is what competing encodes cost,
+		// and a draft carrying a rate one of them refuses would measure nothing at all.
 		if err := setNumber(draft, "publish.bitrate_mbps", 8); err != nil {
 			return err
 		}
@@ -231,8 +234,8 @@ func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time
 					err.Error(), map[string]string{"streams": fmt.Sprint(load)}, nil)
 				continue
 			}
-			// The publishers that were running have to be gone before the next reading, or the ramp
-			// prices the machine's recovery instead of its load.
+			// The publishers that were running have to be gone before the next reading,
+			// or the ramp prices the machine's recovery instead of its load.
 			select {
 			case <-ctx.Done():
 				return nil

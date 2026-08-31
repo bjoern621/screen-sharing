@@ -9,15 +9,15 @@ import (
 
 // A backend refusal the request earned, as against the machine's state.
 //
-// The contract states INVALID_ARGUMENT for a request naming something that does not exist on this
-// build or this machine, and FAILED_PRECONDITION for one whose arguments are all real and whose
-// moment is wrong (api/proto/screenshare/v1/control.proto).
+// The contract (api/proto/screenshare/v1/control.proto) splits them:
+// INVALID_ARGUMENT for a request naming something absent from this build or this machine,
+// FAILED_PRECONDITION for one whose arguments are all real and whose moment is wrong.
 // A backend answering both with a plain error leaves this side to tell them apart by the sentence,
-// which is a contract derived from prose written for a person (fromBackend).
-// The type is what carries the difference instead.
+// a contract derived from prose written for a person (fromBackend).
+// The type carries the difference instead.
 
-// Refused marks an error as earned by the request: a monitor index no output is enumerated under, a
-// transport this build has no viewer for.
+// Refused marks an error as earned by the request:
+// a monitor index no output is enumerated under, a transport this build has no viewer for.
 // Everything else a backend returns is the world failing at something it was legal to ask for.
 type Refused struct {
 	cause error
@@ -35,8 +35,8 @@ func (e *Refused) Error() string { return e.cause.Error() }
 
 func (e *Refused) Unwrap() error { return e.cause }
 
-// refused reports whether err carries a Refused anywhere in its chain, so a backend wrapping one
-// with context keeps the code it earned.
+// refused reports whether err carries a Refused anywhere in its chain,
+// so a backend wrapping one with context keeps the code it earned.
 func refused(err error) bool {
 	var r *Refused
 	return errors.As(err, &r)

@@ -7,17 +7,16 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Two defects the panel is guarded against.
-/// An unmeasured figure printed as a zero reads as a decode receiving nothing, and every row spends the
-/// seconds a stream is opening in that state.
-/// A row with no tip is a number a reader cannot act on, and a key with no entry renders as the raw key with
-/// nothing else to catch it.
+/// An unmeasured figure printed as zero reads as a decode receiving nothing,
+/// and every row sits in that state for the seconds a stream takes to open.
+/// A row with no tip is a number a reader cannot act on,
+/// and a key with no entry renders as the raw key with nothing else to catch it.
 /// </summary>
 public sealed class TileStatsTests
 {
     /// <summary>
-    /// One sample off a pipeline that has negotiated everything and been measured at least twice.
-    /// A test about an absence takes a field back off it, so the line that differs is what the test is
-    /// about.
+    /// One sample off a pipeline that negotiated everything and was measured at least twice.
+    /// A test about an absence takes a field back off it, so the line that differs is the test's subject.
     /// </summary>
     private static ReceiveStreamStats Sample() => new()
     {
@@ -75,8 +74,7 @@ public sealed class TileStatsTests
         AudioBytes = 27_000_000,
         AudioKbps = 96,
 
-        // A stamped stream over a leg stating its own window at both ends, which is what fills every stage
-        // of the path.
+        // Stamped stream over a leg stating its own window at both ends, so every stage of the path fills.
         Delay = new DelayBudget
         {
             PublishMs = 8.4,
@@ -109,11 +107,11 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The delay block is the whole path in the order a frame crosses it.
-    /// The way between the two machines is timed as a whole and drawn nowhere: it is what the relay's row is
-    /// derived from and what the total counts, and a row of its own would print those milliseconds a third time.
-    /// The decode's worst frame is the one row that is not a stage, and it sits under the mean it is read
-    /// against rather than in a block of its own.
+    /// Delay block is the whole path in the order a frame crosses it.
+    /// The way between the two machines is timed as a whole and drawn nowhere:
+    /// the relay's row is derived from it and the total counts it, so a row of its own prints those ms a third time.
+    /// Decode's worst frame is the one row that is not a stage,
+    /// and it sits under the mean it is read against rather than in a block of its own.
     /// </summary>
     [Fact]
     public void TheDelayBlockNamesEveryStageOfThePath()
@@ -134,8 +132,8 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A stream carrying no clock of its own leaves the relay's share unmeasured, that share being what the
-    /// timing of the whole way here leaves over once the two windows come off it.
+    /// A stream carrying no clock of its own leaves the relay's share unmeasured,
+    /// that share being what the timing of the whole way here leaves over once the two windows come off it.
     /// </summary>
     [Fact]
     public void AnUnstampedStreamShowsNoRelayShare()
@@ -151,8 +149,8 @@ public sealed class TileStatsTests
 
     /// <summary>
     /// A stream carrying nothing of the publishing side draws no figure for it, rather than one standing in.
-    /// Which streams those are is the backend's answer: the pictures carry the publishing machine's own
-    /// readings, so it is a stream with no stamp in it and not simply one from another machine.
+    /// Which streams those are is the backend's answer: the pictures carry the publishing machine's own readings,
+    /// so the case is a stream with no stamp in it, not one from another machine.
     /// </summary>
     [Fact]
     public void AStreamWithNoPublishingReadingShowsNoPublishingStages()
@@ -168,8 +166,8 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// Rows are keyed on identifiers the two sides own, and a missing entry renders as the identifier, which
-    /// only a reader on that row would see.
+    /// Rows are keyed on identifiers the two sides own,
+    /// and a missing entry renders as the identifier, which only a reader on that row would see.
     /// </summary>
     [Fact]
     public void EveryRowAndEveryHeadingSaysWhatItMeans()
@@ -235,7 +233,7 @@ public sealed class TileStatsTests
         Assert.Equal("…", Value(panel, "Timing", "Latency window"));
         Assert.Equal("…", Value(panel, "This window", "Handed over at"));
 
-        // A counter that has counted nothing is a reading of zero, not an absence.
+        // A counter that counted nothing is a reading of zero, not an absence.
         Assert.Equal("0", Value(panel, "This window", "Frames taken"));
     }
 
@@ -256,9 +254,7 @@ public sealed class TileStatsTests
         Assert.DoesNotContain(panel, section => section.Heading == "Audio");
     }
 
-    /// <summary>
-    /// Two tiles of one HDR stream are told apart by this row, so it cannot vanish when the answer is off.
-    /// </summary>
+    /// <summary>Two tiles of one HDR stream are told apart by this row, so it stays when the answer is off.</summary>
     [Fact]
     public void ToneMappingIsStatedWhicheverWayItWent()
     {
@@ -270,8 +266,7 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The evidence separating a stream this machine decodes too slowly from one the network is not
-    /// delivering.
+    /// Evidence separating a stream this machine decodes too slowly from one the network is not delivering.
     /// Which counters a decode reports follows from the leg it was opened on.
     /// </summary>
     [Fact]
@@ -292,8 +287,8 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The raw key is a row a reader can search for and report, where swallowing it would leave a diagnostic
-    /// short of evidence.
+    /// Raw key is a row a reader can search for and report,
+    /// where swallowing it leaves a diagnostic short of evidence.
     /// </summary>
     [Fact]
     public void ACounterThisBuildHasNoWordsForIsPrintedUnderItsOwnKey()
@@ -310,8 +305,8 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The window's counters are its own: one frame channel, whether pictures come off the relay, the
-    /// publish's loopback copy or a screen this machine reads.
+    /// Window's counters are its own: one frame channel,
+    /// whether the pictures come off the relay, the publish's loopback copy or a screen this machine reads.
     /// </summary>
     [Fact]
     public void TheWindowsOwnBlockIsDrawnWithNoSampleAtAll()
@@ -323,8 +318,8 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// What makes the tooltips usable: a panel rebuilt per sample takes the row out from under a resting
-    /// pointer once a second, closing the tip the row exists to show.
+    /// A panel rebuilt per sample takes the row out from under a resting pointer once a second,
+    /// closing the tip the row exists to show.
     /// </summary>
     [Fact]
     public void ARowSurvivesTheSampleThatLandsUnderIt()
@@ -344,7 +339,7 @@ public sealed class TileStatsTests
         Assert.Equal("31.50 Mb/s", Value(panel, "Arriving", "Bitrate"));
     }
 
-    /// <summary>An audio branch coming up is a whole block that was not there a second ago.</summary>
+    /// <summary>An audio branch arriving mid-run is a whole block the previous pass had no rows for.</summary>
     [Fact]
     public void ABlockTheDecodeGainsIsBuiltWhenItArrives()
     {
@@ -376,9 +371,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A second is short enough for a healthy decode to measure none of a per-interval figure, and a column
-    /// alternating between a number and an ellipsis is one nobody can read.
-    /// The row keeps the last measurement instead, which is what the reader was looking at.
+    /// A second is short enough for a healthy decode to measure none of a per-interval figure,
+    /// and a column alternating between a number and an ellipsis is one nobody can read.
+    /// Row keeps its last measurement instead, what the reader was looking at.
     /// </summary>
     [Fact]
     public void ARowKeepsItsLastMeasurementThroughAPassThatMeasuredNone()
@@ -395,9 +390,7 @@ public sealed class TileStatsTests
         Assert.Equal("24.50 Mb/s", Value(panel, "Arriving", "Bitrate"));
     }
 
-    /// <summary>
-    /// A decode that stopped is a different panel, so nothing it measured stands under the one that follows.
-    /// </summary>
+    /// <summary>A decode that stopped is a different panel, so nothing it measured stands under the next.</summary>
     [Fact]
     public void ADecodeThatStoppedKeepsNothing()
     {

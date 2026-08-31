@@ -28,24 +28,25 @@ import (
 
 // fakeBackend is a backend with no window, no encoder and no relay.
 //
-// It is the property Backend was made an interface for (server.go): the contract serves in front of
-// something a test reaches entirely.
-// Written by hand rather than generated, because what these tests need from a backend is one field
-// at a time.
+// The property Backend was made an interface for (server.go):
+// the contract serves in front of something a test reaches entirely.
+// Written by hand rather than generated,
+// what these tests need from a backend being one field at a time.
 type fakeBackend struct {
 	publish wire.PublishSnapshot
 	// settings is what the backend holds, for the reads and for the refusals decided off them.
 	settings settings.Settings
-	// members is the group this machine shares, and joins counts the joins and leaves asked for, which
-	// is how a test says a repeat did nothing new.
+	// members is the group this machine shares,
+	// joins counts the joins and leaves asked for, how a test says a repeat drew nothing.
 	members wire.MembersSnapshot
 	joins   int
 	leaves  int
-	// legs is what a relay check answers, which no err field can stand in for: every leg comes back
-	// with a verdict of its own and a relay that answers nothing is still a response.
+	// legs is what a relay check answers, which no err field can stand in for:
+	// every leg comes back with a verdict of its own,
+	// and a relay that answers nothing is still a response.
 	legs []reach.Result
-	// err is what every effect answers with, so a test wanting a refusal sets one field rather than
-	// one per method.
+	// err is what every effect answers with,
+	// so a test wanting a refusal sets one field rather than one per method.
 	err error
 }
 
@@ -85,9 +86,9 @@ func (f *fakeBackend) StopReceive(wire.StreamRef)              {}
 
 func (f *fakeBackend) SetReceiveAudio(wire.StreamRef, float64, bool) error { return f.err }
 
-// The frame subscriptions refuse, which is what a backend with no pipeline behind it has to answer:
-// nothing is decoding, publishing or previewing here, and a fake stream of handles would name GPU
-// memory that does not exist.
+// The frame subscriptions refuse, what a backend with no pipeline behind it has to answer:
+// nothing is decoding, publishing or previewing here,
+// and a fake stream of handles would name GPU memory that does not exist.
 func (f *fakeBackend) SubscribeFrames(wire.StreamRef) (FrameStream, error) {
 	return nil, errors.New("nothing is decoding")
 }
@@ -116,8 +117,9 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
 }
 
-// The counts are what a test reads to say a second join drew nothing: the backend is where
-// idempotency lives, so the contract's part is reaching it once per call and refusing above it.
+// The counts are what a test reads to say a second join drew nothing:
+// the backend is where idempotency lives,
+// so the contract's part is reaching it once per call and refusing above it.
 func (f *fakeBackend) JoinGroup() error {
 	f.joins++
 	return f.err
@@ -179,10 +181,9 @@ func TestAMatchingMajorIsAnsweredWithThisBuildsNumbers(t *testing.T) {
 	}
 }
 
-// The field exists so the version is settled explicitly, and a request that left it unset settled
-// nothing.
-// Answering one would let a shell that never looked at the contract version reach every other
-// method.
+// The field exists so the version is settled explicitly,
+// and a request that left it unset settled nothing.
+// Answering one would let a shell that never looked at the contract version reach every other method.
 func TestAShellThatNamesNoMajorIsRefused(t *testing.T) {
 	server := New(&fakeBackend{}, events.New(), "test")
 

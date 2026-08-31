@@ -30,9 +30,8 @@
     </Style>
 
     <!--
-      Closed dropdown's two columns, and their disabled treatment, stated by the caller rather
-      than in the face's theme: a ControlTheme carries no descendant selector, so the only rule
-      reaching this text is in the file that writes it.
+      Closed dropdown's two columns, and their disabled treatment, stated by the caller, not in the face's theme:
+      a ControlTheme carries no descendant selector, so the only rule reaching this text is in the file writing it.
     -->
     <Style Selector="TextBlock.facevalue">
       <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
@@ -50,9 +49,8 @@
   </UserControl.Styles>
 
   <!--
-    Nothing before the first resolve, and nothing for a backend that does not describe this
-    step: the unreachable backend already says so once above the column, and a card is not
-    drawn empty to repeat it.
+    Nothing before the first resolve, and nothing for a backend that does not describe this step:
+    the unreachable backend already says so once above the column, and a card is not drawn empty to repeat it.
   -->
   <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
     <StackPanel>
@@ -85,9 +83,8 @@
                     Command="{Binding Choose}">
               <StackPanel>
                 <!--
-                  A grid and not a horizontal stack: a stack measures its children against
-                  infinite width, so the title neither wraps nor trims and runs past the
-                  card's edge.
+                  A grid and not a horizontal stack: a stack measures its children against infinite width,
+                  so the title neither wraps nor trims and runs past the card's edge.
                   The starred column is the width it wraps into.
                 -->
                 <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
@@ -135,9 +132,9 @@
         </Grid>
 
         <!--
-          Three zones and one deliberate gap, drawn behind the slider: below the recommended
-          band, the band, bare track, then the tail where the picture stops being usable. The
-          theme paints no track of its own, so the zones show through under the thumb.
+          Three zones and one deliberate gap, drawn behind the slider: below the recommended band, the band,
+          bare track, then the tail where the picture stops being usable.
+          The theme paints no track of its own, so the zones show through under the thumb.
         -->
         <Panel Height="14" Margin="0,9,0,0" IsEnabled="{Binding Quantizer.IsEnabled}">
           <Border Height="6"
@@ -146,9 +143,9 @@
                   VerticalAlignment="Center"
                   Background="{StaticResource DividerBrush}">
             <!--
-              Shares of the scale and not of the H.26x numbers: the track's ends are the codec's, and the
-              band sits at the same fraction of every one of them (Setup/Model/QualityLayout.cs, which
-              states the same two edges for the labels below).
+              Shares of the scale and not of the H.26x numbers: the track's ends are the codec's,
+              and the band sits at the same fraction of every one of them
+              (Setup/Model/QualityLayout.cs, which states the same two edges for the labels below).
             -->
             <Grid ColumnDefinitions="35*,12*,16*,37*">
               <Border Grid.Column="0" Background="{StaticResource ChipBorderBrush}" />
@@ -158,9 +155,8 @@
           </Border>
 
           <!--
-            A quantizer is a whole number of the codec's own scale, so the thumb stops on one and
-            never between two (Features/Fields/View/FieldGroupView.axaml, which snaps every other
-            slider the same way).
+            A quantizer is a whole number of the codec's own scale, so the thumb stops on one and never between two
+            (Features/Fields/View/FieldGroupView.axaml, which snaps every other slider the same way).
           -->
           <controls:SweepSlider Theme="{StaticResource QuantizerSliderTheme}"
                   Minimum="{Binding Quantizer.Minimum}"
@@ -175,9 +171,9 @@
         </Panel>
 
         <!--
-          The track's own ratios, repeated rather than one column per label, because a starred
-          column is a share of the whole row and not of what is left over: a lone `*` beside
-          the first band's 29 is a thirtieth of the width.
+          The track's own ratios, repeated rather than one column per label,
+          a starred column being a share of the whole row and not of what is left over:
+          a lone `*` beside the first band's 29 is a thirtieth of the width.
         -->
         <Grid ColumnDefinitions="35*,12*,16*,37*" Margin="0,6,0,0">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding QuantizerFloorLabel}" />
@@ -206,9 +202,9 @@
                       IsEnabled="{Binding IsEnabled}"
                       ToolTip.Tip="{Binding Help}">
                 <!--
-                  The held value takes the starred column so it trims inside the face. An Auto
-                  column measures against infinite width, which pushes the caret out of the
-                  button on a long codec name.
+                  The held value takes the starred column so it trims inside the face.
+                  An Auto column measures against infinite width,
+                  which pushes the caret out of the button on a long codec name.
                 -->
                 <Grid ColumnDefinitions="*,Auto,Auto">
                   <TextBlock Grid.Column="0"
@@ -231,10 +227,10 @@
 
                 <Button.Flyout>
                   <!--
-                    The shared entry row (Features/Fields/View/SelectEntry.axaml) carries a
-                    refused entry's reason as a line rather than a tip: the row is a disabled
-                    MenuItem wherever there is something to explain, and a disabled control
-                    takes no pointer events.
+                    A refused entry's reason is a line in the shared entry row rather than a tip
+                    (Features/Fields/View/SelectEntry.axaml):
+                    the row is a disabled MenuItem wherever there is something to explain,
+                    and a disabled control takes no pointer events.
                   -->
                   <MenuFlyout ItemsSource="{Binding MenuRows}"
                               ItemTemplate="{StaticResource SelectEntry}"

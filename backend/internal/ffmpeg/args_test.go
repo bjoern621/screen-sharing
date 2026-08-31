@@ -16,16 +16,16 @@ import (
 )
 
 // encodeTimeout bounds one test encode.
-// A single 256x256 frame returns in well under a second on every encoder here, so what the bound
-// catches is a library that takes the frame and emits nothing.
+// A single 256x256 frame returns in well under a second on every encoder here,
+// so what the bound catches is a library that takes the frame and emits nothing.
 const encodeTimeout = 20 * time.Second
 
 func baseStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			// A name rather than an address, so this publishes to an encrypted relay: these tests are
-			// about what the encoder is asked for, and a publish that is refused builds no arguments
-			// to read.
+			// A name rather than an address, so this publishes to an encrypted relay:
+			// these tests are about what the encoder is asked for,
+			// and a publish that is refused builds no arguments to read.
 			Host:    "relay.example",
 			SrtPort: 8890,
 		},
@@ -42,14 +42,15 @@ func baseStream() settings.Settings {
 			BitrateM:   150,
 			MaxrateM:   200,
 			Capture:    "x11grab",
-			// No ladder step: every codec below is reached off this one draft, and a step is one encoder's
-			// own identifier, so naming one would carry another encoder's step into most of them.
-			// An unnamed step is the codec's own declared one, which is what the builder resolves it to.
+			// No ladder step: every codec below is reached off this one draft,
+			// and a step is one encoder's own identifier,
+			// so naming one would carry another encoder's step into most of them.
+			// An unnamed step is the codec's own declared one, which the builder resolves it to.
 			DrmMap:        "auto",
 			CaptureMemory: gpupath.MemoryAuto,
 			// Audio is off, so only the cases that turn it on read the codec.
-			// It is filled the way migrateStream fills it, since the builder validates the codec of every
-			// stream naming a source.
+			// It is filled the way migrateStream fills it, since the builder validates the codec
+			// of every stream naming a source.
 			AudioCodec: "opus",
 		},
 	}
@@ -80,8 +81,8 @@ func TestBuildPublishArgsUnknownCapture(t *testing.T) {
 	}
 }
 
-// A non-positive rate would reach ffmpeg as "-framerate 0" and "-g 0": every grabber takes the rate
-// as an input option and the keyframe interval derives from it.
+// A non-positive rate would reach ffmpeg as "-framerate 0" and "-g 0":
+// every grabber takes the rate as an input option and the keyframe interval derives from it.
 func TestBuildPublishArgsRefusesANonPositiveFps(t *testing.T) {
 	for _, fps := range []int{0, -1} {
 		s := baseStream()
@@ -92,9 +93,9 @@ func TestBuildPublishArgsRefusesANonPositiveFps(t *testing.T) {
 	}
 }
 
-// An index no output carries names a screen this machine does not have, and grabbing the whole
-// desktop instead would publish something other than what the form shows selected, with nothing
-// saying so.
+// An index no output carries names a screen this machine does not have,
+// and grabbing the whole desktop instead would publish something other than what the form shows
+// selected, with nothing saying so.
 func TestX11grabRefusesAMonitorIndexNoOutputCarries(t *testing.T) {
 	s := baseStream()
 	s.Publish.Monitor = 9999
@@ -127,13 +128,14 @@ func TestDrmMapForRefusesANameNoRowCarries(t *testing.T) {
 	}
 }
 
-// Nothing upstream bounds the effort step: it is a free-form settings string, and
-// capabilities.Validate reaches the codec, the pixel format, the mode and the two rate figures only.
+// Nothing upstream bounds the effort step: it is a free-form settings string,
+// and capabilities.Validate reaches the codec, the pixel format, the mode
+// and the two rate figures only.
 func TestAStepOutsideTheLadderIsRefused(t *testing.T) {
-	// The empty string is deliberately absent from the cases: it resolves to the codec's own declared
-	// step, which a draft holding none is entitled to.
-	// A step off the ladder is refused, another encoder's ladder included, which is what a draft that
-	// changed codec holds.
+	// The empty string is absent from the cases: it resolves to the codec's own declared step,
+	// which a draft holding none is entitled to.
+	// A step off the ladder is refused, another encoder's ladder included,
+	// as a draft that changed codec holds.
 	for _, tc := range []struct{ codec, step string }{
 		{"hevc_nvenc", "p8"},
 		{"hevc_nvenc", "slow"},
@@ -165,8 +167,8 @@ func TestAStepOutsideTheLadderIsRefused(t *testing.T) {
 	}
 }
 
-// A mode that pins the step spends the pinned one whatever the draft holds, and the form greys the
-// control and names that step.
+// A mode that pins the step spends the pinned one whatever the draft holds,
+// and the form greys the control and names that step.
 // Both read the codec's row, so the step encoded and the step named cannot come apart.
 func TestNvencCbrPinsTheDeclaredStep(t *testing.T) {
 	c, ok := capabilities.Get("hevc_nvenc")
@@ -175,7 +177,7 @@ func TestNvencCbrPinsTheDeclaredStep(t *testing.T) {
 	}
 	want, declared := c.Effort.StepFor("cbr")
 	if !declared || !c.Effort.PinsIn("cbr") {
-		t.Fatalf("hevc_nvenc no longer pins a declared step in cbr")
+		t.Fatalf("hevc_nvenc pins no declared step in cbr")
 	}
 
 	s := baseStream()
@@ -279,13 +281,13 @@ func TestEncoderArgs(t *testing.T) {
 		{"svt av1 abr holds no ceiling", "libsvtav1", "abr", "-b:v", "-maxrate"},
 		{"svt av1 cbr selects rate control 2", "libsvtav1", "cbr", "rc=2:pred-struct=1", "-maxrate"},
 		{"svt av1 crf takes no bitrate", "libsvtav1", "crf", "-crf", "-b:v"},
-		// rav1e takes one bitrate target and neither a ceiling nor a rate buffer, so vbr is gapped on both
-		// engines and abr is the bursting mode it implements.
+		// rav1e takes one bitrate target and neither a ceiling nor a rate buffer,
+		// so vbr is gapped on both engines and abr is the bursting mode it implements.
 		{"rav1e crf uses qp", "librav1e", "crf", "-qp", "-crf"},
 		{"rav1e abr holds no ceiling", "librav1e", "abr", "-b:v", "-maxrate"},
 		{"rav1e cbr drops reordering", "librav1e", "cbr", "low_latency=true", "-bufsize"},
-		// A VAAPI encoder takes one -rc_mode per rate-control concept, and its quantizer travels in -qp on
-		// the H.26x rows and in -global_quality elsewhere.
+		// A VAAPI encoder takes one -rc_mode per rate-control concept,
+		// and its quantizer travels in -qp on the H.26x rows and in -global_quality elsewhere.
 		{"vaapi crf is CQP", "h264_vaapi", "crf", "-rc_mode CQP -qp", "-b:v"},
 		{"vaapi av1 quantizer is global_quality", "av1_vaapi", "crf", "-global_quality", "-qp"},
 		{"vaapi cbr pins the ceiling to the target", "h264_vaapi", "cbr", "-rc_mode CBR", "-rc_mode VBR"},
@@ -293,8 +295,8 @@ func TestEncoderArgs(t *testing.T) {
 		{"vaapi vbr sets a ceiling", "hevc_vaapi", "vbr", "-maxrate", "-rc_mode CBR"},
 		// A QSV encoder has no rate-control option: oneVPL picks the method from which rate options carry
 		// a value, so a mode is a shape rather than a name.
-		// A quantizer under the qscale flag selects CQP, a ceiling equal to the target CBR, and one above
-		// it VBR.
+		// A quantizer under the qscale flag selects CQP,
+		// a ceiling equal to the target CBR, and one above it VBR.
 		{"qsv crf carries a quantizer alone", "h264_qsv", "crf", "-q:v", "-b:v"},
 		{"qsv cbr pins the ceiling to the target", "h264_qsv", "cbr", "-b:v 150M -maxrate 150M", ""},
 		{"qsv abr caps its ceiling above the target", "hevc_qsv", "abr", "-b:v 150M -maxrate 300M", "-bufsize"},
@@ -305,8 +307,8 @@ func TestEncoderArgs(t *testing.T) {
 		{"qsv cbr encodes for speed", "h264_qsv", "cbr", "-preset veryfast", "-preset medium"},
 		{"qsv crf encodes for quality", "h264_qsv", "crf", "-preset medium", "-preset veryfast"},
 		{"qsv pins b-pictures off", "hevc_qsv", "vbr", "-bf 0", ""},
-		// An AMF encoder takes one -rc mode per rate-control concept, and its bursting modes are
-		// peak-constrained VBR, so abr states a ceiling too.
+		// An AMF encoder takes one -rc mode per rate-control concept,
+		// and its bursting modes are peak-constrained VBR, so abr states a ceiling too.
 		{"amf crf is cqp", "h264_amf", "crf", "-rc cqp -qp_i", "-b:v"},
 		{"amf cbr pins the ceiling to the target", "h264_amf", "cbr", "-rc cbr", "vbr_peak"},
 		{"amf abr caps its peak above the target", "hevc_amf", "abr", "-rc vbr_peak -b:v 150M -maxrate 300M", ""},
@@ -316,8 +318,8 @@ func TestEncoderArgs(t *testing.T) {
 		{"amf cbr keeps the transcoding usage", "h264_amf", "cbr", "-usage transcoding", "lowlatency"},
 		{"amf cbr encodes for speed", "h264_amf", "cbr", "-quality speed", "-quality quality"},
 		{"amf vbr encodes for quality", "h264_amf", "vbr", "-quality quality", "-quality speed"},
-		// AMF's H.264 and AV1 encoders carry a B-picture pattern and its HEVC one does not, so the option
-		// switching them off must not reach the HEVC row.
+		// AMF's H.264 and AV1 encoders carry a B-picture pattern and its HEVC one does not,
+		// so the option switching them off must not reach the HEVC row.
 		{"amf h264 pins b-frames off", "h264_amf", "vbr", "-bf 0", ""},
 		{"amf av1 pins b-frames off", "av1_amf", "vbr", "-bf 0", ""},
 		{"amf hevc has no b-frame option", "hevc_amf", "vbr", "-rc vbr_peak", "-bf"},
@@ -326,14 +328,14 @@ func TestEncoderArgs(t *testing.T) {
 		{"amf h264 repeats its parameter sets per gop", "h264_amf", "cbr", "-header_spacing 120", ""},
 		{"amf hevc needs no header spacing", "hevc_amf", "cbr", "-rc cbr", "-header_spacing"},
 		{"amf av1 has no header spacing option", "av1_amf", "cbr", "-rc cbr", "-header_spacing"},
-		// A Vulkan encoder takes one -rc_mode per rate-control concept and codes a bursting mode against a
-		// ceiling either way, so abr states one too.
+		// A Vulkan encoder takes one -rc_mode per rate-control concept
+		// and codes a bursting mode against a ceiling either way, so abr states one too.
 		{"vulkan crf is cqp", "h264_vulkan", "crf", "-rc_mode cqp -qp", "-b:v"},
 		{"vulkan cbr pins the ceiling to the target", "h264_vulkan", "cbr", "-rc_mode cbr -b:v 150M -maxrate 150M", ""},
 		{"vulkan abr caps its ceiling above the target", "hevc_vulkan", "abr", "-rc_mode vbr -b:v 150M -maxrate 300M", ""},
 		{"vulkan vbr takes the configured ceiling", "hevc_vulkan", "vbr", "-maxrate 200M", "-rc_mode cbr"},
-		// Every mode declares a live stream of screen content, and cbr is the one trading quality to keep
-		// up with it.
+		// Every mode declares a live stream of screen content,
+		// and cbr is the one trading quality to keep up with it.
 		{"vulkan states its content type", "av1_vulkan", "cbr", "-usage stream -content desktop", ""},
 		{"vulkan cbr tunes for latency", "h264_vulkan", "cbr", "-tune ll", "-tune hq"},
 		{"vulkan vbr tunes for quality", "h264_vulkan", "vbr", "-tune hq", "-tune ll"},
@@ -358,11 +360,11 @@ func TestEncoderArgs(t *testing.T) {
 	}
 }
 
-// The rate buffer is SVT-AV1's CBR knob alone: buf-sz rides in -svtav1-params, which no other mode
-// sends, so a bursting mode has nothing to size and the window the settings carry stops at the
-// builder.
-// The form greys the field there for that reason (form.availabilityEngineRules), and a value
-// reaching the command in abr would make the greying a lie.
+// The rate buffer is SVT-AV1's CBR knob alone: buf-sz rides in -svtav1-params,
+// which no other mode sends, so a bursting mode has nothing to size
+// and the window the settings carry stops at the builder.
+// The form greys the field there for that reason (form.availabilityEngineRules),
+// and a value reaching the command in abr would make the greying a lie.
 func TestSvtAv1SizesARateBufferInCbrOnly(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libsvtav1")
@@ -387,9 +389,9 @@ func TestSvtAv1SizesARateBufferInCbrOnly(t *testing.T) {
 	}
 }
 
-// VP9 splits its profiles by subsampling and bit depth, and libvpx refuses a pixel format the
-// selected profile cannot carry, so the profile follows the chroma or the row's other chromas stop
-// encoding.
+// VP9 splits its profiles by subsampling and bit depth, and libvpx refuses a pixel format
+// the selected profile cannot carry, so the profile follows the chroma
+// or the row's other chromas stop encoding.
 func TestVp9ProfileFollowsChroma(t *testing.T) {
 	want := map[string]string{
 		"yuv420p": "0",
@@ -411,8 +413,8 @@ func TestVp9ProfileFollowsChroma(t *testing.T) {
 	}
 }
 
-// AMF announces the Main profile whatever surface it is handed, so a 10-bit encode would ship a
-// Main-profile bitstream carrying 10-bit samples.
+// AMF announces the Main profile whatever surface it is handed,
+// so a 10-bit encode would ship a Main-profile bitstream carrying 10-bit samples.
 // The profile follows the chroma there for that reason.
 func TestAmfHevcProfileFollowsChroma(t *testing.T) {
 	want := map[string]string{
@@ -433,13 +435,13 @@ func TestAmfHevcProfileFollowsChroma(t *testing.T) {
 	}
 }
 
-// The encoder arguments are a wire format shared with ffmpeg and no compiler holds any of it: an
-// option that does not exist, a value out of range or a rate-control combination the library refuses
-// is a publish that dies on launch.
+// The encoder arguments are a wire format shared with ffmpeg and no compiler holds any of it:
+// an option that does not exist, a value out of range or a rate-control combination the library
+// refuses is a publish that dies on launch.
 // So one frame is encoded per codec and mode, with the arguments the builder produces.
 //
-// The capability table drives the loop, so a codec added there with no mapping, or a mode declared
-// reachable that the library rejects, fails here.
+// The capability table drives the loop, so a codec added there with no mapping,
+// or a mode declared reachable that the library rejects, fails here.
 func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
 	if err != nil {
@@ -489,8 +491,8 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 					args = append(args, "-vf", strings.Join(upload, ","))
 				}
 				args = append(args, enc...)
-				// A surface encode takes its layout from the upload filter and its encoder reads no software
-				// pixel format, as in BuildPublishArgs.
+				// A surface encode takes its layout from the upload filter
+				// and its encoder reads no software pixel format, as in BuildPublishArgs.
 				if !surface {
 					args = append(args, "-pix_fmt", s.Publish.Chroma)
 				}
@@ -500,10 +502,10 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				defer cancel()
 				out, err := exec.CommandContext(ctx, exe, args...).CombinedOutput()
 				if err != nil {
-					// An absent hardware encoder is the machine's answer rather than the builder's, which is what
-					// encoders.Detect greys in the UI.
-					// A software encoder is the build's answer and ships in any ffmpeg worth publishing with, so
-					// a failure there is the arguments.
+					// An absent hardware encoder is the machine's answer rather than the builder's,
+					// and what encoders.Detect greys in the UI.
+					// A software encoder is the build's answer and ships in any ffmpeg worth publishing with,
+					// so a failure there is the arguments.
 					if cap.Family == "software" {
 						t.Errorf("ffmpeg %s: %v\n%s", strings.Join(args, " "), err, out)
 					}
@@ -514,8 +516,8 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 	}
 }
 
-// A VAAPI publish opens its device ahead of the input, ends the capture chain in the upload and pins
-// no software pixel format, the encoder reading GPU surfaces.
+// A VAAPI publish opens its device ahead of the input, ends the capture chain in the upload
+// and pins no software pixel format, the encoder reading GPU surfaces.
 // The device is real hardware, so the shape is asserted only where one exists.
 // The chroma mapping is HwSurfaceFilters' and is checked without a device (TestHwSurfaceFilters).
 func TestBuildPublishArgsVaapi(t *testing.T) {
@@ -545,8 +547,8 @@ func TestBuildPublishArgsVaapi(t *testing.T) {
 	}
 }
 
-// A Vulkan publish takes the same shape with a device of its own: created under a name ahead of the
-// input, then handed to the filter graph the upload attaches to.
+// A Vulkan publish takes the same shape with a device of its own:
+// created under a name ahead of the input, then handed to the filter graph the upload attaches to.
 func TestBuildPublishArgsVulkan(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("h264_vulkan")
@@ -570,8 +572,8 @@ func TestBuildPublishArgsVulkan(t *testing.T) {
 	}
 }
 
-// A QSV publish creates its device under a name, as Vulkan does, and uploads through a frame pool it
-// sizes itself.
+// A QSV publish creates its device under a name, as Vulkan does,
+// and uploads through a frame pool it sizes itself.
 func TestBuildPublishArgsQsv(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("hevc_qsv")
@@ -615,8 +617,9 @@ func TestHwSurfaceFilters(t *testing.T) {
 	}
 }
 
-// The upload element follows the family rather than the chroma: a QSV encoder holds several surfaces
-// out of the pool the upload allocated, so that pool is sized past what the filter graph needs.
+// The upload element follows the family rather than the chroma:
+// a QSV encoder holds several surfaces out of the pool the upload allocated,
+// so that pool is sized past what the filter graph needs.
 func TestHwSurfaceUploadFollowsTheFamily(t *testing.T) {
 	cases := map[string]string{
 		"h264_vaapi":  "hwupload",
@@ -648,8 +651,8 @@ func TestHwSurfaceDeviceFollowsTheFamily(t *testing.T) {
 		"h264_amf":    false,
 	}
 	for codec, want := range cases {
-		// The device is real hardware, so only the verdict is asserted: an error says the family is absent
-		// from this machine rather than from the table.
+		// The device is real hardware, so only the verdict is asserted:
+		// an error says the family is absent from this machine rather than from the table.
 		_, got, _ := HwSurfaceDevice(codec)
 		if got != want {
 			t.Errorf("HwSurfaceDevice(%q) surface = %v, want %v", codec, got, want)
@@ -660,13 +663,13 @@ func TestHwSurfaceDeviceFollowsTheFamily(t *testing.T) {
 	}
 }
 
-// The audio track is coded by the element capabilities.AudioCodecs states for this engine, so the
-// command is held against that row rather than against a name spelled here.
-// The two engines code one codec with different libraries, and a name written into the test would
-// assert one engine's answer for both.
+// The audio track is coded by the element capabilities.AudioCodecs states for this engine,
+// so the command is held against that row rather than against a name spelled here.
+// The two engines code one codec with different libraries, and a name written into the test
+// would assert one engine's answer for both.
 func TestBuildPublishArgsAudio(t *testing.T) {
-	// Desktop audio on a Linux backend: the pulse monitor input, and the encode the codec's row
-	// declares.
+	// Desktop audio on a Linux backend: the pulse monitor input,
+	// and the encode the codec's row declares.
 	// SRT carries the audio codecs the table holds, so the transport narrows this loop by nothing.
 	for _, a := range capabilities.AudioCodecs {
 		enc, ok := a.EncoderOn(capabilities.EngineFfmpeg)
@@ -687,8 +690,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		if got := flagValue(args, "-c:a"); got != enc.Element {
 			t.Errorf("%s: -c:a = %q, want the element the table states, %q", a.Name, got, enc.Element)
 		}
-		// The rate and the bitrate follow the codec too: an encoder that codes at one rate alone is handed
-		// another rate's samples otherwise.
+		// The rate and the bitrate follow the codec too: an encoder that codes at one rate alone
+		// is handed another rate's samples otherwise.
 		if got := flagValue(args, "-ar"); got != strconv.Itoa(a.Rate) {
 			t.Errorf("%s: -ar = %q, want %d", a.Name, got, a.Rate)
 		}
@@ -697,8 +700,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		}
 	}
 
-	// Audio off, and a settings file that predates the option: no audio arguments, whatever codec the
-	// settings carry.
+	// Audio off, and a settings file that predates the option: no audio arguments,
+	// whatever codec the settings carry.
 	for _, audio := range []string{"none", ""} {
 		s := baseStream()
 		s.Publish.AudioSources = settings.Recording(audio)
@@ -711,10 +714,11 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		}
 	}
 
-	// A backend whose platform serves no monitor source refuses desktop audio rather than publishing a
-	// silent track, and that refusal is publish's rather than this builder's: the source table answers
-	// it and publish holds the backend's operating system.
-	// It is asserted there, against the engine entry points a run and the displayed command both go
+	// A backend whose platform serves no monitor source refuses desktop audio rather than publishing
+	// a silent track, and that refusal is publish's rather than this builder's:
+	// the source table answers it and publish holds the backend's operating system.
+	// It is asserted there, against the engine entry points a run
+	// and the displayed command both go
 	// through (TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio).
 
 	s := baseStream()
@@ -723,8 +727,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		t.Fatal("expected error for an unknown audio source")
 	}
 
-	// An audio codec no row carries is refused before a command is built: the encoder name would be read
-	// off a row that is not there.
+	// An audio codec no row carries is refused before a command is built:
+	// the encoder name would be read off a row that is not there.
 	s = baseStream()
 	s.Publish.AudioCodec = "mp3"
 	s.Publish.AudioSources = settings.Recording("desktop")
@@ -772,12 +776,12 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 }
 
 // Two rate-control modes the table allows on one codec have to build two commands.
-// abr aims at an average and vbr bounds the burst above it, so an encoder that cannot bound the
-// burst implements one of them and the table gaps the other.
+// abr aims at an average and vbr bounds the burst above it, so an encoder that cannot bound
+// the burst implements one of them and the table gaps the other.
 //
-// Identical arguments for both is the failure this guards: the encode runs as whichever mode the
-// builder collapsed onto, while the command, the bitrate estimate and every verdict downstream keep
-// naming the mode that was picked.
+// Identical arguments for both is the failure this guards: the encode runs as whichever mode
+// the builder collapsed onto, while the command, the bitrate estimate
+// and every verdict downstream keep naming the mode that was picked.
 func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -788,9 +792,9 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			s := baseStream()
 			s.Publish.UseCodec(c.Name)
 			s.Publish.Mode, s.Publish.Chroma = mode, c.EngineChromas(capabilities.EngineFfmpeg)[0]
-			// A rate every encoder takes, so the comparison is between the two modes rather than against one
-			// row's bitrate ceiling: the fixture's default sits above SVT-AV1's.
-			// The ceiling is not twice the target, which is what abr derives for the families that code
+			// A rate every encoder takes, so the comparison is between the two modes rather
+			// than against one row's bitrate ceiling: the fixture's default sits above SVT-AV1's.
+			// The ceiling is not twice the target, the figure abr derives for the families that code
 			// against a maximum either way.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
 			if capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
@@ -810,9 +814,9 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 }
 
 // The ceiling a constant-quality encode is held to, spelled as ffmpeg's capped rate factor.
-// Both halves are needed: -maxrate alone states a rate the encoder is never asked to hold over any
-// window, and the pair is what makes the quality target soften rather than the stream outgrow the
-// link.
+// Both halves are needed: -maxrate alone states a rate the encoder is never asked to hold
+// over any window, and the pair is what makes the quality
+// target soften rather than the stream outgrow the link.
 func TestConstantQualityCarriesTheStatedCeiling(t *testing.T) {
 	for _, codec := range []string{"libx264", "libx265"} {
 		s := baseStream()
@@ -833,9 +837,9 @@ func TestConstantQualityCarriesTheStatedCeiling(t *testing.T) {
 	}
 }
 
-// An encode the settings state no ceiling for is unbounded, which is what -crf alone is.
-// A ceiling invented here would bound a stream the user asked to run free, and the field carries
-// zero for exactly that.
+// An encode the settings state no ceiling for is unbounded, as -crf alone is.
+// A ceiling invented here would bound a stream the user asked to run free,
+// and the field carries zero for exactly that.
 func TestConstantQualityWithoutACeilingStatesNoRate(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libx264")
@@ -852,10 +856,10 @@ func TestConstantQualityWithoutACeilingStatesNoRate(t *testing.T) {
 	}
 }
 
-// A publish carries more than one tap where more than one thing reads the encoded stream: the
-// preview leg and the byte meter that answers what the stream costs.
-// One tee holds all of them, since two outputs written any other way are two encoders on one
-// capture.
+// A publish carries more than one tap where more than one thing reads the encoded stream:
+// the preview leg and the byte meter that answers what the stream costs.
+// One tee holds all of them, since two outputs written
+// any other way are two encoders on one capture.
 func TestEveryTapIsASlaveOfTheOneTee(t *testing.T) {
 	s := baseStream()
 
@@ -878,8 +882,8 @@ func TestEveryTapIsASlaveOfTheOneTee(t *testing.T) {
 	}
 }
 
-// A publish nothing else reads keeps one output, a tee around a single muxer being a stage the
-// packets did not need to cross.
+// A publish nothing else reads keeps one output, a tee around a single muxer being a stage
+// the packets did not need to cross.
 func TestNoTapLeavesOneOutput(t *testing.T) {
 	s := baseStream()
 

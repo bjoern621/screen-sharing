@@ -9,13 +9,13 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.AdvancedGroup.ViewModel;
 
 /// <summary>
-/// Rest of the quality group: the step above is the answer for everyone else, and this is where an expert reaches
-/// the raw knobs.
+/// Rest of the quality group: the step above is the answer for everyone else,
+/// and this is where an expert reaches the raw knobs.
 ///
 /// Nothing is held here.
-/// Which rows exist, what each is called and means, which are greyed and why arrive through
-/// <see cref="FieldGroupViewModel"/> already decided (docs/ipc-api.md, "The rule"), and every write leaves through
-/// the field the reader moved.
+/// Which rows exist, what each is called and means, which are greyed
+/// and why arrive through <see cref="FieldGroupViewModel"/> already decided (<c>docs/ipc-api.md</c>, "The rule"),
+/// and every write leaves through the field the reader moved.
 /// </summary>
 public sealed class AdvancedGroupViewModel : Observable
 {
@@ -28,8 +28,9 @@ public sealed class AdvancedGroupViewModel : Observable
         _group = group;
         Rows = [];
 
-        // Rendered off the group's notification rather than off a copy of it, the same way the step above reads
-        // the same group (docs/development-principles.md, "State is written explicitly and read continuously").
+        // Rendered off the group's notification rather than off a copy of it,
+        // the same way the step above reads the same group (docs/development-principles.md,
+        // "State is written explicitly and read continuously").
         _group.PropertyChanged += (_, _) => Apply();
         ((INotifyCollectionChanged)_group.Fields).CollectionChanged += (_, _) => Apply();
 
@@ -51,15 +52,15 @@ public sealed class AdvancedGroupViewModel : Observable
 
     /// <summary>
     /// Whether the group left this card anything.
-    /// False before the first resolve and for a group whose every field the step places itself, the card then not
-    /// being drawn at all rather than drawn empty.
+    /// False before the first resolve and for a group whose every field the step places itself,
+    /// the card then not being drawn at all rather than drawn empty.
     /// </summary>
     public bool HasRows { get => _hasRows; private set => Set(ref _hasRows, value); }
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: the group hands back the same field view models by key, so an unchanged pass reconciles
-    /// onto an equal list and nothing notifies.
+    /// Safe to run twice: the group hands back the same field view models by key,
+    /// so an unchanged pass reconciles onto an equal list and nothing notifies.
     /// </summary>
     public void Apply()
     {
@@ -75,8 +76,8 @@ public sealed class AdvancedGroupViewModel : Observable
 
     /// <summary>
     /// Every field of the group the step above places nowhere, in the order the form gave them.
-    /// Chosen by <see cref="QualityLayout"/> rather than by a list of keys, so a knob the form adds shows up here
-    /// with nothing to edit.
+    /// Chosen by <see cref="QualityLayout"/> rather than by a list of keys,
+    /// so a knob the form adds shows up here with nothing to edit.
     /// </summary>
     private IReadOnlyList<FieldViewModel> Drawn()
     {

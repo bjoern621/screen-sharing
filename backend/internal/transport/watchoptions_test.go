@@ -34,8 +34,8 @@ func TestWatchOptionsCarryTheSettingsValues(t *testing.T) {
 	}
 }
 
-// A transport with nothing tunable on its watch leg declares no knobs, and neither does a name the
-// registry does not know.
+// A transport with nothing tunable on its watch leg declares no knobs, and neither does a name
+// the registry does not know.
 func TestWatchOptionsOfATransportWithout(t *testing.T) {
 	if got := WatchOptions("webrtc", watchSettings()); len(got) != 0 {
 		t.Errorf("webrtc options = %+v, want none", got)

@@ -6,15 +6,15 @@ import (
 	"bjoernblessin.de/screenshare/internal/receive"
 )
 
-// Tone mapping is part of what a decode is built from, so asking for it again has to mean "is this
-// already the case" and never "build it again".
+// Tone mapping is part of what a decode is built from,
+// so asking for it again has to mean "is this already the case" and never "build it again".
 //
 // The trap is a machine that cannot tone-map at all.
-// A decode there is built without the rung whatever it was asked for, so a caller comparing its own
-// request against what ran finds the two different on every call and tears down a pipeline that was
-// already everything it can be.
-// WillToneMap is what they are compared through: it answers what a request builds rather than what
-// it asked for.
+// A decode there is built without the rung whatever it was asked for,
+// so a caller comparing its own request against what ran finds the two different on every call,
+// and tears down a pipeline that is already everything it can be.
+// WillToneMap is what they are compared through:
+// it answers what a request builds rather than what it asked for.
 
 // aDecodeOf is one real decode of a synthetic picture, on the chain that needs no display.
 //
@@ -40,8 +40,8 @@ func withDecode(t *testing.T, ref StreamRef, toneMap bool) *App {
 	return &App{receivers: map[StreamRef]*receive.Receiver{ref: aDecodeOf(t, toneMap)}}
 }
 
-// TestAskingAgainForTheToneMappingThatRanRebuildsNothing covers what a viewer produces every time it
-// repeats a call, and the loop a machine with no rung would otherwise run.
+// TestAskingAgainForTheToneMappingThatRanRebuildsNothing covers what a viewer produces
+// every time it repeats a call, and the loop a machine with no rung would otherwise run.
 func TestAskingAgainForTheToneMappingThatRanRebuildsNothing(t *testing.T) {
 	ref := StreamRef{Name: "bob", Transport: "rtsp"}
 
@@ -59,8 +59,8 @@ func TestAskingAgainForTheToneMappingThatRanRebuildsNothing(t *testing.T) {
 }
 
 // TestTheOtherAnswerIsADifferentDecode means something only where the machine has a rung:
-// there the two answers are two pipelines, and the running one is handed back to be stopped rather
-// than left beside its replacement.
+// there the two answers are two pipelines,
+// and the running one is handed back to be stopped rather than left beside its replacement.
 func TestTheOtherAnswerIsADifferentDecode(t *testing.T) {
 	if !receive.ToneMapping().Available {
 		t.Skip("this machine has no element that rolls an HDR stream down")
@@ -78,8 +78,8 @@ func TestTheOtherAnswerIsADifferentDecode(t *testing.T) {
 	}
 	replaced.Stop()
 
-	// Taken out of the set by the call that handed it back, so nothing is left keyed by a pair whose
-	// pipeline is being torn down.
+	// Taken out of the set by the call that handed it back,
+	// so nothing is left keyed by a pair whose pipeline is being torn down.
 	if a.receiving(ref, false) {
 		t.Error("the replaced decode is still the one this pair is keyed to")
 	}

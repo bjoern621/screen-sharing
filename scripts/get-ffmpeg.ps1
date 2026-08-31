@@ -1,11 +1,11 @@
 <#
-  get-ffmpeg.ps1 - download ffmpeg/ffplay into build/windows/redist, which is where
-  `task build:windows` copies them from on its way to build/bin.
+  get-ffmpeg.ps1 - download ffmpeg and ffplay into build/windows/redist,
+  where `task build:windows` copies them from on its way to build/bin.
 
-  Not straight into build/bin: that directory is a build output and is rebuilt, while
-  the redistributables are fetched once per machine and kept (see that directory's
-  README). The app itself looks for the pair beside its own executable and then on
-  PATH (backend/internal/ffmpeg, FindExe), which is what the copy into build/bin serves.
+  Not straight into build/bin: that directory is a build output and is rebuilt,
+  while the redistributables are fetched once per machine and kept (that directory's README).
+  The app looks for the pair beside its own executable and then on PATH
+  (backend/internal/ffmpeg, FindExe), which is what the copy into build/bin serves.
 
   Run once per machine:
     .\get-ffmpeg.ps1

@@ -8,8 +8,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// previewApp needs no relay, no child and no control socket: what is under test is the pipeline the
-// publish brings up inside this process.
+// previewApp needs no relay, no child and no control socket:
+// under test is the pipeline the publish brings up inside this process.
 func previewApp() *App {
 	return &App{events: events.New(), settings: settings.Defaults()}
 }
@@ -49,8 +49,8 @@ func TestBringingTheLocalPreviewUpTwiceChangesNothing(t *testing.T) {
 	if a.preview != nil {
 		t.Error("a stopped preview is still reported as running")
 	}
-	// A stop on a preview that is not running names a state that already holds, the contract
-	// StopReceive keeps.
+	// A stop on a preview that is not running names a state that already holds,
+	// the contract StopReceive keeps.
 	a.stopPreviewLocked()
 }
 

@@ -6,8 +6,10 @@ package receive
 #include <gst/video/video.h>
 
 // pixel_shape takes a raw video format name, e.g. "Y444_10LE", and fills in bit depth per
-// component and the two chroma subsampling factors. Factor 1 is full chroma resolution on
-// that axis. 0 where this GStreamer build knows no such name.
+// component and the two chroma subsampling factors.
+// Factor 1 is full chroma resolution
+// on that axis.
+// 0 where this GStreamer build knows no such name.
 static int pixel_shape(const char *name, int *depth, int *h_sub, int *v_sub) {
 	GstVideoFormat fmt = gst_video_format_from_string(name);
 	if (fmt == GST_VIDEO_FORMAT_UNKNOWN) {
@@ -29,8 +31,8 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 )
 
-// padCaps is what one of an element's static pads negotiated, nil while either the pad or the
-// negotiation is absent.
+// padCaps is what one of an element's static pads negotiated, nil while either the pad or
+// the negotiation is absent.
 func padCaps(e gst.Element, name string) *gst.Caps {
 	pad := e.GetStaticPad(name)
 	if pad == nil {
@@ -53,7 +55,8 @@ func codecDescription(caps *gst.Caps) string {
 }
 
 // pixelShape is a raw video format on the axes a viewer cares about: bit depth per component, and
-// chroma subsampling. GStreamer's own format table supplies both, so a format this build knows
+// chroma subsampling.
+// GStreamer's own format table supplies both, so a format this build knows
 // needs no entry here.
 func pixelShape(format string) (depth int, subsampling string) {
 	if format == "" {

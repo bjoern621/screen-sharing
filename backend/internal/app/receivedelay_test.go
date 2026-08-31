@@ -22,7 +22,7 @@ func srtGroups(windowMs float64) []receive.StatGroup {
 
 func ms(v float64) *float64 { return &v }
 
-// close reports whether an optional figure carries want, to the tenth of a millisecond.
+// closeTo reports whether an optional figure carries want, to the tenth of a millisecond.
 func closeTo(t *testing.T, name string, got *float64, want *float64) {
 	t.Helper()
 
@@ -38,8 +38,8 @@ func closeTo(t *testing.T, name string, got *float64, want *float64) {
 }
 
 // The transit is a mean over the interval between two readings, not over the run.
-// An encoder or a decoder that slows down halfway shows it in the next sample rather than being
-// averaged out by the minutes before it.
+// An encoder or a decoder that slows down halfway shows it in the next sample
+// rather than averaged out by the minutes before it.
 func TestReceiveDelayTransitIsPerInterval(t *testing.T) {
 	last := receive.Stats{Transit: 100 * time.Millisecond, TransitFrames: 10}
 	now := receive.Stats{Transit: 400 * time.Millisecond, TransitFrames: 20}
@@ -50,8 +50,8 @@ func TestReceiveDelayTransitIsPerInterval(t *testing.T) {
 	closeTo(t, "receive", budget.Receive, ms(30))
 }
 
-// A first reading has nothing to divide, and neither does a pipeline rebuilt under one key: its
-// counters restart, so the reading before it describes something that no longer exists.
+// A first reading has nothing to divide, and neither does a pipeline rebuilt under one key:
+// its counters restart, so the reading before it describes a pipeline that is gone.
 func TestReceiveDelayNeedsTwoReadingsOfOneRun(t *testing.T) {
 	now := receive.Stats{Transit: 400 * time.Millisecond, TransitFrames: 20}
 
@@ -65,8 +65,8 @@ func TestReceiveDelayNeedsTwoReadingsOfOneRun(t *testing.T) {
 	}
 }
 
-// An interval no frame crossed is nothing to time, which is a different reading from a frame that
-// took no time.
+// An interval no frame crossed is nothing to time,
+// a different reading from a frame that took no time.
 func TestReceiveDelayAnIdleIntervalTimesNothing(t *testing.T) {
 	last := receive.Stats{Transit: 100 * time.Millisecond, TransitFrames: 10}
 	now := receive.Stats{Transit: 100 * time.Millisecond, TransitFrames: 10}
@@ -76,8 +76,8 @@ func TestReceiveDelayAnIdleIntervalTimesNothing(t *testing.T) {
 	}
 }
 
-// Work and wait together are the pipeline's latency window: what the sink still holds a frame for
-// is that window less the work already done inside it.
+// Work and wait together are the pipeline's latency window:
+// what the sink still holds a frame for is that window less the work already done inside it.
 func TestReceiveDelayPresentIsTheRestOfTheWindow(t *testing.T) {
 	last := receive.Stats{Transit: 0, TransitFrames: 0}
 	now := receive.Stats{
@@ -91,8 +91,8 @@ func TestReceiveDelayPresentIsTheRestOfTheWindow(t *testing.T) {
 	closeTo(t, "present", budget.Present, ms(40))
 }
 
-// A transit past the window is a frame the sink drops for being late, not one it draws early, so
-// the wait floors at zero rather than going negative.
+// A transit past the window is a frame the sink drops for being late, not one it draws early,
+// so the wait floors at zero rather than going negative.
 func TestReceiveDelayPresentNeverGoesNegative(t *testing.T) {
 	last := receive.Stats{}
 	now := receive.Stats{
@@ -105,8 +105,8 @@ func TestReceiveDelayPresentNeverGoesNegative(t *testing.T) {
 	closeTo(t, "present", budget.Present, ms(0))
 }
 
-// A pipeline that has answered no latency query yet leaves the wait unmeasured rather than reading
-// it as the whole window being work.
+// A pipeline that has answered no latency query leaves the wait unmeasured
+// rather than reading it as the whole window being work.
 func TestReceiveDelayPresentNeedsAWindow(t *testing.T) {
 	now := receive.Stats{Transit: 200 * time.Millisecond, TransitFrames: 10}
 
@@ -115,8 +115,8 @@ func TestReceiveDelayPresentNeedsAWindow(t *testing.T) {
 	}
 }
 
-// The window a leg's own transport holds a packet for comes off that leg's counters, and a leg
-// whose elements state none leaves it absent.
+// The window a leg's own transport holds a packet for comes off that leg's counters,
+// and a leg whose elements state none leaves it absent.
 func TestReceiveDelayWatchLinkComesOffTheLeg(t *testing.T) {
 	withSrt := receive.Stats{Groups: srtGroups(120)}
 	closeTo(t, "watch link", receiveDelayOf(withSrt, receive.Stats{}, false, publishDelay{}).WatchLink, ms(120))
@@ -142,8 +142,8 @@ func TestReceiveDelayPathIsPerInterval(t *testing.T) {
 	closeTo(t, "path", budget.Path, ms(60))
 }
 
-// A stream carrying no clock leaves the way here unmeasured, and so does an interval no stamped
-// frame crossed.
+// A stream carrying no clock leaves the way here unmeasured,
+// and so does an interval no stamped frame crossed.
 func TestReceiveDelayPathNeedsStampedFrames(t *testing.T) {
 	unstamped := receive.Stats{Transit: 200 * time.Millisecond, TransitFrames: 10}
 	if budget := receiveDelayOf(unstamped, receive.Stats{}, true, publishDelay{}); budget.Path != nil {
@@ -156,8 +156,8 @@ func TestReceiveDelayPathNeedsStampedFrames(t *testing.T) {
 	}
 }
 
-// The relay's own share is what the way here cost less the two legs' own windows, which is a figure
-// exactly where both legs state one.
+// The relay's own share is what the way here cost less the two legs' own windows,
+// a figure exactly where both legs state one.
 func TestReceiveDelayRelayIsWhatTheLegsDoNotAccountFor(t *testing.T) {
 	now := receive.Stats{Path: 200 * time.Millisecond, PathFrames: 1, Groups: srtGroups(120)}
 
@@ -167,8 +167,8 @@ func TestReceiveDelayRelayIsWhatTheLegsDoNotAccountFor(t *testing.T) {
 	closeTo(t, "relay", budget.Relay, ms(20))
 }
 
-// A leg that states no window leaves the relay's share inside the measured whole rather than
-// derived from a figure that is not there.
+// A leg that states no window leaves the relay's share inside the measured whole,
+// rather than derived from a figure that is not there.
 func TestReceiveDelayRelayNeedsBothWindows(t *testing.T) {
 	now := receive.Stats{Path: 200 * time.Millisecond, PathFrames: 1}
 
@@ -177,8 +177,9 @@ func TestReceiveDelayRelayNeedsBothWindows(t *testing.T) {
 	}
 }
 
-// Two windows summing past what the way here cost describe no relay at all: the measurement is the
-// one thing that was measured, so the derivation is dropped rather than reported as negative.
+// Two windows summing past what the way here cost describe no relay at all:
+// the measurement is the one thing that was measured,
+// so the derivation is dropped rather than reported as negative.
 func TestReceiveDelayRelayIsNeverNegative(t *testing.T) {
 	now := receive.Stats{Path: 50 * time.Millisecond, PathFrames: 1, Groups: srtGroups(120)}
 
@@ -187,8 +188,8 @@ func TestReceiveDelayRelayIsNeverNegative(t *testing.T) {
 	}
 }
 
-// A measured way here stands for the three stages it spans, so the total counts it once instead of
-// adding the legs' windows on top of it.
+// A measured way here stands for the three stages it spans,
+// so the total counts it once instead of adding the legs' windows on top of it.
 func TestReceiveDelayTotalCountsTheMeasuredPathOnce(t *testing.T) {
 	last := receive.Stats{}
 	now := receive.Stats{
@@ -205,7 +206,7 @@ func TestReceiveDelayTotalCountsTheMeasuredPathOnce(t *testing.T) {
 }
 
 // The total is the stages that were measured, added up, and no stage is invented to fill a gap.
-// It is therefore a floor: the relay's own share is in the path and in no measurement.
+// So a floor: the relay's own share is in the path and in no measurement.
 func TestReceiveDelayTotalAddsTheMeasuredStages(t *testing.T) {
 	last := receive.Stats{}
 	now := receive.Stats{
@@ -220,8 +221,8 @@ func TestReceiveDelayTotalAddsTheMeasuredStages(t *testing.T) {
 	closeTo(t, "total", budget.Total, ms(488))
 }
 
-// A decode of somebody else's stream reads that machine's own stages off the stamp its frames
-// carry, which is the only way they cross a relay.
+// A decode of another machine's stream reads its stages off the stamp its frames carry,
+// the only way they cross a relay.
 func TestReceiveDelayPublishingStagesComeOffTheStamp(t *testing.T) {
 	last := receive.Stats{PublishTotal: 100 * time.Millisecond, PublishFrames: 10}
 	now := receive.Stats{
@@ -236,8 +237,8 @@ func TestReceiveDelayPublishingStagesComeOffTheStamp(t *testing.T) {
 	closeTo(t, "publish link", budget.PublishLink, ms(300))
 }
 
-// This machine's own reading of its own publish wins over the one that went round the relay: it is
-// the same measurement at full precision and it is there for every codec, stamped or not.
+// This machine's own reading of its own publish wins over the one that went round the relay:
+// the same measurement at full precision, and there for every codec, stamped or not.
 func TestReceiveDelayPrefersTheLocalPublishReading(t *testing.T) {
 	now := receive.Stats{
 		PublishTotal: 900 * time.Millisecond, PublishFrames: 10,
@@ -267,7 +268,7 @@ func TestReceiveDelayWithoutAnyPublishingReading(t *testing.T) {
 	closeTo(t, "total", budget.Total, ms(180))
 }
 
-// A leg stating no window carries a zero one, which is no window rather than a window of nothing.
+// A leg stating no window carries a zero one, no window rather than a window of nothing.
 func TestReceiveDelayStampedLinkOfZero(t *testing.T) {
 	now := receive.Stats{PublishTotal: 80 * time.Millisecond, PublishFrames: 10}
 
@@ -276,7 +277,7 @@ func TestReceiveDelayStampedLinkOfZero(t *testing.T) {
 	}
 }
 
-// A decode nothing has measured yet reports no total, rather than a total of nothing.
+// A decode nothing has measured reports no total, rather than a total of nothing.
 func TestReceiveDelayTotalIsAbsentWithNoStage(t *testing.T) {
 	if budget := receiveDelayOf(receive.Stats{}, receive.Stats{}, false, publishDelay{}); budget.Total != nil {
 		t.Errorf("an unmeasured decode totals %v ms, want it absent", *budget.Total)

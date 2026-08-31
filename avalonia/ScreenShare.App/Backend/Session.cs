@@ -23,8 +23,8 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 public sealed record RelayReading(RelayStatus Status, DateTimeOffset At);
 
 /// <summary>
-/// Running state, as the backend last reported it: what is publishing, what the encoder is measuring, what the
-/// relay is carrying, which viewers are open, what is being decoded.
+/// Running state, as the backend last reported it: what is publishing, what the encoder is measuring,
+/// what the relay is carrying, which viewers are open, what is being decoded.
 ///
 /// <b>One owner of that state, holding nothing else.</b> Screens read it through on every render pass and keep
 /// no copy, two cards each holding a reading of their own being a window describing two streams at once
@@ -39,16 +39,16 @@ public sealed record RelayReading(RelayStatus Status, DateTimeOffset At);
 /// rather than being applied to it (<c>docs/ipc-api.md</c>, "Events"), which makes a duplicate event harmless
 /// and a dropped connection recoverable by reading again.
 ///
-/// <see cref="Samples"/> and <see cref="RelaySamples"/> accumulate, and neither departs from that: each entry is
-/// a whole state, the window is bounded, and nothing is derived from a series the backend also states.
+/// <see cref="Samples"/> and <see cref="RelaySamples"/> accumulate, and neither departs from that:
+/// each entry is a whole state, the window is bounded, and nothing is derived from a series the backend also states.
 ///
 /// A relay snapshot describes every path the relay carries and a plot wants one of them.
 /// The path is picked at draw time and not at store time, the publish state answering which path is ours and
 /// being able to move under a recorded series
 /// (<c>Features/Broadcast/Model/BroadcastSnapshot.cs</c>, <c>PathOf</c>).
 ///
-/// <see cref="Start"/> and the subscription loops are the writers, and both land on the UI loop through the
-/// injected dispatcher, so a screen never reads a half-written pass.
+/// <see cref="Start"/> and the subscription loops are the writers,
+/// and both land on the UI loop through the injected dispatcher, so a screen never reads a half-written pass.
 /// </summary>
 public sealed class Session
 {
@@ -57,10 +57,10 @@ public sealed class Session
     /// About one encoder sample per second per running pipeline, so roughly four minutes of stream, and bounded
     /// so a window left open overnight costs nothing.
     ///
-    /// Readings rather than seconds because it bounds what this class holds rather than what anything draws: the
-    /// relay poll period is not on the contract, so a span stated here would be one this side made up.
-    /// What a plot covers is its own and shorter, taken against the clock each reading carries
-    /// (<c>Features/Broadcast/Plots/Model/PlotSeries.cs</c>).
+    /// Readings rather than seconds because it bounds what this class holds rather than what anything draws:
+    /// the relay poll period is not on the contract, so a span stated here would be one this side made up.
+    /// What a plot covers is its own and shorter,
+    /// taken against the clock each reading carries (<c>Features/Broadcast/Plots/Model/PlotSeries.cs</c>).
     /// The history outlives the plot, so a card is never why a reading was dropped.
     /// </summary>
     private const int SampleWindow = 240;
@@ -104,8 +104,8 @@ public sealed class Session
 
     /// <summary>
     /// Raised on the UI loop after any field below has moved.
-    /// Carries nothing: the states are whole and read through, so that something changed and what it changed to
-    /// are two facts and only the first belongs on a signal.
+    /// Carries nothing: the states are whole and read through, so that something changed
+    /// and what it changed to are two facts and only the first belongs on a signal.
     /// </summary>
     public event Action? Changed;
 
@@ -114,8 +114,8 @@ public sealed class Session
     ///
     /// <b>A second signal rather than a second reason to raise the first, and the reason is cadence.</b>
     /// Every screen re-renders on <see cref="Changed"/>, which suits a state that moves when something happened.
-    /// A level moves fifteen times a second, so putting it there would re-render the shell at metering rate to
-    /// move one bar.
+    /// A level moves fifteen times a second,
+    /// so putting it there would re-render the shell at metering rate to move one bar.
     /// Only the meters and the pointer subscribe here.
     ///
     /// The shell-side half of why <c>SubscribeAudioLevels</c> is a stream of its own rather than an event kind
@@ -129,16 +129,21 @@ public sealed class Session
     public PublishState? Publish { get; private set; }
 
     /// <summary>
-    /// Newest encoder sample. Null while nothing publishes and before the first packet is muxed.
-    /// Its <c>missing</c> list names the figures it carries no measurement for, drawn as absent rather than as a
-    /// stalled encoder.
+    /// Newest encoder sample.
+    /// Null while nothing publishes and before the first packet is muxed.
+    /// Its <c>missing</c> list names the figures it carries no measurement for,
+    /// drawn as absent rather than as a stalled encoder.
     /// </summary>
     public PublishStats? Stats => _samples.Count == 0 ? null : _samples[^1];
 
     /// <summary>Encoder samples of this run, oldest first, bounded to <see cref="SampleWindow"/>.</summary>
     public IReadOnlyList<PublishStats> Samples => _samples;
 
-    /// <summary>Newest relay snapshot. Null until the first read lands. An unreachable relay is a snapshot saying so.</summary>
+    /// <summary>
+    /// Newest relay snapshot.
+    /// Null until the first read lands.
+    /// An unreachable relay is a snapshot saying so.
+    /// </summary>
     public RelayStatus? Relay => _relaySamples.Count == 0 ? null : _relaySamples[^1].Status;
 
     /// <summary>
@@ -155,28 +160,31 @@ public sealed class Session
 
     /// <summary>
     /// How this shell names the values the backend sends, built from the catalog.
-    /// Held here rather than fetched per screen: the catalog is one message, read once and re-announced when the
-    /// encoder probe lands, and two screens fetching it could hold two versions across a probe.
-    /// Before the first read it names everything off its own tables, which is everything but the two facts that
-    /// are this machine's: what a codec produces, and what a screen shows.
+    /// Held here rather than fetched per screen: the catalog is one message, read once
+    /// and re-announced when the encoder probe lands,
+    /// and two screens fetching it could hold two versions across a probe.
+    /// Before the first read it names everything off its own tables, which is everything
+    /// but the two facts that are this machine's: what a codec produces, and what a screen shows.
     /// </summary>
     public Vocabulary Words { get; private set; } = Vocabulary.Empty;
 
     /// <summary>
     /// Legs the relay serves a player page for, which are the ones a stream opens over in a browser.
-    /// Off the catalog rather than a form field, no setting standing behind it: a menu offers all of them at
-    /// once, and a stored preference would be a value nothing reads.
-    /// Empty until the first catalog read lands, which is a menu with nothing under it rather than one guessing
-    /// at protocols.
+    /// Off the catalog rather than a form field, no setting standing behind it: a menu offers all of them at once,
+    /// and a stored preference would be a value nothing reads.
+    /// Empty until the first catalog read lands,
+    /// which is a menu with nothing under it rather than one guessing at protocols.
     /// </summary>
     public IReadOnlyList<string> BrowserLegs { get; private set; } = [];
 
     /// <summary>
     /// Legs an external player can be opened on, which are the transports a player reaches by URL.
-    /// Off the catalog for the reason <see cref="BrowserLegs"/> is: a player is opened per press on the leg the
-    /// reader picked, and a stored preference would be a value nothing reads.
-    /// Every entry is one a player on this machine opens, the roster being that receiver's own, so no row carries
-    /// a verdict: whether a leg carries a given stream is answered against the stream as the viewer opens.
+    /// Off the catalog for the reason <see cref="BrowserLegs"/> is:
+    /// a player is opened per press on the leg the reader picked,
+    /// and a stored preference would be a value nothing reads.
+    /// Every entry is one a player on this machine opens, the roster being that receiver's own,
+    /// so no row carries a verdict:
+    /// whether a leg carries a given stream is answered against the stream as the viewer opens.
     /// Empty until the first catalog read lands.
     /// </summary>
     public IReadOnlyList<string> PlayerLegs { get; private set; } = [];
@@ -190,8 +198,8 @@ public sealed class Session
 
     /// <summary>
     /// Why this machine cannot show what a monitor holds, null where it can.
-    /// Read rather than found out by asking and being refused: the wizard offers the plain list instead of
-    /// opening previews the session would refuse one by one.
+    /// Read rather than found out by asking and being refused:
+    /// the wizard offers the plain list instead of opening previews the session would refuse one by one.
     /// </summary>
     public Text? NoMonitorPreview { get; private set; }
 
@@ -212,11 +220,12 @@ public sealed class Session
     public TestStreamState? TestStreams { get; private set; }
 
     /// <summary>
-    /// Every stream the backend is decoding for a tile, and what each pipeline turned out to be: the render chain
-    /// that ran, the memory the frames were in at each end, the decoder, and whether it ran on silicon.
-    /// Reported rather than asked for, which is why it is worth reading at all: a chain falls back where a machine
-    /// cannot run its elements and a hardware decoder may download its own frames, so a tile drawing the chain the
-    /// settings named would draw a request instead of a result.
+    /// Every stream the backend is decoding for a tile, and what each pipeline turned out to be:
+    /// the render chain that ran, the memory the frames were in at each end, the decoder,
+    /// and whether it ran on silicon.
+    /// Reported rather than asked for, which is why it is worth reading at all:
+    /// a chain falls back where a machine cannot run its elements and a hardware decoder may download its own frames,
+    /// so a tile drawing the chain the settings named would draw a request instead of a result.
     /// </summary>
     public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
 
@@ -224,10 +233,10 @@ public sealed class Session
     /// What every running decode is doing as of the last sample: what arrives, what came out of the decoder, what
     /// the sink did with it, how the pipeline is timed, and the counters the transport's own elements keep.
     ///
-    /// <b>A sample and not a state, hence separate from <see cref="Receiving"/>.</b> What a decode is settles at
-    /// negotiation and is announced when it moves.
-    /// What it is doing is read off the pipeline on a clock the backend keeps, so two windows on one decode read
-    /// one rate rather than each dividing by an interval of its own.
+    /// <b>A sample and not a state, hence separate from <see cref="Receiving"/>.</b>
+    /// What a decode is settles at negotiation and is announced when it moves.
+    /// What it is doing is read off the pipeline on a clock the backend keeps,
+    /// so two windows on one decode read one rate rather than each dividing by an interval of its own.
     ///
     /// Empty while nothing decodes, and until the first tick after a decode opens.
     /// A panel with nothing to print says so rather than printing the run before it.
@@ -253,7 +262,7 @@ public sealed class Session
     }
 
     /// <summary>
-    /// Every monitor the backend is reading into a picture, and whether a frame has come off each yet.
+    /// Every monitor the backend is reading into a picture, and whether a frame has come off each.
     /// A shorter row than <see cref="Receiving"/>: nothing encoded these frames, so there is no decoder to name,
     /// and nothing carried them, so there is no leg.
     /// A preview outlives the window that asked for it, as a decode does, so this is what the wizard converges
@@ -266,8 +275,8 @@ public sealed class Session
     /// Whole per tick and read through by the meters rather than accumulated.
     /// A decode with no audio track has no entry, a silent one an entry reading negative infinity: two facts,
     /// drawn as no meter and as an empty one.
-    /// Empty while nothing is metered, the level stream being down included: a bar frozen at the last figure a
-    /// dead stream carried is the one reading that is certainly wrong.
+    /// Empty while nothing is metered, the level stream being down included:
+    /// a bar frozen at the last figure a dead stream carried is the one reading that is certainly wrong.
     /// </summary>
     public IReadOnlyList<AudioLevel> Levels { get; private set; } = [];
 
@@ -319,10 +328,10 @@ public sealed class Session
 
     /// <summary>
     /// Reads every state once, then holds the streams open.
-    /// Idempotent: a second call supersedes the first rather than opening a second stream, so it doubles as the
-    /// retry after the backend was found absent.
-    /// The caller awaits nothing, a screen with no state yet rendering its unloaded branch rather than holding up
-    /// the first paint on a socket.
+    /// Idempotent: a second call supersedes the first rather than opening a second stream,
+    /// so it doubles as the retry after the backend was found absent.
+    /// The caller awaits nothing,
+    /// a screen with no state yet rendering its unloaded branch rather than holding up the first paint on a socket.
     /// </summary>
     public Task Start()
     {
@@ -337,9 +346,9 @@ public sealed class Session
 
     /// <summary>
     /// Takes a roster the backend just answered with.
-    /// Here because one change has no event: the stream announces a viewer that <i>ended</i> and not one that
-    /// started, so a screen that opened one reads the list again and hands it over rather than keeping a copy of
-    /// its own.
+    /// Here because one change has no event: the stream announces a viewer that <i>ended</i>
+    /// and not one that started, so a screen that opened one reads the list again
+    /// and hands it over rather than keeping a copy of its own.
     /// What crosses is a whole list the backend produced, the only kind of value this class stores.
     /// </summary>
     public void Adopt(IReadOnlyList<StreamRef> watching)
@@ -359,8 +368,9 @@ public sealed class Session
 
     /// <summary>
     /// One pass of the lifecycle: read every state, follow the stream until it ends, read them again.
-    /// The states are whole and the stream carries no history, so what happened while the connection was down is
-    /// learned by reading and never by replay (<c>docs/ipc-api.md</c>, "Events").
+    /// The states are whole and the stream carries no history,
+    /// so what happened while the connection was down is learned by reading
+    /// and never by replay (<c>docs/ipc-api.md</c>, "Events").
     /// </summary>
     private async Task RunAsync(CancellationToken cancellation)
     {
@@ -393,8 +403,8 @@ public sealed class Session
 
     /// <summary>
     /// Reads every state once.
-    /// Together rather than one per screen: the broadcast screen and the viewer describe one session, and a
-    /// window whose halves were read seconds apart would show that.
+    /// Together rather than one per screen: the broadcast screen and the viewer describe one session,
+    /// and a window whose halves were read seconds apart would show that.
     /// </summary>
     private async Task LoadAsync(CancellationToken cancellation)
     {
@@ -442,10 +452,10 @@ public sealed class Session
 
     /// <summary>
     /// Follows where the publishing machine's pointer is, for as long as the session runs.
-    /// Its own loop beside the meter's: a stream of its own on the wire, a cadence of its own, and a picture that
-    /// goes on being drawn while it reconnects.
-    /// The position is dropped when the stream does, a pointer frozen where a dead stream left it being the one
-    /// reading that is certainly wrong.
+    /// Its own loop beside the meter's: a stream of its own on the wire, a cadence of its own,
+    /// and a picture that goes on being drawn while it reconnects.
+    /// The position is dropped when the stream does,
+    /// a pointer frozen where a dead stream left it being the one reading that is certainly wrong.
     /// </summary>
     private async Task PointerAsync(CancellationToken cancellation)
     {
@@ -486,7 +496,6 @@ public sealed class Session
     /// and neither ending being a reason to reopen the other.
     /// Nothing is read back on reconnect: a level is an instant rather than an accumulated state, so the next
     /// tick is the whole recovery.
-    /// An absent backend is not reported here. <see cref="RunAsync"/> owns that sentence.
     /// </summary>
     private async Task MeterAsync(CancellationToken cancellation)
     {
@@ -570,8 +579,8 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.ReceiveState:
-                // Arrives on every change, the first frame of a stream included: what a pipeline negotiated is
-                // knowable only once a frame has left it.
+                // Arrives on every change, the first frame of a stream included:
+                // what a pipeline negotiated is knowable only once a frame has left it.
                 Receiving = change.ReceiveState.Streams;
                 break;
 
@@ -588,8 +597,8 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.ViewerState:
-                // The roster, announced on every change including the ones this shell did not make, so it is
-                // taken rather than re-read.
+                // The roster, announced on every change including the ones this shell did not make,
+                // so it is taken rather than re-read.
                 Watching = change.ViewerState.Viewers;
                 break;
 
@@ -600,8 +609,8 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.TestStreamState:
-                // The whole set, slots with no child in them included: a slot that died is a row and never a
-                // missing one.
+                // The whole set, slots with no child in them included: a slot that died is a row
+                // and never a missing one.
                 TestStreams = change.TestStreamState;
                 break;
 
@@ -652,8 +661,7 @@ public sealed class Session
 
     /// <summary>
     /// Runs one write on the UI loop and announces it.
-    /// Every assignment above goes through it, so one place raises the notification and one thread writes the
-    /// state.
+    /// Every assignment above goes through it, so one place raises the notification and one thread writes the state.
     /// </summary>
     private void Write(Action write)
     {

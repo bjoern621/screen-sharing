@@ -6,7 +6,8 @@ Schema and nothing else: no business logic, no transport code, no shell code.
 A separate module, so both sides depend on the contract rather than on each other.
 
 `docs/ipc-api.md` states the rule the contract encodes, the transport, the error model and the versioning policy.
-Read it first. This page is how to work in this directory.
+Read it first.
+This page is how to work in this directory.
 
 ## Layout
 
@@ -52,8 +53,6 @@ C# is neither committed nor generated here.
             GrpcServices="Client" />
 </ItemGroup>
 ```
-
-One schema, two generators, no hand-written copy on either side.
 
 Tooling comes from the flake's dev shell on Linux and macOS.
 On Windows, `buf`, `protoc-gen-go` and `protoc-gen-go-grpc` are installed separately.

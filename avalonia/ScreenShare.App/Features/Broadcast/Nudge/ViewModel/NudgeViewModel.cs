@@ -5,20 +5,18 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 
 /// <summary>
-/// Design's one editable control on this screen: smoother against sharper, drawn where a live-safe quality change
-/// would belong if the backend had one.
+/// Design's one editable control on this screen: smoother against sharper.
 ///
-/// <b>Inert, and the reason is on the control rather than in this comment.</b> No backend effect changes an
-/// encoder's quality without rebuilding the pipeline: both engines run a child built from an argv and neither
-/// takes a value back, so <c>ApplyToStream</c> restarts the stream and is the opposite of live-safe.
+/// <b>Inert.</b> No backend effect changes an encoder's quality without rebuilding the pipeline: both engines
+/// run a child built from an argv and neither takes a value back, so <c>ApplyToStream</c> restarts the stream
+/// and is the opposite of live-safe.
 /// A slider wired to that is a control whose promise is false.
-/// It stays on screen greyed and carrying why, the treatment the settings form gives a knob the combination in
-/// force blocks (<c>docs/field-availability.md</c>, "The rule").
+/// It stays on screen greyed and carrying why, the treatment the settings form gives a knob the combination
+/// in force blocks (<c>docs/field-availability.md</c>, "The rule").
 ///
 /// <see cref="IsEnabled"/> and <see cref="Reason"/> reach the screen only through their bindings, which nothing
 /// here can assert.
-/// The assertions at the foot of <see cref="Apply"/> are what a view model can do about it, and they keep the two
-/// properties from disagreeing with each other.
+/// The assertions at the foot of <see cref="Apply"/> keep the two from disagreeing with each other.
 ///
 /// The footnote reports the quality the stream <i>runs</i> at and predicts nothing from the slider.
 /// What a new position costs is the encoder's answer, and a guess is a number a publisher acts on and is wrong
@@ -52,8 +50,8 @@ public sealed class NudgeViewModel : Observable
 
     /// <summary>
     /// Where the reader has put the slider: 0 smoother, 100 sharper.
-    /// The reader's to own, so <see cref="Apply"/> never writes it.
-    /// A render pass that moved the thumb would fight the hand holding it.
+    /// The reader's to own, so <see cref="Apply"/> never writes it:
+    /// a render pass that moved the thumb would fight the hand holding it.
     /// </summary>
     public double Sharpness
     {
@@ -88,8 +86,7 @@ public sealed class NudgeViewModel : Observable
 
     /// <summary>
     /// Caveat beside the card's title.
-    /// Read from the same table as <see cref="Reason"/>, so the short form and the long one cannot come to
-    /// disagree.
+    /// Read from the same table as <see cref="Reason"/>, so the short form and the long one cannot disagree.
     /// </summary>
     public string Caveat => Copy.Cards.NudgeCaveat;
 

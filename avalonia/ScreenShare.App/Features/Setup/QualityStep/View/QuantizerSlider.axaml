@@ -2,10 +2,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    A quantizer slider paints no track: the form behind it draws the coloured zones, so both
-    halves stay blank and the zones show through (Setup/QualityStep/View/QualityStepView.axaml).
-    The thumb and the blank halves are the shared ones from Design/Inputs.axaml, a grip being
-    the design's answer rather than this step's.
+    A quantizer slider paints no track: the form behind it draws the coloured zones,
+    so both halves stay blank and the zones show through (Setup/QualityStep/View/QualityStepView.axaml).
+    The thumb and the blank halves are the shared ones from Design/Inputs.axaml,
+    a grip being the design's answer rather than this step's.
 
     Merged by the one view that uses it, so nothing is registered in App.axaml.
   -->

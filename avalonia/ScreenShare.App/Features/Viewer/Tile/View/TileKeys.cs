@@ -14,8 +14,8 @@ namespace ScreenShare.App.Features.Viewer.Tile.View;
 /// and the menu would keep printing the stale one until somebody compared them.
 ///
 /// Each key names a state, so pressing it twice is a round trip.
-/// The tone-map row carries none: it rebuilds the decode and blanks the tile for as long as that takes, too much
-/// for one letter under a resting pointer.
+/// The tone-map row carries none: it rebuilds the decode and blanks the tile for as long as that takes,
+/// too much for one letter under a resting pointer.
 /// </summary>
 public static class TileKeys
 {
@@ -39,8 +39,8 @@ public static class TileKeys
 
     /// <summary>
     /// Same key where the layout prints + above =, so the character costs a Shift.
-    /// Modifiers are part of a gesture, making a shifted press a different gesture rather than the same one held
-    /// differently: without this entry + works on a German keyboard and does nothing on an American one.
+    /// Modifiers are part of a gesture, so a shifted press is a different gesture:
+    /// without this entry + works on a German keyboard and does nothing on an American one.
     /// Printed nowhere, the menu showing the key <see cref="Louder"/> names.
     /// </summary>
     private static readonly KeyGesture ShiftedLouder = new(Key.OemPlus, KeyModifiers.Shift);
@@ -59,8 +59,8 @@ public static class TileKeys
 
     /// <summary>
     /// Command a press asks for, null for a key none of these name.
-    /// Matching is by gesture, so a held modifier is a different gesture and misses everything but the entry
-    /// carrying its own: Ctrl+F goes to whoever else claims it and never to a tile.
+    /// Matching is by gesture, so a held modifier misses every entry but one carrying that modifier:
+    /// Ctrl+F goes to whoever else claims it and never to a tile.
     /// Whether the tile can answer is the command's question, asked where the press is acted on.
     /// </summary>
     public static ICommand? Command(TileViewModel tile, KeyEventArgs press)

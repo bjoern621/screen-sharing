@@ -12,13 +12,14 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// What the form promises about a control and what applying it costs are one answer, read off one
-// table: a control marked live promises nobody watching is dropped, and the apply path delivers it.
+// What the form promises about a control and what applying it costs are one answer,
+// read off one table: a control marked live promises nobody watching is dropped,
+// and the apply path delivers it.
 // Which controls those are moves with the settings, so the flag is answered per field per resolve
 // and no shell holds a list of live keys (docs/field-availability.md).
 
-// liveFlags is every control the resolved form marks live, as controls rather than as entries: a
-// repeated control drawn per entry is one control, and the apply path names it once.
+// liveFlags is every control the resolved form marks live, as controls rather than as entries:
+// a repeated control drawn per entry is one control, and the apply path names it once.
 func liveFlags(t *testing.T, s settings.Settings) []string {
 	t.Helper()
 	var out []string
@@ -33,9 +34,9 @@ func liveFlags(t *testing.T, s settings.Settings) []string {
 	return out
 }
 
-// liveSettings is a pipeline that takes a value while it runs: the GStreamer engine, a codec whose
-// element has a bitrate property, a mode that sends it one, and a source in the mix whose level the
-// mixer takes.
+// liveSettings is a pipeline that takes a value while it runs: the GStreamer engine,
+// a codec whose element has a bitrate property, a mode that sends it one,
+// and a source in the mix whose level the mixer takes.
 func liveSettings() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "ximagesrc"
@@ -59,10 +60,10 @@ func TestTheFormMarksWhatTheRunningPipelineTakes(t *testing.T) {
 }
 
 // A mode that sends the encoder no rate has none to send again.
-// The engine and the codec are unchanged from liveSettings, which is what makes this a statement
-// about the mode rather than about either of them.
-// The mix's own levels stay marked: they reach the mixer, which does not care how the picture is
-// coded.
+// The engine and the codec are liveSettings' own, so this is a statement about the mode rather
+// than about either of them.
+// The mix's own levels stay marked: they reach the mixer,
+// which does not care how the picture is coded.
 func TestAModeThatSendsNoRateMarksNoBitrate(t *testing.T) {
 	s := liveSettings()
 	s.Publish.Mode = capabilities.ModeCrf
@@ -77,10 +78,9 @@ func TestAModeThatSendsNoRateMarksNoBitrate(t *testing.T) {
 	}
 }
 
-// The ffmpeg engine takes nothing once its child is running, so a form resolved against one of its
-// capture backends marks nothing.
-// Only the capture backend differs from liveSettings, which is what makes the promise follow the
-// engine.
+// The ffmpeg engine takes nothing once its child is running, so a form resolved
+// against one of its capture backends marks nothing.
+// Only the capture backend differs from liveSettings, so the promise follows the engine.
 func TestTheFfmpegEngineMarksNothing(t *testing.T) {
 	s := liveSettings()
 	s.Publish.Capture = "x11grab"

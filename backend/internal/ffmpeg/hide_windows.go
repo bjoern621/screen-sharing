@@ -5,8 +5,8 @@ import (
 	"syscall"
 )
 
-// createNoWindow is Windows' CREATE_NO_WINDOW: the child allocates no console, so no black window
-// flashes up beside the encoder.
+// createNoWindow is Windows' CREATE_NO_WINDOW: the child allocates no console,
+// so no black window flashes up beside the encoder.
 const createNoWindow = 0x08000000
 
 // setHidden suppresses the child's console window.

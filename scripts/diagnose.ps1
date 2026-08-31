@@ -1,11 +1,11 @@
 <#
-  diagnose.ps1 - run this WHILE publish + watch are running and the picture is broken.
+  diagnose.ps1 - run while publish and watch are up and the picture is broken.
 
-  Opens a second, headless reader on the same stream for 10s and counts decode
-  errors. Splits the fault:
-    headless reader ALSO broken  -> publisher/relay side (stream itself corrupt)
-    headless reader clean        -> your ffplay window/env is the problem
-  Also dumps relay stats.
+  Opens a second, headless reader on the same stream for 10s and counts decode errors.
+  Splits the fault:
+    headless reader also broken  -> publisher or relay side, the stream itself corrupt
+    headless reader clean        -> the ffplay window or its environment
+  Dumps relay stats as well.
 
   Example:
     .\diagnose.ps1 -Name bjoern

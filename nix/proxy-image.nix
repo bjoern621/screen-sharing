@@ -1,14 +1,15 @@
 # The reverse proxy as a container image, for a Kubernetes deployment of the relay.
 #
-# It carries deploy/Caddyfile for the reason the relay image carries the relay's config: the
-# routing table is one file by design, and a second copy of it in a cluster repository is a
-# copy nobody reads against this one.
+# It carries deploy/Caddyfile for the reason the relay image carries the relay's config:
+# the routing table is one file,
+# and a second copy of it in a cluster repository is a copy nobody reads against this one.
 #
-# What it does not carry is ACME. On a host this proxy is the only client that could hold a
-# certificate, so it issues one; in the cluster cert-manager already does, and the proxy is
-# reached over a name another terminator answers for. The deployment sets SCREENSHARE_DOMAIN
-# to a bare port for that, which is a Caddy site address with no scheme and so no automatic
-# HTTPS.
+# What it does not carry is ACME.
+# On a host this proxy is the only client that could hold a certificate, so it issues one;
+# in the cluster cert-manager does,
+# and the proxy is reached over a name another terminator answers for.
+# The deployment sets SCREENSHARE_DOMAIN to a bare port for that,
+# a Caddy site address with no scheme and so no automatic HTTPS.
 
 {
   lib,

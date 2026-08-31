@@ -11,10 +11,10 @@ namespace ScreenShare.App.Backend;
 /// the Go backend computes.
 ///
 /// Evaluates nothing.
-/// No codec name, no encoder family, no table and no rule lives here, and a greyed option arrives greyed
-/// carrying the sentence saying why (<c>docs/ipc-api.md</c>, "The rule").
-/// What it owns is a transport's three things: the channel, the handshake in front of it, and the translation of
-/// a failure into something the caller above can act on.
+/// No codec name, no encoder family, no table and no rule lives here,
+/// and a greyed option arrives greyed carrying the sentence saying why (<c>docs/ipc-api.md</c>, "The rule").
+/// What it owns is a transport's three things: the channel, the handshake in front of it,
+/// and the translation of a failure into something the caller above can act on.
 ///
 /// <c>Hello</c> runs before any other method and settles the contract major, so a major this backend does not
 /// implement is a sentence naming both numbers rather than fields that silently arrive empty.
@@ -23,9 +23,9 @@ namespace ScreenShare.App.Backend;
 /// needs one.
 ///
 /// The encoder probe is asked for once, which is why this class has an event.
-/// <c>ResolveForm</c> reads what has been probed rather than probing, a resolve running on every keystroke and
-/// the probe costing seconds, so a machine nothing has probed greys no codec for missing hardware and goes on
-/// offering QSV where there is no Intel GPU.
+/// <c>ResolveForm</c> reads what has been probed rather than probing, a resolve running on every keystroke
+/// and the probe costing seconds, so a machine nothing has probed greys no codec for missing hardware
+/// and goes on offering QSV where there is no Intel GPU.
 /// This asks, in the background, and raises <see cref="Changed"/> when the answer lands.
 /// What the probe decides is still the backend's; what arrives here is the news that the answer moved.
 /// </summary>
@@ -55,10 +55,10 @@ public sealed class ControlBackend : IBackend
     private static readonly TimeSpan CallDeadlineSpan = TimeSpan.FromSeconds(20);
 
     /// <summary>
-    /// Probe's own bound, longer because it test-encodes on every engine the machine has and would exceed the
-    /// general bound where there are several GPUs.
-    /// A probe that timed out is asked for again by the next read (<see cref="GreetAsync"/>), so the general
-    /// bound would mean re-running it for as long as the window is open and never finishing one.
+    /// Probe's own bound, longer because it test-encodes on every engine the machine has
+    /// and would exceed the general bound where there are several GPUs.
+    /// A probe that timed out is asked for again by the next read (<see cref="GreetAsync"/>),
+    /// so the general bound would mean re-running it for as long as the window is open and never finishing one.
     /// </summary>
     private static readonly TimeSpan ProbeDeadline = TimeSpan.FromMinutes(3);
 
@@ -72,24 +72,24 @@ public sealed class ControlBackend : IBackend
 
     /// <summary>
     /// Handshake, kept so it is awaited rather than repeated.
-    /// A faulted one is dropped and started again on the next read, which is the whole of the reconnect: the
-    /// failure was an absent backend, and the next read may find one.
+    /// A faulted one is dropped and started again on the next read, which is the whole of the reconnect:
+    /// the failure was an absent backend, and the next read may find one.
     /// </summary>
     private Task? _handshake;
 
     /// <summary>
     /// Whether the probe has been asked for.
-    /// One per instance: the backend caches what it found for its own process lifetime, so a second request is a
-    /// second wait for an answer already given.
+    /// One per instance: the backend caches what it found for its own process lifetime,
+    /// so a second request is a second wait for an answer already given.
     /// </summary>
     private bool _probeAsked;
 
     public ControlBackend()
     {
-        // gRPC needs an origin on the request and a pipe or Unix socket has no host to name, so the address is a
-        // placeholder and the connect callback decides where the bytes go.
-        // The channel outlives this constructor through the client it is handed to: the window's connection, and
-        // the window is the process.
+        // gRPC needs an origin on the request and a pipe or Unix socket has no host to name,
+        // so the address is a placeholder and the connect callback decides where the bytes go.
+        // The channel outlives this constructor through the client it is handed to: the window's connection,
+        // and the window is the process.
         var channel = GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions
         {
             HttpHandler = new SocketsHttpHandler
@@ -101,8 +101,8 @@ public sealed class ControlBackend : IBackend
             },
         });
 
-        // Control client goes through the deadline interceptor, the frame client does not: a control call is a
-        // question with an answer, a frame call stays open for as long as a tile is drawn.
+        // Control client goes through the deadline interceptor, the frame client does not:
+        // a control call is a question with an answer, a frame call stays open for as long as a tile is drawn.
         _client = new ControlService.ControlServiceClient(channel.Intercept(new CallDeadline(CallDeadlineSpan)));
         // Second service on the one connection, as the contract asks: riding the same socket avoids reinventing
         // framing, versioning and cancellation for a stream of handle metadata, and a second connection would be
@@ -529,10 +529,9 @@ public sealed class ControlBackend : IBackend
 
     /// <summary>
     /// One effect keyed by the stream and leg a viewer and a decode are identified by.
-    /// The methods above differ in the request they wrap that pair in and in nothing else, so the pair is
-    /// asserted and built here.
-    /// <paramref name="what"/> names the effect as its assertions name it, the only part of the sentence the
-    /// caller writes.
+    /// The methods above differ in the request they wrap that pair in and in nothing else, so the pair is asserted
+    /// and built here.
+    /// <paramref name="what"/> names the effect as its assertions name it, the caller's only part of the sentence.
     /// </summary>
     private Task KeyedAsync<TResponse>(
         string streamName,
@@ -550,10 +549,10 @@ public sealed class ControlBackend : IBackend
 
     /// <summary>
     /// Same read, where the response wraps the state rather than being it.
-    /// The contract wraps every read whose answer does not also travel on the event stream, so a response can
-    /// grow a field the state itself has no business carrying.
-    /// Unwrapping belongs here: a view model reaching through the envelope would be a second place knowing which
-    /// reads are wrapped.
+    /// The contract wraps every read whose answer does not also travel on the event stream,
+    /// so a response can grow a field the state itself has no business carrying.
+    /// Unwrapping belongs here:
+    /// a view model reaching through the envelope would be a second place knowing which reads are wrapped.
     /// </summary>
     private async Task<TState> ReadAsync<TResponse, TState>(
         Func<ControlService.ControlServiceClient, AsyncUnaryCall<TResponse>> call,
@@ -568,9 +567,8 @@ public sealed class ControlBackend : IBackend
     /// Deliberately not given the caller's token: one caller abandoning its read would cancel the handshake every
     /// other caller is waiting on.
     ///
-    /// The probe is asked for here rather than from inside the handshake, which is what makes "a probe that
-    /// failed is not remembered as done" true: a settled handshake is kept and never re-run, so a flag only it
-    /// consults is a flag nothing reads again.
+    /// The probe is asked for here rather than from inside the handshake: a settled handshake is kept and never
+    /// re-run, so a flag only it consults is a flag nothing reads again (<see cref="Probe"/>).
     /// <see cref="Probe"/> is idempotent, so every read after the first asks for a state that already holds.
     /// </summary>
     private async Task GreetAsync()
@@ -653,40 +651,39 @@ public sealed class ControlBackend : IBackend
             return;
         }
 
-        // Raised on whichever thread the call completed on, which is why the contract states it: a subscriber
-        // writing a bound property marshals back itself.
+        // Raised on whichever thread the call completed on (IBackend.Changed).
         Changed?.Invoke();
     }
 
     /// <summary>
-    /// Turns a failed call into what the caller above is written against: a read this shell abandoned, or a
-    /// sentence the reader sees.
+    /// Turns a failed call into what the caller above is written against: a read this shell abandoned,
+    /// or a sentence the reader sees.
     /// The two are not gRPC's own division, so the translation is here rather than in a <c>catch</c> upstairs.
     ///
-    /// A superseded resolve is nobody's business, the flow cancelling one on every keystroke, so it becomes an
-    /// <see cref="OperationCanceledException"/>.
-    /// The token is checked alongside the code, so a <c>CANCELLED</c> the backend produced on its own is not
-    /// mistaken for one this shell asked for.
+    /// A superseded resolve is nobody's business, the flow cancelling one on every keystroke,
+    /// so it becomes an <see cref="OperationCanceledException"/>.
+    /// The token is checked alongside the code,
+    /// so a <c>CANCELLED</c> the backend produced on its own is not mistaken for one this shell asked for.
     ///
     /// Everything else divides by who wrote the status, not by which code it carries.
-    /// A status the backend produced carries prose written for a person and is the screen's to show verbatim: a
-    /// relay that could not be reached and a child process that would not start are both <c>UNAVAILABLE</c>
-    /// (<c>docs/ipc-api.md</c>, "Errors"), so reading that code as "nothing is listening" would answer a press of
-    /// Start sharing with a sentence about the connection it just used.
+    /// A status the backend produced carries prose written for a person and is the screen's to show verbatim:
+    /// a relay that could not be reached
+    /// and a child process that would not start are both <c>UNAVAILABLE</c> (<c>docs/ipc-api.md</c>, "Errors"),
+    /// so reading that code as "nothing is listening" would answer Start sharing with a sentence about its own connection.
     /// The one thing this side may add is the address, and only where the connection is what failed.
     ///
-    /// <see cref="Status.DebugException"/> answers which side wrote it: the client library sets it on a status it
-    /// made from a local failure and leaves it null on one that arrived.
-    /// A refused connect is told apart from a served refusal by code rather than by matching on a sentence, the
-    /// input that changes without anything failing to compile.
+    /// <see cref="Status.DebugException"/> answers which side wrote it:
+    /// the client library sets it on a status it made from a local failure and leaves it null on one that arrived.
+    /// A refused connect is told apart from a served refusal by code rather than by matching on a sentence,
+    /// the input that changes without anything failing to compile.
     ///
-    /// A local failure is the backend not running whatever code it wears: an absent named pipe arrives as
-    /// <c>INTERNAL</c> on Windows with nothing said, an unbound socket as <c>UNAVAILABLE</c>.
-    /// Both name the address that was tried, the path being what makes "nothing is listening on this"
-    /// actionable.
+    /// A local failure is the backend not running whatever code it wears:
+    /// an absent named pipe arrives as <c>INTERNAL</c> on Windows with nothing said,
+    /// an unbound socket as <c>UNAVAILABLE</c>.
+    /// Both name the address that was tried (<see cref="ControlEndpoint.Describe"/>).
     ///
-    /// A served status with no prose names the code it failed with rather than being handed upwards empty: the
-    /// exception promises a sentence, and the assertion upstairs refuses a blank one.
+    /// A served status with no prose names the code it failed with rather than being handed upwards empty:
+    /// the exception promises a sentence, and the assertion upstairs refuses a blank one.
     /// </summary>
     internal static Exception Translate(RpcException e, CancellationToken cancellation)
     {
@@ -698,16 +695,15 @@ public sealed class ControlBackend : IBackend
         // This side's own clock running out, so it is named before the check below: the status was written here
         // and carries no prose, and the wording for a prose-less status says the backend answered.
         //
-        // Whether the call landed is not visible from here, and the sentence says so.
-        // Useful only because repeating an effect that names a state finds the work already done, and "names a
-        // state" rather than "every call" because ApplyToStream names a transition on purpose and a second one of
-        // those is a second restart.
+        // Whether the call landed is not visible from here.
+        // Repeating an effect that names a state finds the work already done;
+        // ApplyToStream names a transition on purpose, so a second one is a second restart.
         if (e.StatusCode == StatusCode.DeadlineExceeded)
         {
             return new BackendUnavailableException(
                 $"The backend did not answer in time over {ControlEndpoint.Describe()}. "
                 + "Whether it acted before going quiet is not visible from here, "
-                + "so anything that names a state - starting or stopping a stream, a viewer or a decode - "
+                + "so anything that names a state (starting or stopping a stream, a viewer or a decode) "
                 + "is safe to ask for again.", e);
         }
 

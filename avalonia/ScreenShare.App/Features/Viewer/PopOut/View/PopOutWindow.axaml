@@ -15,8 +15,9 @@
   </Window.KeyBindings>
 
   <!--
-    One tile through the grid's own solver, which letterboxes it at its stream's shape in whatever
-    shape this window is dragged to (Features/Viewer/Model/TileLayout.cs).
+    One tile through the grid's own solver,
+    letterboxed at its stream's shape in whatever shape this window is dragged to
+    (Features/Viewer/Model/TileLayout.cs).
   -->
   <view:TileGrid>
     <tiles:TileCard view:TileGrid.Aspect="{Binding Aspect}" />

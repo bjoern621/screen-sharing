@@ -19,24 +19,27 @@ import (
 // The master playlist names a media playlist per rendition, under a session MediaMTX mints per
 // reader, and that address is answered 401 without it.
 //
-// Two renditions are one too many. hlsdemux2 stalls before the first frame of a master naming an
-// audio group, where libavformat plays the same stream, so what is opened is the video media
-// playlist and the leg carries no audio.
+// Two renditions are one too many.
+// hlsdemux2 stalls before the first frame of a master naming an audio group, where libavformat
+// plays the same stream, so what is opened is the video media playlist and the leg carries no
+// audio.
 //
-// A just-started muxer serves EXT-X-GAP placeholders in place of segments. RFC 8216 has a client
-// skip them, hlsdemux2 downloads one and fails the pipeline, so a source is handed over only once a
-// segment that is not a gap is in the playlist.
+// A just-started muxer serves EXT-X-GAP placeholders in place of segments.
+// RFC 8216 has a client skip them, hlsdemux2 downloads one and fails the pipeline, so a source
+// is handed over only once a segment that is not a gap is in the playlist.
 
 // hlsResolveTimeout bounds the whole resolve: the master read, and the wait for the media playlist
 // to carry a segment.
-// Longer than one segment (the relay cuts at a second) so the ordinary cold start is waited out,
-// short enough that a relay serving nothing is a refusal a reader sees rather than a tile that hangs.
+// Longer than one segment (the relay cuts at a second) so an ordinary cold start is waited out,
+// short enough that a relay serving nothing is a refusal a reader sees rather than a tile
+// that hangs.
 const hlsResolveTimeout = 15 * time.Second
 
-// hlsFetchTimeout is one playlist read. Several fit inside hlsResolveTimeout.
+// hlsFetchTimeout is one playlist read.
+// Several fit inside hlsResolveTimeout.
 const hlsFetchTimeout = 3 * time.Second
 
-// hlsResolvePoll is the wait between reads of a playlist that carries no segment yet.
+// hlsResolvePoll is the wait between reads of a playlist carrying no segment.
 // The same session is read each time, so polling costs the relay a request and never a new reader.
 const hlsResolvePoll = 500 * time.Millisecond
 
@@ -45,8 +48,8 @@ const (
 	hlsGapTag       = "#EXT-X-GAP"
 )
 
-// hlsMediaSource is the address a receive pipeline opens, resolved from the master playlist at
-// masterURL and carrying the credential in the form souphttpsrc sends.
+// hlsMediaSource is the address a receive pipeline opens, resolved from the master playlist
+// at masterURL and carrying the credential in the form souphttpsrc sends.
 func hlsMediaSource(s settings.Settings, masterURL string) (string, error) {
 	assert.Assert(masterURL != "", "a playlist resolve names the master it reads")
 
@@ -148,8 +151,8 @@ func hlsHasSegment(playlist string) bool {
 	return false
 }
 
-// hlsResolveRef resolves a playlist's own reference against the address it was read from, the
-// renditions being named relative to the master and under a query.
+// hlsResolveRef resolves a playlist's own reference against the address it was read from,
+// the renditions being named relative to the master and under a query.
 func hlsResolveRef(base, ref string) (string, error) {
 	b, err := url.Parse(base)
 	if err != nil {
@@ -164,9 +167,9 @@ func hlsResolveRef(base, ref string) (string, error) {
 
 // hlsWithCredential puts the token where souphttpsrc sends it from.
 //
-// A launch line sets no header, and the element is built by urisourcebin rather than by this side, so
-// the one form that reaches the relay is the Basic pair it builds out of the address itself. The
-// segment requests inherit it, being resolved against this address.
+// A launch line sets no header, and the element is built by urisourcebin rather than by this side,
+// so the one form reaching the relay is the Basic pair it builds out of the address itself.
+// Segment requests inherit it, being resolved against this address.
 func hlsWithCredential(s settings.Settings, addr string) (string, error) {
 	token, ok := credentialToken(s)
 	if !ok {

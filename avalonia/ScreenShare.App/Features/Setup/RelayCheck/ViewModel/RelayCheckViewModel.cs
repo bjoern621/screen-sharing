@@ -10,14 +10,13 @@ namespace ScreenShare.App.Features.Setup.RelayCheck.ViewModel;
 /// <summary>
 /// What answers on the relay the draft names, leg by leg.
 ///
-/// Beside the address and the ports rather than anywhere else: those are the fields a wrong answer here is
-/// corrected in, and a listener nothing reaches is otherwise met as a publish that waits out its connect window
-/// and says "timeout".
+/// Beside the address and the ports and nowhere else: those are the fields a wrong answer here is corrected in,
+/// and a listener nothing reaches is otherwise met as a publish that waits out its connect window and says "timeout".
 ///
-/// Asked for and never taken on a render: dialling every leg costs seconds against a listener that is not
-/// there, so a pass over the draft would put a relay under a keystroke's worth of connections.
-/// What came back is held until the next press, being a reading of the moment the press was made rather than a
-/// fact about the draft on screen now.
+/// Asked for and never taken on a render: dialling every leg costs seconds against a listener that is not there,
+/// so a pass over the draft would put a relay under a keystroke's worth of connections.
+/// What came back is held until the next press,
+/// being a reading of the moment the press was made rather than a fact about the draft on screen now.
 /// </summary>
 public sealed class RelayCheckViewModel : Observable
 {
@@ -25,8 +24,8 @@ public sealed class RelayCheckViewModel : Observable
     private readonly Action<Action> _dispatch;
 
     /// <summary>
-    /// The draft to dial, read at the press rather than held: the reader may have typed another address since
-    /// the last pass, and what is checked is the relay on screen.
+    /// The draft to dial, read at the press rather than held:
+    /// the reader may have typed another address since the last pass, and what is checked is the relay on screen.
     /// </summary>
     private readonly Func<Settings?> _draft;
 
@@ -37,8 +36,8 @@ public sealed class RelayCheckViewModel : Observable
 
     /// <summary>
     /// What the backend said when the check itself could not be made, empty otherwise.
-    /// A relay that answers nothing is not this: that comes back as rows saying so, so this is the call
-    /// failing rather than the relay (<c>docs/ipc-api.md</c>, "Errors").
+    /// A relay that answers nothing is not this: that comes back as rows saying so,
+    /// so this is the call failing rather than the relay (<c>docs/ipc-api.md</c>, "Errors").
     /// </summary>
     private string _reason = "";
 
@@ -61,8 +60,8 @@ public sealed class RelayCheckViewModel : Observable
         _draft = draft;
         _dispatch = dispatch;
 
-        // Pressable once a relay is named: with no address there is nothing to dial, and the backend refuses a
-        // draft that carries none.
+        // Pressable once a relay is named: with no address there is nothing to dial,
+        // and the backend refuses a draft that carries none.
         _check = new PendingCommand(CheckAsync, dispatch, () => _draft() is { Relay.Host.Length: > 0 });
 
         Legs = [];
@@ -118,8 +117,8 @@ public sealed class RelayCheckViewModel : Observable
     /// <summary>
     /// Dials every leg and draws what came back.
     ///
-    /// What the last check said goes at the press rather than when this one answers: it is about a relay as it
-    /// was, and leaving it up would put ticks from the old address beside a spinner about the new one.
+    /// What the last check said goes at the press rather than when this one answers: it is about a relay as it was,
+    /// and leaving it up would put ticks from the old address beside a spinner about the new one.
     /// </summary>
     private async Task CheckAsync()
     {
@@ -145,8 +144,7 @@ public sealed class RelayCheckViewModel : Observable
         catch (OperationCanceledException)
         {
             // This call carries no token, so nothing cancels it.
-            // A transport reporting one anyway still has to leave the button pressable rather than locked for
-            // good.
+            // A transport reporting one anyway still has to leave the button pressable rather than locked for good.
             _dispatch(() => Failed(""));
         }
     }

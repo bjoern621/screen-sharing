@@ -9,25 +9,25 @@ import (
 	"bjoernblessin.de/screenshare/internal/text"
 )
 
-// The codec table as rules: every gap and every numeric ceiling it declares, registered into the
-// one evaluator (docs/development-principles.md, "A fact lives in one table").
+// The codec table as rules: every gap and every numeric ceiling it declares,
+// registered into the one evaluator (docs/development-principles.md, "A fact lives in one table").
 //
-// Rows stay authored on the codec they belong to, and this file turns that shape into the one every
-// consumer reads.
-// One evaluation then answers a codec fact alongside a fact about a capture backend, a platform or
-// a pair of ends.
-// A Gap names a codec, an engine, an option and a value, and a DriverDefect the same option and
-// value under the driver that miscodes it, so a fact needing an axis neither row carries has nowhere
-// to go.
+// Rows stay authored on the codec they belong to,
+// and this file turns that shape into the one every consumer reads.
+// One evaluation then answers a codec fact alongside a fact about a capture backend,
+// a platform or a pair of ends.
+// A Gap names a codec, an engine, an option and a value,
+// and a DriverDefect the same option and value under the driver that miscodes it,
+// so a fact needing an axis neither row carries has nowhere to go.
 //
-// Each rule states exactly what its row stated, so the equivalence test can hold the two answers
-// together for every codec, engine, option and value at once,
+// Each rule states exactly what its row stated,
+// so the equivalence test holds the two answers together for every codec, engine, option and value,
 // and an edit to what is legal lands in the table rather than here.
 
 // optionAxes names the axis each gappable option is matched on.
 //
-// The two spellings answer to different things: an option is keyed as the settings JSON names it,
-// an axis as the form addresses the control.
+// The two spellings answer to different things:
+// an option is keyed as the settings JSON names it, an axis as the form addresses the control.
 // A missing entry fails at load rather than binding nothing at the first resolve.
 var optionAxes = map[string]string{
 	OptionChroma:     rules.AxisChroma,
@@ -48,9 +48,9 @@ func init() {
 // audioRules is the audio table's gaps, in table order.
 //
 // An audio codec has one axis and no per-option values, so a gap takes the codec off an engine,
-// written the way the video table's engine-wide gaps are: a refusal of that entry of the control,
-// binding on the engine alone so one evaluation answers for every entry of the dropdown rather than
-// for the selected one.
+// written the way the video table's engine-wide gaps are:
+// a refusal of that entry of the control,
+// binding on the engine alone so one evaluation answers for every entry of the dropdown.
 // An audio codec that reaches one engine and not the other is then a row and no new consumer.
 func audioRules() []rules.Rule {
 	var out []rules.Rule
@@ -71,8 +71,8 @@ func audioRules() []rules.Rule {
 }
 
 // audioWhen is the facts an audio gap binds under.
-// An empty engine names none: a codec no engine here codes, rather than one wrapper missing an
-// element.
+// An empty engine names none:
+// a codec no engine here codes, rather than one wrapper missing an element.
 func audioWhen(engine string) map[string]rules.Match {
 	if engine == "" {
 		return nil
@@ -84,8 +84,8 @@ func audioWhen(engine string) map[string]rules.Match {
 // Reaches reports whether one value of one option reaches this codec's encoder on the named engine.
 // A codec this table does not carry reaches nothing.
 //
-// Routing the question through the evaluator keeps a builder's idea of what an element implements
-// and the form's greying from drifting apart.
+// Routed through the evaluator, so a builder's idea of what an element implements
+// and the form's greying cannot drift apart.
 func Reaches(codec, engine, option, value string) bool {
 	assert.Assert(knownEngine(engine), "a capability question names a publish engine", engine)
 	axis, ok := optionAxes[option]
@@ -99,8 +99,8 @@ func Reaches(codec, engine, option, value string) bool {
 }
 
 // HasEncoderOn reports whether the named engine has an encoder for this codec at all.
-// The engine-wide gap as a question, for a caller deciding what to probe or build rather than what
-// to grey.
+// The engine-wide gap as a question,
+// for a caller deciding what to probe or build rather than what to grey.
 func HasEncoderOn(codec, engine string) bool {
 	assert.Assert(knownEngine(engine), "a capability question names a publish engine", engine)
 
@@ -113,11 +113,11 @@ func HasEncoderOn(codec, engine string) bool {
 
 // codecVerdicts answers the codec table's rules for one codec on one engine.
 //
-// The axes no caller named arrive empty, which withholds nothing: only the ceilings read them,
-// and a ceiling asked about no mode and no figure refuses nothing.
-// The zero Device is one of those: Reaches and HasEncoderOn ask what an encoder implements, which is
-// the same answer on every machine, and what one installed driver then gets wrong is Validate's
-// question rather than theirs.
+// The axes no caller named arrive empty, which withholds nothing:
+// only the ceilings read them, and a ceiling asked about no mode and no figure refuses nothing.
+// The zero Device is one of those:
+// Reaches and HasEncoderOn ask what an encoder implements, the same answer on every machine,
+// and what one installed driver then gets wrong is Validate's question rather than theirs.
 func codecVerdicts(c Codec, engine string) rules.Verdicts {
 	return rules.EvaluateRules(validationFacts(c, engine, nil, 0, 0, 0, Device{}), codecRules())
 }
@@ -135,11 +135,11 @@ func codecRules() []rules.Rule {
 
 // driverDefectRules is one codec's driver defects.
 //
-// Each takes the named value away wherever this codec is selected and the machine is running the
-// driver that carries it, so the greying and the refusal are the one evaluation the gaps already
-// are.
-// The engine is left out: a defect sits under both wrappers, and a value the driver miscodes is
-// miscoded whichever of them asked for it.
+// Each takes the named value away wherever this codec is selected,
+// and the machine is running the driver that carries it,
+// so the greying and the refusal are the one evaluation the gaps already are.
+// The engine is left out: a defect sits under both wrappers,
+// and a value the driver miscodes is miscoded whichever of them asked for it.
 func (c Codec) driverDefectRules() []rules.Rule {
 	out := make([]rules.Rule, 0, len(c.DriverDefects))
 	for _, d := range c.DriverDefects {
@@ -156,8 +156,8 @@ func (c Codec) driverDefectRules() []rules.Rule {
 			when[rules.AxisGpuModel] = rules.OneOf(d.Models...)
 		}
 		if d.FixedIn > 0 {
-			// A machine whose release went unread reads zero and falls inside the band, so an unnamed
-			// version keeps the defect rather than shedding it on a figure nobody produced.
+			// A machine whose release went unread reads zero and falls inside the band,
+			// so an unnamed version keeps the defect rather than shedding it on a figure nobody produced.
 			when[rules.AxisGpuDriverVersion] = rules.AtMost(d.FixedIn - 1)
 		}
 		out = append(out, rules.Rule{
@@ -174,9 +174,9 @@ func (c Codec) driverDefectRules() []rules.Rule {
 // gapRules is one codec's gaps.
 //
 // A gap naming an option takes that value of that control away wherever this codec is selected.
-// A gap naming none refuses the codec entry itself rather than any control below it: no value of
-// any option reaches an encoder that is not there, so greying the entry says it once instead of
-// once per control.
+// A gap naming none refuses the codec entry itself rather than any control below it:
+// no value of any option reaches an encoder that is not there,
+// so greying the entry says it once instead of once per control.
 func (c Codec) gapRules() []rules.Rule {
 	out := make([]rules.Rule, 0, len(c.Gaps))
 	for _, g := range c.Gaps {
@@ -205,8 +205,8 @@ func (c Codec) gapRules() []rules.Rule {
 
 // ceilingRules is one codec's numeric limits, per engine.
 //
-// The statement that narrows the control is the statement that refuses the value, so the range a
-// slider offers and the value a publish accepts cannot come apart.
+// The statement that narrows the control is the statement that refuses the value,
+// so the range a slider offers and the value a publish accepts cannot come apart.
 //
 // Each is gated on the modes that read the knob.
 // A quantizer target the encoder never sees must not narrow a slider nobody is looking at,
@@ -247,8 +247,9 @@ func (c Codec) ceilingRules() []rules.Rule {
 				},
 			})
 		}
-		// Every mode sends the interval, a keyframe being a property of the bitstream rather than of the
-		// rate control, so this one is gated on the codec alone.
+		// Every mode sends the interval,
+		// a keyframe being a property of the bitstream rather than of the rate control,
+		// so this one is gated on the codec alone.
 		if limit := c.GopLimitOn(engine); limit > 0 {
 			out = append(out, rules.Rule{
 				When: c.when(engine, map[string]rules.Match{
@@ -268,9 +269,9 @@ func (c Codec) ceilingRules() []rules.Rule {
 }
 
 // BitrateModes is the rate-control modes that aim at a bitrate the user sets, in mode-table order.
-// It reads targetsBitrate rather than listing them again, so the modes a rule narrows the control
-// in, the modes the validator checks the ceiling in and the modes a running encoder takes a new
-// rate in cannot come apart.
+// It reads targetsBitrate rather than listing them again,
+// so the modes a rule narrows the control in, the modes the validator checks the ceiling in,
+// and the modes a running encoder takes a new rate in cannot come apart.
 func BitrateModes() []string {
 	out := make([]string, 0, len(Modes))
 	for _, mode := range Modes {

@@ -11,34 +11,35 @@ import (
 )
 
 // SRT is UDP, where opening a socket reaches nothing and says nothing, so the check is the exchange
-// itself: a caller's induction request, which a listener answers with a cookie before a stream id
-// or a passphrase has been sent.
-// Neither is needed to learn that it is there, and neither is offered.
+// itself: a caller's induction request, which a listener answers with a cookie before any stream id
+// or passphrase is sent.
+// Neither is needed to learn it is there, and neither is offered.
 const (
-	// srtControlHandshake leads a handshake packet: the top bit says control, and the 15 type bits
-	// and 16 subtype bits behind it are the zero that means handshake.
+	// srtControlHandshake leads a handshake packet: top bit control, the 15 type and 16 subtype bits
+	// behind it zero for handshake.
 	srtControlHandshake = 0x80000000
 	// srtInduction is the first of the two handshake phases.
 	srtInduction = 1
-	// A handshake packet: a 16-byte control header and the 48-byte handshake behind it.
+	// 16-byte control header plus 48-byte handshake body.
 	srtPacketBytes = 64
-	// srtDatagram is the socket type SRT uses, the field carrying a type in the version-4 handshake
-	// every caller opens with.
+	// srtDatagram is the socket type SRT uses, carried in the version-4 handshake every caller opens
+	// with.
 	srtDatagram = 2
-	// What the caller offers for the connection it is not going to open. A listener answers the
-	// induction whatever these say, and the conclusion that would negotiate them never follows.
+	// Offered for a connection this probe never opens.
+	// A listener answers the induction whatever these say, and the conclusion negotiating them never
+	// follows.
 	srtMTU             = 1500
 	srtFlowWindow      = 8192
 	srtInitialSequence = 1
-	// The socket this probe calls itself, fixed because induction derives its cookie from the address
-	// rather than holding a session for it, so two checks in a row cost the listener nothing.
+	// Socket id this probe calls itself, fixed because induction derives its cookie from the address
+	// rather than holding a session, so two checks in a row cost the listener nothing.
 	srtProbeSocket = 1
 )
 
 // probeSRT sends the induction request and answers what came back.
 //
-// A port with no listener behind it swallows the datagram, so the failure is the deadline rather
-// than a refusal, and on a machine that answers ICMP it is the refusal.
+// A port with no listener swallows the datagram, so the failure is the deadline, or the refusal
+// on a machine answering ICMP.
 func probeSRT(ctx context.Context, t target) (string, error) {
 	u, err := url.Parse(t.url)
 	assert.Assert(err == nil, "a leg's address parses", t.url)
@@ -69,14 +70,13 @@ func probeSRT(ctx context.Context, t target) (string, error) {
 
 // inductionRequest is the packet an SRT caller opens with.
 //
-// The fields left zero are zero on a first packet: the destination socket, which the listener names
+// Fields left zero are zero on a first packet: the destination socket the listener names
 // in its answer, the SYN cookie it answers with, and the peer address it reads off the datagram.
 func inductionRequest() []byte {
 	p := make([]byte, srtPacketBytes)
 
 	binary.BigEndian.PutUint32(p[0:], srtControlHandshake)
-	// Version 4 opens every handshake whatever the caller speaks, and a listener on version 5 answers
-	// with 5.
+	// Version 4 opens every handshake whatever the caller speaks, and a version-5 listener answers 5.
 	binary.BigEndian.PutUint32(p[16:], 4)
 	binary.BigEndian.PutUint32(p[20:], srtDatagram)
 	binary.BigEndian.PutUint32(p[24:], srtInitialSequence)
@@ -89,10 +89,9 @@ func inductionRequest() []byte {
 	return p
 }
 
-// inductionAnswer reads a listener's reply, which is a handshake packet naming the version it
-// speaks.
-// Anything else on the port is something other than SRT, and the row says so rather than counting
-// the datagram as the leg answering.
+// inductionAnswer reads a listener's reply, a handshake packet naming the version it speaks.
+// Anything else on the port is not SRT, and the row says so rather than counting the datagram
+// as the leg answering.
 func inductionAnswer(p []byte) (string, error) {
 	if len(p) < srtPacketBytes {
 		return "", fmt.Errorf("answered %d bytes, which is no SRT handshake", len(p))

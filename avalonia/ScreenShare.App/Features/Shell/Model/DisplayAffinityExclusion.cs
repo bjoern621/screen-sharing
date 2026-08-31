@@ -20,8 +20,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// The two pictures differ and both break the feedback loop, an empty rectangle carrying no copy of the screen
 /// either.
 ///
-/// The affinity belongs to one top-level window of this process, so every window the shell opens states it for
-/// itself.
+/// The affinity belongs to one top-level window of this process, so every window the shell opens states it
+/// for itself.
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed class DisplayAffinityExclusion : ICaptureExclusion
@@ -45,9 +45,9 @@ internal sealed class DisplayAffinityExclusion : ICaptureExclusion
             return;
         }
 
-        // A session that refuses costs this window its exclusion and nothing else, so it is reported rather than
-        // thrown.
-        // The window is back in every capture, and the error code is the only thing saying why.
+        // A session that refuses costs this window its exclusion and nothing else,
+        // so it is reported rather than thrown.
+        // The window stays in every capture, and the error code is the only thing saying why.
         Logger.TryGet(LogEventLevel.Warning, "CaptureExclusion")?.Log(
             this,
             "the window stays in screen captures: SetWindowDisplayAffinity failed with {Error}",

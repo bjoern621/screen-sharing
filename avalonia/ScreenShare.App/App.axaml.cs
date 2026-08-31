@@ -39,10 +39,10 @@ public sealed partial class App : Application
                     : WindowState.Maximized,
                 close: window.Close);
 
-            // Which of maximise and restore the middle caption button draws is the window's state rather than the
-            // bar's, so it is written from here for the same reason the three actions are.
-            // The first write as well as the subscription: a window can be maximised before it is ever shown, by
-            // a restored session or a shell started snapped.
+            // Which of maximise and restore the middle caption button draws is the window's state, not the bar's,
+            // so it is written from here for the same reason the three actions are.
+            // The first write as well as the subscription: a window can be maximised before it is ever shown,
+            // by a restored session or a shell started snapped.
             window.PropertyChanged += (_, change) =>
             {
                 if (change.Property == Window.WindowStateProperty)

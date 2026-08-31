@@ -55,7 +55,9 @@ What crosses unchanged is the coded picture, a re-mux being no re-encode.
 So the publisher writes into an unregistered SEI message ahead of each picture what only it can know, and the viewer reads it at the decoder's input (`internal/framestamp`).
 
 Two things ride there.
-The wall clock the picture left the encoder at, which the viewer subtracts: that reading spans both legs and the relay as one figure, over any transport, and it is the only figure between the two machines that is a measurement rather than a window a transport asked for, which is why the relay's share and the total both come off it.
+The wall clock the picture left the encoder at, which the viewer subtracts.
+That reading spans both legs and the relay as one figure, over any transport.
+It is the only figure between the two machines that is a measurement rather than a window a transport asked for, so the relay's share and the total both come off it.
 The publishing pipeline's own running totals beside it, which is what puts capture and encode, and the window that leg settled on, in front of a viewer of somebody else's stream.
 
 Those totals cross as a sum and a count and never as an average, so the viewer divides them over its own sampling interval exactly as it divides its own counters.

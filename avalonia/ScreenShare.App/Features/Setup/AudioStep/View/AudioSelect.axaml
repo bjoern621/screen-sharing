@@ -7,8 +7,8 @@
     One dropdown of a source row: the kind and the device are the same control over different options,
     so a template per column would be one face written twice.
 
-    Merged into the application's resources (App.axaml) for the reason SelectEntry.axaml states: it is
-    reached from inside a data template, and the application's is the scope above every instance of one.
+    Merged into the application's resources (App.axaml) for the reason SelectEntry.axaml states:
+    it is reached from inside a data template, and the application's is the scope above every instance of one.
   -->
 
   <DataTemplate x:Key="AudioSelect" x:DataType="fields:FieldViewModel">

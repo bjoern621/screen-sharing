@@ -20,8 +20,8 @@
     <strip:StepStripView DockPanel.Dock="Top" Margin="12,12,12,0" />
 
     <!--
-      What the backend said when it could not describe the screen, so no step can be drawn
-      from anything newer.
+      What the backend said when it could not describe the screen,
+      so no step can be drawn from anything newer.
       No form is invented in its place (docs/ipc-api.md, "What each side owes").
     -->
     <Border DockPanel.Dock="Top"
@@ -39,8 +39,8 @@
           The same turning arc a pressed control wears: connecting speaks one vocabulary across this app
           (docs/design-language.md, "Status language").
           The transparent fill is the pointer target the tip opens from, the arc itself taking none.
-          Foreground stated and not inherited: an arc outside a templated control has none to inherit, and the
-          hue is the sentence's own.
+          Foreground stated and not inherited: an arc outside a templated control has none to inherit,
+          and the hue is the sentence's own.
         -->
         <Border Grid.Column="1"
                 Background="Transparent"
@@ -61,9 +61,9 @@
     </Border>
 
     <!--
-      What the backend said when a setting could not be stored, separate news from the banner
-      above: a read that failed leaves an older answer on screen, a write that failed leaves
-      what was typed on screen while the backend runs on the value before it.
+      What the backend said when a setting could not be stored, separate news from the banner above:
+      a read that failed leaves an older answer on screen,
+      a write that failed leaves what was typed on screen while the backend runs on the value before it.
       Nothing to look again at, so no button (Backend/FormSession.cs).
     -->
     <Border DockPanel.Dock="Top"
@@ -79,8 +79,8 @@
       <!--
         Every step's form stacks in the one column, and the gap falls between the children that drew something
         (Controls/CardColumn).
-        A step placing a component that draws on its own terms above its form is otherwise a step whose first
-        card sits a gap lower than the rail beside it.
+        A step placing a component that draws on its own terms above its form is otherwise a step
+        whose first card sits a gap lower than the rail beside it.
       -->
       <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
         <controls:CardColumn Spacing="{StaticResource GapPanel}">
@@ -90,8 +90,8 @@
           </controls:CardColumn>
 
           <!--
-            The audio group's own layout: one row per source rather than the four controls of every entry
-            drawn with their copy repeated (Setup/AudioStep).
+            The audio group's own layout: one row per source,
+            rather than the four controls of every entry drawn with their copy repeated (Setup/AudioStep).
             The wrapper is load-bearing, as on the review step below.
           -->
           <Panel IsVisible="{Binding ShowsAudio}">
@@ -99,10 +99,10 @@
           </Panel>
 
           <!--
-            Terminal step's read-back, in the same column every other step's form draws in, so the rail beside
-            it is one column rather than a second one per step.
-            The wrapper is load-bearing: IsVisible reads this view's model, so it cannot sit on the element
-            that hands its DataContext to the child.
+            Terminal step's read-back, in the same column every other step's form draws in,
+            so the rail beside it is one column rather than a second one per step.
+            The wrapper is load-bearing: IsVisible reads this view's model,
+            so it cannot sit on the element that hands its DataContext to the child.
           -->
           <Panel IsVisible="{Binding ShowsReview}">
             <review:ReviewStepView DataContext="{Binding Review}" />
@@ -110,27 +110,26 @@
 
           <!--
             One renderer instanced per group, and the group decides everything on it.
-            A hand-written capture screen beside a hand-written encode screen would be this shell
-            writing down what a capture and an encode are (docs/ipc-api.md).
-            What the form says about the settings as a whole is in the rail, on the card that
-            already asks what stands between these settings and sharing
+            A hand-written capture screen beside a hand-written encode screen would write down, in this shell,
+            what a capture and an encode are (docs/ipc-api.md).
+            What the form says about the settings as a whole is in the rail,
+            on the card already asking what stands between these settings and sharing
             (CostRail/View/CostRailView.axaml).
           -->
           <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsFields}">
 
             <!--
-              Placed unconditionally and visible on its own terms: it draws only on the step
-              holding the screen setting, and only where one screen can be read apart from
-              another (Setup/ScreenPicker/ViewModel).
-              Above the group rather than in it, since the renderer draws a group in the backend's
-              own order and a picture wedged mid-list would reach into a rendering this view does
-              not own.
+              Placed unconditionally and visible on its own terms:
+              it draws only on the step holding the screen setting,
+              and only where one screen can be read apart from another (Setup/ScreenPicker/ViewModel).
+              Above the group rather than in it, the renderer drawing a group in the backend's own order,
+              and a picture wedged mid-list would reach into a rendering this view does not own.
             -->
             <screens:ScreenPickerView DataContext="{Binding Screens}" />
 
             <!--
-              No group, no card: a form that never arrived leaves the step column empty rather than
-              drawing a frame around nothing.
+              No group, no card:
+              a form that never arrived leaves the step column empty rather than drawing a frame around nothing.
               The wrapper is load-bearing, as on the review step above.
             -->
             <Panel IsVisible="{Binding CurrentGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
@@ -138,9 +137,9 @@
             </Panel>
 
             <!--
-              What answers on the relay, placed unconditionally and visible on its own terms like the picker
-              above: it draws on the step holding the relay's address and ports, which is where a leg nothing
-              reaches is corrected (Setup/RelayCheck).
+              What answers on the relay, placed unconditionally and visible on its own terms like the picker above:
+              it draws on the step holding the relay's address and ports,
+              which is where a leg nothing reaches is corrected (Setup/RelayCheck).
               Below the group rather than above it, the check being about the values on the card.
             -->
             <relaycheck:RelayCheckView DataContext="{Binding RelayCheck}" />
@@ -149,12 +148,12 @@
       </ScrollViewer>
 
       <!--
-        The rail, on every step and in the same order on each: what the draft costs, what stands between it and
-        going live, and the saved ways of publishing.
+        The rail, on every step and in the same order on each: what the draft costs,
+        what stands between it and going live, and the saved ways of publishing.
         A column that changed panels per step would make the reader look for the checks again on each one.
 
-        Fixed width because the rail prices the form beside it: a column that reflowed would move the figure
-        being watched while the setting behind it changes.
+        Fixed width because the rail prices the form beside it:
+        a column that reflowed would move the figure being watched while the setting behind it changes.
       -->
       <Grid Grid.Column="1"
             Width="330"
@@ -162,8 +161,8 @@
             RowDefinitions="*,Auto">
 
         <!--
-          Scrolls on its own, since the rail runs as long as the settings raise checks and a short
-          window would otherwise push the commit off the bottom.
+          Scrolls on its own, the rail running as long as the settings raise checks,
+          and a short window would otherwise push the commit off the bottom.
         -->
         <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
           <rail:CostRailView DataContext="{Binding Rail}" />

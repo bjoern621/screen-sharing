@@ -16,8 +16,8 @@ var audioNamedPlatforms = []Info{
 }
 
 // audioUnnamedPlatforms are machines no row mentions.
-// They are the case worth covering, since a table asked only about what it declares never shows
-// what it does with anything else.
+// The case worth covering,
+// a table asked only about what it declares never showing what it does with anything else.
 var audioUnnamedPlatforms = []Info{
 	{OS: "plan9"},
 	{},
@@ -26,9 +26,9 @@ var audioUnnamedPlatforms = []Info{
 // audioTestPlatforms is every machine the table is asked about.
 var audioTestPlatforms = slices.Concat(audioNamedPlatforms, audioUnnamedPlatforms)
 
-// The contract every consumer depends on, checked here rather than at each of them: a greyed entry
-// with no sentence teaches nothing, and a sentence beside a live entry is a reason for a refusal
-// that never happened.
+// The contract every consumer depends on, checked here rather than at each of them:
+// a greyed entry with no sentence teaches nothing,
+// and a sentence beside a live entry is a reason for a refusal that never happened.
 func TestAnUnservedAudioSourceSaysWhatTheMachineIsMissing(t *testing.T) {
 	for _, info := range audioTestPlatforms {
 		for _, s := range AudioSources(info) {
@@ -46,9 +46,9 @@ func TestAnUnservedAudioSourceSaysWhatTheMachineIsMissing(t *testing.T) {
 	}
 }
 
-// The order is part of the answer: a list reshuffled per machine would move the entry under the
-// user's cursor when nothing about the machine changed.
-// The absent source leads it, since a stream carrying no second track asks nothing of the machine,
+// The order is part of the answer:
+// a list reshuffled per machine would move the entry under the user's cursor with nothing changed.
+// The absent source leads it, a stream carrying no second track asking nothing of the machine,
 // so it is the one entry no platform can refuse and the value a fresh stream holds.
 func TestEveryPlatformIsAnsweredForOnEverySource(t *testing.T) {
 	want := AudioSourceIDs(Info{})
@@ -72,8 +72,8 @@ func TestEveryPlatformIsAnsweredForOnEverySource(t *testing.T) {
 	}
 }
 
-// A resolve reads this table on every keystroke, so it has to stay a table read: same platform in,
-// same ordered list out.
+// A resolve reads this table on every keystroke, so it has to stay a table read:
+// same platform in, same ordered list out.
 // A second call answering differently would be a probe hiding in a lookup,
 // and the form would grey a source on one keystroke and offer it on the next.
 func TestTheSamePlatformAlwaysAnswersTheSame(t *testing.T) {
@@ -83,8 +83,8 @@ func TestTheSamePlatformAlwaysAnswersTheSame(t *testing.T) {
 		if len(first) != len(second) {
 			t.Fatalf("%s answers %d sources and then %d", info.OS, len(first), len(second))
 		}
-		// Compared field by field, because a row carries protobuf messages, which are equal by what
-		// they say rather than by the pointer holding them.
+		// Compared field by field, a row carrying protobuf messages,
+		// which are equal by what they say rather than by the pointer holding them.
 		for i := range first {
 			if first[i].ID != second[i].ID || first[i].Available != second[i].Available ||
 				!proto.Equal(first[i].Reason, second[i].Reason) ||
@@ -95,12 +95,11 @@ func TestTheSamePlatformAlwaysAnswersTheSame(t *testing.T) {
 	}
 }
 
-// Desktop audio is served where an engine has something to open: the PulseAudio or PipeWire monitor
-// of the default sink on Linux, and the default render device's loopback on Windows
-// (ffmpeg/args.go, publish/gstpipeline.go).
+// Desktop audio is served where an engine has something to open:
+// the PulseAudio or PipeWire monitor of the default sink on Linux,
+// and the default render device's loopback on Windows (ffmpeg/args.go, publish/gstpipeline.go).
 // macOS has neither, reading what it plays needing a CoreAudio tap no element here provides.
-// An engine gaining one is a platform gained on the row, which is the change this case is here to
-// notice.
+// An engine gaining one is a platform gained on the row, which this case notices.
 func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 	cases := []struct {
 		info   Info
@@ -123,11 +122,12 @@ func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 		}
 	}
 
-	// Each refusal carries the operating system it is about, so a surface can say what that machine in
-	// particular is missing: a user reading what Windows lacks cannot act on what macOS lacks, and
-	// "Linux only" would name neither.
-	// Asked of the kind both are refused, per-application capture needing a process tap on one and a
-	// WASAPI process loopback on the other.
+	// Each refusal carries the operating system it is about,
+	// so a surface can say what that machine in particular is missing:
+	// a user reading what Windows lacks cannot act on what macOS lacks,
+	// and "Linux only" would name neither.
+	// Asked of the kind both are refused,
+	// per-application capture needing a process tap on one and a WASAPI process loopback on the other.
 	_, windows := AudioSourceAvailable(AudioSourceApplication, Info{OS: "windows"})
 	_, darwin := AudioSourceAvailable(AudioSourceApplication, Info{OS: "darwin"})
 	if proto.Equal(windows, darwin) {
@@ -153,10 +153,9 @@ func TestAnUnknownPlatformKeepsEverySourceSomethingOpens(t *testing.T) {
 	}
 }
 
-// The declaration and the constants that spell it are held together, since a source no consumer can
-// name is one no control can offer.
-// A row losing its constant leaves the settings and the form matching on a literal the table no
-// longer produces.
+// The declaration and the constants that spell it are held together,
+// a source no consumer can name being one no control can offer.
+// A row without its constant leaves settings and form matching a literal nothing produces.
 func TestTheDeclaredSourcesAreTheNamedOnes(t *testing.T) {
 	ids := AudioSourceIDs(Info{})
 	for _, want := range []string{AudioSourceNone, AudioSourceDesktop} {
@@ -169,13 +168,14 @@ func TestTheDeclaredSourcesAreTheNamedOnes(t *testing.T) {
 	}
 }
 
-// On a platform the table names, a source names what serves it exactly where that platform serves
-// it, which is the note a form puts beside the entry.
+// On a platform the table names,
+// a source names what serves it exactly where that platform serves it,
+// the note a form puts beside the entry.
 // A name beside an entry the machine cannot open describes a machine the user is not sitting at,
 // and a served entry with no name leaves the note empty on the one row it is for.
 //
-// The absent source is the exception: it is offered everywhere and read from nowhere, so it names
-// nothing however available it is.
+// The absent source is the exception: offered everywhere and read from nowhere,
+// so it names nothing however available it is.
 func TestAServedSourceNamesWhatServesIt(t *testing.T) {
 	for _, info := range audioNamedPlatforms {
 		for _, s := range AudioSources(info) {
@@ -197,9 +197,10 @@ func TestAServedSourceNamesWhatServesIt(t *testing.T) {
 	}
 }
 
-// An operating system no row mentions is refused nothing and is told nothing about what would serve
-// it: the mechanism is per platform, so naming one here would name a monitor source or a loopback
-// device nobody established exists on that machine.
+// An operating system no row mentions is refused nothing,
+// and is told nothing about what would serve it:
+// the mechanism is per platform,
+// so naming one would name a monitor source or a loopback nobody established exists there.
 func TestAnUnnamedPlatformNamesNoServer(t *testing.T) {
 	for _, info := range audioUnnamedPlatforms {
 		for _, s := range AudioSources(info) {
@@ -210,8 +211,8 @@ func TestAnUnnamedPlatformNamesNoServer(t *testing.T) {
 	}
 }
 
-// audioTestSource reads one row out of a platform's answer, failing the test where the table
-// declares no such source.
+// audioTestSource reads one row out of a platform's answer,
+// failing the test where the table declares no such source.
 func audioTestSource(t *testing.T, info Info, id string) AudioSource {
 	t.Helper()
 	for _, s := range AudioSources(info) {

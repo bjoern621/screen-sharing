@@ -1,10 +1,11 @@
 // Package gpu reports the video driver an encode runs through: which implementation, which adapter
 // it drives, and which release it is.
 //
-// It answers the one question a driver-scoped capability gap asks: whether this machine runs a
-// driver whose defect the codec table records (capabilities.DriverDefect).
-// A defect that takes the graphics device down cannot be probed for the way a missing element can,
-// since the probe is the crash, so the driver is identified and matched instead.
+// Answers the one question a driver-scoped capability gap asks:
+// whether this machine runs a driver whose defect the codec table records
+// (capabilities.DriverDefect).
+// A defect that takes the graphics device down cannot be probed for, the probe being the crash,
+// so the driver is identified and matched instead.
 package gpu
 
 import (
@@ -25,18 +26,19 @@ import (
 // driver fills in.
 const vainfoExe = "vainfo"
 
-// readTimeout bounds the read: vainfo opens the display and initializes the driver, and a driver
-// that never returns would otherwise hold the first form resolve.
+// readTimeout bounds the read: vainfo opens the display and initializes the driver,
+// and a driver that never returns would otherwise hold the first form resolve.
 const readTimeout = 10 * time.Second
 
 // Info is the driver an encode runs through, as a gap matches on it.
 //
-// A field this machine does not answer stays empty, and an empty field matches no gap: a driver
-// nothing identified is one with no recorded defects rather than one to withhold options on.
+// A field this machine does not answer stays empty, and an empty field matches no gap.
+// A driver nothing identified has no recorded defects, so nothing is withheld.
 type Info struct {
 	// Driver names the implementation as the driver names itself: "radeonsi".
 	Driver string `json:"driver"`
-	// Model is the adapter the driver drives. Example: "AMD Radeon 780M Graphics".
+	// Model is the adapter the driver drives.
+	// Example: "AMD Radeon 780M Graphics".
 	Model string `json:"model"`
 	// Version is the driver's release as one comparable figure: 26.1.6 reads 26001006.
 	Version int `json:"version"`
@@ -61,35 +63,33 @@ var (
 )
 
 // Detect reads the VA driver this machine encodes through, once per process.
-//
-// Held after the first read: the driver behind a running process does not change, and a form
-// resolved on every keystroke cannot start a subprocess per pass.
+// Held after the first read: the driver behind a running process does not change,
+// and a form resolved on every keystroke cannot start a subprocess per pass.
 func Detect() Info {
 	once.Do(func() { cached = read() })
 	return cached
 }
 
 // Device is what the codec table matches its DriverDefects rows against.
-// The conversion sits here rather than at each caller, so the capability package keeps depending on
-// the rule vocabulary and on nothing else in the domain.
+// The conversion sits here rather than at each caller,
+// so the capability package depends on the rule vocabulary and on nothing else in the domain.
 func Device() capabilities.Device {
 	i := Detect()
 	return capabilities.Device{Driver: i.Driver, Model: i.Model, Version: i.Version}
 }
 
 // read runs vainfo and parses what the driver said about itself.
-//
-// A machine with no VA driver and one with no vainfo answer alike, and both are Umgebungsfehler:
-// the app publishes through a software encoder either way, and only the driver-scoped gaps go
-// unread.
+// A machine with no VA driver and one with no vainfo answer alike, both Umgebungsfehler:
+// the app publishes through a software encoder either way,
+// and only the driver-scoped gaps go unread.
 func read() Info {
 	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
 	defer cancel()
 
 	out, err := exec.CommandContext(ctx, vainfoExe, "--display", "drm").Output()
 	if err != nil {
-		// Retried on the default display, since vainfo takes the drm one only where it was built with
-		// it and answers on the session's display otherwise.
+		// vainfo takes the drm display only where it was built with it,
+		// and answers on the session's display otherwise.
 		out, err = exec.CommandContext(ctx, vainfoExe).Output()
 	}
 	if err != nil {
@@ -103,8 +103,7 @@ func read() Info {
 const vendorPrefix = "Driver version:"
 
 // parse reads the vendor string out of vainfo's report.
-//
-// Split out from read so the formats the drivers write can be held to in a test without a card.
+// Split out from read so a test without a card can hold the formats the drivers write.
 func parse(out string) Info {
 	for line := range strings.SplitSeq(out, "\n") {
 		_, vendor, found := strings.Cut(line, vendorPrefix)
@@ -119,14 +118,14 @@ func parse(out string) Info {
 // parseVendor reads one vendor string, e.g.
 // "Mesa Gallium driver 26.1.6 for AMD Radeon 780M Graphics (radeonsi, phoenix, ACO, DRM 3.64, 7.1.5)".
 //
-// Three readings, each independent, so a string yielding one field and not another carries the one
-// it yielded:
+// Three readings, each independent,
+// so a string yielding one field and not another carries the one it yielded:
 //   - Driver: first item of the trailing parenthesized list.
 //   - Model: what stands between " for " and that list.
 //   - Version: first dotted figure.
 //
-// A field the string does not carry that way stays empty rather than being guessed at, which leaves
-// the gaps naming it unmatched.
+// A field the string does not carry that way stays empty rather than being guessed at,
+// leaving the gaps naming it unmatched.
 func parseVendor(vendor string) Info {
 	info := Info{Vendor: vendor}
 	rest := vendor

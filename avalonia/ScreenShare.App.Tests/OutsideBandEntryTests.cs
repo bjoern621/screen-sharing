@@ -7,15 +7,13 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// A number-select entry outside its own range.
-///
-/// The burst ceiling is legal at zero, meaning bounded by nothing, and legal again from the target it bursts
-/// above. A range runs from one end to the other and cannot hold that pair, so the backend sends the band as
-/// the range and the zero as an entry
+/// The burst ceiling is legal at zero, meaning bounded by nothing, and legal again from the target it bursts above.
+/// A range runs from one end to the other and cannot hold that pair,
+/// so the backend sends the band as the range and the zero as an entry
 /// (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
-///
-/// A spinner would coerce such a value into its own floor and write the floor back, which is the one answer
-/// the entry exists to reach. So the entry is drawn as itself while it is held, and the spinner returns with
-/// the next value inside the band.
+/// A spinner would coerce such a value into its own floor and write the floor back,
+/// the one answer the entry exists to reach.
+/// The entry is drawn as itself while it is held, and the spinner returns with the next value inside the band.
 /// </summary>
 public sealed class OutsideBandEntryTests
 {
@@ -77,8 +75,7 @@ public sealed class OutsideBandEntryTests
 
     /// <summary>
     /// The whole point of the entry: what is held stays held.
-    /// A control that reported the band's floor here would have replaced an uncapped burst with a capped one
-    /// without anybody asking.
+    /// A control reporting the band's floor replaces an uncapped burst with a capped one, nobody having asked.
     /// </summary>
     [Fact]
     public void TheHeldValueIsNotPulledIntoTheBand()

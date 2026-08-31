@@ -12,16 +12,15 @@ namespace ScreenShare.App.Features.Viewer.Members.ViewModel;
 /// Who this machine shares a group with, and the one control that changes it.
 ///
 /// <b>A reading and never a roster kept here.</b> Every member's own app states its presence, the lease lapses
-/// where it stops being stated, and a member who left drops out by not appearing, so this renders the last answer
-/// whole and merges nothing into it (<c>docs/ipc-api.md</c>, "Events").
+/// where it stops being stated, and a member who left drops out by not appearing,
+/// so this renders the last answer whole and merges nothing into it (<c>docs/ipc-api.md</c>, "Events").
 ///
 /// <b>Two actions and never three.</b> Nothing in a self-served group removes another member, so no row affords
 /// anything: what this machine decides is whether it is in the group itself.
 /// Join and Leave each name a state, so a press that finds it already true is a success.
 ///
 /// <b>One sentence for a refusal, from whichever side stated it last.</b> The presence loop carries the group
-/// service's standing refusal on the state, and a press carries the backend's own; both say why this machine is
-/// outside the group, and the press's is the one the reader just caused.
+/// service's standing refusal on the state, and a press carries the backend's own, the one the reader caused.
 /// A press that went through clears it, so the standing one comes back on the next pass that still has it.
 /// </summary>
 public sealed class MembersViewModel : Observable
@@ -33,8 +32,8 @@ public sealed class MembersViewModel : Observable
 
     /// <param name="dispatch">
     /// Hands work to the UI loop.
-    /// An effect answers on whichever thread the transport completed on, and everything written here is read by a
-    /// binding that tolerates one thread.
+    /// An effect answers on whichever thread the transport completed on,
+    /// and a binding reading what is written here tolerates one thread.
     /// </param>
     public MembersViewModel(IBackend backend, Action<Action> dispatch)
     {
@@ -44,8 +43,8 @@ public sealed class MembersViewModel : Observable
         _dispatch = dispatch;
         Rows = [];
 
-        // Each names the state it wants true, so a press landing on a group this machine is already in or already
-        // outside of costs a round trip and changes nothing.
+        // Each names the state it wants true.
+        // A press landing on a group this machine is already in or out of costs a round trip and changes nothing.
         Join = new PendingCommand(() => PerformAsync(backend.JoinGroupAsync), dispatch, () => CanJoin);
         Leave = new PendingCommand(() => PerformAsync(backend.LeaveGroupAsync), dispatch, () => CanLeave);
 
@@ -91,14 +90,13 @@ public sealed class MembersViewModel : Observable
     /// <summary>Takes this machine out of the group, which closes what the relay was carrying for it.</summary>
     public PendingCommand Leave { get; }
 
-    /// <summary>Heading over the list.</summary>
     public string Title => Cards.MembersTitle;
 
     public string JoinLabel => Cards.MembersJoin;
 
     public string LeaveLabel => Cards.MembersLeave;
 
-    /// <summary>Whether this machine is in the group, which decides which of the two actions is on screen.</summary>
+    /// <summary>Decides which of the two actions is on screen.</summary>
     public bool IsJoined { get => _isJoined; private set => Set(ref _isJoined, value); }
 
     public bool CanJoin { get => _canJoin; private set => Set(ref _canJoin, value); }
@@ -160,8 +158,8 @@ public sealed class MembersViewModel : Observable
 
     /// <summary>
     /// Asks for one state of the membership and shows the refusal where there is one.
-    /// Nothing is written on the way out: what the group became arrives on the event stream, so the window that
-    /// pressed and the window that did not learn it the same way.
+    /// Nothing is written on the way out: what the group became arrives on the event stream,
+    /// so the window that pressed and the window that did not learn it the same way.
     /// </summary>
     private async Task PerformAsync(Func<CancellationToken, Task> effect)
     {
@@ -172,7 +170,7 @@ public sealed class MembersViewModel : Observable
         }
         catch (BackendUnavailableException e)
         {
-            // Shown as it arrived: the backend names the taken name, which is what makes the refusal actionable.
+            // Shown as it arrived: the backend names the taken name, what makes the refusal actionable.
             Refused(e.Message);
         }
         catch (OperationCanceledException)

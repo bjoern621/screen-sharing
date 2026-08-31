@@ -10,11 +10,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// A control the machine's driver miscodes greys with the driver's own reason, and the same draft on
-// a machine that named no driver keeps it.
+// A control the machine's driver miscodes greys with the driver's own reason,
+// and the same draft on a machine that named no driver keeps it.
 //
-// The whole path rather than the rule: the device reaches a resolve through Deps, and a fact that
-// never arrives greys nothing while every table below it still says the right thing.
+// The whole path rather than the rule: the device reaches a resolve through Deps,
+// and a fact that never arrives greys nothing
+// while every table below it still says the right thing.
 func TestADriverDefectGreysTheControlItWithholds(t *testing.T) {
 	draft := availabilityDraft("portal", "av1_vaapi", "yuv420p", "rtsp")
 	draft.Publish.Mode = capabilities.ModeCbr

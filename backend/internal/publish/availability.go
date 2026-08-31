@@ -9,12 +9,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/text"
 )
 
-// What each capture backend needs of the platform and the session before it can run, and what a
-// machine missing it is greyed with (docs/field-availability.md).
+// What each capture backend needs of the platform and the session before it can run, and what
+// a machine missing it is greyed with (docs/field-availability.md).
 //
-// It sits beside the registry pairing a backend with its engine, because a backend that cannot run
-// here and a backend with no engine are the same question asked twice,
-// and splitting them leaves one to be restated by whoever asks second.
+// Beside the registry pairing a backend with its engine: a backend that cannot run here and
+// a backend with no engine are the same question asked twice, and splitting them leaves one to be
+// restated by whoever asks second.
 //
 // A gate is stated once per requirement rather than once per row carrying it: x11grab and ximagesrc
 // read the X screen through the same extension and differ only in which publish engine runs them,
@@ -25,9 +25,8 @@ type needs struct {
 	// os is the operating system the backend runs on, as platform.Info spells it.
 	os string
 	// display is the Linux display server the backend needs, empty for a backend with no session gate.
-	// The portal has none on purpose: xdg-desktop-portal serves ScreenCast on X11 sessions too, so the
-	// backend is offered on either and a desktop with no backend for it fails with the portal's own
-	// error.
+	// The portal has none: xdg-desktop-portal serves ScreenCast on X11 sessions too, so the backend
+	// is offered on either and a desktop with no backend for it fails with the portal's own error.
 	display string
 	// grant reports whether the backend needs a privilege nothing here can establish.
 	// Not a reason the backend is unavailable: the process either holds the privilege or the capture
@@ -40,10 +39,10 @@ type needs struct {
 }
 
 // captureNeed pairs a backend with its requirement, in the order a caller picking one on the user's
-// behalf tries them: the backend a desktop session normally has first, the ones asking something of
-// it after.
+// behalf tries them: the backend a desktop session normally has first, the ones asking something
+// of it after.
 //
-// A slice and not a map, because the order is part of the answer.
+// A slice and not a map, the order being part of the answer.
 type captureNeed struct {
 	capture string
 	needs   needs
@@ -61,8 +60,8 @@ var captureNeeds = []captureNeed{
 	{"avfvideosrc", needs{os: "darwin"}},
 }
 
-// The two tables describe one set of backends, so a row in either without its counterpart is a
-// backend registered and ungated, or gated and unregistered.
+// The two tables describe one set of backends, so a row in either without its counterpart
+// is a backend registered and ungated, or gated and unregistered.
 // Both are bugs in this package rather than conditions to survive, so they fail at load.
 func init() {
 	assert.Assert(len(captureNeeds) == len(captureBackends),
@@ -86,12 +85,12 @@ func gatedOperatingSystems() map[string]bool {
 	return out
 }
 
-// Available reports whether the capture backend runs on this platform and session, and what is
-// missing where it does not.
+// Available reports whether the capture backend runs on this platform and session, and what
+// is missing where it does not.
 //
-// An unknown backend is asserted rather than reported: every name reaching here comes off the
-// registry or off settings the registry validated.
-// A privilege the process may or may not hold is deliberately not an unavailability, see Grant.
+// An unknown backend is asserted rather than reported: every name reaching here comes off
+// the registry or off settings the registry validated.
+// A privilege the process may or may not hold is no unavailability (Grant).
 func Available(capture string, p platform.Info) (bool, *screensharev1.Text) {
 	need, ok := needsOf(capture)
 	assert.Assert(ok, "an asked-about capture backend is a registered one", capture)
@@ -115,16 +114,16 @@ func Available(capture string, p platform.Info) (bool, *screensharev1.Text) {
 // AudioAvailable reports whether a pipeline built on this capture backend can record the named
 // second-track source, and what is missing where it cannot.
 //
-// The platform is read off the backend rather than off the machine, which is why this sits here.
-// A pipeline naming ddagrab is a Windows pipeline wherever it is rendered, since both engines build
+// The platform is read off the backend rather than off the machine, so this sits here.
+// A pipeline naming ddagrab is a Windows pipeline wherever it is rendered, both engines building
 // their arguments from the settings alone, so a render is testable on any machine and the displayed
 // command is the one the publish button starts.
 // Asking the running machine instead would let a Windows pipeline rendered on Linux record a track
 // no Windows session can produce.
 //
 // The verdict is platform.AudioSourceAvailable's and the statement is the source table's.
-// What is added is the one derivation neither package can make alone, capture backend to the
-// operating system it runs on, which is the column captureNeeds holds.
+// What is added is the one derivation neither package can make alone, capture backend
+// to the operating system it runs on, the column captureNeeds holds.
 func AudioAvailable(capture, audio string) (bool, *screensharev1.Text) {
 	need, ok := needsOf(capture)
 	assert.Assert(ok, "an asked-about capture backend is a registered one", capture)
@@ -134,7 +133,7 @@ func AudioAvailable(capture, audio string) (bool, *screensharev1.Text) {
 	}
 
 	// Some pairs are an engine's question as well as a platform's, and the table names them.
-	// A capture backend fixes the engine, which is what makes this the one place able to say it.
+	// A capture backend fixes the engine, making this the one place able to say it.
 	if engine := engineOf(capture); !audioServedByEngine(need.os, audio, engine) {
 		return false, text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE,
 			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO, audio),
@@ -147,15 +146,15 @@ func AudioAvailable(capture, audio string) (bool, *screensharev1.Text) {
 // audioEngineOnly are the source and platform pairs one publish engine alone serves, each naming
 // that engine.
 //
-// A pair with no row is served by both, which is the ordinary case: a PulseAudio session answers
-// either engine, so nothing about Linux desktop audio sits here.
+// A pair with no row is served by both, the ordinary case: a PulseAudio session answers either
+// engine, so nothing about Linux desktop audio sits here.
 //
 // The two rows are the two places the engines part.
 // A program playing sound is a PipeWire node, and only pipewiresrc opens one: ffmpeg's pulse input
 // takes a device, and PulseAudio cannot record one program's stream at all.
 // Windows plays through WASAPI, which wasapi2src reads in loopback and ffmpeg has no input for.
 //
-// The key is the operating system and the source together, since a source can be one engine's on one
+// The key is the operating system and the source together, a source being one engine's on one
 // platform and both engines' on another.
 var audioEngineOnly = map[string]map[string]string{
 	"linux": {
@@ -175,8 +174,8 @@ func audioServedByEngine(os, audio, engine string) bool {
 // Grant is the privilege the capture backend needs and no probe can establish, nil for a backend
 // behind none.
 //
-// A backend behind one stays selectable by hand, where the choice is the user's and so is the
-// failure, and it stays out of the set something picks on their behalf (AutoCaptures).
+// A backend behind one stays selectable by hand, where the choice is the user's and so
+// is the failure, and it stays out of the set something picks on their behalf (AutoCaptures).
 func Grant(capture string) *screensharev1.Text {
 	need, ok := needsOf(capture)
 	assert.Assert(ok, "an asked-about capture backend is a registered one", capture)
@@ -215,7 +214,7 @@ func needsOf(capture string) (needs, bool) {
 }
 
 // engineOf is the publish engine a capture backend runs, empty for one no publisher carries.
-// EngineFor's lookup without the error, since every caller here holds a backend the registry named.
+// EngineFor's lookup without the error, every caller here holding a backend the registry named.
 func engineOf(capture string) string {
 	engine, err := EngineFor(capture)
 	if err != nil {

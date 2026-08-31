@@ -9,8 +9,8 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// No resolution, frame rate, decoder or decode load: those are a decoder's figures, and the relay's snapshot
 /// carries none of them.
 ///
-/// A record, so a render pass over an unchanged snapshot compares equal and the bound list is left alone rather
-/// than repainted under the pointer on every poll.
+/// Record, so a pass over an unchanged snapshot compares equal,
+/// and the bound list is left alone rather than repainted under the pointer on every poll.
 /// </summary>
 public sealed record StreamRow
 {
@@ -18,15 +18,15 @@ public sealed record StreamRow
     public required string Name { get; init; }
 
     /// <summary>
-    /// Name to print: the path with the prefix this machine reaches under taken off, which the backend derives,
-    /// the prefix being a group key's digest.
+    /// Name to print: the path with the prefix taken off, that prefix being a group key's digest the backend
+    /// derives.
     /// Equal to <see cref="Name"/> where there is no prefix, so a list prints this one and never chooses.
     /// </summary>
     public required string OwnName { get; init; }
 
     /// <summary>
     /// A publisher is connected and the path is being served.
-    /// A path the relay knows about is not yet a path with a stream on it.
+    /// A path the relay knows about need not have a stream on it.
     /// </summary>
     public required bool IsReady { get; init; }
 
@@ -35,8 +35,8 @@ public sealed record StreamRow
 
     /// <summary>
     /// Bitstream format, deciding the legs a viewer may receive it over.
-    /// Empty where the relay's description named nothing this app knows, and an empty one refuses no viewer, the
-    /// snapshot being able to predate the stream.
+    /// Empty where the relay's description named nothing this app knows.
+    /// An empty one refuses no viewer, the snapshot being able to predate the stream.
     /// </summary>
     public required string Format { get; init; }
 

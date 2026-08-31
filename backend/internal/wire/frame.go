@@ -8,15 +8,14 @@ import (
 
 // The frame channel's shapes on the contract.
 //
-// The same job the rest of this package does for the control surface: the receive package says what
-// a pool and a frame are in its own terms, and this is where those terms become the message.
-// Nothing here decides anything beyond the shape.
+// The receive package says what a pool and a frame are in its own terms,
+// and this is where those terms become the message.
 
 // FrameSourceKind names which of the three pictures a subscription draws from.
 //
-// An explicit discriminator rather than a nil pointer: with three arms, the one that carries
-// nothing and the zero value would be one value, and "the caller named nothing" and "the caller
-// named the publish preview" are the difference between a refusal and a subscription.
+// An explicit discriminator rather than a nil pointer: with three arms, the one carrying nothing
+// and the zero value would be one value, and "named nothing" against "named the publish preview"
+// is the difference between a refusal and a subscription.
 type FrameSourceKind int
 
 const (
@@ -30,12 +29,12 @@ const (
 
 // FrameSource is what one frame subscription draws from.
 //
-// The domain side of screenshare.v1.FrameSubscribe, each arm carrying exactly what tells one of its
-// own kind apart.
-// A relay decode carries the pair that identifies it, the relay re-serving each stream on all its
-// listeners and one stream being decodable over several protocols at once.
-// The publish preview carries nothing, at most one publish running and the preview being part of
-// it.
+// The domain side of screenshare.v1.FrameSubscribe, each arm carrying exactly what tells one
+// of its own kind apart.
+// A relay decode carries the pair that identifies it, the relay re-serving each stream on all
+// its listeners and one stream being decodable over several protocols at once.
+// The publish preview carries nothing,
+// at most one publish running and the preview being part of it.
 // A monitor preview carries the output's index, a machine having as many screens as outputs.
 type FrameSource struct {
 	Kind FrameSourceKind
@@ -45,11 +44,12 @@ type FrameSource struct {
 	Monitor int
 }
 
-// FrameSourceOf reads what a subscription named back off the contract, and false where it named
-// none of the three, which the control service refuses with INVALID_ARGUMENT rather than guess at.
+// FrameSourceOf reads what a subscription named back off the contract,
+// and false where it named none of the three.
+// The control service refuses that with INVALID_ARGUMENT rather than guessing.
 //
-// A relay decode with half a ref is left as it arrived rather than rejected here: which half is
-// missing is a sentence the service writes, and this is the shape it reads to write it.
+// A relay decode with half a ref is left as it arrived: which half is missing is a sentence
+// the service writes, and this is the shape it reads to write it.
 func FrameSourceOf(m *screensharev1.FrameSubscribe) (FrameSource, bool) {
 	switch {
 	case m.GetStream() != nil:
@@ -66,8 +66,8 @@ func FrameSourceOf(m *screensharev1.FrameSubscribe) (FrameSource, bool) {
 	}
 }
 
-// FrameEventOf is one thing a subscription said, as the message carrying it, and nil for an event
-// that holds neither a pool nor a frame.
+// FrameEventOf is one thing a subscription said, as the message carrying it,
+// and nil for an event that holds neither a pool nor a frame.
 func FrameEventOf(event receive.Event) *screensharev1.FrameEvent {
 	switch {
 	case event.Pool != nil:
@@ -90,8 +90,9 @@ func FrameEndOf(message string) *screensharev1.FrameEvent {
 	}
 }
 
-// framePoolOf is one lent pool, generation included: the consumer tells a re-announcement from a
-// repeat by it, and every release is checked against it.
+// framePoolOf is one lent pool, generation included:
+// the consumer tells a re-announcement from a repeat by it,
+// and every release is checked against it.
 // Slot indices are the pool's own and start again on the next generation.
 func framePoolOf(pool receive.Pool) *screensharev1.FramePool {
 	slots := make([]*screensharev1.FrameSlot, 0, len(pool.Slots))
@@ -137,9 +138,9 @@ func frameReadyOf(frame receive.Frame) *screensharev1.FrameReady {
 
 // frameHandleTypeOf is the contract's value for a handle kind.
 //
-// An unlisted kind crosses as unspecified rather than panicking: a consumer told nothing about the
-// handle refuses to import it, which is the same outcome one step earlier and without taking the
-// backend down with it.
+// An unlisted kind crosses as unspecified rather than panicking:
+// a consumer told nothing about the handle refuses to import it,
+// the same outcome one step earlier and without taking the backend down.
 func frameHandleTypeOf(kind receive.HandleKind) screensharev1.FrameHandleType {
 	switch kind {
 	case receive.HandleD3D11GlobalShared:

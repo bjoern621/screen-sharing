@@ -50,8 +50,8 @@ func presetOf(t *testing.T, key string) preset {
 	return preset{}
 }
 
-// presetOnlyFamilies is a probe result where the named encoder families work and every other codec
-// was tested and refused, on both publish engines.
+// presetOnlyFamilies is a probe result where the named encoder families work
+// and every other codec was tested and refused, on both publish engines.
 func presetOnlyFamilies(families ...string) encoders.Availability {
 	usable := make(map[string]map[string]bool, len(capabilities.Engines))
 	for _, engine := range capabilities.Engines {
@@ -64,8 +64,8 @@ func presetOnlyFamilies(families ...string) encoders.Availability {
 	return encoders.Availability{Usable: usable}
 }
 
-// presetOnlyCodecs is a probe result where the named codecs work and every other one was tested and
-// refused, on both publish engines.
+// presetOnlyCodecs is a probe result where the named codecs work and every other one was tested
+// and refused, on both publish engines.
 func presetOnlyCodecs(names ...string) encoders.Availability {
 	usable := make(map[string]map[string]bool, len(capabilities.Engines))
 	for _, engine := range capabilities.Engines {
@@ -96,8 +96,8 @@ func TestAResolvedPresetDeliversItsOwnPromise(t *testing.T) {
 	}
 }
 
-// A preset is an idempotent operation rather than a step: the settings a search returns are
-// themselves the candidate the next search reaches first (docs/development-principles.md).
+// A preset is an idempotent operation rather than a step: the settings a search returns
+// are themselves the candidate the next search reaches first (docs/development-principles.md).
 func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -118,8 +118,9 @@ func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 	}
 }
 
-// The search answers with what the repair the form runs returned, so a preset landing on a value
-// that same repair still moves is this package disagreeing with itself.
+// The search answers with what the repair the form runs returned,
+// so a preset landing on a value that same repair
+// still moves is this package disagreeing with itself.
 func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -136,8 +137,8 @@ func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 }
 
 // A preset writes figures the controls under them can return to.
-// Landing a slider between two of its stops leaves a value a sweep cannot reproduce, so the reader
-// who nudges it loses the preset's own figure.
+// Landing a slider between two of its stops leaves a value a sweep cannot reproduce,
+// so the reader who nudges it loses the preset's own figure.
 func TestAPresetLandsOnValuesItsSlidersStopOn(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -153,8 +154,8 @@ func TestAPresetLandsOnValuesItsSlidersStopOn(t *testing.T) {
 	}
 }
 
-// The publish transport is how viewers are reached rather than a property of the picture, and the
-// sentence on an unreachable preset names it as what the search worked within.
+// The publish transport is how viewers are reached rather than a property of the picture,
+// and the sentence on an unreachable preset names it as what the search worked within.
 // A preset that moved it would answer a request about the picture by changing who can watch.
 func TestAPresetLeavesThePublishTransportWhereItIs(t *testing.T) {
 	for _, tc := range presetCases() {
@@ -172,9 +173,9 @@ func TestAPresetLeavesThePublishTransportWhereItIs(t *testing.T) {
 	}
 }
 
-// The relay is per site and the viewer's own fields are per driver, a render chain this machine
-// registers being one the machine it is copied to may not, so a preset carrying either would be the
-// thing that breaks on the next machine (docs/presets.md).
+// The relay is per site and the viewer's own fields are per driver,
+// a render chain this machine registers being one the machine it is copied to may not,
+// so a preset carrying either would be the thing that breaks on the next machine (docs/presets.md).
 func TestAPresetTouchesNothingOutsideThePublishGroup(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -193,8 +194,9 @@ func TestAPresetTouchesNothingOutsideThePublishGroup(t *testing.T) {
 	}
 }
 
-// The selection is derived from the settings and never remembered, so a preset applied is a preset
-// marked: the ladder produces settings, and the claim reads them back.
+// The selection is derived from the settings and never remembered,
+// so a preset applied is a preset marked: the ladder produces settings,
+// and the claim reads them back.
 func TestApplyingAPresetSelectsIt(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -235,19 +237,19 @@ func TestTheSelectionFollowsTheSettingsRatherThanTheApply(t *testing.T) {
 }
 
 // A preset no candidate satisfies is stated as unreachable with the reason and nothing is applied:
-// a repaired near-miss would be a configuration the user did not ask for carrying the name of one
-// they did.
+// a repaired near-miss would be a configuration the user
+// did not ask for carrying the name of one they did.
 //
-// Lossless is the case that exists, no VA profile coding bit-exact, so a machine whose only
-// encoders are VAAPI reaches no candidate for it.
+// Lossless is the case that exists, no VA profile coding bit-exact,
+// so a machine whose only encoders are VAAPI reaches no candidate for it.
 func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	if _, gap := mustCodec(t, "hevc_vaapi").OptionGap(
 		capabilities.EngineGst, capabilities.OptionMode, capabilities.ModeLossless); !gap {
-		t.Fatal("the VA encoders code lossless, so this test no longer names an unreachable preset")
+		t.Fatal("the VA encoders code lossless, so this test names no unreachable preset")
 	}
 
-	// A Wayland session reaches the portal alone, that backend runs the GStreamer engine, and the
-	// probe found only the VA elements there.
+	// A Wayland session reaches the portal alone, that backend runs the GStreamer engine,
+	// and the probe found only the VA elements there.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	deps.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi)
 
@@ -266,21 +268,23 @@ func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	}
 }
 
-// A field outside a preset's claim is the machine's to answer, so the repair walking it is not a
-// rejected candidate.
+// A field outside a preset's claim is the machine's to answer,
+// so the repair walking it is not a rejected candidate.
 //
-// The quantization range is that field for every preset but lossless, and the va elements signal no
-// colour description, so a draft holding full range would put every VA encoder out of reach.
-// What the search then reaches is a software encoder, and a 60 fps desktop lands on the CPU on a
-// machine whose silicon codes the rung.
+// The quantization range is that field for every preset but lossless,
+// and the va elements signal no colour description, so a draft holding full range would put
+// every VA encoder out of reach.
+// What the search then reaches is a software encoder, and a 60 fps desktop lands on the CPU
+// on a machine whose silicon codes the rung.
 func TestAPresetTakesTheDeviceEncoderOverAFieldItPromisesNothingAbout(t *testing.T) {
 	if _, gap := mustCodec(t, "hevc_vaapi").OptionGap(
 		capabilities.EngineGst, capabilities.OptionColorRange, capabilities.ColorRangeFull); !gap {
 		t.Fatal("the va elements carry the colour range, so this test names no field a preset leaves standing")
 	}
 
-	// A Wayland session reaches the portal alone and that backend runs the GStreamer engine, where the
-	// gap is. The software encoders are what the settings can hold full range on.
+	// A Wayland session reaches the portal alone
+	// and that backend runs the GStreamer engine, where the gap is.
+	// The software encoders are what the settings can hold full range on.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	deps.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi, capabilities.FamilySoftware)
 
@@ -303,11 +307,11 @@ func TestAPresetTakesTheDeviceEncoderOverAFieldItPromisesNothingAbout(t *testing
 
 // The ladder step follows the encoder the machine has rather than the preset.
 //
-// A preset naming a step would carry that encoder's identifier onto every candidate, the repair
-// would move it, a repaired candidate is a rejected one, and the table would resolve on the family
-// the step came from and on no other.
-// What each mode is worth running at is the codec row's answer, the same one a fresh installation
-// gets.
+// A preset naming a step would carry that encoder's identifier onto every candidate,
+// the repair would move it, a repaired candidate is a rejected one,
+// and the table would resolve on the family the step came from and on no other.
+// What each mode is worth running at is the codec row's answer,
+// the same one a fresh installation gets.
 func TestAPresetReachesAMachineWithNoNvidiaEncoder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	deps.Encoders = presetOnlyFamilies(capabilities.FamilySoftware)
@@ -331,25 +335,25 @@ func TestAPresetReachesAMachineWithNoNvidiaEncoder(t *testing.T) {
 	}
 }
 
-// A preset carries a configuration this machine encodes, so what it produces is what an encoder can
-// be handed.
+// A preset carries a configuration this machine encodes,
+// so what it produces is what an encoder can be handed.
 // The pair that broke it: a preset states its own target and leaves the burst ceiling the draft
-// arrived with, and the va elements express a VBR target as a percentage of that ceiling and take
-// 50% at the lowest, so a ceiling far above the target has no form on them.
+// arrived with, and the va elements express a VBR target as a percentage of that ceiling
+// and take 50% at the lowest, so a ceiling far above the target has no form on them.
 func TestAPresetProducesSettingsTheEncodersCanExpress(t *testing.T) {
 	deps := Deps{
 		Platform: platform.Info{OS: "linux", Display: "x11"},
-		// The driver whose defect withholds constant bitrate from this codec, which is what sends the
-		// repair looking for another rate control and lands the candidate on VBR.
+		// The driver whose defect withholds constant bitrate from this codec,
+		// so the repair looks for another rate control and lands the candidate on VBR.
 		Device: capabilities.Device{Driver: "radeonsi", Model: "AMD Radeon 780M Graphics"},
 	}
-	// The one encoder this machine has is the one the defect names, so the search cannot step around
-	// it onto a sibling that holds constant bitrate.
+	// The one encoder this machine has is the one the defect names,
+	// so the search cannot step around it onto a sibling that holds constant bitrate.
 	deps.Encoders = presetOnlyCodecs("av1_vaapi")
 
 	draft, _ := Repair(deps, availabilityDraft("ximagesrc", "av1_vaapi", "yuv420p", "rtsp"))
-	// A ceiling many times the target, which is what a walk over the burst control leaves behind and
-	// what no preset states anything about.
+	// A ceiling many times the target, what a walk over the burst control leaves behind
+	// and what no preset states anything about.
 	draft.Publish.Mode = capabilities.ModeVbr
 	draft.Publish.BitrateM, draft.Publish.MaxrateM = 40, 757
 

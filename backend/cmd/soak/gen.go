@@ -14,8 +14,8 @@ import (
 // A field key is its group and the field name the settings message spells: "publish.encoder".
 // An entry of a repeated group carries its index and the field inside it:
 // "publish.audio_sources[0].source".
-// Writing through protoreflect keeps this probe off a second copy of that mapping, which is the
-// table it exists to test.
+// Writing through protoreflect keeps this probe off a second copy of that mapping,
+// which is the table it exists to test.
 func writeField(settings *v1.Settings, key string, write func(protoreflect.FieldDescriptor) (protoreflect.Value, bool)) error {
 	message, desc, err := locate(settings, key, true)
 	if err != nil {
@@ -32,8 +32,9 @@ func writeField(settings *v1.Settings, key string, write func(protoreflect.Field
 
 // locate walks a field key to the message that holds it and the descriptor it names.
 //
-// A read never creates the group on the way: an absent message and an empty one are different
-// drafts, and a probe comparing two of them would report its own reading as a difference.
+// A read never creates the group on the way:
+// an absent message and an empty one are different drafts,
+// and a probe comparing two of them would report its own reading as a difference.
 func locate(settings *v1.Settings, key string, create bool) (protoreflect.Message, protoreflect.FieldDescriptor, error) {
 	group, rest, ok := strings.Cut(key, ".")
 	if !ok {
@@ -136,8 +137,9 @@ func setFlag(settings *v1.Settings, key string, on bool) error {
 
 // A field the probe may move, and what it may move it to.
 //
-// A number-select carries both an entry list and a band, the entries being shortcuts rather than
-// the domain, so both fill here and a move picks between them.
+// A number-select carries both an entry list and a band,
+// the entries being shortcuts rather than the domain,
+// so both fill here and a move picks between them.
 type mutable struct {
 	key     string
 	control v1.ControlKind
@@ -153,8 +155,8 @@ func (m mutable) banded() bool { return m.high > m.low }
 
 // mutables is every field a reader could move on this form.
 //
-// Only the enabled and visible ones: a greyed control is what the shell refuses to offer, and a
-// probe writing through it would be testing a path no user reaches.
+// Only the enabled and visible ones: a greyed control is what the shell refuses to offer,
+// and a probe writing through it would be testing a path no user reaches.
 func mutables(form *v1.Form, skip map[string]bool) []mutable {
 	var out []mutable
 	for _, group := range form.GetGroups() {
@@ -163,8 +165,8 @@ func mutables(form *v1.Form, skip map[string]bool) []mutable {
 				continue
 			}
 			// Where the relay is belongs to the deployment this run was pointed at.
-			// A probe moving a listener's port publishes at a port nothing serves, which measures the
-			// refusal rather than anything the settings decide.
+			// A probe moving a listener's port publishes at a port nothing serves,
+			// which measures the refusal rather than anything the settings decide.
 			if strings.HasPrefix(field.GetKey(), "relay.") {
 				continue
 			}
@@ -203,17 +205,17 @@ func mutables(form *v1.Form, skip map[string]bool) []mutable {
 
 // mutate moves one field of the draft and names what it wrote.
 //
-// One field per resolve, so a repair that lands on it is a contradiction rather than a
-// consequence: the option was enabled on the form this draft came from, and nothing else moved.
+// One field per resolve, so a repair that lands on it is a contradiction rather than a consequence:
+// the option was enabled on the form this draft came from, and nothing else moved.
 func mutate(rng *rand.Rand, settings *v1.Settings, m mutable) (string, error) {
 	switch m.control {
 	case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO:
 		option := m.options[rng.Intn(len(m.options))]
 		return option, setOption(settings, m.key, option)
 	case v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
-		// An entry outside the band is the one thing this control says that a band alone cannot, and
-		// the band holds positions no entry names, so a walk reaching only one of the two leaves half
-		// the control untried.
+		// An entry outside the band is the one thing this control says that a band alone cannot,
+		// and the band holds positions no entry names,
+		// so a walk reaching only one of the two leaves half the control untried.
 		if len(m.options) > 0 && (!m.banded() || rng.Intn(2) == 0) {
 			option := m.options[rng.Intn(len(m.options))]
 			return option, setOption(settings, m.key, option)
@@ -232,22 +234,25 @@ func mutate(rng *rand.Rand, settings *v1.Settings, m mutable) (string, error) {
 
 // pick is one position a drag can land on: a multiple of the step inside the band, or either end.
 //
-// The ladder is the round figures rather than a grid counted off the floor, so a 20 ms floor
-// stepping by 50 stops on 20, 50, 100 (avalonia/.../Fields/ViewModel/FieldViewModel.cs, Ticks).
-// A probe writing between two stops would be asking for a value no reader can reach, and every
-// answer to it would be a finding about nothing.
+// The ladder is the round figures rather than a grid counted off the floor,
+// so a 20 ms floor stepping by 50 stops on 20, 50, 100
+// (avalonia/.../Fields/ViewModel/FieldViewModel.cs, Ticks).
+// A probe writing between two stops would be asking for a value no reader can reach,
+// and every answer to it would be a finding about nothing.
 //
-// Both ends come up often: a range whose top no encoder takes is found by asking for the top, and a
-// draw spread evenly over a thousand positions asks for it about never.
-// The bottom eighth takes most of the rest, so a range whose top is refused leaves the run somewhere
-// to keep working from rather than spending itself on one finding.
+// Both ends come up often: a range whose top no encoder takes is found by asking for the top,
+// and a draw spread evenly over a thousand positions asks for it about never.
+// The bottom eighth takes most of the rest,
+// so a range whose top is refused leaves the run room to keep working in,
+// rather than spending itself on one finding.
 func pick(rng *rand.Rand, m mutable) int64 {
 	step := m.step
 	if step < 1 {
 		step = 1
 	}
-	// The stops are step, 2*step and so on, so the first one inside the band is the floor rounded up
-	// to a multiple and the last is the ceiling rounded down.
+	// The stops are step, 2*step and so on,
+	// so the first one inside the band is the floor rounded up to a multiple
+	// and the last is the ceiling rounded down.
 	first := (m.low + step - 1) / step
 	last := m.high / step
 	if first > last {

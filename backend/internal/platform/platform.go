@@ -1,5 +1,5 @@
-// Package platform reports the running operating system and, on Linux, whether the session is
-// Wayland or X11, which is what the capture and audio tables gate on.
+// Package platform reports what the capture and audio tables gate on:
+// the operating system, and on Linux the display server.
 package platform
 
 import (
@@ -19,10 +19,11 @@ type Info struct {
 }
 
 // Detect reports the operating system and, on Linux, the display server.
-// Detection prefers XDG_SESSION_TYPE and falls back to WAYLAND_DISPLAY, then DISPLAY.
+// XDG_SESSION_TYPE first, then WAYLAND_DISPLAY, then DISPLAY.
 //
-// A session naming none of the three answers empty rather than failing: a headless login has no
-// display server, and the capture table already refuses the backends that need one.
+// A session naming none of the three answers empty rather than failing:
+// a headless login has no display server,
+// and the capture table already refuses the backends that need one.
 func Detect() Info {
 	info := Info{OS: runtime.GOOS}
 	if runtime.GOOS == "linux" {

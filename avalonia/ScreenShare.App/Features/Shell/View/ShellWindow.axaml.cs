@@ -23,12 +23,12 @@ public sealed partial class ShellWindow : Window
     {
         InitializeComponent();
 
-        // Applied together so no platform ends up with two captions: the client area covers the native one, and
-        // the replacement the platform then asks for is emptied.
+        // Applied together so no platform ends up with two captions: the client area covers the native one,
+        // and the replacement the platform then asks for is emptied.
         // Both stay off where the desktop draws the frame (WindowChrome).
         //
-        // Whether the band standing in for the caption is drawn is the shell's to write, it being off while a
-        // stream fills the window as well (ShellViewModel.HasCaption).
+        // Whether the band standing in for the caption is drawn is the shell's to write,
+        // it being off while a stream fills the window as well (ShellViewModel.HasCaption).
         if (WindowChrome.AppDrawsCaption)
         {
             ExtendClientAreaToDecorationsHint = true;
@@ -67,8 +67,8 @@ public sealed partial class ShellWindow : Window
             return;
         }
 
-        // Focusing nothing is how the focus manager clears: the press landed on a panel, and a panel takes no
-        // input, so there is no next element to hand the keyboard to.
+        // Focusing nothing is how the focus manager clears: the press landed on a panel,
+        // and a panel takes no input, so there is no next element to hand the keyboard to.
 
         FocusManager?.Focus(null);
     }

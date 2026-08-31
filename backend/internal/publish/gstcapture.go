@@ -19,11 +19,11 @@ import (
 
 // A GStreamer capture backend is the head of the publish pipeline: the elements producing raw
 // frames, up to and including the conversion that pins the encoder input.
-// The seam sits there because everything downstream of it is the same for all of them.
+// The seam sits there, everything downstream of it being the same for all of them.
 //
 // The backends differ in more than an element name.
-// The portal one performs a D-Bus handshake first and hands the child a descriptor; the rest open
-// their source from the element alone and acquire nothing.
+// The portal one performs a D-Bus handshake first and hands the child a descriptor.
+// The rest open their source from the element alone and acquire nothing.
 // gstCapture covers both shapes, so the engine below drives either without naming one.
 
 // childFdBase is the descriptor number ExtraFiles[0] is inherited as.
@@ -31,24 +31,23 @@ import (
 // start here.
 const childFdBase = 3
 
-// The placeholders a displayed command carries where a run passes a value that exists only once the
-// source is open.
+// The placeholders a displayed command carries where a run passes a value that exists only once
+// the source is open.
 const (
 	fdPlaceholder   = "<portal-fd>"
 	nodePlaceholder = "<portal-node>"
 )
 
-// gstCaptureOptions are the parts of the source chain that belong to the run rather than to the
-// backend.
+// gstCaptureOptions are the parts of the source chain that belong to the run rather than
+// to the backend.
 type gstCaptureOptions struct {
 	// Memory is the resolved frame memory, read through gpupath.OnDevice to pin the source:
 	// an import needs the source to negotiate device memory, which plain video/x-raw caps never ask
 	// for.
 	Memory string
 	// InCaps pins memory, chroma and colorimetry on the encoder input.
-	// Passed in rather than appended by the engine, because where the conversion sits differs per
-	// backend: a damage-driven source converts once per damage frame, ahead of the element pacing the
-	// output.
+	// Passed in rather than appended by the engine, where the conversion sits differing per backend:
+	// a damage-driven source converts once per damage frame, ahead of the element pacing the output.
 	InCaps string
 	// Feature is the caps feature InCaps carries, empty for system memory.
 	// A backend pinning caps of its own downstream of InCaps repeats it: a capsfilter naming no
@@ -70,8 +69,8 @@ type gstCaptureOptions struct {
 // them and the one attaching it to what came before.
 //
 // Every backend places the pair through here, so a chain that grows an element changes once.
-// The links belong to the answer because the chain's length does: a caller writing its own "!"
-// would have to know how many.
+// The links belong to the answer as the chain's length does: a caller writing its own "!" would
+// have to know how many.
 func (o gstCaptureOptions) convertInto() []string {
 	assert.Assert(o.InCaps != "", "a conversion chain names the caps it converts into")
 
@@ -106,8 +105,8 @@ type gstCapture interface {
 	// inherits from childFdBase up, and the teardown that runs when the child exits.
 	// A backend acquiring nothing returns no files and a no-op teardown.
 	Open(s settings.Settings, opts gstCaptureOptions) (elements []string, files []*os.File, closeFn func(), err error)
-	// HoldsOneDevice refuses a machine where the frames this backend captures and the surfaces the
-	// encoder reads cannot be one GPU's.
+	// HoldsOneDevice refuses a machine where the frames this backend captures and the surfaces
+	// the encoder reads cannot be one GPU's.
 	// Asked only of a backend with a gpupath row, and only for a run resolved onto the GPU path.
 	HoldsOneDevice() error
 }
@@ -140,8 +139,8 @@ func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 		return nil, nil, nil, fmt.Errorf("portal ScreenCast: %w", err)
 	}
 	// The token is the compositor's receipt for this consent, stored off the session that produced it
-	// and reused by the next stream, which keeps the picker from popping on every publish where the
-	// compositor persists consents at all.
+	// and reused by the next stream, which keeps the picker from popping on every publish where
+	// the compositor persists consents at all.
 	// A store that fails costs a picker and nothing else, so it is warned about rather than failing
 	// the publish it was acquired for: this stream runs, and the next one asks again.
 	if err := settings.SavePortalToken(session.Restore); err != nil {
@@ -150,8 +149,8 @@ func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 
 	remote, err := session.Remote()
 	if err != nil {
-		// The consent stands and the connection to it does not, which is a session this app can no longer
-		// hand a child.
+		// The consent stands and the connection to it does not, a session this app cannot hand
+		// a child.
 		// Dropping it sends the relaunch to a session that can carry one instead of to the same failure.
 		p.hold.Release()
 		return nil, nil, nil, fmt.Errorf("portal ScreenCast: %w", err)
@@ -173,8 +172,8 @@ func (p portalCapture) Release() {
 // The portal names no device: the compositor renders where it renders, and the PipeWire node
 // carries frames without saying which GPU allocated them.
 // The va elements bind to the first VA device the plugin finds.
-// The two are one GPU exactly when the machine has one, so a machine with several is refused with
-// them named rather than importing frames across a device boundary and failing in negotiation.
+// The two are one GPU exactly when the machine has one, so a machine with several is refused
+// with them named rather than importing frames across a device boundary and failing in negotiation.
 func (portalCapture) HoldsOneDevice() error {
 	nodes := renderNodes()
 	if len(nodes) == 1 {
@@ -186,9 +185,9 @@ func (portalCapture) HoldsOneDevice() error {
 	return gpupath.Undetermined("the portal does not name the GPU it captures on", nodes)
 }
 
-// renderNodes lists the /dev/dri render nodes: the unprivileged half of each DRM device, and what a
-// VA driver opens.
-// Lexical order, which is the order the va plugin enumerates devices in.
+// renderNodes lists the /dev/dri render nodes: the unprivileged half of each DRM device, and what
+// a VA driver opens.
+// Lexical order, the order the va plugin enumerates devices in.
 func renderNodes() []string {
 	nodes, err := filepath.Glob("/dev/dri/renderD[0-9]*")
 	if err != nil {
@@ -197,34 +196,34 @@ func renderNodes() []string {
 	return nodes
 }
 
-// portalElements is the portal source, converted to the configured chroma and paced to the
-// configured framerate.
+// portalElements is the portal source, converted to the configured chroma and paced
+// to the configured framerate.
 //
 // Portal capture is damage-driven: the compositor sends a frame only when the screen changes, and
 // the PipeWire graph clock stops ticking while the captured node idles.
 // Feeding the encoder straight from pipewiresrc therefore fails twice.
 // A static screen starves the encoder, so no keyframe reaches the relay and viewers see black.
 // The first frame after an idle spell is stamped far ahead of the frozen clock, so a syncing sink
-// waits on a clock that no longer advances, the SRT peer times out, and the relay drops the stream
-// while the pipeline keeps running.
-// pipewiresrc's keepalive-time property covers the first failure alone and still forwards the
-// portal's timestamps, so it dies the same way on the first damage frame.
+// waits on a clock that has stopped advancing, the SRT peer times out, and the relay drops
+// the stream while the pipeline keeps running.
+// pipewiresrc's keepalive-time property covers the first failure alone and still forwards
+// the portal's timestamps, so it dies the same way on the first damage frame.
 //
 // imagefreeze breaks both dependencies: allow-replace swaps in the newest damage frame, is-live
 // repeats it at the capsfilter framerate, and the output carries imagefreeze's own monotonic
 // timestamps, so the portal's clock domain never reaches the encoder.
-// provide-clock=false keeps the freezing PipeWire clock from being elected pipeline clock, and the
-// system clock paces imagefreeze instead.
+// provide-clock=false keeps the freezing PipeWire clock from being elected pipeline clock, and
+// the system clock paces imagefreeze instead.
 //
-// The single-slot leaky queue drops all but the newest frame when a damage burst outruns the
-// conversion, which sits before imagefreeze so a conversion runs once per damage frame rather than
-// once per output frame.
+// The single-slot leaky queue drops all but the newest frame when a damage burst outruns
+// the conversion, which sits before imagefreeze so a conversion runs once per damage frame rather
+// than once per output frame.
 //
 // The rate probe sits on imagefreeze's input, the last point where one buffer is one new picture.
 // Everything downstream runs at the configured framerate whatever the screen does, so a counter
 // there would report the target back as a measurement.
-// The probe counts the rate the shared screen changed at, which is the figure a viewer sees and the
-// one a starved capture shows up in.
+// The probe counts the rate the shared screen changed at, which is the figure a viewer sees and
+// the one a starved capture shows up in.
 //
 // On the GPU path the source is pinned to DMABuf.
 // pipewiresrc negotiates the compositor's dmabuf export only when the caps ask for it, and unpinned
@@ -258,12 +257,12 @@ func portalElements(s settings.Settings, fd, node string, opts gstCaptureOptions
 // the GStreamer counterpart of the x11grab grabber.
 //
 // It paces itself, so no imagefreeze is involved: use-damage=false reads the screen once per frame
-// period whether or not anything changed, which is the constant input the relay needs.
+// period whether or not anything changed, the constant input the relay needs.
 // The frames carry ximagesrc's own timestamps off the pipeline clock, so no foreign clock domain
 // has to be escaped either.
 //
-// The element reads into a shared-memory segment and hands on system memory, which is why it
-// carries no gpupath row: there is no device frame for an encoder to import, whatever it can read.
+// The element reads into a shared-memory segment and hands on system memory, so it carries no
+// gpupath row: there is no device frame for an encoder to import, whatever it can read.
 type ximageCapture struct{}
 
 func (ximageCapture) Name() string { return "ximagesrc" }
@@ -277,11 +276,11 @@ func (x ximageCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 		return nil, nil, nil, fmt.Errorf("ximagesrc capture needs an X display: DISPLAY is unset")
 	}
 	// An index no output answers to is refused, as x11grab refuses it (internal/ffmpeg, x11grabArgs).
-	// The crop comes off the enumeration, and a head built without one captures the whole X screen: a
-	// machine that cannot measure its outputs has that as its only honest answer, but a settings file
-	// naming a monitor that was unplugged does not, and publishing every remaining screen to whoever is
-	// watching is the wrong way to be wrong about it.
-	// The form keeps such a selection on the list on purpose, so this is the leg that has to say no
+	// The crop comes off the enumeration, and a head built without one captures the whole X screen:
+	// a machine that cannot measure its outputs has that as its only honest answer, but a settings
+	// file naming a monitor that was unplugged does not, and publishing every remaining screen
+	// to whoever is watching is the wrong way to be wrong about it.
+	// The form keeps such a selection on the list, so this is the leg that has to say no
 	// (internal/form, optionMonitors).
 	if _, ok := display.At(s.Publish.Monitor); !ok {
 		return nil, nil, nil, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
@@ -295,8 +294,8 @@ func (ximageCapture) HoldsOneDevice() error {
 }
 
 // elements reads the head from screensrc, where the crop to the selected monitor is written.
-// The wizard's monitor preview builds from the same table, so the picture a screen is offered by is
-// the rectangle this stream carries (internal/screensrc).
+// The wizard's monitor preview builds from the same table, so the picture a screen is offered
+// by is the rectangle this stream carries (internal/screensrc).
 //
 // The rate probe sits at the end of the chain, as it does on every backend.
 // Nothing here repeats a frame, so it counts what ximagesrc read off the screen: the configured
@@ -316,16 +315,15 @@ func (x ximageCapture) elements(s settings.Settings, opts gstCaptureOptions) []s
 // counterpart of the avfoundation grabber.
 //
 // capture-screen turns the element from a camera source into a screen one, and
-// capture-screen-cursor draws the pointer into the frames, which is -capture_cursor on the ffmpeg
-// side.
+// capture-screen-cursor draws the pointer into the frames, -capture_cursor on the ffmpeg side.
 // Which screen it reads is the element's own device choice, so the monitor setting does not reach
 // it.
 //
 // The chain is ximageCapture's.
 // AVFoundation paces a screen input by a frame duration rather than by damage, so the framerate
 // capsfilter on the source is what the encoder is fed at and no imagefreeze is involved.
-// That follows from the element's properties rather than from a run, macOS being unavailable on the
-// development machine.
+// That follows from the element's properties rather than from a run, macOS being unavailable
+// on the development machine.
 //
 // It carries no gpupath row.
 // A row needs its engine half in gstGpuMemories, which names the va family, a Linux interface, and
@@ -388,9 +386,9 @@ func (d d3d11Capture) Open(s settings.Settings, opts gstCaptureOptions) ([]strin
 
 // HoldsOneDevice refuses nothing: the condition holds on every machine this backend runs on.
 //
-// It is why the ddagrab rows need no check either.
-// The auto-GPU encoder element takes its adapter from the frames it is handed rather than opening a
-// device of its own, so the encode runs on the GPU that allocated the Desktop Duplication texture
+// The ddagrab rows need no check either.
+// The auto-GPU encoder element takes its adapter from the frames it is handed rather than opening
+// a device of its own, so the encode runs on the GPU that allocated the Desktop Duplication texture
 // whatever else the machine carries.
 // A second card is then a monitor on that card, and capturing it moves the encode along with it.
 func (d3d11Capture) HoldsOneDevice() error {

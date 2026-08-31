@@ -39,18 +39,18 @@ func TestEveryFfmpegGpuPathBuildsAChain(t *testing.T) {
 
 // A family that converts nothing takes no steer: there is no swscale stage for -color_range to aim,
 // and -pix_fmt would ask ffmpeg to convert a GPU surface it cannot read.
-// The tag stays, the primaries and the transfer being the capture's whatever the encoder does with
-// the matrix and the range.
+// The tag stays, the primaries and the transfer being the capture's whatever the encoder
+// does with the matrix and the range.
 //
-// What the stream ends up carrying is the row's own claim (gpupath.Signalled), so a row that starts
-// honouring the settings fails here and belongs at ColourExact.
+// What the stream ends up carrying is the row's own claim (gpupath.Signalled),
+// so a row that starts honouring the settings fails here and belongs at ColourExact.
 func TestTheEncoderColourPathDropsTheOptionsItsEncoderIgnores(t *testing.T) {
 	p, ok := gpupath.For(capabilities.EngineFfmpeg, "ddagrab", capabilities.FamilyNvenc)
 	if !ok {
 		t.Skip("no ffmpeg ddagrab/nvenc row to cover")
 	}
 	if p.Colour != gpupath.ColourEncoder {
-		t.Skipf("the row is %s, so it no longer covers the encoder-colour path", p.Colour)
+		t.Skipf("the row is %s, so it does not cover the encoder-colour path", p.Colour)
 	}
 
 	s := gpuStream("ddagrab", "h264_nvenc")
@@ -74,8 +74,8 @@ func TestTheEncoderColourPathDropsTheOptionsItsEncoderIgnores(t *testing.T) {
 }
 
 // A chain that downloads or uploads has kept the round trip while claiming to have dropped it.
-// -vaapi_device goes with them: hwmap derives the encoder's device from the captured frames, and
-// naming a second one would open a GPU the frames are not on.
+// -vaapi_device goes with them: hwmap derives the encoder's device from the captured frames,
+// and naming a second one would open a GPU the frames are not on.
 func TestTheGpuPathNeitherDownloadsNorUploads(t *testing.T) {
 	args, err := BuildPublishArgs(gpuStream("kmsgrab", "h264_vaapi"), nil)
 	if err != nil {
@@ -92,10 +92,10 @@ func TestTheGpuPathNeitherDownloadsNorUploads(t *testing.T) {
 	}
 }
 
-// The conversion is the only place this path can state the colour description, no software stage
-// being left for a setparams to tag.
-// All four components have to reach it: a range named beside three unknown ones is dropped with
-// them, and the stream then signals nothing and is watched in the viewer's own default.
+// The conversion is the only place this path can state the colour description,
+// no software stage being left for a setparams to tag.
+// All four components have to reach it: a range named beside three unknown ones is dropped
+// with them, and the stream then signals nothing and is watched in the viewer's own default.
 func TestTheGpuPathStatesEveryColourComponentOnTheConversion(t *testing.T) {
 	for _, colorRange := range []string{"pc", "tv"} {
 		s := gpuStream("kmsgrab", "h264_vaapi")
@@ -141,8 +141,8 @@ func TestTheSystemPathStillMakesTheRoundTrip(t *testing.T) {
 	}
 }
 
-// Auto is what a stored stream carries, so the pair table alone decides which of the two commands it
-// builds.
+// Auto is what a stored stream carries,
+// so the pair table alone decides which of the two commands it builds.
 // A pair with a row that still downloaded would make the default the slow path on every machine.
 func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
@@ -155,8 +155,8 @@ func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 		t.Errorf("auto must take the direct path where the pair has one: %s", line)
 	}
 
-	// x11grab hands over system memory whatever the encoder can read, so the same codec downloads
-	// there.
+	// x11grab hands over system memory whatever the encoder can read,
+	// so the same codec downloads there.
 	s.Publish.Capture = "x11grab"
 	args, err = BuildPublishArgs(s, nil)
 	if err != nil {
@@ -167,8 +167,9 @@ func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 	}
 }
 
-// A demand the pair cannot meet is refused rather than quietly downloaded: the two commands differ
-// by a full round trip per frame at capture resolution, which is what the setting exists to name.
+// A demand the pair cannot meet is refused rather than quietly downloaded:
+// the two commands differ by a full round trip per frame at capture resolution,
+// the fact the setting exists to name.
 func TestTheGpuDemandIsRefusedForAPairWithoutAPath(t *testing.T) {
 	s := gpuStream("x11grab", "libx264")
 	s.Publish.Chroma = "yuv444p"
@@ -177,8 +178,8 @@ func TestTheGpuDemandIsRefusedForAPairWithoutAPath(t *testing.T) {
 	}
 }
 
-// The DRM download strategy names the device a tiled scanout buffer is mapped through so hwdownload
-// can read it.
+// The DRM download strategy names the device a tiled scanout
+// buffer is mapped through so hwdownload can read it.
 // A run that downloads nothing chooses no such device, so the strategy must not reach the command.
 func TestTheGpuPathReadsNoDrmDownloadStrategy(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
@@ -192,8 +193,9 @@ func TestTheGpuPathReadsNoDrmDownloadStrategy(t *testing.T) {
 	}
 }
 
-// The downloading path is where the strategy is read, so it is where a name no row carries has to be
-// refused: drmMapFor answering the same on its own says nothing about the command reaching it.
+// The downloading path is where the strategy is read, so it is where a name no row carries
+// has to be refused: drmMapFor answering the same on its own says
+// nothing about the command reaching it.
 // A capture that fell through to the driver's guess would run the setting as its own opposite.
 func TestADownloadingCaptureRefusesAStrategyNoRowCarries(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
@@ -210,8 +212,8 @@ func TestADownloadingCaptureRefusesAStrategyNoRowCarries(t *testing.T) {
 	}
 }
 
-// firstCodecOfFamily returns an implemented codec of family, false where the capability table
-// carries none.
+// firstCodecOfFamily returns an implemented codec of family,
+// false where the capability table carries none.
 func firstCodecOfFamily(family string) (string, bool) {
 	for _, c := range capabilities.Codecs {
 		if c.Family == family && c.Implemented {
@@ -221,8 +223,8 @@ func firstCodecOfFamily(family string) (string, bool) {
 	return "", false
 }
 
-// The frames never come back to system memory, so the one filter on the path is the only thing that
-// can resize them, and it takes the size beside the layout and the colour.
+// The frames never come back to system memory, so the one filter on the path is the only thing
+// that can resize them, and it takes the size beside the layout and the colour.
 func TestTheDeviceConversionCarriesTheOutputSize(t *testing.T) {
 	filters, err := GpuFilters("hevc_vaapi", "yuv420p", "pc", settings.Size{Width: 1280, Height: 720}, true)
 	if err != nil {
@@ -249,8 +251,8 @@ func TestAnUnscaledDeviceConversionStatesNoSize(t *testing.T) {
 	}
 }
 
-// A family whose device path carries no conversion has nothing on it that resizes, the encoder
-// reading the captured surfaces directly.
+// A family whose device path carries no conversion has nothing on it that resizes,
+// the encoder reading the captured surfaces directly.
 // The refusal names the size that was asked for, rather than the run publishing at the capture's
 // size under a setting that says otherwise.
 func TestAPathWithNoConversionRefusesAScaledRun(t *testing.T) {

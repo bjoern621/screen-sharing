@@ -23,8 +23,8 @@ func estimateTestDeps() Deps {
 }
 
 // estimateTestStream sits on the anchor: the software H.264 encoder,
-// whose quantizer counts on the anchor's own scale,
-// at the pixel format and the quantizer the anchor was measured on.
+// whose quantizer counts on the anchor's own scale, at the pixel format
+// and the quantizer the anchor was measured on.
 // Every case below moves one term of it.
 func estimateTestStream() settings.Settings {
 	s := settings.Defaults()
@@ -79,15 +79,15 @@ func TestTheCodecAndTheChromaPriceTheAnchorFigure(t *testing.T) {
 	if !estimateTestClose(est.GetBitrateMbps(), want) {
 		t.Errorf("bitrate = %v, want %v", est.GetBitrateMbps(), want)
 	}
-	// 4:4:4 spends the 24 bits a pixel that RGB does,
-	// so the raw rate is double the anchor's whatever the encoder then makes of it.
+	// 4:4:4 spends the 24 bits a pixel that RGB does, so the raw rate is double the anchor's whatever
+	// the encoder then makes of it.
 	if !estimateTestClose(est.GetRawMbps(), 2985.984) {
 		t.Errorf("raw = %v, want 2985.984", est.GetRawMbps())
 	}
 }
 
-// The same CQ number is a different quality per encoder,
-// so the target is placed on the anchor scale before it is priced.
+// The same CQ number is a different quality per encoder, so the target is placed on the anchor
+// scale before it is priced.
 // libvpx counts to 63 and x265 to 51, and the two formats share a coding efficiency,
 // so the top of either scale is the same quality and predicts the same rate.
 func TestTheQuantizerIsPlacedOnTheAnchorScale(t *testing.T) {
@@ -111,8 +111,8 @@ func TestTheQuantizerIsPlacedOnTheAnchorScale(t *testing.T) {
 	}
 }
 
-// The encoder holds the target,
-// and a quality-model figure beside the number in the field would contradict it.
+// The encoder holds the target, and a quality-model figure
+// beside the number in the field would contradict it.
 func TestABitrateTargetIsWhatABitrateModePredicts(t *testing.T) {
 	s := estimateTestStream()
 	s.Publish.Mode = "cbr"
@@ -172,8 +172,8 @@ func TestAnUplinkBelowThePredictionLeavesNegativeHeadroom(t *testing.T) {
 
 // The monitors are this machine's and the selected index is a stored settings file's,
 // so the two can disagree: an output was unplugged, or the platform has no enumerator here.
-// An environment condition and not a bug,
-// so the prediction is withheld and the rest of the form still resolves.
+// An environment condition and not a bug, so the prediction is withheld
+// and the rest of the form still resolves.
 func TestAMonitorTheMachineDoesNotHavePredictsNothing(t *testing.T) {
 	cases := map[string]Deps{
 		"no monitor enumerated at all": {},
@@ -215,8 +215,8 @@ func TestAnUnpriceableSettingPredictsNothing(t *testing.T) {
 	}
 }
 
-// Resolve runs on every keystroke,
-// so a figure that moved between two identical drafts would move under a user who changed nothing.
+// Resolve runs on every keystroke, so a figure that moved between two identical drafts would move
+// under a user who changed nothing.
 func TestTheSameDraftPredictsTheSameFigureTwice(t *testing.T) {
 	d, s := estimateTestDeps(), estimateTestStream()
 	first, second := estimate(d, s), estimate(d, s)

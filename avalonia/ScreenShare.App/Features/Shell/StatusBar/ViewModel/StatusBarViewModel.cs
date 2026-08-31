@@ -24,11 +24,11 @@ public sealed class StatusBarViewModel : Observable
 
     /// <summary>
     /// Band's whole input.
-    /// The figures arrive rather than being held here: the destination in front of the band derives them, and a
-    /// band holding its own copy would go on printing the throughput of a torn-down decoder.
+    /// The figures arrive rather than being held here: the destination in front of the band derives them, and
+    /// a band holding its own copy would go on printing the throughput of a torn-down decoder.
     ///
-    /// The load figures arrive as a list rather than as named slots, what a destination reports being that
-    /// destination's business.
+    /// The load figures arrive as a list rather than as named slots, what a destination reports being
+    /// that destination's business.
     /// A field per figure is a band edited whenever one of them splits in two.
     /// Idempotent.
     /// </summary>

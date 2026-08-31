@@ -9,12 +9,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// Every relay this repository runs terminates TLS on the two legs no proxy can carry, RTSP and RTMP,
-// and its HTTP legs are reached through the proxy or on its own ports
+// Every relay this repository runs terminates TLS on the two legs no proxy can carry, RTSP and
+// RTMP, and its HTTP legs are reached through the proxy or on its own ports
 // (deploy/mediamtx-groups.yml, deploy/Caddyfile).
 //
-// These hold what falls out of that: which listener an address names, what the certificate on it is
-// measured against, and what the publish refuses rather than sending in the clear.
+// These hold what falls out of that: which listener an address names, what the certificate on it
+// is measured against, and what the publish refuses rather than sending in the clear.
 
 // behindTheProxy is a relay across somebody else's network, named like a real one.
 func behindTheProxy() settings.Settings {
@@ -57,8 +57,9 @@ func TestEveryRelayAddressesItsEncryptedMediaListeners(t *testing.T) {
 	}
 }
 
-// The certificate a relay on a trusted network holds is the self-signed pair scripts/relay.sh draws,
-// which nothing issued and no store carries, so a leg that validates it opens nothing at all.
+// The certificate a relay on a trusted network holds is the self-signed pair scripts/relay.sh
+// draws, which nothing issued and no store carries, so a leg that validates it opens nothing
+// at all.
 //
 // Relaxed there and nowhere else.
 // A relay across somebody else's network holds a certificate issued for its name, and taking
@@ -112,10 +113,10 @@ func containsPair(args []string, flag, value string) bool {
 	return at >= 0 && at+1 < len(args) && args[at+1] == value
 }
 
-// RTSPS wraps the control connection and nothing else, so RTP over UDP travels beside it in the
-// clear on every relay, a LAN one included.
-// Refused rather than interleaved behind the user's back: the control says udp, and a publish that
-// quietly did otherwise would leave it saying so.
+// RTSPS wraps the control connection and nothing else, so RTP over UDP travels beside it
+// in the clear on every relay, a LAN one included.
+// Refused rather than interleaved behind the user's back: the control says udp, and a publish
+// that quietly did otherwise would leave it saying so.
 func TestRtspRefusesUdpOnEveryRelay(t *testing.T) {
 	for deployment, s := range relays() {
 		s.Publish.RtspPublishProtocol = "udp"
@@ -142,11 +143,10 @@ func TestTheRtspWatchLegRefusesUdpOnEveryRelay(t *testing.T) {
 	}
 }
 
-// SRT is UDP with no TLS, so the passphrase is not one credential among several: it is the whole of
-// what makes the leg unreadable.
-// It derives from the group key,
-// so the one machine none derives for is one whose stored key will not read back,
-// and across the internet that publish is refused rather than sent in the clear.
+// SRT is UDP with no TLS, so the passphrase is not one credential among several: it is the whole
+// of what makes the leg unreadable.
+// It derives from the group key, so the one machine none derives for is one whose stored key will
+// not read back, and across the internet that publish is refused rather than sent in the clear.
 func TestSrtAcrossTheInternetRefusesAnUnderivablePassphrase(t *testing.T) {
 	s := behindTheProxy()
 	s.Relay.GroupKey = "not a group key"
@@ -166,8 +166,8 @@ func TestSrtAcrossTheInternetRefusesAnUnderivablePassphrase(t *testing.T) {
 	}
 }
 
-// HLS and WebRTC are HTTP, so the proxy carries them under one name on the standard port, and a
-// relay this network reaches directly answers each on its own listener.
+// HLS and WebRTC are HTTP, so the proxy carries them under one name on the standard port, and
+// a relay this network reaches directly answers each on its own listener.
 func TestTheHttpLegsFollowTheProxy(t *testing.T) {
 	proxied, direct := behindTheProxy(), onThisNetwork()
 

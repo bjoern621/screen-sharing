@@ -7,9 +7,9 @@
 
   <UserControl.Styles>
     <!--
-      The escalation ladder, in the order a selector has to win in: normal, the row's identity
-      and context, attention, alarm. A later style wins, so alarm is last and nothing quieter
-      takes the red back.
+      The escalation ladder, in the order a selector has to win in:
+      normal, the row's identity and context, attention, alarm.
+      A later style wins, so alarm is last and nothing quieter takes the red back.
     -->
     <Style Selector="TextBlock.cell">
       <Setter Property="Margin" Value="13,7" />
@@ -71,10 +71,10 @@
               BorderThickness="0,1"
               IsVisible="{Binding HasRows}">
         <!--
-          Two of the design's headers name figures nothing carries back to a publisher, buffer
-          fill and the decoder in use, so those columns carry what the relay does measure at
-          that width: what was discarded on the way out, and the leg it went out over. A column
-          printing an ellipsis in every row forever is a hole where a measurement exists
+          Two of the design's headers name figures nothing carries back to a publisher,
+          buffer fill and the decoder in use, so those columns carry what the relay does measure
+          at that width: what was discarded on the way out, and the leg it went out over.
+          A column printing an ellipsis in every row forever is a hole where a measurement exists
           (docs/field-availability.md, "A figure with no measurement").
         -->
         <Grid ColumnDefinitions="196,64,74,74,84,*">

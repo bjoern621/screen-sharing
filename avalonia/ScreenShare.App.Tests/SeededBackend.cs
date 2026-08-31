@@ -7,30 +7,29 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// A <see cref="Form"/> to render, with nothing behind it, so the setup flow's behaviour is stated in a test
+/// <see cref="Form"/> to render, with nothing behind it, so the setup flow's behaviour is stated in a test
 /// rather than in a screenshot.
 ///
-/// In the test project, being the one file that names a codec.
-/// A greying written in the app would be a rule written twice, which <c>docs/ipc-api.md</c> forbids; in a test it
-/// says what a form looks like rather than what the domain is.
+/// Test project's one file naming a codec.
+/// Naming one in the app would write a rule twice, which <c>docs/ipc-api.md</c> forbids;
+/// here it states what a form looks like rather than what the domain is.
 ///
 /// Everything below is a seed and not a rule.
-/// The values and refusals are taken from the Go tables they are computed from, <c>capabilities.Codecs</c>,
+/// Values and refusals are taken from the Go tables they are computed from, <c>capabilities.Codecs</c>,
 /// <c>gpupath.Paths</c>, the transport registry and the platform gates, so a test reads against the product's
 /// own vocabulary.
-/// Those tables are not evaluated here: the greyings are the few that demonstrate each of the four treatments
-/// in <c>docs/field-availability.md</c>.
+/// Those tables are not evaluated here:
+/// the greyings demonstrate each of the four treatments in <c>docs/field-availability.md</c>.
 ///
-/// Nothing above it learns a codec name, a transport name or a label.
+/// Nothing above learns a codec name, a transport name or a label.
 /// They cross as data.
 ///
 /// Every read answers from memory with a completed task.
-/// Blocking or handing back a null task would leave the flow above unexercised on the timing the gRPC client
-/// really gives it.
+/// Blocking or handing back a null task would leave the flow above unexercised on the gRPC client's own timing.
 /// </summary>
 internal sealed class SeededBackend : IBackend
 {
-    /// <summary>Never raised: no probe lands behind a dictionary and nothing else here moves.</summary>
+    /// <summary>Never raised: no probe lands behind a dictionary and nothing else moves.</summary>
     public event Action? Changed
     {
         add { }
@@ -78,8 +77,8 @@ internal sealed class SeededBackend : IBackend
 
         /// <summary>
         /// Whether settings deliver the promise, and what the selection is derived from.
-        /// A predicate rather than an equality check, a field the promise says nothing about being free to move
-        /// without leaving it.
+        /// Predicate rather than equality:
+        /// a field the promise says nothing about is free to move without leaving it.
         /// </summary>
         public required Func<PublishSettings, bool> Delivers { get; init; }
     }
@@ -140,7 +139,7 @@ internal sealed class SeededBackend : IBackend
         },
     ];
 
-    /// <summary>A run of fields under one heading, in render order.</summary>
+    /// <summary>Run of fields under one heading, in render order.</summary>
     private sealed record GroupSeed
     {
         public required string Key { get; init; }
@@ -150,8 +149,8 @@ internal sealed class SeededBackend : IBackend
         /// <summary>
         /// Whether a write to these fields is the setting itself rather than a proposal a commit applies
         /// (form.proto, FieldGroup.applied).
-        /// Per group, as the real form states it: a fixture leaving every group staged would never exercise the
-        /// applied write path.
+        /// Per group, as the real form states it:
+        /// every group staged would never exercise the applied write path.
         /// </summary>
         public bool Applied { get; init; }
     }
@@ -173,7 +172,7 @@ internal sealed class SeededBackend : IBackend
         ["avfvideosrc"] = "gstreamer",
     };
 
-    /// <summary>Operating system each capture backend needs. The refusal crosses as a code, not as prose.</summary>
+    /// <summary>Operating system each capture backend needs. Refusal crosses as a code, not as prose.</summary>
     private static readonly IReadOnlyDictionary<string, string> PlatformOf =
         new Dictionary<string, string>
         {
@@ -189,8 +188,8 @@ internal sealed class SeededBackend : IBackend
         };
 
     /// <summary>
-    /// The codec a format and an encoder address between them, keyed "hevc/nvenc", which is what the backend
-    /// derives from the pair a draft carries (capabilities.Row).
+    /// Codec a format and an encoder address between them. Key: "hevc/nvenc".
+    /// Derived by the backend from the pair a draft carries (capabilities.Row).
     /// A pair no row carries answers with nothing, as it does there.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string> CodecOf = new Dictionary<string, string>
@@ -232,9 +231,9 @@ internal sealed class SeededBackend : IBackend
     /// <summary>
     /// Codecs whose encoder has an effort ladder, and the steps each one takes.
     ///
-    /// Keyed by codec and not by family, the steps being the encoder's own identifiers: two codecs of one family
-    /// can offer different ones, and a codec offering none says nothing about the rest of it.
-    /// A codec with no ladder read off it is absent here, which greys the control.
+    /// Keyed by codec, not family: the steps are the encoder's own identifiers, so two codecs of one family
+    /// can offer different ones, and a codec offering none says nothing about the rest.
+    /// A codec absent here greys the control.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> LadderOf =
         new Dictionary<string, IReadOnlyList<string>>
@@ -253,9 +252,8 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Why this fixture's machine cannot show what a monitor holds. null where it can.
-    ///
-    /// Settable, being the one catalog fact deciding whether a whole surface is drawn: a fixture answering it one
-    /// way could test one of the two screens.
+    /// Settable: the one catalog fact deciding whether a whole surface is drawn,
+    /// so a fixed answer would reach one of the two screens only.
     /// </summary>
     public Text? NoMonitorPreview { get; init; }
 
@@ -278,12 +276,12 @@ internal sealed class SeededBackend : IBackend
             Format = "h264",
             Implemented = true,
         });
-        // Two outputs, because one hides every bug a picker can have: a single tile looks the same whether
-        // rows are keyed by index or by position, and one screen leaves nothing to pick between.
+        // Two outputs: one tile looks the same whether rows are keyed by index or by position,
+        // and one screen leaves nothing to pick between.
         catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 0, Width = 2560, Height = 1440, RefreshHz = 144, Primary = true });
         catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 1, Width = 1920, Height = 1080, RefreshHz = 60 });
 
-        // The legs the relay serves a player page for, as the backend's tables answer them.
+        // Legs the relay serves a player page for, as the backend's tables answer them.
         // Neither is a leg a player opens by address.
         catalog.BrowserWatchTransports.Add(BrowserLegs);
         catalog.WatchTransports.Add(PlayerLegs);
@@ -292,29 +290,28 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// Catalog's browser legs, in the backend's own order, so a test asserts against the list rather than
-    /// restating it.
+    /// Catalog's browser legs, in the backend's own order,
+    /// so a test asserts against the list rather than restating it.
     /// </summary>
     public static readonly string[] BrowserLegs = ["hls", "webrtc"];
 
     /// <summary>
-    /// Catalog's player legs, in the backend's own order, for the reason <see cref="BrowserLegs"/> is written out
-    /// here.
-    /// WHEP is absent: it is an exchange rather than an address, so no player URL expresses it.
+    /// Catalog's player legs, in the backend's own order, for the reason <see cref="BrowserLegs"/> states.
+    /// WHEP is absent: an exchange rather than an address, so no player URL expresses it.
     /// </summary>
     public static readonly string[] PlayerLegs = ["srt", "rtsp", "hls"];
 
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
-        // Honoured rather than ignored, so an abandoned read takes the same path whichever implementation is
-        // behind the seam.
+        // Honoured rather than ignored, so an abandoned read takes the same path whichever implementation
+        // stands behind the seam.
         return cancellation.IsCancellationRequested
             ? Task.FromCanceled<Settings>(cancellation)
             : Task.FromResult(Defaults());
     }
 
     /// <summary>
-    /// Settings a first start opens on, from the Go <c>settings.Defaults</c> including its per-platform capture
+    /// Settings a first start opens on, from Go <c>settings.Defaults</c> including its per-platform capture
     /// backend.
     /// </summary>
     private Settings Defaults() => new()
@@ -348,7 +345,7 @@ internal sealed class SeededBackend : IBackend
             Bframes = 0,
             Effort = "p7",
             Capture = _os == "windows" ? "ddagrab" : _os == "darwin" ? "avfoundation" : "x11grab",
-            // A fresh installation carries no audio source, so the stream has no second track.
+            // Fresh installation carries no audio source, so the stream has no second track.
             AudioCodec = "opus",
             DrmMap = "auto",
             Monitor = 0,
@@ -384,21 +381,21 @@ internal sealed class SeededBackend : IBackend
 
     // --- The rest of the seam -------------------------------------------------------
     //
-    // No pipeline, no relay and no child process stand behind these, so each answers the honest version of
-    // that rather than a plausible figure.
+    // No pipeline, no relay and no child process stand behind these,
+    // so each answers honestly rather than with a plausible figure.
     //
     // One stand-in and not several, IBackend being one seam.
-    // A partial implementation would break the compile of every test that touches a new method, for a reason
-    // unrelated to what it tests.
+    // A partial implementation would break the compile of every test touching an unimplemented method,
+    // for a reason unrelated to what it tests.
 
-    /// <summary>Nothing publishes: the absent <c>Live</c> is what says so.</summary>
+    /// <summary>Nothing publishes, which the absent <c>Live</c> says.</summary>
     public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
         => Task.FromResult(new PublishState());
 
     /// <summary>
     /// Relay snapshot, unreachable with a reason by default.
-    /// An unreachable relay is a snapshot and never a failure, so a screen renders the sentence rather than
-    /// an error.
+    /// An unreachable relay is a snapshot, never a failure,
+    /// so a screen renders the sentence rather than an error.
     /// A test needing paths to watch states them.
     /// </summary>
     public RelayStatus Relay { get; set; } = new()
@@ -412,7 +409,7 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Players open here, by the pair the contract keys one by.
-    /// Empty until a test that needs a viewer already running states one.
+    /// Empty until a test needing a viewer already running states one.
     /// </summary>
     public List<StreamRef> Watching { get; } = [];
 
@@ -444,7 +441,6 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// A save that stores nothing.
     /// No read here answers from what was saved, so a test asserts the call rather than the stored value.
     /// </summary>
     public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
@@ -468,8 +464,8 @@ internal sealed class SeededBackend : IBackend
     // --- The preset store ---------------------------------------------------------
     //
     // The one state this fixture really holds, rather than answering from a fixed list.
-    // No event announces a preset, so a card that saved one reads the store again to see it, and a store that
-    // never moved could not exercise that.
+    // No event announces a preset, so a card that saved one reads the store again, and a store that never
+    // moved could not exercise that.
 
     // Seeding goes through the same call the screen makes.
 
@@ -483,7 +479,7 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Why every preset call is refused. Empty while they are accepted.
-    /// One switch for read, save and delete, a screen doing the same with the sentence whichever call produced
+    /// One switch for read, save and delete: a screen does the same with the sentence whichever call produced
     /// it.
     /// </summary>
     public string PresetRefusal { get; set; } = "";
@@ -503,8 +499,8 @@ internal sealed class SeededBackend : IBackend
             return Task.FromException(new BackendUnavailableException(PresetRefusal));
         }
 
-        // The name is the identity, so a second save under one replaces rather than appends.
-        // Saving over a preset is how one is edited.
+        // Name is the identity: a second save under one replaces rather than appends, which is how a preset
+        // is edited.
         var kept = new Preset { Name = name, Settings = settings.Clone() };
         var at = _presets.FindIndex(preset => preset.Name == name);
         if (at >= 0)
@@ -528,8 +524,8 @@ internal sealed class SeededBackend : IBackend
             return Task.FromException(new BackendUnavailableException(PresetRefusal));
         }
 
-        // An unknown name is refused, as the backend refuses it: the answer a window gets when another one
-        // deleted the preset first.
+        // Unknown name refused, as the backend refuses it: what a window gets when another window deleted
+        // the preset first.
         if (_presets.RemoveAll(preset => preset.Name == name) == 0)
         {
             return Task.FromException(new BackendUnavailableException($"no preset named '{name}'"));
@@ -539,8 +535,7 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// A figure nothing measured.
-    /// No socket stands behind it, so the figure is fixed and a test can assert against it.
+    /// Figure nothing measured: no socket stands behind it, so it is fixed and a test can assert against it.
     /// </summary>
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => Task.FromResult(MeasuredUplinkMbps);
@@ -549,7 +544,7 @@ internal sealed class SeededBackend : IBackend
     public const double MeasuredUplinkMbps = 87;
 
     /// <summary>
-    /// A relay nothing dialled, carrying one leg of each verdict so a test reaches all three marks.
+    /// Relay nothing dialled, carrying one leg of each verdict so a test reaches all three marks.
     /// Seeded rather than empty: an empty answer is a relay with no listeners at all, which no deployment is.
     /// </summary>
     public Task<IReadOnlyList<RelayLeg>> CheckRelayAsync(
@@ -583,9 +578,7 @@ internal sealed class SeededBackend : IBackend
         },
     ];
 
-    /// <summary>
-    /// A key nothing drew, fixed so a test can assert the field it landed in.
-    /// </summary>
+    /// <summary>Key nothing drew, fixed so a test can assert the field it landed in.</summary>
     public Task<(string Key, string Id)> CreateGroupAsync(
         RelaySettings relay, CancellationToken cancellation = default)
         => Task.FromResult((DrawnGroupKey, DrawnGroupId));
@@ -597,10 +590,10 @@ internal sealed class SeededBackend : IBackend
 
     // --- The group ---------------------------------------------------------------
     //
-    // A reading a test states, since no presence loop stands behind a fixture.
-    // The two effects record the presses rather than moving the reading: what a join became arrives on the
-    // event stream in the real thing, so a fixture answering from what was sent would let a card read back
-    // its own request.
+    // A reading a test states, no presence loop standing behind a fixture.
+    // The two effects record the presses rather than moving the reading:
+    // a join's outcome arrives on the event stream in the real thing,
+    // so answering from what was sent would let a card read back its own request.
 
     /// <summary>Group as a presence loop would have read it. Outside every group until a test says otherwise.</summary>
     public MembersState Members { get; set; } = new();
@@ -614,7 +607,7 @@ internal sealed class SeededBackend : IBackend
     /// </summary>
     public string GroupRefusal { get; set; } = "";
 
-    /// <summary>How often each was asked for, repeats included, which is what an idempotent press leaves alone.</summary>
+    /// <summary>How often each was asked for, repeats included, what an idempotent press leaves alone.</summary>
     public int Joins { get; private set; }
 
     public int Leaves { get; private set; }
@@ -655,7 +648,7 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Pages this fixture was asked to open, oldest first.
-    /// A list and not a set: a page cannot be read back, so a second press has to show as a second entry.
+    /// A list and not a set: a page cannot be read back, so a second press shows as a second entry.
     /// </summary>
     public List<StreamRef> Browsed { get; } = [];
 
@@ -673,10 +666,9 @@ internal sealed class SeededBackend : IBackend
     public List<StreamRef> Decoded { get; } = [];
 
     /// <summary>
-    /// What every decode here reports about its colour: the transfer characteristic and the verdict on it.
-    ///
-    /// Both are seeded rather than one derived from the other, which curves are HDR being the backend's table and
-    /// a copy of it here being free to disagree with it.
+    /// What every decode here reports about its colour: transfer characteristic and the verdict on it.
+    /// Both seeded rather than one derived from the other,
+    /// which curves are HDR being the backend's table and a copy here free to disagree with it.
     /// </summary>
     public string Transfer { get; set; } = "";
 
@@ -684,7 +676,7 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Whether anything here rolls an HDR stream down, and what is missing where nothing does.
-    /// A machine's facts, so a test about the greyed row states them.
+    /// Machine's facts, so a test about the greyed row states them.
     /// </summary>
     public bool CanToneMap { get; set; }
 
@@ -695,14 +687,14 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Whether the decodes here carry a sound track.
-    /// A stream's fact rather than something derived, so a test about the volume states it.
+    /// Stream's fact rather than something derived, so a test about the volume states it.
     /// </summary>
     public bool HasAudio { get; set; }
 
     /// <summary>
     /// What each decode is playing at. A pair nothing asked about plays unchanged, at (1, false).
-    /// Read back through <see cref="ReceivingAsync"/>, so a test asserts what the decode plays at rather than
-    /// what the shell last sent.
+    /// Read back through <see cref="ReceivingAsync"/>,
+    /// so a test asserts what the decode plays at rather than what the shell last sent.
     /// </summary>
     private readonly Dictionary<StreamRef, (double Volume, bool Muted)> _audio = [];
 
@@ -714,8 +706,8 @@ internal sealed class SeededBackend : IBackend
                 Live = true,
                 Transfer = Transfer,
                 Hdr = Hdr,
-                // What was built and not what was asked for: a machine with nothing to convert with builds
-                // the decode without the rung whatever the call said.
+                // What was built, not what was asked for:
+                // a machine with nothing to convert with builds the decode without the rung whatever the call said.
                 ToneMap = CanToneMap && _toneMapped.GetValueOrDefault(streamRef),
                 CanToneMap = CanToneMap,
                 ToneMapMissing = CanToneMap ? "" : ToneMapMissing,
@@ -725,11 +717,12 @@ internal sealed class SeededBackend : IBackend
             }).ToList());
 
     /// <summary>
-    /// Opens one decode. A pair already open succeeds without opening a second, the idempotence the contract
-    /// states (<c>docs/ipc-api.md</c>).
+    /// Opens one decode.
+    /// A pair already open succeeds without opening a second, the idempotence the contract states
+    /// (<c>docs/ipc-api.md</c>).
     ///
-    /// Tone mapping is built into the decode, so it is recorded against the pair and a second call naming the
-    /// other answer replaces it: a call names the state the decode should be in.
+    /// Tone mapping is built into the decode, so it is recorded against the pair,
+    /// and a second call naming the other answer replaces it: a call names the state the decode should be in.
     /// </summary>
     public Task StartReceiveAsync(
         string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
@@ -750,10 +743,10 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
-    // No audio branch is loud behind a fixture, and the call still succeeds: it names a state, and a
-    // fixture's state is whatever it is told, which keeps a caller's idempotence testable.
-    // The level is held against the decode and reported back, since a caller computing its next level from
-    // what the decode plays at needs a fixture that answers.
+    // No audio branch is loud behind a fixture, and the call still succeeds: it names a state,
+    // and a fixture's state is whatever it is told, which keeps a caller's idempotence testable.
+    // The level is held against the decode and reported back, a caller computing its next level from what
+    // the decode plays at needing a fixture that answers.
     public Task SetReceiveAudioAsync(
         string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
     {
@@ -761,8 +754,8 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
-    // No GPU and no pipeline stand behind a fixture, so there is nothing to lend.
-    // A fake stream of handles would name GPU memory that does not exist, so these refuse instead.
+    // No GPU and no pipeline stand behind a fixture, so there is nothing to lend: a stream of handles would
+    // name GPU memory that does not exist, so these refuse.
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => throw new BackendUnavailableException("nothing is decoding");
 
@@ -778,14 +771,15 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Every start asked for, repeats included.
-    /// <see cref="Previewed"/> answers what is running, this how often it was asked: the difference between a
-    /// converge that settles and one that calls on every pass.
+    /// <see cref="Previewed"/> answers what is running, this how often it was asked:
+    /// the difference between a converge that settles and one that calls on every pass.
     /// </summary>
     public List<int> PreviewStarts { get; } = [];
 
     /// <summary>
-    /// Opens one screen's preview. A screen already being read succeeds without opening a second, the
-    /// idempotence the contract states (<c>docs/ipc-api.md</c>).
+    /// Opens one screen's preview.
+    /// A screen already being read succeeds without opening a second, the idempotence the contract states
+    /// (<c>docs/ipc-api.md</c>).
     /// </summary>
     public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
     {
@@ -808,10 +802,9 @@ internal sealed class SeededBackend : IBackend
         => throw new BackendUnavailableException($"nothing is previewing monitor {monitor}");
 
     /// <summary>
-    /// Read off <see cref="Previewed"/> rather than seeded, so a test asserts what the fixture was asked to
-    /// read.
-    /// Live stays false, since nothing here produces a frame: the state of a picture asked for and not
-    /// arrived.
+    /// Read off <see cref="Previewed"/> rather than seeded,
+    /// so a test asserts what the fixture was asked to read.
+    /// Live stays false, nothing here producing a frame: a picture asked for and not arrived.
     /// </summary>
     public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
         => Task.FromResult<IReadOnlyList<PreviewedMonitor>>(
@@ -822,7 +815,7 @@ internal sealed class SeededBackend : IBackend
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 
     /// <summary>
-    /// An event stream that ends at once.
+    /// Event stream that ends at once.
     /// Nothing here changes on its own, so there is no event to deliver, and the real client reads an ending
     /// stream as the backend going away.
     /// </summary>
@@ -834,8 +827,7 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// A level stream that ends at once: nothing here decodes, and ticking silence forever would invent a
-    /// decode.
+    /// Level stream that ends at once: nothing here decodes, and ticking silence forever would invent a decode.
     /// </summary>
     public async IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(
         [EnumeratorCancellation] CancellationToken cancellation = default)
@@ -845,8 +837,8 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// The pointer stream, never sent on: the seeded settings publish with the pointer drawn into the frames,
-    /// which is the mode that sends no position.
+    /// Pointer stream, never sent on: the seeded settings publish with the pointer drawn into the frames,
+    /// the mode that sends no position.
     /// </summary>
     public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
         [EnumeratorCancellation] CancellationToken cancellation = default)
@@ -856,9 +848,9 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// The relay this machine is pointed at, empty for a machine pointed at none.
-    /// Every named relay carries a group service (<c>backend/internal/settings</c>, Relay.GroupService), so this
-    /// is what decides whether a key can be drawn.
+    /// Relay this machine is pointed at, empty for a machine pointed at none.
+    /// Every named relay carries a group service (<c>backend/internal/settings</c>, Relay.GroupService),
+    /// so this decides whether a key can be drawn.
     /// </summary>
     public string RelayHost { get; set; } = "127.0.0.1";
 
@@ -902,13 +894,13 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// One built-in preset against the draft: what applying it writes, or why nothing here reaches it, and
-    /// whether the draft already delivers it.
+    /// One built-in preset against the draft: what applying it writes, or why nothing here reaches it,
+    /// and whether the draft already delivers it.
     ///
     /// A real resolve searches for the encoder, pixel format and capture backend keeping the promise
     /// (<c>backend/internal/form/presets.go</c>).
-    /// This states the answer instead, unreachable where the seeded chroma rule refuses the format for the codec
-    /// the draft names, searching being the preset table written twice.
+    /// This states the answer instead, unreachable where the seeded chroma rule refuses the format
+    /// for the codec the draft names, searching being the preset table written twice.
     /// </summary>
     private BuiltinPreset Resolve(PresetSeed seed, Settings settings)
     {
@@ -962,8 +954,8 @@ internal sealed class SeededBackend : IBackend
             Live = LiveHere(seed.Key, settings),
             Value = ValueOf(seed.Key, settings),
             // What a fresh installation holds, read out of the defaults through the reader the value goes
-            // through.
-            // The real form fills it off the same row that reads the draft (backend/internal/form/form.go).
+            // through, as the real form fills it off the same row that reads the draft
+            // (backend/internal/form/form.go).
             DefaultValue = ValueOf(seed.Key, Defaults()),
             Range = seed.Range,
         };
@@ -997,11 +989,11 @@ internal sealed class SeededBackend : IBackend
     /// <summary>
     /// Field's value, read off the draft through the descriptors rather than a switch.
     /// A key is a settings group and a field in it, which makes that possible.
-    /// It goes through the shell's own reader, so fixture and screen resolve a key the same way.
+    /// Goes through the shell's own reader, so fixture and screen resolve a key the same way.
     /// </summary>
     private static FieldValue ValueOf(string key, Settings settings)
     {
-        // The row a reader grows the audio list by is not in the settings, so it answers the default entry,
+        // Row a reader grows the audio list by is not in the settings, so it answers the default entry,
         // as the real form does (backend/internal/form/form.go, audioEntry).
         // Reading it off the draft would answer an empty kind, which is not a value the control offers.
         if (key == "publish.audio_sources[0].source" && settings.Publish.AudioSources.Count == 0)
@@ -1013,21 +1005,20 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Four treatments of <c>docs/field-availability.md</c>, seeded.
-    /// Each entry mirrors a rule the Go tables evaluate: a hidden backend knob, a disabled field with the
-    /// reason a reader can act on, and a live field with a note.
+    /// Each entry mirrors a rule the Go tables evaluate: a hidden backend knob,
+    /// a disabled field with the reason a reader can act on, and a live field with a note.
     /// </summary>
     private (bool Visible, bool Enabled, Text? Reason, Text? Note) Availability(string key, Settings settings)
     {
         switch (key)
         {
-            // Hidden: a knob of the kmsgrab scanout path alone, so its help text says nothing to a reader on
-            // another capture backend.
+            // Hidden: a knob of the kmsgrab scanout path alone,
+            // so its help text says nothing to a reader on another capture backend.
             case "publish.drm_map":
                 return (settings.Publish.Capture == "kmsgrab", true, null, null);
 
             // Disabled with a reason: a general encoding concept blocked by this combination.
-            // The ladder is the codec's own, so the reason names the codec, which is the fact nearest to
-            // hand.
+            // The ladder is the codec's own, so the reason names the codec, the fact nearest to hand.
             case "publish.effort":
                 if (!LadderOf.ContainsKey(Codec(settings.Publish)))
                 {
@@ -1047,8 +1038,8 @@ internal sealed class SeededBackend : IBackend
             case "publish.rtsp_publish_protocol":
                 return (settings.Publish.PublishTransport == "rtsp", true, null, null);
 
-            // Disabled from the mode rather than from the codec: only the constant-quality mode aims at a
-            // quality, so the modes aiming at a bitrate grey the quantizer and name the mode.
+            // Disabled from the mode rather than from the codec: only the constant-quality mode aims at a quality,
+            // so the modes aiming at a bitrate grey the quantizer and name the mode.
             case "publish.cq":
                 return settings.Publish.Mode == "crf"
                     ? (true, true, null, null)
@@ -1066,8 +1057,8 @@ internal sealed class SeededBackend : IBackend
     /// <summary>
     /// Whether a change reaches the pipeline already publishing, from <c>backend/internal/publish/live.go</c>.
     ///
-    /// One control carries it: a bitrate, on the engine whose child holds a control socket, in the modes that
-    /// send the encoder a rate at all.
+    /// One control carries it: a bitrate, on the engine whose child holds a control socket,
+    /// in the modes that send the encoder a rate at all.
     /// Everything else is the pipeline's shape and costs a relaunch.
     /// </summary>
     private bool LiveHere(string key, Settings settings)
@@ -1082,8 +1073,8 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Why one option of one field is ruled out.
-    /// One refusal is seeded per kind the tables produce: a platform gate, a pair with no device path, and an
-    /// engine that lacks the element.
+    /// One refusal is seeded per kind the tables produce: a platform gate, a pair with no device path,
+    /// and an engine that lacks the element.
     /// </summary>
     private Text? OptionRefusal(string key, string value, Settings settings)
     {
@@ -1107,8 +1098,7 @@ internal sealed class SeededBackend : IBackend
             case "publish.capture_memory":
                 if (value is not ("gpu" or "gpu-encoder-color"))
                 {
-                    // Never greyed: auto answers with whichever path the pair has, and every pair has the
-                    // system copy.
+                    // Never greyed: auto answers with whichever path the pair has, and every pair has the system copy.
                     return null;
                 }
                 return HasDevicePath(engine, publish.Capture, FamilyOf.GetValueOrDefault(Codec(publish), ""))
@@ -1134,8 +1124,8 @@ internal sealed class SeededBackend : IBackend
                     : null;
 
             case "publish.chroma":
-                // The two chroma facts holding for every codec in the list: 4:2:2 is the software H.26x rows'
-                // alone, and direct RGB needs an encoder that takes a GBR input.
+                // Two chroma facts holding for every codec in the list: 4:2:2 is the software H.26x rows'
+                // alone, and direct RGB needs an encoder taking a GBR input.
                 var family = FamilyOf.GetValueOrDefault(Codec(publish), "");
                 if (value == "yuv422p" && family != "software")
                 {
@@ -1190,11 +1180,12 @@ internal sealed class SeededBackend : IBackend
     /// <summary>
     /// Capture source the quality ladders are derived from, standing in for the monitor <c>display.List</c>
     /// reports.
-    /// The numbers are the mockups' own.
+    /// Numbers are the mockups' own.
     ///
-    /// One record rather than three lists, the lists being consequences of it: a resolution ladder is the source
-    /// scaled by whole steps, and a frame-rate list is bounded by what the panel refreshes at.
-    /// Listing them instead would write down an answer that depends on which monitor is selected.
+    /// One record rather than three lists, the lists being consequences of it:
+    /// a resolution ladder is the source scaled by whole steps,
+    /// and a frame-rate list is bounded by what the panel refreshes at.
+    /// Listing them instead would write down an answer depending on which monitor is selected.
     /// </summary>
     private static readonly (int Width, int Height, double RefreshHz) Source = (2560, 1440, 59.951);
 
@@ -1208,12 +1199,12 @@ internal sealed class SeededBackend : IBackend
     private static readonly int[] KeyframeSeconds = [1, 2, 4];
 
     /// <summary>
-    /// Resolutions this source scales to: its own size, and each standard height below it at the source's aspect
-    /// ratio.
+    /// Resolutions this source scales to: its own size, and each standard height below it at the source's
+    /// aspect ratio.
     /// Derived and not listed, so another monitor gives another ladder with nothing here edited.
     ///
-    /// A scaled entry carries what it was derived from, so the cost of the choice is on the control rather
-    /// than in the step that owns the source.
+    /// A scaled entry carries what it was derived from,
+    /// so the cost of the choice sits on the control rather than in the step owning the source.
     /// </summary>
     private static IReadOnlyList<OptionSeed> ResolutionOptions()
     {
@@ -1250,7 +1241,7 @@ internal sealed class SeededBackend : IBackend
     /// Frame rates, every one of them offered.
     /// Above the source's own refresh the extra frames are repeats, which the form states as a diagnostic
     /// rather than as a refusal, so nothing here is greyed
-    /// (docs/field-availability.md, "One option disabled with a reason").
+    /// (<c>docs/field-availability.md</c>, "One option disabled with a reason").
     /// </summary>
     private static IReadOnlyList<OptionSeed> FrameRateOptions() =>
         [.. FrameRates.Select(rate => new OptionSeed
@@ -1270,8 +1261,7 @@ internal sealed class SeededBackend : IBackend
         var fps = (int)Math.Round(Source.RefreshHz);
         var options = new List<OptionSeed>
         {
-            // Auto rather than a duration: the encoder's own rule, which every builder reads as twice the
-            // frame rate.
+            // Auto rather than a duration: the encoder's own rule, which every builder reads as twice the frame rate.
             new() { Value = "0" },
         };
 
@@ -1285,7 +1275,7 @@ internal sealed class SeededBackend : IBackend
 
     /// <summary>
     /// Seeded screen, in render order.
-    /// The grouping follows the domain, what the source is, what encodes it and where it goes, so it is stated
+    /// Grouping follows the domain, what the source is, what encodes it and where it goes, so it is stated
     /// here rather than left to a shell to arrange.
     /// </summary>
     private static IReadOnlyList<GroupSeed> Groups() =>
@@ -1336,17 +1326,17 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "none" },
                     ],
                 },
-                // A select and not a number, as the backend answers: one entry per catalog row, so a screen
-                // this machine does not have is a missing entry rather than a number typed past the end of
-                // the list (backend/internal/form/options.go, optionMonitors).
+                // A select and not a number, as the backend answers: one entry per catalog row,
+                // so a screen this machine does not have is a missing entry rather than a number typed
+                // past the end of the list (backend/internal/form/options.go, optionMonitors).
                 new()
                 {
                     Key = "publish.monitor",
                     Control = ControlKind.Select,
                     Options = [new() { Value = "0" }, new() { Value = "1" }],
                 },
-                // The real form draws one field per audio source plus the row a reader grows the list by
-                // (backend/internal/form/fields.go).
+                // The real form (backend/internal/form/fields.go) draws one field per audio source
+                // plus the row a reader grows the list by.
                 // Only the growing row is seeded, since no draft here records a source.
                 new()
                 {
@@ -1416,9 +1406,9 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "tv" },
                     ],
                 },
-                // The NVENC ladder, because every draft seeded here is on an NVENC codec.
-                // The backend offers whichever ladder the selected codec declares (LadderOf); this list is
-                // static, as every other option list here is.
+                // NVENC ladder, every draft seeded here being on an NVENC codec.
+                // The backend offers whichever ladder the selected codec declares (LadderOf);
+                // this list is static, as every other option list here.
                 new()
                 {
                     Key = "publish.effort",
@@ -1542,8 +1532,7 @@ internal sealed class SeededBackend : IBackend
         },
         // How this machine receives: a group of the same form, drawn by the viewer rather than by the wizard
         // (Features/Fields/Model/GroupPlacement.cs).
-        // Seeded so the split is testable, since a form with no watch group leaves the filter nothing to
-        // filter.
+        // Seeded so the split is testable, a form with no watch group leaving the filter nothing to filter.
         new()
         {
             Key = "watch",
@@ -1579,8 +1568,8 @@ internal sealed class SeededBackend : IBackend
                 },
             ],
         },
-        // The stream's name is staged like everything else the wizard configures, being part of the pipeline
-        // a commit starts.
+        // Stream's name is staged like everything else the wizard configures,
+        // being part of the pipeline a commit starts.
         new()
         {
             Key = "stream",
@@ -1590,9 +1579,9 @@ internal sealed class SeededBackend : IBackend
             ],
         },
 
-        // The relay's address, applied rather than staged.
-        // The backend dials this address on its own poll, so a write that waited for a publish would gate the
-        // publish on reaching the relay it was about to change (form.proto, FieldGroup.applied).
+        // Relay's address, applied rather than staged.
+        // The backend dials this address on its own poll, so a write that waited for a publish would gate
+        // the publish on reaching the relay it was about to change (form.proto, FieldGroup.applied).
         new()
         {
             Key = "relay",

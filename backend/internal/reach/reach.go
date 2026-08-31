@@ -1,14 +1,13 @@
 // Package reach answers whether the relay this app is pointed at is answering, leg by leg.
 //
-// One row per listener, each dialled where the transport that uses it says it answers
-// (transport.Listener), so what is measured is this deployment rather than a list of ports written
-// down a second time.
-// A leg this deployment addresses nowhere reads as that and never as a cross: a relay binding what
-// it is configured to bind is a relay behaving.
+// One row per listener, each dialled where the transport using it says it answers
+// (transport.Listener), so what is measured is this deployment rather than a second list of ports.
+// A leg this deployment addresses nowhere reads as Unaddressed, never as a cross: a relay binding
+// what it is configured to bind is a relay behaving.
 //
 // Every answer here is another machine's, so nothing asserts on one.
-// A refused connection, a listener that is not there, a name that does not resolve and an answer in
-// the wrong protocol are Umgebungsfehler, each carried in the row it is about.
+// A refused connection, a missing listener, a name that does not resolve and an answer in the wrong
+// protocol are Umgebungsfehler, each carried in the row it is about.
 package reach
 
 import (
@@ -26,8 +25,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// The two legs no transport carries: the service every publisher asks for a token before it reaches
-// any listener, and the relay's own HTTP API.
+// Two legs no transport carries: the service every publisher asks for a token before reaching any
+// listener, and the relay's own HTTP API.
 const (
 	legGroups = "groups"
 	legAPI    = "api"
@@ -47,10 +46,9 @@ const (
 
 // Verdicts is every verdict a row can carry, and Reasons every reason a leg goes undialled for.
 //
-// Walked by whatever has to answer for all of them: the marks a report prints, the sentences it
-// writes, and the contract's own enum (internal/wire).
-// A value added above and left out of one of those is then a test that fails rather than a row
-// nobody can draw.
+// Walked by whatever answers for all of them: the marks a report prints, the sentences it writes,
+// and the contract's own enum (internal/wire).
+// A value added above and left out of one is a failing test rather than a row nobody can draw.
 var (
 	Verdicts = []Verdict{Reachable, Unreachable, Unaddressed}
 	Reasons  = []Reason{ReasonNoRelay, ReasonLoopbackOnly}
@@ -61,16 +59,16 @@ type Reason int
 
 const (
 	ReasonNone Reason = iota
-	// ReasonNoRelay: the settings name no relay, so no leg has an address.
+	// ReasonNoRelay: settings name no relay, so no leg has an address.
 	ReasonNoRelay
-	// ReasonLoopbackOnly: the relay binds this listener to loopback, so it answers on the relay's own
-	// machine and nowhere else (deploy/mediamtx-groups.yml).
+	// ReasonLoopbackOnly: relay binds this listener to loopback, so it answers on the relay's own
+	// machine alone (deploy/mediamtx-groups.yml).
 	ReasonLoopbackOnly
 )
 
 // Endpoint is one leg and where this deployment addresses it.
 type Endpoint struct {
-	// Leg is the transport's registry name, or one of the two services named above.
+	// Leg is the transport's registry name, or legGroups / legAPI.
 	Leg string
 	// Address is where the leg answers, as a reader would type it: "rtsps://relay:8322".
 	// Empty exactly where Unaddressed names a reason.
@@ -84,13 +82,13 @@ type Result struct {
 	Leg     string
 	Address string
 	Verdict Verdict
-	// Detail is the raw words behind the verdict: what the listener answered, or the dial's own
-	// failure, unedited so it reaches a bug report as it stands.
+	// Detail is what the listener answered, or the dial's own failure, unedited so it reaches a bug
+	// report as it stands.
 	// Empty where nothing was dialled.
 	Detail string
 	// Unaddressed is the reason where Verdict is Unaddressed, and ReasonNone otherwise.
 	Unaddressed Reason
-	// Took is how long the probe waited, and zero where nothing was dialled.
+	// Took is how long the probe waited, zero where nothing was dialled.
 	Took time.Duration
 }
 
@@ -103,11 +101,11 @@ type resolved struct {
 
 // target is where one leg is dialled.
 type target struct {
-	// url is the whole address, and each probe reads what it needs off it.
+	// url is the whole address, each probe reading what it needs off it.
 	url string
-	// insecure follows the relay's certificate: a relay this network reaches directly holds the
-	// self-signed pair scripts/relay.sh draws for it, and nothing issued that, so validating it opens
-	// nothing at all (transport/tls.go).
+	// insecure follows the relay's certificate: a relay reached directly on this network holds
+	// the self-signed pair scripts/relay.sh draws, which nothing issued, so validating it opens
+	// nothing (transport/tls.go).
 	insecure bool
 }
 
@@ -128,9 +126,9 @@ func Endpoints(s settings.Settings) []Endpoint {
 
 // Check dials every leg this deployment addresses and answers one row each.
 //
-// All at once, so a check costs the slowest leg rather than the sum of them, and a listener that is
-// not there costs probeTimeout.
-// Nothing is left out on a failure: a report is about a whole relay, so a leg that could not be
+// All at once, so a check costs the slowest leg rather than their sum, and a missing listener costs
+// probeTimeout.
+// Nothing is left out on a failure: a report covers a whole relay, so a leg that could not be
 // dialled is a row saying so.
 func Check(ctx context.Context, s settings.Settings) []Result {
 	assert.IsNotNil(ctx, "a check runs under a context, its whole bound being a deadline")
@@ -161,8 +159,8 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 
 // resolve is one row per leg, in the order a report walks them.
 //
-// Sorted by name, which keeps the order a property of the legs rather than a second list to hold
-// beside the registry.
+// Sorted by name, keeping the order a property of the legs rather than a second list beside
+// the registry.
 func resolve(s settings.Settings) []resolved {
 	listeners := transport.Listeners(s)
 
@@ -172,8 +170,8 @@ func resolve(s settings.Settings) []resolved {
 	}
 	rows = append(rows, groupService(s.Relay), relayAPI(s.Relay))
 
-	// A relay nobody named is no address on any leg, whatever each leg would otherwise build out of
-	// the ports beside it.
+	// A relay nobody named leaves every leg without an address, whatever the ports beside it would
+	// otherwise build.
 	if s.Relay.Host == "" {
 		for i := range rows {
 			rows[i] = resolved{leg: rows[i].leg, reason: ReasonNoRelay}
@@ -187,8 +185,8 @@ func resolve(s settings.Settings) []resolved {
 // groupService is where keys, tokens, membership and the stream index are answered
 // (settings.Relay.GroupService).
 //
-// The key route rather than the root: it takes no credential and is the service's own, so an answer
-// there is groupd and not the terminator in front of it (internal/groupsvc).
+// Dialled on the key route rather than the root: it takes no credential and is the service's own,
+// so an answer there is groupd and not the terminator in front of it (internal/groupsvc).
 func groupService(r settings.Relay) resolved {
 	base, ok := r.GroupService()
 	if !ok {
@@ -199,9 +197,9 @@ func groupService(r settings.Relay) resolved {
 
 // relayAPI is the relay's own HTTP API, bound to loopback wherever the relay runs
 // (deploy/mediamtx-groups.yml), so nothing off that machine dials it and a check that did would
-// print a cross against a relay doing as it is told.
+// cross a relay doing as it is told.
 //
-// The route is the one internal/relay reads paths from.
+// Route is the one internal/relay reads paths from.
 func relayAPI(r settings.Relay) resolved {
 	if !r.OnThisMachine() {
 		return resolved{leg: legAPI, reason: ReasonLoopbackOnly}

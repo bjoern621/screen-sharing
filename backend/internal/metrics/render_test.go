@@ -26,8 +26,9 @@ func TestRenderWritesHelpTypeAndSamples(t *testing.T) {
 	}
 }
 
-// A family nobody holds a sample of still declares itself, so a consumer reading the page can tell a
-// metric with nothing in it from one this build does not export.
+// A family nobody holds a sample of still declares itself,
+// so a consumer reading the page can tell a metric with nothing in it from one this build does not
+// export.
 func TestRenderDeclaresAFamilyWithNoSamples(t *testing.T) {
 	page := render(t, []Family{{
 		Name: "groupd_kicks_total",
@@ -62,8 +63,8 @@ func TestRenderWritesLabelsInTheOrderGiven(t *testing.T) {
 	}
 }
 
-// A display name is a label value and arrives from whatever the member typed, so the characters the
-// format reserves are escaped rather than trusted.
+// A display name is a label value and arrives from whatever the member typed,
+// so the characters the format reserves are escaped rather than trusted.
 func TestRenderEscapesLabelValues(t *testing.T) {
 	page := render(t, []Family{{
 		Name: "groupd_member_live",

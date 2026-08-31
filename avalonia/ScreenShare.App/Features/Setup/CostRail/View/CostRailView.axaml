@@ -9,8 +9,8 @@
              x:DataType="vm:CostRailViewModel">
 
   <UserControl.Styles>
-    <!-- Ordinary fill hue set here and not on the element: an inline value is a LocalValue, which outranks
-         every style setter, so the overrun below would never paint. -->
+    <!-- Ordinary fill hue set here and not on the element: an inline value is a LocalValue outranking every
+         style setter, so the overrun below would never paint. -->
     <Style Selector="view|MeterBar">
       <Setter Property="FillBrush" Value="{StaticResource ForegroundBrush}" />
     </Style>

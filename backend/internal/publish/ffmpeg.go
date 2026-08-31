@@ -18,22 +18,20 @@ type ffmpegEngine struct{}
 // buildArgs renders the command this engine runs, refusing first what the ffmpeg argument builder
 // cannot refuse for itself.
 //
-// The builder is pure over the settings and names no operating system, which is what lets a Windows
-// pipeline be rendered and tested on a Linux machine.
+// The builder is pure over the settings and names no operating system, so a Windows pipeline
+// renders and tests on a Linux machine.
 // The second-track source is the one field whose validity depends on which platform the capture
 // backend runs on, and that column is captureNeeds', in this package, so the check is made here and
 // the builder stays a builder.
 // The same split capabilities.Validate and transport.ValidatePublish sit on.
 //
 // Both entry points render through here, so the displayed command and the started run are refused
-// alike, which is what publish.Command promises.
-// preview is the one thing they differ by, for the reason the GStreamer engine's meter branch is:
-// it carries a port the kernel handed out for this run,
-// so a command rendered with it would differ on every render,
-// and whether two settings build one pipeline is decided by comparing exactly that string
-// (SamePipeline).
-// meterPort is empty for a command nothing weighs, and carries a port the kernel handed out for this
-// run otherwise, which is why it is no part of what Command renders.
+// alike, what publish.Command promises.
+// preview and meterPort are what the two differ by, for the reason the GStreamer engine's meter
+// branch is: each carries a port the kernel handed out for this run, so a command rendered
+// with them would differ on every render, and whether two settings build one pipeline is decided
+// by comparing exactly that string (SamePipeline).
+// meterPort is empty for a command nothing weighs.
 func buildArgs(s settings.Settings, preview PreviewLeg, meterPort string) ([]string, error) {
 	for _, a := range s.Publish.Recorded() {
 		if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
@@ -44,8 +42,8 @@ func buildArgs(s settings.Settings, preview PreviewLeg, meterPort string) ([]str
 	var taps []ffmpeg.Tap
 	if preview.Wanted() {
 		// A format with no local carriage publishes without a preview rather than failing to publish.
-		// The backend read the same table to decide whether to bring a receiver up at all, so this branch
-		// is what survives the two disagreeing.
+		// The backend read the same table to decide whether to bring a receiver up, so this branch
+		// survives the two disagreeing.
 		if tap, ok := ffmpegPreviewTap(s.Publish.Codec(), preview); ok {
 			taps = append(taps, tap)
 		}

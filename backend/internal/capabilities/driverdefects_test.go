@@ -9,8 +9,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// Every defect names a driver, a gappable option and a value that option has, so a row that would
-// bind on nothing, or take away a value no control offers, fails here rather than at a resolve.
+// Every defect names a driver, a gappable option and a value that option has,
+// so a row that would bind on nothing, or take away a value no control offers,
+// fails here rather than at a resolve.
 func TestEveryDriverDefectIsWellFormed(t *testing.T) {
 	for _, c := range Codecs {
 		for _, d := range c.DriverDefects {
@@ -24,8 +25,9 @@ func TestEveryDriverDefectIsWellFormed(t *testing.T) {
 				t.Errorf("%s declares a defect on %s with no reason, so a shell would grey it silently",
 					c.Name, d.Option)
 			}
-			// A defect withholds what the encoder does implement. One that names a value already gapped
-			// says nothing, and one that names a value outside the option's set binds on nothing.
+			// A defect withholds what the encoder does implement.
+			// One that names a value already gapped says nothing,
+			// and one that names a value outside the option's set binds on nothing.
 			if d.Option == OptionMode && !contains(Modes, d.Value) {
 				t.Errorf("%s declares a defect on mode %q, which is no rate-control mode", c.Name, d.Value)
 			}
@@ -44,8 +46,8 @@ func TestEveryDriverDefectIsWellFormed(t *testing.T) {
 }
 
 // A defect binds where its driver is the one installed, and nowhere else.
-// The machine that named no driver is the case that decides the shape: it keeps every value the
-// encoder declares, rather than being withheld on a guess.
+// The machine that named no driver is the case that decides the shape:
+// it keeps every value the encoder declares, rather than being withheld on a guess.
 func TestADriverDefectBindsOnItsOwnDriverAlone(t *testing.T) {
 	c := mustGet(t, "av1_vaapi")
 
@@ -94,8 +96,8 @@ func TestADriverDefectNarrowsToTheModelsItNames(t *testing.T) {
 }
 
 // A defect naming the release it is fixed in stops binding there.
-// A machine whose release went unread reads zero and keeps the defect, which is what stops an
-// unnamed version from lifting a restriction nobody established was lifted.
+// A machine whose release went unread reads zero and keeps the defect,
+// which is what stops an unnamed version from lifting a restriction nobody established was lifted.
 func TestADriverDefectLiftsAtTheReleaseThatFixesIt(t *testing.T) {
 	const driver = "testdriver"
 	fixedIn := 26_002_000
@@ -129,12 +131,13 @@ func TestADriverDefectLiftsAtTheReleaseThatFixesIt(t *testing.T) {
 	}
 }
 
-// A publish on the driver carrying the defect is refused, on both engines, and the refusal names the
-// driver rather than the encoder.
+// A publish on the driver carrying the defect is refused, on both engines,
+// and the refusal names the driver rather than the encoder.
 //
-// The wording is what is asserted alongside the refusal: the encoder does implement the value, so
-// the phrase for a capability it lacks would send a reader to change engines, and the other engine
-// drives the same driver.
+// The wording is what is asserted alongside the refusal:
+// the encoder does implement the value,
+// so the phrase for a capability it lacks would send a reader to change engines,
+// and the other engine drives the same driver.
 func TestValidateRefusesADriverDefectAndNamesTheDriver(t *testing.T) {
 	device := Device{Driver: "radeonsi", Model: "AMD Radeon 780M Graphics", Version: 26_001_006}
 	opts := options("yuv420p", ModeCbr, ColorRangeLimited)
@@ -159,8 +162,8 @@ func TestValidateRefusesADriverDefectAndNamesTheDriver(t *testing.T) {
 }
 
 // A defect is not a gap, and the engine-scoped lookups keep answering what the encoder implements.
-// A builder enumerating an element's rate controls has to get the same answer on every machine, or a
-// pipeline would be built differently depending on which card is installed.
+// A builder enumerating an element's rate controls has to get the same answer on every machine,
+// or a pipeline would be built differently depending on which card is installed.
 func TestADriverDefectIsNoGap(t *testing.T) {
 	c := mustGet(t, "av1_vaapi")
 

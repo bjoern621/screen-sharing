@@ -2,8 +2,8 @@ package settings
 
 import "testing"
 
-// Empty is a value and not an absence, which is what the second answer keeps a caller from
-// mistaking for a zero size to build a scaler around.
+// Empty is a value and not an absence,
+// which is what the second answer keeps a caller from mistaking for a zero size to scale around.
 func TestAnEmptyOutputResolutionIsTheCapturesOwnSize(t *testing.T) {
 	s := Publish{}
 
@@ -35,8 +35,7 @@ func TestASetOutputResolutionParsesToItsTwoFigures(t *testing.T) {
 }
 
 // Writing and reading are each other's inverse.
-// A value the option list wrote and the parser refused would be a control offering what the publish
-// rejects.
+// A value the option list wrote and the parser refused is a control offering a refusal.
 func TestASizeSurvivesFormattingAndParsing(t *testing.T) {
 	for _, want := range []Size{{Width: 1920, Height: 1080}, {Width: 640, Height: 360}, {Width: 2560, Height: 1440}} {
 		got, err := ParseSize(want.String())
@@ -68,8 +67,8 @@ func TestAMalformedOutputResolutionIsRefused(t *testing.T) {
 		{"no height", "1920x"},
 		{"not a number", "wide x tall"},
 		{"below the floor", "8x8"},
-		// An odd side is refused rather than rounded, every chroma subsampling here needing an even
-		// picture.
+		// An odd side is refused rather than rounded,
+		// every chroma subsampling here needing an even picture.
 		{"odd width", "1921x1080"},
 		{"odd height", "1920x1081"},
 	}
@@ -80,8 +79,8 @@ func TestAMalformedOutputResolutionIsRefused(t *testing.T) {
 	}
 }
 
-// A size a stored file carries and nothing can parse is an Umgebungsfehler, so it reaches the
-// caller as an error rather than an assert.
+// A size a stored file carries and nothing can parse is an Umgebungsfehler,
+// so it reaches the caller as an error rather than an assert.
 func TestAMalformedStoredResolutionReachesTheCallerAsAnError(t *testing.T) {
 	s := Publish{OutputResolution: "not-a-size"}
 

@@ -16,16 +16,16 @@ import (
 )
 
 // inGroup is a machine with a group to join and a name to join it under.
-// Neither value is read past the refusals decided off them, the group service being where a key is
-// traded and a name claimed.
+// Neither value is read past the refusals decided off them,
+// the group service being where a key is traded and a name claimed.
 var inGroup = settings.Settings{Relay: settings.Relay{
 	Host:        "relay.example.com",
 	GroupKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 	DisplayName: "Björn",
 }}
 
-// A machine with no group key names no group, and one with no display name has nothing to claim in
-// it: both are the world not being ready rather than a request naming something that cannot exist.
+// A machine with no group key names no group, and one with no display name has nothing to claim in it:
+// both are the world not being ready rather than a request naming something that cannot exist.
 func TestJoiningTakesAGroupAndAName(t *testing.T) {
 	for _, missing := range []struct {
 		what string
@@ -47,8 +47,9 @@ func TestJoiningTakesAGroupAndAName(t *testing.T) {
 	}
 }
 
-// A name another member holds is the request naming something it cannot have, which the backend
-// answers with a Refused because the group service is the only side that knows who holds what.
+// A name another member holds is the request naming something it cannot have,
+// which the backend answers with a Refused,
+// the group service being the only side that knows who holds what.
 func TestATakenNameRefusesTheRequest(t *testing.T) {
 	backend := &fakeBackend{settings: inGroup, err: Refuse("that name is taken in this group")}
 	server := New(backend, events.New(), "test")
@@ -59,8 +60,8 @@ func TestATakenNameRefusesTheRequest(t *testing.T) {
 	}
 }
 
-// A group service that did not answer is the world failing at something legal to ask for, and the
-// name in the request had nothing to do with it.
+// A group service that did not answer is the world failing at something legal to ask for,
+// and the name in the request had nothing to do with it.
 func TestAnUnreachableServiceLeavesJoiningUnavailable(t *testing.T) {
 	backend := &fakeBackend{settings: inGroup, err: errors.New("the group service cannot be reached")}
 	server := New(backend, events.New(), "test")
@@ -71,10 +72,10 @@ func TestAnUnreachableServiceLeavesJoiningUnavailable(t *testing.T) {
 	}
 }
 
-// A second join is the state the first one reached, so it succeeds and reaches the backend, which is
+// A second join is the state the first one reached, so it succeeds and reaches the backend,
 // where drawing nothing a second time is decided.
-// A shell whose answer went missing has asking again as its only move, and a refusal here would take
-// it away.
+// A shell whose answer went missing has asking again as its only move,
+// and a refusal here would take it away.
 func TestJoiningTwiceSucceedsTwice(t *testing.T) {
 	backend := &fakeBackend{settings: inGroup}
 	server := New(backend, events.New(), "test")
@@ -105,8 +106,8 @@ func TestLeavingTwiceSucceedsTwice(t *testing.T) {
 	}
 }
 
-// The read is the presence loop's last reading and states nothing of its own, so a shell that mounts
-// and one that listened are told the same thing.
+// The read is the presence loop's last reading and states nothing of its own,
+// so a shell that mounts and one that listened are told the same thing.
 func TestGetMembersStateAnswersWithTheGroupAsItWasRead(t *testing.T) {
 	backend := &fakeBackend{members: wire.MembersSnapshot{
 		Joined:  true,

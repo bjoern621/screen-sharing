@@ -23,10 +23,10 @@ The capture and publish side is the mirror of this seam.
 See `capture-architecture.md`.
 
 The Avalonia shell is the only shell (`ipc-api.md`).
-Earlier viewers each held their own copy of the domain model in their own language, the drift `domain-model.md` prevents, so `backend/internal/form` decides for all of them in Go.
-The decode knowledge outlived them in `backend/internal/receive`: receive pipelines, render chains, caps negotiation, GPU memory features and teardown order are about no toolkit.
-One package left with them and did not come back: `internal/moq` pinned a certificate so a webview could subscribe itself, where the MoQ leg is now the relay's own page and this side hands over its address.
-A native MoQ watcher stays unwritten, no reader here having an element to subscribe with, and every format it would carry reaching a receive pipeline over RTSP already.
+`backend/internal/form` decides for every shell in Go, a viewer holding its own copy of the domain model in its own language being the drift `domain-model.md` prevents.
+Decode knowledge lives in `backend/internal/receive`: receive pipelines, render chains, caps negotiation, GPU memory features and teardown order are about no toolkit.
+The MoQ leg is the relay's own page, this side handing over its address alone.
+A native MoQ watcher is unwritten, no reader here having an element to subscribe with, and every format it would carry reaching a receive pipeline over RTSP already.
 
 ## Two legs, two protocols
 
@@ -246,7 +246,7 @@ Three rules fall out of the table:
   Publishing VP9 over WebRTC therefore means a GStreamer capture backend and no other.
 
 The VP9 and AV1 formats also need `-strict experimental` on the ffmpeg publish leg, which `RTSP.PublishArgs` adds.
-Both RTP payload formats are still IETF drafts and the muxer refuses to write a draft payload without it.
+Both RTP payload formats are IETF drafts and the muxer refuses to write a draft payload without it.
 The relay ingests them either way.
 
 Two formats WebRTC negotiates are missing from its row all the same.
@@ -320,7 +320,7 @@ A machine registering none of a chain's elements cannot run it, and `resolve` le
 
 The chain is a settings field, offered by the form and greyed per element the machine does not register.
 One value for every tile rather than one per stream: a chain falls back because a driver cannot run it, a property of the machine.
-`StartReceive` may carry an override later without a field to migrate.
+An override on `StartReceive` therefore takes no field to migrate.
 
 ### Tone mapping
 
@@ -412,7 +412,7 @@ What each row is measured at and which rows a machine cannot fill: `delay-measur
 
 ## The frame channel
 
-Frames do not cross the control API, and they will not.
+Frames never cross the control API.
 `ipc-api.md` carries control and description.
 The frame channel is a second gRPC service on the same socket (`frame.proto`), carrying handle metadata and release-backs.
 The pixels stay in shared GPU memory the handle names.
@@ -423,7 +423,7 @@ Each platform has its own handle type, and they are not equally ready.
 |---|---|---|
 | Windows | a DXGI shared texture with a keyed mutex, which Avalonia's compositor imports | **built** |
 | Linux | a dmabuf descriptor per slot, exported from the render chain's own GL textures and imported by the shell through EGL | **built**, and "The Linux leg" states how |
-| macOS | IOSurface from VideoToolbox, with no first-class import handle type | the weakest leg and the last scheduled; until it lands, macOS watches through the native player, which needs no frame channel |
+| macOS | IOSurface from VideoToolbox, with no first-class import handle type | **unbuilt**, so macOS watches through the native player, which needs no frame channel |
 
 The sink is `appsink` rather than a paintable: the chain ends by exporting a handle instead of drawing into a widget.
 
@@ -487,8 +487,7 @@ The same fact still travels as `ReceiveExit` on the control stream, for every sh
 A count of pixels a consumer will draw at is a fact about frames.
 The pipeline takes the largest of its consumers' asks, a size being a bound and rendering at the largest meaning the smallest tile scales down at draw time rather than the largest scaling up.
 
-What the control API says about receiving is unchanged.
-`StartReceive` and `StopReceive` are effects, and receive state travels on the existing event stream, whole rather than as a delta, so a shell that asked and a shell that did not learn the same thing at the same time.
+`StartReceive` and `StopReceive` are effects, and receive state travels on the event stream, whole rather than as a delta, so a shell that asked and a shell that did not learn the same thing at the same time.
 Nothing about a grid, a tile or a layout is on that contract.
 
 **The render size a consumer asks for is quantised and debounced, both about this channel's cost.**
@@ -559,7 +558,7 @@ The rendered command carries none of the preview leg, for the reason it carries 
 **One decode serves every window drawing it, and the end-to-end route is one of those windows.**
 A decode is keyed by the stream and the leg, so a tile in the viewer's grid on the same pair is the same pipeline, and a stop from either would take the picture out of the other.
 The preview reads the grid's answer through before it closes anything and leaves the pipeline to the window that still wants it.
-It also asks again for a decode it saw running and no longer sees, making a pipeline another window closed a blink rather than a card that stays dark.
+It also asks again for a decode it saw running and does not find, making a pipeline another window closed a blink rather than a card that stays dark.
 
 **Whether the card draws is the reader's, and it opens drawing.**
 The toggle's off segment is the whole of what decides it, and it follows no window.

@@ -6,27 +6,27 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Where the backend listens, and how a stream is opened to it.
 ///
-/// The address is the whole discovery mechanism: no port to scan for, no file to parse, no environment variable
-/// to read, and a shell that cannot open it reports the backend as not running (<c>docs/ipc-api.md</c>, "The
-/// format, and why this one").
+/// Address is the whole discovery mechanism: no port to scan for, no file to parse, no environment variable to read,
+/// and a shell that cannot open it reports the backend as not running (<c>docs/ipc-api.md</c>, "The format,
+/// and why this one").
 ///
-/// The names are the Go side's, spelled again here rather than shared, and both carry the contract major
-/// (<c>backend/internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
-/// A <c>v2</c> is a second pipe and a second socket: two backends on different majors run side by side, and a
-/// shell that opens the wrong one fails to connect instead of being turned away at <c>Hello</c>.
+/// Names are the Go side's, spelled again here rather than shared,
+/// and both carry the contract major (<c>backend/internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
+/// A <c>v2</c> is a second pipe and a second socket: two backends on different majors run side by side,
+/// and a shell that opens the wrong one fails to connect instead of being turned away at <c>Hello</c>.
 ///
-/// The Unix path is placed the way Go places it, the two having to name one file.
-/// The runtime directory is per user, mode 0700 and cleared at logout; the fallback is for the logins that have
-/// none, macOS included.
-/// That fallback follows Go's <c>os.UserConfigDir</c> and not .NET's nearest equivalent, which disagrees on
-/// macOS: <c>SpecialFolder.ApplicationData</c> answers <c>~/.config</c> where Go answers
-/// <c>~/Library/Application Support</c>, so a shell reading the wrong one reports a running backend as absent.
+/// Unix path is placed the way Go places it, the two having to name one file.
+/// Runtime directory is per user, mode 0700, cleared at logout; the fallback covers logins that have none,
+/// macOS included.
+/// That fallback follows Go's <c>os.UserConfigDir</c> and not .NET's nearest equivalent, which disagrees on macOS:
+/// <c>SpecialFolder.ApplicationData</c> answers <c>~/.config</c> where Go answers <c>~/Library/Application Support</c>,
+/// so a shell reading the wrong one reports a running backend as absent.
 /// </summary>
 internal static class ControlEndpoint
 {
     /// <summary>
-    /// Leaf alone: <see cref="NamedPipeClientStream"/> takes the server and the <c>\\.\pipe\</c> prefix as
-    /// arguments of its own.
+    /// Leaf alone: <see cref="NamedPipeClientStream"/> takes the server
+    /// and the <c>\\.\pipe\</c> prefix as arguments of its own.
     /// </summary>
     private const string PipeName = "screenshare-control-v1";
 
@@ -35,16 +35,16 @@ internal static class ControlEndpoint
 
     /// <summary>
     /// Address in the form a person reads, for the sentence saying the backend is not running.
-    /// Names the endpoint that was tried rather than the failure, the path being what makes "nothing is listening
-    /// on this" actionable.
+    /// Names the endpoint tried rather than the failure, the path being what makes "nothing is listening on this"
+    /// actionable.
     /// </summary>
     public static string Describe() => OperatingSystem.IsWindows() ? $@"\\.\pipe\{PipeName}" : SocketPath();
 
     /// <summary>
     /// How long a freshly started backend is given to bind, and how often it is asked meanwhile.
-    /// A started process is not a listening one, and opening the endpoint is the only signal that it came up.
-    /// Both figures are short: the backend opens its socket before anything else, and a window hesitating for
-    /// seconds on every launch would be paying for the case where there is no backend to start.
+    /// A started process is not a listening one, and opening the endpoint is the only signal it came up.
+    /// Both short: the backend opens its socket before anything else,
+    /// and a window hesitating for seconds on every launch pays for the case where there is no backend to start.
     /// </summary>
     private static readonly TimeSpan StartDeadline = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StartPoll = TimeSpan.FromMilliseconds(50);
@@ -106,7 +106,7 @@ internal static class ControlEndpoint
             }
             catch
             {
-                // The handle belongs to this method until it is returned, so a throw closes it here.
+                // Handle belongs to this method until returned, so a throw closes it here.
                 // Left open, a pipe client nobody can reach and nobody can close.
                 await pipe.DisposeAsync().ConfigureAwait(false);
                 throw;

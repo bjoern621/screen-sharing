@@ -9,15 +9,15 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// RTMP streams through the relay's RTMP listener, which is the leg broadcast tools already speak.
+// RTMP streams through the relay's RTMP listener, the leg broadcast tools already speak.
 // Interop rather than low delay: FLV over one TCP connection, with no retransmit window and no
 // jitter buffer, so it declares no watch knobs.
 //
-// ffmpeg's flv muxer writes the enhanced-RTMP codec tags the relay ingests, which takes the publish
-// leg past FLV's original H.264.
-// flvmux writes the legacy tags alone, so this transport declares no GStreamer publish form and a
-// capture backend on that engine is told in the settings form rather than by a muxer refusing the
-// pipeline.
+// ffmpeg's flv muxer writes the enhanced-RTMP codec tags the relay ingests, taking the publish leg
+// past FLV's original H.264.
+// flvmux writes the legacy tags alone, so this transport declares no GStreamer publish form and
+// a capture backend on that engine is told in the settings form rather than by a muxer refusing
+// the pipeline.
 type RTMP struct{}
 
 func init() {
@@ -33,8 +33,7 @@ func (RTMP) Name() string { return "rtmp" }
 //
 // Both watch entries read the legacy tags and no more, the players through libavformat's FLV
 // demuxer and the grid through rtmp2src.
-// Two entries carrying the same list rather than one shared value, because nothing moves them
-// together.
+// Two entries carrying the same list rather than one shared value, nothing moving them together.
 var rtmpFormats = Formats{
 	Publish: map[string]Carriage{capabilities.EngineFfmpeg: {
 		Video: []string{"h264", "hevc", "av1", "vp9"},
@@ -75,12 +74,11 @@ func (RTMP) ListenerURL(s settings.Settings) string {
 	return fmt.Sprintf("rtmps://%s:%d", s.Relay.Host, s.Relay.RtmpPort)
 }
 
-// rtmpURL addresses one path on that listener,
-// "rtmps://relay:1936/<path>?jwt=<token>".
+// rtmpURL addresses one path on that listener, "rtmps://relay:1936/<path>?jwt=<token>".
 //
-// Neither the name nor the port is asserted, unlike at the watch entry points above: this builder
-// serves the publish leg too, where the name comes off the settings rather than a validated call
-// and a port of zero is a stored value the migration repairs.
+// Neither the name nor the port is asserted, unlike at the watch entry points: this builder serves
+// the publish leg too, where the name comes off the settings rather than a validated call and
+// a port of zero is a stored value the migration repairs.
 func rtmpURL(s settings.Settings, name string) string {
 	return RTMP{}.ListenerURL(s) + "/" + name + credentialQuery(s, "?")
 }

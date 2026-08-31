@@ -7,17 +7,15 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Deadline on every unary call that arrives without one.
 ///
-/// A control waiting on a round trip is unpressable while it waits (<see cref="Mvvm.PendingCommand"/>), so an
-/// answer that never comes leaves a dead button rather than a slow one.
-/// Over a local socket, no answer means the backend died, wedged, or lost the connection under the call, each
-/// worth showing rather than waiting through.
+/// A control waiting on a round trip is unpressable while it waits (<see cref="Mvvm.PendingCommand"/>),
+/// so an answer that never comes leaves a dead button rather than a slow one.
+/// Over a local socket, no answer means the backend died, wedged, or lost the connection under the call,
+/// each worth showing rather than waiting through.
 ///
-/// The bound belongs to talking to a backend over a socket rather than to any one method, so a per-call-site
-/// deadline would hold only where somebody remembered it.
+/// The bound belongs to the socket rather than to any one method, so a per-call-site deadline would hold only
+/// where somebody remembered it.
 ///
-/// Unary only.
-/// The event stream and the frame channel stay open for as long as the window does, and nothing here overrides
-/// what a streaming call goes through.
+/// Unary only: the event stream and the frame channel stay open for as long as the window does.
 ///
 /// A call that named its own deadline keeps it: the handshake and the encoder probe both do.
 /// </summary>
@@ -38,8 +36,8 @@ public sealed class CallDeadline : Interceptor
         => continuation(request, Bound(context));
 
     /// <summary>
-    /// Same bound on the blocking overload the generated client offers, so which overload a call site picks does
-    /// not decide whether there is a clock on it.
+    /// Same bound on the blocking overload,
+    /// so the overload a call site picks does not decide whether there is a clock on it.
     /// </summary>
     public override TResponse BlockingUnaryCall<TRequest, TResponse>(
         TRequest request,

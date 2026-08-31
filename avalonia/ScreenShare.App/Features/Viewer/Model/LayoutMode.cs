@@ -11,7 +11,7 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// </summary>
 public enum LayoutMode
 {
-    /// <summary>Equal tiles in rows, placed by <c>Features/Viewer/Model/TileLayout.cs</c>.</summary>
+    /// <summary>Tiles in rows, placed by <c>Features/Viewer/Model/TileLayout.cs</c>.</summary>
     Grid,
 
     /// <summary>

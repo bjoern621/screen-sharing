@@ -17,16 +17,17 @@ import (
 
 // The relay snapshot is this process's to keep, whether or not anything is asking for it
 // (api/proto/screenshare/v1/control.proto).
-// A snapshot kept by whoever asked stays at its opening value once nothing asks, and a shell then
-// draws "the relay could not be reached" beside a relay that is up.
+// A snapshot kept by whoever asked stays at its opening value once nothing asks,
+// and a shell then draws "the relay could not be reached" beside a relay that is up.
 
-// indexAt serves one ready stream off the group service's index, which is where a member's app reads
-// what the relay carries: the relay's own API is not a member's to read (docs/plan.md).
+// indexAt serves one ready stream off the group service's index,
+// where a member's app reads what the relay carries:
+// the relay's own API is not a member's to read (docs/plan.md).
 //
-// It binds the port a relay on this network derives, groupd's own, because a group service is
-// addressed rather than configured (settings.GroupService).
-// A machine already using that port has nothing to poll here, and the test says so rather than
-// asserting against whatever else answers on it.
+// It binds the port a relay on this network derives, groupd's own,
+// because a group service is addressed rather than configured (settings.GroupService).
+// A machine already using that port has nothing to poll here,
+// and the test says so rather than asserting against whatever else answers on it.
 func indexAt(t *testing.T) string {
 	t.Helper()
 
@@ -49,8 +50,7 @@ func indexAt(t *testing.T) string {
 }
 
 // backendAt is a backend pointed at one relay, carrying the fields a poll touches and nothing else:
-// the settings say where to ask, the client is what asks, and the broker is where the answer is
-// announced.
+// the settings say where to ask, the client asks, and the broker is where the answer is announced.
 func backendAt(host string) *App {
 	return &App{
 		events:    events.New(),
@@ -61,10 +61,10 @@ func backendAt(host string) *App {
 	}
 }
 
-// awaitSnapshot waits for the poll to record a reachable relay, and fails instead of waiting
-// forever.
-// It waits on a goroutine's first pass rather than retrying anything: the poll fetches before its
-// first tick, so one loopback round trip bounds it.
+// awaitSnapshot waits for the poll to record a reachable relay,
+// and fails instead of waiting forever.
+// It waits on a goroutine's first pass rather than retrying anything:
+// the poll fetches before its first tick, so one loopback round trip bounds it.
 func awaitSnapshot(t *testing.T, a *App) relay.Status {
 	t.Helper()
 
@@ -81,7 +81,7 @@ func awaitSnapshot(t *testing.T, a *App) relay.Status {
 }
 
 // Nothing reads and nothing subscribes here, and the snapshot still becomes the relay's answer,
-// which is what the shell's commit gate and viewer roster read.
+// which the shell's commit gate and viewer roster read.
 func TestTheRelayIsPolledWithNobodyAsking(t *testing.T) {
 	a := backendAt(indexAt(t))
 	a.startRelayPoll()
@@ -96,8 +96,8 @@ func TestTheRelayIsPolledWithNobodyAsking(t *testing.T) {
 	}
 }
 
-// A second start would ask the relay twice as often and halve the interval a byte delta is divided
-// by.
+// A second start would ask the relay twice as often,
+// halving the interval a byte delta is divided by.
 // A second stop would close a closed channel and take the process down.
 func TestPollingIsStartedOnceAndStoppedOnce(t *testing.T) {
 	a := backendAt(indexAt(t))
@@ -110,8 +110,8 @@ func TestPollingIsStartedOnceAndStoppedOnce(t *testing.T) {
 	a.stopRelayPoll()
 }
 
-// The failure is recorded rather than the last good answer left standing, because "the relay is
-// down" is a thing the screen has to say (docs/ipc-api.md, "Errors").
+// The failure is recorded rather than the last good answer left standing,
+// because "the relay is down" is a thing the screen has to say (docs/ipc-api.md, "Errors").
 func TestAnUnreachableRelayIsRecordedAsASnapshot(t *testing.T) {
 	// A loopback address of its own, so nothing this test file starts answers on it.
 	a := backendAt("127.0.0.2")
@@ -135,13 +135,14 @@ func TestAnUnreachableRelayIsRecordedAsASnapshot(t *testing.T) {
 	}
 }
 
-// A leg the stream's format does not cross is refused before an address reaches the desktop, and
-// the refusal names the legs that would have carried it.
-// The relay serves H.265 over HLS and not over WebRTC, so a page opened on the WHEP leg would load,
-// connect and show nothing.
+// A leg the stream's format does not cross is refused before an address reaches the desktop,
+// and the refusal names the legs that would have carried it.
+// The relay serves H.265 over HLS and not over WebRTC,
+// so a page opened on the WHEP leg would load, connect and show nothing.
 //
-// Only the refusal is asserted: the accepting path ends in whatever the machine opens an address
-// with, which is not a thing a test may start.
+// Only the refusal is asserted:
+// the accepting path ends in whatever the machine opens an address with,
+// which is not a thing a test may start.
 func TestABrowserPageIsRefusedOnALegTheFormatDoesNotCross(t *testing.T) {
 	a := &App{events: events.New()}
 	a.relayLast.Store(&relay.Status{

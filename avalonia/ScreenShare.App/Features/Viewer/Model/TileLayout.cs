@@ -5,29 +5,29 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// <summary>
 /// Where tiles of given shapes go in a given box.
 ///
-/// Pure: sizes and aspect ratios in, rectangles out, holding no control, no view model and no state, so the
-/// arrangement is asserted in tests without a window and the panel drawing it carries no arithmetic
+/// Pure: sizes and aspect ratios in, rectangles out, no control, no view model and no state, so the arrangement
+/// is asserted in tests without a window and the panel drawing it carries no arithmetic
 /// (<c>avalonia/README.md</c>).
 ///
-/// Every length is an Avalonia layout unit, and a rectangle is in the box's own space with the origin at its top
-/// left.
+/// Lengths are Avalonia layout units, rectangles in the box's own space with the origin at its top left.
 ///
-/// Every tile is drawn at the one height the whole arrangement uses and is as wide as its own aspect ratio makes
-/// it there, so nothing is cropped or stretched: a 21:9 stream beside a 4:3 one is simply wider.
-/// Letting each row fill the width exactly would instead give each row its own height, and a row of one tile
-/// would come out about twice the height of a row of two.
-/// The height is chosen once: the largest that lets every row fit the width and the whole stack fit the box.
+/// Every tile is drawn at the one height the whole arrangement uses,
+/// as wide as its own aspect ratio makes it there,
+/// so nothing is cropped or stretched: a 21:9 stream beside a 4:3 one is wider.
+/// Letting each row fill the width exactly would give each row its own height, a row of one tile coming out
+/// about twice the height of a row of two.
+/// That height is chosen once: the largest letting every row fit the width and the whole stack fit the box.
 ///
-/// Rows are centred in whatever width their contents leave over and the stack in whatever height it leaves over,
+/// Rows are centred in the width their contents leave over and the stack in the height it leaves over,
 /// so the slack reads as a margin rather than as an empty half-window.
 /// </summary>
 public static class TileLayout
 {
     /// <summary>
     /// Aspect a tile is laid out at before its stream has said what shape it is.
-    /// The real shape arrives with the frame channel's first pool and not before.
-    /// 16:9 until then, what nearly every capture and test pattern here is, so a tile does not visibly jump when
-    /// it settles.
+    /// The real shape arrives with the frame channel's first pool.
+    /// 16:9 until then, what nearly every capture and test pattern here is,
+    /// so a tile does not visibly jump when it settles.
     /// </summary>
     public const double UnknownAspect = 16.0 / 9.0;
 
@@ -38,14 +38,12 @@ public static class TileLayout
     /// </summary>
     public const double MinRowHeight = 160;
 
-    /// <summary>Where one tile lands.</summary>
     /// <param name="Index">
     /// Which of the tiles handed in this rectangle belongs to.
     /// Results come back in the caller's own order whatever the search sorted, so no caller undoes a sort.
     /// </param>
     public readonly record struct Placement(int Index, double X, double Y, double Width, double Height);
 
-    /// <summary>Where every tile goes, how far the arrangement reaches, and whether it outgrew the box.</summary>
     /// <param name="Height">
     /// Margin above the rows plus the rows themselves.
     /// A caller sizing itself by this leaves the same margin under the tiles as the arrangement put over them.
@@ -57,21 +55,19 @@ public static class TileLayout
     public readonly record struct Arrangement(IReadOnlyList<Placement> Tiles, double Height, bool Scrolls);
 
     /// <summary>
-    /// Solves the arrangement for tiles of the given aspect ratios.
-    ///
-    /// An arrangement is decided by one number, its row count, with the tiles spread across those rows as evenly
-    /// as their count allows.
+    /// An arrangement is decided by one number, its row count,
+    /// the tiles spread across those rows as evenly as their count allows.
     /// Every count from one to the number of tiles is tried and scored by the picture area it draws, so the search
-    /// is exhaustive over the thing that matters rather than a heuristic that stops early.
-    /// Even spreading rather than a search over every possible break, the tiles being sorted by shape first and an
-    /// uneven break then buying almost nothing for a combinatorial cost.
+    /// is exhaustive rather than a heuristic that stops early.
+    /// Even spreading rather than a search over every possible break,
+    /// the tiles being sorted by shape first and an uneven break buying almost nothing for a combinatorial cost.
     ///
     /// Tiles are sorted by aspect ratio, widest first, so a row is made of similar shapes.
     /// Ties keep their input order, so the result is deterministic.
     /// A tile whose aspect resolves from the assumed one moves, the price of packing tightly.
     ///
-    /// Where no row count draws every row at a legible height, the box stops being honoured: rows go at
-    /// <see cref="MinRowHeight"/> and the result reports that it scrolls.
+    /// Where no row count draws every row at a legible height, the box stops being honoured:
+    /// rows go at <see cref="MinRowHeight"/> and the result reports that it scrolls.
     /// </summary>
     /// <param name="aspects">Width over height per tile, in the caller's own order.</param>
     /// <param name="width">Usable width. A non-positive width or height arranges nothing.</param>
@@ -101,18 +97,16 @@ public static class TileLayout
         return new Arrangement(tiles, total, best.Scrolls);
     }
 
-    /// <summary>One candidate: row count, the height every row is drawn at, and whether it fits.</summary>
     private readonly record struct Candidate(int Rows, double Height, bool Scrolls);
 
     /// <summary>
     /// Row count covering the most picture area.
     ///
-    /// Candidates are scored by the area their tiles cover, which makes fewer larger tiles against more smaller
-    /// ones an answer rather than a preference: one row of four wide tiles covers less of a tall window than two
-    /// rows of two.
-    /// Every tile is the one height, so that area is the height squared times the sum of the aspect ratios, and
-    /// the sum does not depend on the row count.
-    /// The best candidate is the one whose height comes out largest, over a single number.
+    /// Scoring by covered area makes fewer larger tiles against more smaller ones an answer and not a preference:
+    /// one row of four wide tiles covers less of a tall window than two rows of two.
+    /// Every tile is the one height, so that area is the height squared times the sum of the aspect ratios,
+    /// and the sum does not depend on the row count.
+    /// The largest height therefore wins, over a single number.
     ///
     /// A candidate below <see cref="MinRowHeight"/> is not scored, unless none is legible, and then the tiles go
     /// at that minimum and it scrolls.
@@ -141,8 +135,8 @@ public static class TileLayout
         }
 
         // No row count was legible in this box.
-        // Tiles go at the legible minimum, in the fewest rows whose widest row still fits the width there, and the
-        // reader scrolls.
+        // Tiles go at the legible minimum, in the fewest rows whose widest row fits the width there,
+        // and the reader scrolls.
         var floor = 1;
         for (var rows = 1; rows <= n; rows++)
         {
@@ -197,7 +191,7 @@ public static class TileLayout
     /// <summary>
     /// Which tiles fall in one row when spread as evenly as their count allows.
     /// Earlier rows take the extra tile where the count does not divide, so five in two rows is three then two,
-    /// which keeps the ragged row at the bottom.
+    /// keeping the ragged row at the bottom.
     /// </summary>
     /// <returns>First and last index of the row, both inclusive.</returns>
     private static (int From, int To) Span(int count, int rows, int row)
@@ -231,13 +225,13 @@ public static class TileLayout
     /// <summary>
     /// Rectangles for one candidate, back in the caller's order.
     ///
-    /// Every row is the candidate's one height, so rows differ only in how wide their contents come out.
+    /// Rows differ only in how wide their contents come out.
     /// A row narrower than the box is centred: slack split in two reads as a margin, all of it on one side reads
     /// as broken alignment.
     ///
     /// The stack of rows is centred the same way.
-    /// It falls short of the box's height whenever the width bounded the row height, and an arrangement that
-    /// scrolls has no slack to split, so the margin above is zero there.
+    /// It falls short of the box's height whenever the width bounded the row height,
+    /// and an arrangement that scrolls has no slack to split, so the margin above is zero there.
     /// </summary>
     /// <param name="total">How far down the box the rectangles reach, counting no gap under the last row.</param>
     private static IReadOnlyList<Placement> Place(

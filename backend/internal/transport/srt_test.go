@@ -88,8 +88,8 @@ func TestSRTGstSource(t *testing.T) {
 
 // Every SRT leg is keyed with the passphrase the settings derive, both engines and both directions,
 // and a member's legs carry the group's own where a keyless machine's carry the public one.
-// A leg missing it connects to a relay that refuses the handshake,
-// and one carrying another group's plays nothing.
+// A leg missing it connects to a relay that refuses the handshake, and one carrying another group's
+// plays nothing.
 func TestEverySRTLegCarriesTheDerivedPassphrase(t *testing.T) {
 	member := testStream()
 	member.Relay.GroupKey = mustGroupKey(t).String()

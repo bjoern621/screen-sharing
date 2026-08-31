@@ -10,8 +10,8 @@ import (
 
 // A group is a path prefix, so joining one moves every leg at once.
 // These hold that no transport builds its URL from the stream's bare name: one that did would
-// publish outside the group its own token grants, which the relay refuses and which reaches the
-// user as a stream that will not start.
+// publish outside the group its own token grants, which the relay refuses and which reaches
+// the user as a stream that will not start.
 
 // grouped is settings publishing under a group, with the group key they joined with.
 func grouped(t *testing.T) (settings.Settings, group.Key) {
@@ -47,8 +47,8 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 	}
 }
 
-// A relay nobody named has no prefix to derive, that prefix being a group service's answer and there
-// being no service to ask.
+// A relay nobody named has no prefix to derive, that prefix being a group service's answer and
+// there being no service to ask.
 // A prefix appears because a group key was joined with or because the relay has a public one, never
 // because the app invented one.
 func TestAnUnnamedRelayPublishesUnderTheName(t *testing.T) {
@@ -62,8 +62,9 @@ func TestAnUnnamedRelayPublishesUnderTheName(t *testing.T) {
 	}
 }
 
-// A group key the app cannot read leaves the path alone rather than deriving from nonsense: a prefix
-// computed off a broken group key is a path no member is watching, which is worse than the typed name.
+// A group key the app cannot read leaves the path alone rather than deriving from nonsense:
+// a prefix computed off a broken group key is a path no member is watching, worse than the typed
+// name.
 func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Name = "standup"
@@ -74,9 +75,10 @@ func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	}
 }
 
-// A machine in no group publishes where anybody may watch, which is a stream the user chose to leave
-// open rather than one that failed to find its group.
-// On every relay, each of them having a group service beside it and refusing a path under no prefix.
+// A machine in no group publishes where anybody may watch, which is a stream the user chose
+// to leave open rather than one that failed to find its group.
+// On every relay, each of them having a group service beside it and refusing a path under no
+// prefix.
 func TestNoGroupPublishesPublicly(t *testing.T) {
 	for _, host := range []string{"relay.example", "192.168.1.9"} {
 		s := settings.Defaults()
@@ -91,8 +93,8 @@ func TestNoGroupPublishesPublicly(t *testing.T) {
 }
 
 // The audience is never widened on the strength of a group key that came back damaged.
-// Somebody who set a group key meant to restrict who watches, so a broken one publishes where the relay
-// refuses it rather than where everybody can see it.
+// Somebody who set a group key meant to restrict who watches, so a broken one publishes where
+// the relay refuses it rather than where everybody can see it.
 func TestABrokenKeyNeverFallsToThePublicPrefix(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"

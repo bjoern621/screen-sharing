@@ -13,8 +13,7 @@ import (
 )
 
 // The machine every draft below is judged against: one 1080p output at 60 Hz,
-// which is what makes a 120 fps target a statement about the panel,
-// not about an enumeration that failed.
+// so a 120 fps target is a statement about the panel and not about an enumeration that failed.
 func diagnosticTestDeps() Deps {
 	return Deps{Monitors: []display.Monitor{
 		{Index: 0, Width: 1920, Height: 1080, Primary: true, RefreshHz: 60},
@@ -22,9 +21,8 @@ func diagnosticTestDeps() Deps {
 }
 
 // diagnosticTestStream is a draft the publish path builds a command for on any machine:
-// software H.264 over SRT at a bitrate target,
-// on the capture backend whose command asks nothing of the host rendering it,
-// so a healthy configuration stays healthy wherever these tests run.
+// software H.264 over SRT at a bitrate target, on the capture backend whose command asks nothing
+// of the host rendering it, so a healthy configuration stays healthy wherever these tests run.
 func diagnosticTestStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "gdigrab"
@@ -114,8 +112,8 @@ func diagnosticTestDrafts() map[string]settings.Settings {
 func TestAnUnbuildableCombinationRefusesAndSaysWhy(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
-	// Planar RGB is absent from x264's chroma list,
-	// so this is a combination no engine can build rather than one a machine cannot run.
+	// Planar RGB is absent from x264's chroma list, so this is a combination no engine can build
+	// rather than one a machine cannot run.
 	s.Publish.Chroma = "gbrp"
 
 	est := estimate(d, s)
@@ -223,8 +221,8 @@ func TestTheListIsRankedByWhatIgnoringItCosts(t *testing.T) {
 	}
 }
 
-// A line under the prediction announces itself least:
-// nothing slows down, the transport drops what it cannot ship, and the viewer sees a stall.
+// A line under the prediction announces itself least: nothing slows down,
+// the transport drops what it cannot ship, and the viewer sees a stall.
 // It is a diagnostic and not a refusal, the stream being one that runs.
 func TestALineUnderThePredictionWarnsWithoutRefusing(t *testing.T) {
 	d := diagnosticTestDeps()
@@ -296,8 +294,8 @@ func TestTheSummaryCarriesACommandOrTheReasonThereIsNone(t *testing.T) {
 	}
 }
 
-// Resolve runs on every keystroke,
-// so a list that moved between two identical drafts would reorder a form nobody changed.
+// Resolve runs on every keystroke, so a list that moved between two
+// identical drafts would reorder a form nobody changed.
 func TestTheSameDraftWarnsTheSameWayTwice(t *testing.T) {
 	d, s := diagnosticTestDeps(), diagnosticTestStream()
 	est := estimate(d, s)

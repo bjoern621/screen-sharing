@@ -18,20 +18,19 @@ import (
 // Writing the wall clock into every encoded frame, so a viewer can time the path between the two
 // machines.
 //
-// Measured at the same pad the publish delay is: what a stamp says is "the encoder was done with
-// this picture now", which is exactly what that reading ends at, so the two stages meet rather than
-// overlap.
+// Measured at the same pad the publish delay is: a stamp says "the encoder was done with this
+// picture now", where that reading ends, so the two stages meet rather than overlap.
 //
 // A frame is stamped where the codec has a unit for it and the buffers hold whole pictures, and
 // passed untouched otherwise.
-// Nothing here fails a run: an unstamped stream plays, and a viewer of one reports the path as
-// unmeasured (internal/framestamp).
+// Nothing here fails a run: an unstamped stream plays, and a viewer of one reports the path
+// as unmeasured (internal/framestamp).
 
 // linkWindow is the delivery window the publish leg settled on, as the stamp carries it.
 //
 // Held rather than read per frame: the sink answers once a second and the reporting tick is already
-// asking it, so a second reader would be a property read per frame for a figure that changes at
-// most once between ticks.
+// asking it, so a second reader would be a property read per frame for a figure that changes
+// at most once between ticks.
 // Zero until the first tick, and zero for a leg stating no window, which a reader takes as unstated
 // either way.
 type linkWindow struct{ ms atomic.Uint32 }
@@ -49,17 +48,18 @@ func (w *linkWindow) read() uint16 { return uint16(w.ms.Load()) }
 // stampFrames writes the publishing machine's reading into each frame leaving the named element:
 // the wall clock, and what this pipeline has measured of its own share of the path.
 //
-// The publishing stages are measured here and travel nowhere else, so without this a viewer of
-// somebody else's stream has no way to them at all.
+// The publishing stages are measured here and travel nowhere else, so a viewer of somebody else's
+// stream reaches them through the stamp or not at all.
 // They ride as the probe's own running totals rather than as an average, so the viewer divides them
 // over its own sampling interval, which is how it reads every other counter (internal/pipedelay).
 //
 // Attached before the pipeline plays, like the delay probe, so no frame crosses the pad unstamped.
 //
-// Two probes and not one. How a stream is framed comes off the caps event, which arrives ahead of
-// the frames it describes and again whenever the stream renegotiates, so the frames themselves cost
-// a pointer read: caps taken per frame would be one wrapped object per frame for a collection to
-// find, which is the cost internal/padprobe exists to keep off this path.
+// Two probes and not one.
+// How a stream is framed comes off the caps event, which arrives ahead of the frames it describes
+// and again whenever the stream renegotiates, so the frames themselves cost a pointer read: caps
+// taken per frame would be one wrapped object per frame for a collection to find, the cost
+// internal/padprobe exists to keep off this path.
 func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, window *linkWindow) {
 	assert.Assert(element != "", "a stamp names the element it is written at")
 	assert.IsNotNil(window, "a stamp reads the leg's window from somewhere")
@@ -149,14 +149,14 @@ func carriageOf(caps *gst.Caps) (framestamp.Carriage, bool) {
 
 // insert puts the unit into the frame where the codec's framing takes it, in place.
 //
-// In place because a probe here cannot hand back a different buffer: the binding exposes what the
-// probe was given and no way to replace it, so what reaches the muxer is this buffer or nothing.
+// In place, a probe here having no way to hand back a different buffer: the binding exposes what
+// the probe was given and no replacement, so what reaches the muxer is this buffer or nothing.
 // A buffer whose memory is shared is left alone rather than written through, a write there reaching
 // whatever else holds it.
 //
-// The bytes ahead of the insertion point are copied into the same block as the unit and cut off the
-// front of the frame, which is what puts a block boundary where the unit goes without touching the
-// picture: those bytes are the parameter sets, tens of bytes against a picture's thousands.
+// The bytes ahead of the insertion point are copied into the same block as the unit and cut off
+// the front of the frame, which is what puts a block boundary where the unit goes without touching
+// the picture: those bytes are the parameter sets, tens of bytes against a picture's thousands.
 func insert(buffer *gst.Buffer, unit []byte, c framestamp.Carriage) {
 	assert.IsNotNil(buffer, "a stamp is written into a buffer")
 	assert.Assert(len(unit) > 0, "a written stamp has bytes")

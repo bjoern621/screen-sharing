@@ -97,7 +97,7 @@ A stream carrying other settings is another pipeline wherever the change is not 
 `App.Republish` takes the cheaper half first: where the running child accepts the change it is written to the socket and every viewer keeps watching.
 Where it does not the pipeline is torn down and rebuilt.
 Viewers reconnect across a rebuild, so the form asks for it rather than making it on every edit.
-The form stays editable while a stream is live, and a bar appears once what it shows is no longer what is publishing.
+The form stays editable while a stream is live, and a bar appears once what it shows differs from what is publishing.
 
 **Which changes the child takes is one table.**
 `publish/live.go` names each field a running pipeline accepts a new value for, what has to hold for it, and how the child is told.
@@ -178,7 +178,7 @@ Who converts is the second fact a row carries, deciding whose colour the stream 
 `ColourExact` where a device-side filter is told matrix, primaries, transfer and range and states them on what it wrote: `scale_vaapi` and `vpp_qsv` carry all four `out_` options, and `d3d11convert` is told the same four as a colorimetry on its output caps.
 `ColourEncoder` where the platform offers no such filter and the encoder converts the captured RGB itself.
 
-The ffmpeg nvenc row on Windows is the one of those.
+The ffmpeg nvenc row on Windows is `ColourEncoder`.
 Nothing can stand between `ddagrab` and that encoder.
 `hwmap` derives neither a CUDA nor a Vulkan device from a Direct3D11 frame, answering `ENOSYS`, so `scale_cuda` and `libplacebo` are unreachable however they state their colour.
 `scale_d3d11` is reachable and cannot create the encoder's layout from the captured BGRA.

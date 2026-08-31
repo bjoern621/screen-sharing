@@ -28,8 +28,8 @@ const (
 	gstShedName = "shed"
 )
 
-// gstCaptureProbe is the progressreport element a capture backend splices in to count what the
-// source produced.
+// gstCaptureProbe is the progressreport element a capture backend splices in to count what
+// the source produced.
 // Built here rather than in the backend, so both halves of the wire format stay one decision,
 // as for the encoded counter.
 //
@@ -47,8 +47,7 @@ var gstProgressLine = regexp.MustCompile(`^(` + gstStatsName + `|` + gstCaptureN
 
 // gstProgressElement is the encoded-frame counter buildPipeline splices in between the parser and
 // the tee, and the line gstMeter reads.
-// It sits beside the pattern that reads it because the properties set here and that pattern are one
-// wire format.
+// Beside the pattern that reads it, the properties set here and that pattern being one wire format.
 //
 // progressreport counts buffers rather than querying a position: no element upstream of an encoded
 // stream answers a byte or time query.
@@ -57,15 +56,15 @@ var gstProgressElement = []string{
 	"progressreport", "name=" + gstStatsName, "update-freq=1", "format=buffers", "do-query=false",
 }
 
-// gstMeterTap is the branch that weighs the encoded stream, since no GStreamer element reports byte
+// gstMeterTap is the branch that weighs the encoded stream, no GStreamer element reporting byte
 // throughput: a copy of the encoded video goes to a tcpclientsink on a loopback socket this process
 // counts.
-// The branch cannot hold up the encode path, because its queue leaks and its sink neither
-// synchronizes to the clock nor prerolls.
-// Its bytes are the video elementary stream, so the figures read below ffmpeg's, which weighs the
-// muxed stream with its audio track and container overhead.
+// The branch cannot hold up the encode path, its queue leaking and its sink neither synchronizing
+// to the clock nor prerolling.
+// Its bytes are the video elementary stream, so the figures read below ffmpeg's, which weighs
+// the muxed stream with its audio track and container overhead.
 //
-// A socket rather than an inherited descriptor, because Windows inherits none: os/exec supports
+// A socket rather than an inherited descriptor, Windows inheriting none: os/exec supports
 // ExtraFiles on Unix alone, and a child handed one there fails to start at all.
 // Both platforms carry a socket, so the meter has one wire format rather than one per operating
 // system.
@@ -80,11 +79,11 @@ func gstMeterTap(meterPort string) []string {
 
 // gstTapElements returns the tee and the branches taking a copy of the encoded stream off it,
 // ending in the reference the trunk resumes from.
-// Empty for a run that taps nothing, which is what a rendered command is.
+// Empty for a run that taps nothing, what a rendered command is.
 //
 // The trunk is a branch of the tee like the others rather than the element the tee was linked into,
 // so every branch, the muxer's included, starts from the tee by name.
-// That is also what lets a second tap arrive without the first one's shape changing.
+// A second tap then arrives without the first one's shape changing.
 func gstTapElements(taps [][]string) []string {
 	if len(taps) == 0 {
 		return nil
@@ -102,8 +101,8 @@ func gstTapElements(taps [][]string) []string {
 }
 
 // gstMeterHost is the address the meter listens on and the child connects back to.
-// Loopback alone: the branch carries a copy of the user's screen, and its only intended peer is the
-// child this process spawned.
+// Loopback alone: the branch carries a copy of the user's screen, and its only intended peer
+// is the child this process spawned.
 const gstMeterHost = "127.0.0.1"
 
 // gstMeter turns what a gst-launch child can report into the Stats samples the ffmpeg engine emits.
@@ -114,8 +113,8 @@ const gstMeterHost = "127.0.0.1"
 // Frames arrive as text and bytes as data, so the sample is joined here: each progress line takes
 // the byte counter as it stands.
 //
-// Stats.Drop is what the shed ahead of the encoder threw away, counted at both its ends by the child
-// (gstEncodeQueue, gstrun/delay.go).
+// Stats.Drop is what the shed ahead of the encoder threw away, counted at both its ends
+// by the child (gstEncodeQueue, gstrun/delay.go).
 // The leaky queue on the damage path keeps no count and needs none: it drops a frame a newer one
 // supersedes, which costs the stream nothing.
 type gstMeter struct {
@@ -130,14 +129,14 @@ type gstMeter struct {
 	haveCaptured atomic.Bool
 	// ln accepts the one connection the child's tcpclientsink opens, and conn is that connection once
 	// it arrives.
-	// conn is held so close can end the read the counting goroutine is parked in, and mu guards the
-	// pair against a close landing while the accept is still outstanding.
+	// conn is held so close can end the read the counting goroutine is parked in, and mu guards
+	// the pair against a close landing while the accept is still outstanding.
 	mu     sync.Mutex
 	ln     net.Listener
 	conn   net.Conn
 	closed bool
 	// delayMu guards the newest delay reading and whether one has arrived at all.
-	// A mutex rather than the atomics beside it, because a reading is a struct whose halves are read
+	// A mutex rather than the atomics beside it, a reading being a struct whose halves are read
 	// together: the line reader writes it and the parse goroutine reads it, which are two goroutines
 	// (gsthdr.go).
 	delayMu   sync.Mutex
@@ -156,8 +155,8 @@ type gstMeter struct {
 	startWall    time.Time
 	havePrev     bool
 	// The delay reading the previous sample was taken against, and whether there was one.
-	// A mean transit is one interval's summed delay over that interval's frames, so it needs the
-	// reading before it as much as a rate does.
+	// A mean transit is one interval's summed delay over that interval's frames, so it needs
+	// the reading before it as much as a rate does.
 	prevDelay     gstrun.Delay
 	havePrevDelay bool
 }
@@ -165,8 +164,8 @@ type gstMeter struct {
 // newGstMeter opens the loopback socket the child's tcpclientsink connects to and starts counting
 // what arrives on it.
 //
-// The listener is up before the caller has an argument to put in a pipeline, let alone a child to
-// run it, so the connection the child opens on start always finds a peer.
+// The listener is up before the caller has an argument to put in a pipeline, let alone a child
+// to run it, so the connection the child opens on start always finds a peer.
 func newGstMeter(onStats func(Stats)) (*gstMeter, error) {
 	ln, err := net.Listen("tcp", net.JoinHostPort(gstMeterHost, "0"))
 	if err != nil {
@@ -190,7 +189,7 @@ func (m *gstMeter) port() string {
 // count takes the child's connection and drains it.
 // The payload is a copy of what the sink ships, so it is weighed and discarded, never inspected.
 //
-// The listener closes on the first connection because a run makes exactly one.
+// The listener closes on the first connection, a run making exactly one.
 // Left open, a later pipeline's sink could land on this meter's port and have its bytes counted
 // against the run that opened it.
 func (m *gstMeter) count() {
@@ -214,10 +213,9 @@ func (m *gstMeter) count() {
 	}
 }
 
-// hold records the accepted connection so close can end the read, and reports whether the meter is
-// still open.
-// A meter closed while the accept was outstanding takes no connection, since nothing would close it
-// again.
+// hold records the accepted connection so close can end the read, and reports whether the meter
+// is still open.
+// A meter closed while the accept was outstanding takes no connection, nothing else closing it.
 func (m *gstMeter) hold(conn net.Conn) bool {
 	assert.IsNotNil(conn, "an accepted connection is not nil")
 
@@ -230,12 +228,12 @@ func (m *gstMeter) hold(conn net.Conn) bool {
 	return true
 }
 
-// parse reads the child's stdout and emits one sample per encoded progress line, returning when the
-// stream ends.
+// parse reads the child's stdout and emits one sample per encoded progress line, returning when
+// the stream ends.
 //
 // A capture line is recorded rather than sampled.
-// Both elements print once a second but not in step, so emitting on either would give two samples a
-// second with one of the two counts unchanged.
+// Both elements print once a second but not in step, so emitting on either would give two samples
+// a second with one of the two counts unchanged.
 // The encoded line is the one carrying the byte counter, so it stays the sample point and reads
 // whatever the capture counter last said.
 func (m *gstMeter) parse(r io.Reader) {
@@ -271,8 +269,8 @@ func (m *gstMeter) timing(stats *Stats) {
 		return
 	}
 
-	// A total since the run started, like the frame count beside it, so a reader watching it climb is
-	// reading a shortfall that is still happening.
+	// A total since the run started, like the frame count beside it, so a reader watching it climb
+	// is reading a shortfall that is still happening.
 	if delay.Dropped != nil {
 		stats.Drop = int(*delay.Dropped)
 	}
@@ -329,7 +327,7 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 	m.timing(&stats)
 	// A per-interval figure has no value on the first line of a run, and this engine measures no
 	// capture rate at all unless the backend placed the probe.
-	// Both are unmeasured rather than zero, since zero is the reading that marks a stalled encoder.
+	// Both are unmeasured rather than zero, zero being the reading that marks a stalled encoder.
 	stats.Missing.Fps = !m.havePrev
 	stats.Missing.InstMbps = !m.havePrev
 	stats.Missing.Speed = !m.havePrev
@@ -346,8 +344,8 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 			stats.CaptureFps = float64(captured-m.prevCaptured) / d
 		}
 		// Speed measures media time against wall time over the whole run.
-		// progressreport prints whole seconds, so the same ratio taken between two lines would swing by a
-		// whole step whenever the two clocks fall on opposite sides of a second boundary.
+		// progressreport prints whole seconds, so the same ratio taken between two lines would swing
+		// by a whole step whenever the two clocks fall on opposite sides of a second boundary.
 		if d := now.Sub(m.startWall).Seconds(); d > 0 {
 			stats.Speed = (runSec - m.startRun) / d
 		}
@@ -360,8 +358,8 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 }
 
 // close releases the listener and the child's connection, which ends the counting goroutine.
-// Safe to call more than once: a start that fails closes the meter on the way out, and a start that
-// succeeds closes it again when the child exits.
+// Safe to call more than once: a start that fails closes the meter on the way out, and a start
+// that succeeds closes it again when the child exits.
 // A nil meter, which is a start with no OnStats callback, closes nothing, and so does one built
 // without a listener.
 func (m *gstMeter) close() {

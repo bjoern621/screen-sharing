@@ -1,15 +1,13 @@
 // Package padprobe reads what a pad probe was handed and leaves no reference behind.
 //
-// The binding wraps a borrowed GstBuffer or GstEvent by taking a reference of its own and dropping
-// it from a Go finalizer.
-// A probe runs once per frame and a collection runs on Go heap growth, and the wrapper is a few
-// bytes against a frame's megabytes, so a callback returning without an unref pins every frame it
-// ever saw until something unrelated fills the heap.
-// The reference is dropped here instead.
+// The binding takes its own reference on a borrowed GstBuffer or GstEvent and drops it from a Go
+// finalizer.
+// A few wrapper bytes against a frame's megabytes never grow the heap, so a callback returning
+// without an unref pins every frame it saw until something unrelated collects.
+// Dropped here instead.
 //
-// What is returned stays valid for the callback that asked and for nothing after it: the pipeline
-// holds its own reference across the probe, and a value kept past the return names memory the
-// pipeline has recycled.
+// Valid for the calling callback and nothing after it: the pipeline holds its own reference across
+// the probe, and a value kept past the return names memory the pipeline has recycled.
 package padprobe
 
 import (

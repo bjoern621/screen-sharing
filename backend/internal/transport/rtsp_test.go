@@ -8,8 +8,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// rtspStream sets every knob away from its default, so a serialization ignoring one renders the
-// default rather than passing.
+// rtspStream sets every knob away from its default, so a serialization ignoring one renders
+// the default rather than passing.
 //
 // The two legs hold different lower transports, which is what tells a serialization reading its own
 // leg from one reading the other.
@@ -34,8 +34,8 @@ func rtspStream() settings.Settings {
 	}
 }
 
-// rtspPath is where the fixture's stream lives on the relay: every relay authenticates, so a
-// machine in no group publishes under the prefix anybody may watch.
+// rtspPath is where the fixture's stream lives on the relay: every relay authenticates, so
+// a machine in no group publishes under the prefix anybody may watch.
 const rtspPath = "public/alice"
 
 func TestRTSPRegistered(t *testing.T) {
@@ -127,8 +127,8 @@ func TestRTSPGstSourceCarriesTheTokenBesideTheAddress(t *testing.T) {
 	}
 }
 
-// The publish legs keep the query, ffmpeg and rtspclientsink carrying it through every request of
-// the session.
+// The publish legs keep the query, ffmpeg and rtspclientsink carrying it through every request
+// of the session.
 func TestRTSPPublishLegsKeepTheTokenInTheAddress(t *testing.T) {
 	s := rtspStream()
 	s.Relay.Token = "a-token"
@@ -141,8 +141,8 @@ func TestRTSPPublishLegsKeepTheTokenInTheAddress(t *testing.T) {
 	}
 }
 
-// Legs set to different protocols are what separates the two fields: a serialization reading the
-// other leg's passes wherever the two agree.
+// Legs set to different protocols are what separates the two fields: a serialization reading
+// the other leg's passes wherever the two agree.
 func TestRTSPProtocolPerLeg(t *testing.T) {
 	s := rtspStream()
 	s.Publish.RtspPublishProtocol = "tcp"

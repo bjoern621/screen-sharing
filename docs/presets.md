@@ -130,4 +130,4 @@ The ladder holds only the pixel formats the preset would accept.
 The codec and capture backend follow from the tables and need no listing.
 The base writes only what the claim speaks for: a field written past the claim can strand the preset on a machine that refuses that value.
 
-A surface then owes the new key a name, as it owes every identifier one (`ipc-api.md`).
+A surface then owes that key a name, as it owes every identifier one (`ipc-api.md`).

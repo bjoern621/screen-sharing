@@ -66,8 +66,8 @@ func TestAScrapeCountsGroupsAndTheirMembers(t *testing.T) {
 	)
 }
 
-// The question the dashboard's table asks is who, so a member is a series of its own under the name
-// it claimed.
+// The question the dashboard's table asks is who,
+// so a member is a series of its own under the name it claimed.
 func TestAScrapeNamesEveryLiveMember(t *testing.T) {
 	page := scrape(t, held{read: []membership.Reading{
 		{Prefix: "aaa/", Members: []membership.Member{
@@ -82,8 +82,9 @@ func TestAScrapeNamesEveryLiveMember(t *testing.T) {
 	)
 }
 
-// The member id is what the relay logs a connection under and is a keyed digest of the secret behind
-// it. A scrape is read by an operator and says who is here, which the display name already answers.
+// The member id is what the relay logs a connection under,
+// and is a keyed digest of the secret behind it.
+// A scrape is read by an operator and says who is here, which the display name already answers.
 func TestAScrapeCarriesNoMemberID(t *testing.T) {
 	page := scrape(t, held{read: []membership.Reading{
 		{Prefix: "aaa/", Members: []membership.Member{{MemberID: "a-derived-id", DisplayName: "Björn"}}},
@@ -117,8 +118,8 @@ func TestAScrapeCarriesEveryTally(t *testing.T) {
 	)
 }
 
-// A map is read in no order, and a scrape whose lines move between reads is one a consumer cannot
-// diff.
+// A map is read in no order,
+// and a scrape whose lines move between reads is one a consumer cannot diff.
 func TestAScrapeReadsTheSameTwice(t *testing.T) {
 	groups := held{tallies: membership.Tallies{
 		Kicked: map[string]int64{"srt": 1, "hls": 1, "rtsp": 1, "webrtc": 1, "rtmp": 1, "moq": 1},
@@ -132,8 +133,8 @@ func TestAScrapeReadsTheSameTwice(t *testing.T) {
 	}
 }
 
-// A group nobody holds a lease in is absent rather than zero, so an empty service still declares
-// every family it exports.
+// A group nobody holds a lease in is absent rather than zero,
+// so an empty service still declares every family it exports.
 func TestAnEmptyServiceStillDeclaresItsFamilies(t *testing.T) {
 	page := scrape(t, held{}, handed{})
 

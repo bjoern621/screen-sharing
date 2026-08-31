@@ -8,22 +8,20 @@
              x:DataType="vm:WatchSettingsViewModel">
 
   <!--
-    How this machine receives, beside the tiles it governs. One group of the resolved form,
-    drawn by the renderer every wizard step shares. Which screen places a group is the shell's
-    own business (Features/Fields/Model/GroupPlacement.cs).
+    One group of the resolved form, drawn by the renderer every wizard step shares.
+    Which screen places a group is the shell's own business (Features/Fields/Model/GroupPlacement.cs).
 
-    Controls scroll and the commit is pinned under them, so the button stays reachable whatever
-    the group carries.
+    Controls scroll and the commit is pinned under them, so the button stays reachable whatever the group carries.
 
-    The dismissal is repeated on this edge because the rail that opened the panel sits across
-    the window, and the panel already covers the side of the grid the pointer is on.
+    The dismissal repeats on this edge: the rail that opened the panel sits across the window,
+    and the panel already covers the side of the grid the pointer is on.
   -->
 
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!--
-      No heading beside it: the group card below carries its own
-      (Features/Fields/View/FieldGroupView.axaml), and a second would print one word twice.
+      No heading beside it: the group card carries its own (Features/Fields/View/FieldGroupView.axaml),
+      and a second would print one word twice.
     -->
     <Button Grid.Row="0"
             HorizontalAlignment="Right"
@@ -41,8 +39,8 @@
     <StackPanel Grid.Row="2" Margin="0,10,0,0" Spacing="{StaticResource GapTight}">
 
       <!--
-        Over the button rather than over the fields: the sentence is about the whole group, and
-        the press is what answers it.
+        Over the button rather than over the fields: the sentence is about the whole group,
+        and the press answers it.
       -->
       <TextBlock Classes="hint"
                  TextWrapping="Wrap"
@@ -50,7 +48,7 @@
                  IsVisible="{Binding IsUnkept}"
                  Text="{Binding UnkeptNotice}" />
 
-      <!-- The backend's own sentence about the last save, unrewritten. -->
+      <!-- Backend's own sentence about the last save, unrewritten. -->
       <SelectableTextBlock Classes="hint"
                            IsVisible="{Binding HasNotice}"
                            Text="{Binding Notice}" />

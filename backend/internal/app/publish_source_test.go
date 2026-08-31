@@ -10,8 +10,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// A held screen source belongs to the stream rather than to the child that reads it, and what a
-// compositor persisting no consent costs is a picker per release.
+// A held screen source belongs to the stream rather than to the child that reads it,
+// and what a compositor persisting no consent costs is a picker per release.
 // These run the real decision on the real state, with the release counted instead of performed.
 
 // countReleases replaces the release with a counter for the length of one test.
@@ -45,8 +45,8 @@ func deadRun(t *testing.T, attempts int) (*App, *publishRun) {
 	return a, run
 }
 
-// The relaunch is what the source is held for: a relay that refuses the stream must not cost a
-// picker per attempt.
+// The relaunch is what the source is held for:
+// a relay that refuses the stream must not cost a picker per attempt.
 func TestARetryKeepsTheScreenSourceHeld(t *testing.T) {
 	releases := countReleases(t)
 	a, run := deadRun(t, 0)
@@ -61,8 +61,8 @@ func TestARetryKeepsTheScreenSourceHeld(t *testing.T) {
 	}
 }
 
-// The last attempt ends the stream, and a source held past it leaves the compositor sharing a screen
-// nobody receives.
+// The last attempt ends the stream,
+// and a source held past it leaves the compositor sharing a screen nobody receives.
 func TestAnExhaustedBudgetReleasesTheScreenSource(t *testing.T) {
 	releases := countReleases(t)
 	a, run := deadRun(t, len(publishBackoff))
@@ -77,8 +77,8 @@ func TestAnExhaustedBudgetReleasesTheScreenSource(t *testing.T) {
 	}
 }
 
-// The user asked for no stream, so the consent goes back whether or not the pipeline was still
-// running.
+// The user asked for no stream,
+// so the consent goes back whether or not the pipeline was still running.
 func TestAStopReleasesTheScreenSource(t *testing.T) {
 	releases := countReleases(t)
 	a, _ := deadRun(t, 0)

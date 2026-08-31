@@ -22,7 +22,8 @@ The transport's buffering window sits inside that latency rather than beside it.
 A frame arriving on schedule is on time under a 51 ms jitterbuffer and under a two-second one alike, so no buffering setting makes frames late.
 What makes them late is a stage running longer than it declared: a decode or a conversion overrunning.
 
-The dotted edge is the whole control loop. The sink measures the overrun and sends it back as a proportion, and the decoder discards in step with it.
+The dotted edge is the whole control loop.
+The sink measures the overrun and sends it back as a proportion, and the decoder discards in step with it.
 
 ## Shedding, not falling behind
 
@@ -42,7 +43,8 @@ With `qos` on it sends the overrun upstream as a proportion, and the decoder dis
 That is the whole mechanism.
 It has to act there rather than at the sink, because the backlog sits upstream: discarding at the end of the chain drains nothing, and a leg with QoS off falls behind at the same rate whether or not the sink is throwing frames away.
 
-Shedding upstream is also the cheap place. A discarded frame costs a decode and never a conversion, so `glupload` and the colour converters run only on frames that will be drawn.
+Shedding upstream is also the cheap place.
+A discarded frame costs a decode and never a conversion, so `glupload` and the colour converters run only on frames that will be drawn.
 
 `max-lateness` stays at GstBaseSink's own -1, which hands on every frame however late.
 A cutoff there is not a second line of defence, and on top of a working QoS loop it only takes frames the proportion had already judged worth drawing.

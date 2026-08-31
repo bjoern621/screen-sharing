@@ -5,12 +5,11 @@ namespace ScreenShare.App.Features.Viewer.ViewModel;
 /// <summary>
 /// One leg the relay serves a player page for, as a row of the browser menu.
 ///
-/// <b>An action, where <see cref="WatchLegViewModel"/> is a state.</b> The page opens in a browser this app does
-/// not own, so there is nothing to read back and nothing to close: a tick would draw a guess and a toggle would
-/// offer a close nothing can perform.
+/// <b>An action, where <see cref="WatchLegViewModel"/> is a state.</b>
+/// The page opens in a browser this app does not own, so nothing to read back and nothing to close.
 ///
-/// The legs come off the catalog, so a protocol the relay gains a page for arrives with nothing in this module to
-/// edit; the word on the row is this side's.
+/// Legs come off the catalog, so a protocol the relay gains a page for needs no edit here.
+/// Word on the row is this side's.
 ///
 /// A record, so a pass over an unchanged row produces legs that compare equal.
 /// The command is made once per leg by the row that owns it.
@@ -22,9 +21,6 @@ public sealed record BrowserLegViewModel
 
     public required string Label { get; init; }
 
-    /// <summary>
-    /// Opens the relay's page for this stream over this leg.
-    /// Holds whether its own call is still out, so a second press cannot ask again mid-flight.
-    /// </summary>
+    /// <summary>Opens the relay's page for this stream over this leg.</summary>
     public required PendingCommand Open { get; init; }
 }

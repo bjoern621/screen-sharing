@@ -11,17 +11,17 @@ import (
 
 // What the broadcast screen shows while a stream runs, held to what the samples behind it carry.
 //
-// A figure carries presence because no measurement is not a measured zero, and the screen prints an
-// absent one as an ellipsis and holds the last value that was measured
+// A figure carries presence because no measurement is not a measured zero,
+// and the screen prints an absent one as an ellipsis and holds the last value that was measured
 // (avalonia/.../Broadcast/Model/HeldFigures.cs).
-// So a figure no sample of a whole run states is not a gap: it is a row that reads empty for the
-// session, on a screen whose neighbouring rows carry numbers.
+// So a figure no sample of a whole run states is not a gap:
+// it is a row that reads empty for the session, on a screen whose neighbouring rows carry numbers.
 
-// The figures the broadcast screen draws out of an encoder sample, and the bounds outside which one
-// prints as something a reader would report rather than read.
+// The figures the broadcast screen draws out of an encoder sample,
+// and the bounds outside which one prints as something a reader would report rather than read.
 //
-// Exactly these four: the header promotes the first three and the pill counts on the fourth, and
-// the egress plot needs a rate and a clock on one sample to place a point
+// Exactly these four: the header promotes the first three and the pill counts on the fourth,
+// and the egress plot needs a rate and a clock on one sample to place a point
 // (avalonia/.../Broadcast/Plots/Model/PlotSeries.cs).
 var overlayFigures = []struct {
 	name  string
@@ -41,8 +41,8 @@ var overlayFigures = []struct {
 		func(s *v1.PublishStats) float64 { return s.GetTimeSec() }, 0, 86400},
 }
 
-// checkOverlay states which promoted figure the screen would have drawn as an ellipsis for the
-// whole run, and which one carried a value it cannot print.
+// checkOverlay states which promoted figure the screen would have drawn as an ellipsis
+// for the whole run, and which one carried a value it cannot print.
 func (s *session) checkOverlay(stats []*v1.PublishStats, attempts int32, fields map[string]string, settings *v1.Settings) {
 	if len(stats) == 0 {
 		return
@@ -68,10 +68,11 @@ func (s *session) checkOverlay(stats []*v1.PublishStats, attempts int32, fields 
 						figure.name, value, figure.floor, figure.limit), fields, settings)
 			}
 		}
-		// A per-interval figure is measured against the sample before it, so the first sample of a run
-		// states none (api/proto/screenshare/v1/session.proto, PublishStats).
-		// A run that relaunched is first samples all the way down, and what that says is that the
-		// stream kept dying rather than anything about what this engine measures.
+		// A per-interval figure is measured against the sample before it,
+		// so the first sample of a run states none
+		// (api/proto/screenshare/v1/session.proto, PublishStats).
+		// A run that relaunched is first samples all the way down,
+		// which says the stream kept dying rather than anything about what this engine measures.
 		if measured == 0 && attempts == 0 {
 			s.report.report("publish.figure_never_measured", "publish/figure-absent/"+figure.name+"/"+engine,
 				fmt.Sprintf("no sample of %d carried %s, so %s reads as an ellipsis for the run",
@@ -79,8 +80,8 @@ func (s *session) checkOverlay(stats []*v1.PublishStats, attempts int32, fields 
 		}
 	}
 
-	// A point on the egress plot needs both figures off one sample, so a run stating each of them on
-	// samples of its own draws no curve at all.
+	// A point on the egress plot needs both figures off one sample,
+	// so a run stating each of them on samples of its own draws no curve at all.
 	if attempts == 0 && !carries(stats, func(sample *v1.PublishStats) bool { return sample.InstMbps != nil && sample.TimeSec != nil }) {
 		s.report.report("publish.plot_has_no_point", "publish/no-plot-point/"+engine,
 			"no sample carried a rate and a clock together, so the egress plot draws nothing",
@@ -90,15 +91,16 @@ func (s *session) checkOverlay(stats []*v1.PublishStats, attempts int32, fields 
 	checkCounters(s, stats, attempts, fields, settings)
 }
 
-// checkCounters holds the running totals to the one thing a reader assumes of a counter, which is
-// that it counts up.
+// checkCounters holds the running totals to the one thing a reader assumes of a counter,
+// which is that it counts up.
 //
-// A figure that falls between two samples is a readout that jumps backwards on screen, and the
-// clock falling is a pill that starts its stream again in front of somebody watching it.
+// A figure that falls between two samples is a readout that jumps backwards on screen,
+// and the clock falling is a pill that starts its stream again in front of somebody watching it.
 //
-// A relaunched pipeline counts from zero again, and the stream it belongs to is one the reader never
-// stopped, so the two are reported apart: what the samples of one child did, and what a relaunch does
-// to a screen that keeps showing the same stream.
+// A relaunched pipeline counts from zero again,
+// and the stream it belongs to is one the reader never stopped, so the two are reported apart:
+// what the samples of one child did,
+// and what a relaunch does to a screen that keeps showing the same stream.
 func checkCounters(s *session, stats []*v1.PublishStats, attempts int32, fields map[string]string, settings *v1.Settings) {
 	engine := fields["capture"] + "/" + fields["transport"]
 	kind, signature := "publish.counter_went_backwards", "publish/counter-back/"
@@ -130,8 +132,8 @@ func checkCounters(s *session, stats []*v1.PublishStats, attempts int32, fields 
 		}
 	}
 
-	// The pill counts a stream's life off this figure, so one that stands still is a timer frozen
-	// while the frames beside it keep arriving.
+	// The pill counts a stream's life off this figure,
+	// so one that stands still is a timer frozen while the frames beside it keep arriving.
 	first, last := firstTimed(stats), lastTimed(stats)
 	if first != nil && last != nil && last.GetFrameCount() > first.GetFrameCount() &&
 		last.GetTimeSec() <= first.GetTimeSec() {
@@ -161,9 +163,10 @@ func lastTimed(stats []*v1.PublishStats) *v1.PublishStats {
 
 // checkRelayView holds what the relay says about the running stream to what the screen reads off it.
 //
-// The viewer count, the worst round trip and the worst loss are all looked up by the path the
-// stream publishes to, so a relay naming no such path leaves three figures absent at once and a
-// panel with nothing in it (avalonia/.../Broadcast/Model/BroadcastSnapshot.cs, PathOf).
+// The viewer count, the worst round trip and the worst loss
+// are all looked up by the path the stream publishes to,
+// so a relay naming no such path leaves three figures absent at once and a panel with nothing in it
+// (avalonia/.../Broadcast/Model/BroadcastSnapshot.cs, PathOf).
 func (s *session) checkRelayView(ctx context.Context, stream string, fields map[string]string, settings *v1.Settings) {
 	var status *v1.RelayStatus
 	err := withTimeout(ctx, 15*time.Second, func(call context.Context) error {

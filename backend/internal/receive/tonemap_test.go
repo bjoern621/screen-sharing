@@ -9,11 +9,11 @@ import (
 )
 
 // The rungs are declared per platform and which one resolves is the machine's answer, so every case
-// here holds a relationship rather than a value: a test that pinned the rung would pass on the
-// machine it was written on and nowhere else.
+// here holds a relationship rather than a value: a test that pinned the rung would pass
+// on the machine it was written on and nowhere else.
 
-// TestEveryToneMapRungBuildsWhatItNeeds keeps the availability check from drifting away from the
-// launch line, the pair TestChainNeedsAreTheElementsItBuilds holds for a chain.
+// TestEveryToneMapRungBuildsWhatItNeeds keeps the availability check from drifting away
+// from the launch line, the pair TestChainNeedsAreTheElementsItBuilds holds for a chain.
 // A factory a rung is built from and does not name is one nothing can report as missing.
 func TestEveryToneMapRungBuildsWhatItNeeds(t *testing.T) {
 	for _, r := range toneMapRungs {
@@ -41,8 +41,8 @@ func TestEveryToneMapRungBuildsWhatItNeeds(t *testing.T) {
 //
 // An offer made on the strength of factories registering is an offer vapostproc answers on a VA
 // driver that carries no tone-mapping filter and therefore no hdr-tone-mapping property: the offer
-// is taken, gst_parse rejects the line, and the decode fails outright rather than falling back to
-// no tone mapping.
+// is taken, gst_parse rejects the line, and the decode fails outright rather than falling back
+// to no tone mapping.
 // An offer this machine reports as available has to be one the parser accepts.
 func TestAnOfferedRungIsOneThePipelineCanParse(t *testing.T) {
 	rung := toneMapping()
@@ -64,10 +64,10 @@ func TestAnOfferedRungIsOneThePipelineCanParse(t *testing.T) {
 // TestToneMapRungSitsBetweenTheDecoderAndTheChain pins where the rung goes, the one thing about it
 // a reader cannot see from the table.
 // Behind the chain's converter the frames are already labelled sRGB, so a rolloff there would read
-// its input off a label that no longer describes the samples.
+// its input off a label that has stopped describing the samples.
 //
-// The rung is matched as one contiguous fragment rather than by its first element, because the
-// shader rung and the GL chain share factories: an index taken on glupload alone would find
+// The rung is matched as one contiguous fragment rather than by its first element, because
+// the shader rung and the GL chain share factories: an index taken on glupload alone would find
 // whichever of the two came first and prove nothing about the other.
 func TestToneMapRungSitsBetweenTheDecoderAndTheChain(t *testing.T) {
 	for _, rung := range toneMapRungs {
@@ -94,8 +94,8 @@ func TestToneMapRungSitsBetweenTheDecoderAndTheChain(t *testing.T) {
 // TestADecodeThatAsksForNoToneMappingBuildsNoRung is the half that matters on every machine: a rung
 // in a line nobody asked for it in is a conversion of every standard-range stream on the grid.
 //
-// The zero rung is what a decode that asked for none carries, and what a decode on a machine that
-// resolves none carries too, so one case covers both.
+// The zero rung is what a decode that asked for none carries, and what a decode on a machine
+// that resolves none carries too, so one case covers both.
 func TestADecodeThatAsksForNoToneMappingBuildsNoRung(t *testing.T) {
 	markers := toneMapMarkers(t)
 
@@ -115,8 +115,8 @@ func TestADecodeThatAsksForNoToneMappingBuildsNoRung(t *testing.T) {
 // Two kinds are left out and both would answer for the wrong reason.
 // The shader rung shares glupload and glcolorconvert with the GL chain, which builds them whether
 // or not anything is tone-mapping.
-// A caps fragment is a substring of the caps a chain pins after it, so it matches a line that
-// carries no rung at all.
+// A caps fragment is a substring of the caps a chain pins after it, so it matches a line
+// that carries no rung at all.
 func toneMapMarkers(t *testing.T) []string {
 	t.Helper()
 
@@ -159,9 +159,9 @@ func TestTheToneMapOfferSaysWhatIsMissing(t *testing.T) {
 	}
 }
 
-// TestAMachineWithNoRungDrawsTheStreamAsItArrives holds the fallback: what a decode was built with
-// is what the state reports, so a viewer is never told a conversion happened that this machine has
-// no rung for.
+// TestAMachineWithNoRungDrawsTheStreamAsItArrives holds the fallback: what a decode was built
+// with is what the state reports, so a viewer is never told a conversion happened that this machine
+// has no rung for.
 func TestAMachineWithNoRungDrawsTheStreamAsItArrives(t *testing.T) {
 	if got := toneMapFor("a stream", false); got.declared() {
 		t.Errorf("a decode that asked for no tone mapping was built with the %q rung", got.name)
@@ -182,9 +182,9 @@ func TestAMachineWithNoRungDrawsTheStreamAsItArrives(t *testing.T) {
 // nothing and a table that says it converts.
 //
 // A control run without the shader decides what a missing frame means.
-// Both lines carry the same elements against the same PQ source and differ only by the shader, so a
-// machine with no GL fails both and is skipped, and a machine that renders the control and not the
-// shader has a shader that does not compile.
+// Both lines carry the same elements against the same PQ source and differ only by the shader, so
+// a machine with no GL fails both and is skipped, and a machine that renders the control and not
+// the shader has a shader that does not compile.
 func TestTheShaderRungRendersAPQFrame(t *testing.T) {
 	initGStreamer()
 
@@ -197,8 +197,8 @@ func TestTheShaderRungRendersAPQFrame(t *testing.T) {
 		"video/x-raw,format=P010_10LE,width=64,height=64,colorimetry=bt2100-pq ! "
 	const tail = " ! videoconvert ! video/x-raw,format=RGBA ! appsink name=sink"
 
-	// The control is the rung with the shader element taken out, leaving the uploads and the
-	// conversion it shares with the GL chain.
+	// The control is the rung with the shader element taken out, leaving the uploads and
+	// the conversion it shares with the GL chain.
 	control := make([]string, 0, len(rung.elements))
 	for _, e := range rung.elements {
 		if strings.HasPrefix(e, "glshader") {
@@ -252,8 +252,8 @@ func renders(t *testing.T, desc, shader string) bool {
 	return true
 }
 
-// TestTheShaderRungNamesTheElementItWritesInto guards the one thing the launch line and the
-// receiver have to agree about.
+// TestTheShaderRungNamesTheElementItWritesInto guards the one thing the launch line and
+// the receiver have to agree about.
 // The GLSL is written into an element found by name after the parse, so a rung carrying a shader
 // whose fragment names no such element leaves the shader unwritten and the picture unconverted.
 func TestTheShaderRungNamesTheElementItWritesInto(t *testing.T) {

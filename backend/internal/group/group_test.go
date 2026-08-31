@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// Both sides of the wire run this derivation, the client for the prefix it publishes under and the
-// service for the prefix it grants a token on.
-// These hold that the two can only agree, and that what the derivation publishes says nothing about
-// the secret behind it.
+// Both sides of the wire run this derivation, the client for the prefix it publishes under
+// and the service for the prefix it grants a token on.
+// These hold that the two can only agree,
+// and that what the derivation publishes says nothing about the secret behind it.
 
 // mustKey fails the test on a drawing failure rather than carrying it into a path assertion.
 func mustKey(t *testing.T) Key {
@@ -23,8 +23,8 @@ func mustKey(t *testing.T) Key {
 }
 
 // One key, one prefix, every time: the whole contract between the two sides.
-// A derivation answering differently on two calls issues a member a token for a path nobody
-// publishes to.
+// A derivation answering differently on two calls
+// issues a member a token for a path nobody publishes to.
 func TestOneKeyDerivesOnePrefix(t *testing.T) {
 	key := mustKey(t)
 	if key.ID() != key.ID() {
@@ -42,8 +42,8 @@ func TestOneKeyDerivesOnePrefix(t *testing.T) {
 	}
 }
 
-// Membership is possession, so two secrets landing on one prefix are two groups watching each
-// other's streams.
+// Membership is possession,
+// so two secrets landing on one prefix are two groups watching each other's streams.
 func TestTwoKeysAreTwoGroups(t *testing.T) {
 	first, second := mustKey(t), mustKey(t)
 	if first.ID() == second.ID() {
@@ -61,8 +61,8 @@ func TestTheIdCarriesNothingOfTheKey(t *testing.T) {
 	if strings.Contains(key.String(), id) {
 		t.Error("the id appears inside the key's own encoding")
 	}
-	// The encoding's own alphabet, so a path carrying an id needs no escaping and a member reading one
-	// aloud has no case to get wrong.
+	// The encoding's own alphabet, so a path carrying an id needs no escaping
+	// and a member reading one aloud has no case to get wrong.
 	for _, c := range id {
 		if !strings.ContainsRune("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", c) {
 			t.Errorf("the id carries %q, which is outside the alphabet a path takes unescaped", c)
@@ -74,8 +74,8 @@ func TestTheIdCarriesNothingOfTheKey(t *testing.T) {
 }
 
 // A path is id, slash and the stream's own name, and reads back into those two.
-// Relay permissions match on the prefix, so the separator stops one group's grant at its own
-// streams.
+// Relay permissions match on the prefix,
+// so the separator stops one group's grant at its own streams.
 func TestAPathIsTheGroupAndTheStream(t *testing.T) {
 	key := mustKey(t)
 
@@ -99,8 +99,9 @@ func TestAPathIsTheGroupAndTheStream(t *testing.T) {
 	}
 }
 
-// Publishing always takes a group, so a stream with no key is refused rather than published under
-// its bare name, which is a path every other group can see.
+// Publishing always takes a group,
+// so a stream with no key is refused rather than published under its bare name,
+// a path every other group can see.
 func TestAStreamWithNoGroupIsRefused(t *testing.T) {
 	if _, err := Key(nil).Path("standup"); err != ErrNoGroup {
 		t.Errorf("a stream with no group yielded %v, want %v", err, ErrNoGroup)
@@ -132,8 +133,8 @@ func TestAPathWithNoGroupBelongsToNone(t *testing.T) {
 	}
 }
 
-// This app did not produce a key of the wrong length, and a prefix derived from one would put a
-// stream where no member is looking.
+// This app did not produce a key of the wrong length,
+// and a prefix derived from one would put a stream where no member is looking.
 func TestAKeyOfTheWrongLengthIsRefused(t *testing.T) {
 	for _, encoded := range []string{"", "not base64 at all", "c2hvcnQ="} {
 		if _, err := ParseKey(encoded); err == nil {
@@ -162,8 +163,8 @@ func TestOneSecretDerivesOneMemberID(t *testing.T) {
 		t.Error("one secret derived two member ids")
 	}
 
-	// Through the encoding is the path the derivation takes in practice: the app writes the secret to
-	// its identity file and reads it back on the next start.
+	// Through the encoding is the path the derivation takes in practice:
+	// the app writes the secret to its identity file and reads it back on the next start.
 	same, err := ParseMemberSecret(secret.String())
 	if err != nil {
 		t.Fatalf("reading back a secret this package wrote: %v", err)
@@ -184,8 +185,8 @@ func TestTwoSecretsAreTwoMembers(t *testing.T) {
 }
 
 // The id travels to the relay, which writes it into a log line and a session listing.
-// The secret behind it is what a member's whole identity rests on, so a relay operator reading one
-// off a listing would be able to state that member's presence.
+// A member's whole identity rests on the secret behind it,
+// so a relay operator reading one off a listing could state that member's presence.
 func TestAMemberIDCarriesNeitherTheSecretNorTheKey(t *testing.T) {
 	key := mustKey(t)
 	secret := mustSecret(t)
@@ -207,8 +208,9 @@ func TestAMemberIDCarriesNeitherTheSecretNorTheKey(t *testing.T) {
 	}
 }
 
-// One app joining two groups holds one secret per group, and a member id derives under the group's
-// key, so neither group's relay listing names the other's member.
+// One app joining two groups holds one secret per group,
+// and a member id derives under the group's key,
+// so neither group's relay listing names the other's member.
 func TestOneSecretInTwoGroupsIsTwoMembers(t *testing.T) {
 	here, there := mustKey(t), mustKey(t)
 	secret := mustSecret(t)
@@ -218,8 +220,8 @@ func TestOneSecretInTwoGroupsIsTwoMembers(t *testing.T) {
 	}
 }
 
-// A secret of the wrong length is one this app did not draw, and a member id derived from it would
-// be a subject membership can neither match nor explain.
+// A secret of the wrong length is one this app did not draw,
+// and a member id derived from it is a subject membership can neither match nor explain.
 func TestAMemberSecretOfTheWrongLengthIsRefused(t *testing.T) {
 	for _, encoded := range []string{"", "not base64 at all", "c2hvcnQ="} {
 		if _, err := ParseMemberSecret(encoded); err == nil {
@@ -238,8 +240,8 @@ func TestOneKeyDerivesOnePassphrase(t *testing.T) {
 		t.Error("one key derived two passphrases")
 	}
 
-	// Through the encoding is the path the derivation takes in practice: the app reads the key off
-	// its settings file, the service is handed it per request.
+	// Through the encoding is the path the derivation takes in practice:
+	// the app reads the key off its settings file, the service is handed it per request.
 	same, err := ParseKey(key.String())
 	if err != nil {
 		t.Fatalf("reading back a key this package wrote: %v", err)
@@ -249,8 +251,8 @@ func TestOneKeyDerivesOnePassphrase(t *testing.T) {
 	}
 }
 
-// One group's members cannot read another group's SRT packets, which is what a passphrase per key
-// buys over one value for the whole relay.
+// One group's members cannot read another group's SRT packets,
+// which is what a passphrase per key buys over one value for the whole relay.
 func TestTwoKeysAreTwoPassphrases(t *testing.T) {
 	if mustKey(t).SrtPassphrase() == mustKey(t).SrtPassphrase() {
 		t.Error("two keys derived one passphrase")
@@ -324,8 +326,8 @@ func TestAPathNamesThePrefixItIsEnforcedUnder(t *testing.T) {
 	}
 }
 
-// A stream published outside the group model belongs to no group, and reporting one as a group of
-// its own would enforce membership against a stream name.
+// A stream published outside the group model belongs to no group,
+// and reporting one as a group of its own would enforce membership against a stream name.
 func TestAPathOutsideAGroupNamesNoPrefix(t *testing.T) {
 	if prefix, ok := PrefixOf("desk"); ok {
 		t.Errorf("a bare stream name named the group %s", prefix)

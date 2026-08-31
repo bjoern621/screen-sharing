@@ -11,8 +11,8 @@ import (
 // Reading is one group as a scrape reads it: the prefix it is known by, and who holds a lease in it.
 //
 // The same pair of facts a member's own view answers with, taken for every group at once.
-// A group nobody holds a lease in is not a reading with no members, it is absent, which is the line
-// the whole of this package draws between membership nobody stated and a group nobody is in.
+// A group nobody holds a lease in is absent rather than a reading with no members,
+// the line this package draws between membership nobody stated and a group nobody is in.
 type Reading struct {
 	Prefix  string
 	Members []Member
@@ -20,11 +20,13 @@ type Reading struct {
 
 // Tallies is what has happened, as a scrape counts it.
 //
-// Every field only ever rises. Kicked and Refused are keyed by transport and Unread by the relay's
-// own name for the list, so a reader can tell an SRT publisher being closed from an HLS viewer.
+// Every field only ever rises.
+// Kicked and Refused are keyed by transport and Unread by the relay's own name for the list,
+// so a reader can tell an SRT publisher being closed from an HLS viewer.
 type Tallies struct {
-	// Stated counts members arriving, never refreshing: the app states presence on every pass of its
-	// poll, and counting those buries the arrival under the poll rate.
+	// Stated counts members arriving, never refreshing:
+	// the app states presence on every pass of its poll,
+	// and counting those buries the arrival under the poll rate.
 	Stated   int64
 	Released int64
 	Lapsed   int64
@@ -33,12 +35,13 @@ type Tallies struct {
 	Unread   map[string]int64
 }
 
-// Read is every group holding a live lease, oldest fact first: the leases are this registry's and
-// publishing is the relay's, read off a look at most SweepWindow old.
+// Read is every group holding a live lease, oldest fact first:
+// the leases are this registry's and publishing is the relay's,
+// read off a look at most SweepWindow old.
 //
-// One look per group, which is what a scrape costs the relay. A scrape interval far above
-// SweepWindow means the look is always taken fresh, so the figure is never staler than the window a
-// member's own view already reads through.
+// One look per group, which is what a scrape costs the relay.
+// A scrape interval far above SweepWindow means the look is always taken fresh,
+// so the figure is never staler than the window a member's own view already reads through.
 func (r *Registry) Read() []Reading {
 	r.mu.Lock()
 	prefixes := make([]string, 0, len(r.held))
@@ -55,8 +58,8 @@ func (r *Registry) Read() []Reading {
 		// The relay is reached outside the lock, which is why the prefixes are collected first.
 		live, _ := r.connections(prefix)
 		members := r.members(prefix, live)
-		// A group whose last lease lapsed between the collection above and here holds nobody, and an
-		// absent group is what says so.
+		// A group whose last lease lapsed between the collection above and here holds nobody,
+		// and an absent group is what says so.
 		if len(members) == 0 {
 			continue
 		}
@@ -118,12 +121,12 @@ func (t *tally) read() map[string]int64 {
 	return out
 }
 
-// unnamed is the transport of a connection the relay described without one, which is a list this
-// app's vocabulary has no name for rather than a connection with no leg.
+// unnamed is the transport of a connection the relay described without one,
+// a list this app's vocabulary has no name for rather than a connection with no leg.
 const unnamed = "unnamed"
 
-// counted is the set of counters a Registry carries, held apart from the leases so a count never
-// waits on the lock a sweep holds.
+// counted is the set of counters a Registry carries,
+// held apart from the leases so a count never waits on the lock a sweep holds.
 type counted struct {
 	stated   atomic.Int64
 	released atomic.Int64

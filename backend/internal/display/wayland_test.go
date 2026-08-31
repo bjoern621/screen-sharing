@@ -4,8 +4,8 @@ package display
 
 import "testing"
 
-// wlr-randr prints a negative coordinate for an output left of or above the layout origin, and an
-// output that misses here keeps 0,0 for crop-based capture to grab the wrong rectangle.
+// wlr-randr prints a negative coordinate for an output left of or above the layout origin,
+// and an output that misses here keeps 0,0 for crop-based capture to grab the wrong rectangle.
 func TestAPositionLeftOfTheOriginKeepsItsSign(t *testing.T) {
 	cases := []struct {
 		line string
@@ -27,8 +27,9 @@ func TestAPositionLeftOfTheOriginKeepsItsSign(t *testing.T) {
 	}
 }
 
-// wlr-randr puts a mode's flags in one parenthesised group, so an output resting on its preferred
-// mode reports "(preferred, current)" and an output that misses here reports no active mode at all.
+// wlr-randr puts a mode's flags in one parenthesised group,
+// so an output resting on its preferred mode reports "(preferred, current)",
+// and an output that misses here reports no active mode at all.
 func TestTheActiveModeIsTakenBesideThePreferredFlag(t *testing.T) {
 	cases := []struct {
 		line    string

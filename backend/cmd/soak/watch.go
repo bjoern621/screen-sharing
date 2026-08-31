@@ -8,10 +8,11 @@ import (
 
 // engineWatcher accumulates GPU engine time while an operation runs.
 //
-// A before-and-after reading cannot see it: DRM engine counters live on the process, and a probe
-// that spawns an encoder and reaps it takes them with it, unlike CPU time, which rolls up into the
-// parent. So the counters are read on an interval and the highest value each client reached is
-// what it did.
+// A before-and-after reading cannot see it: DRM engine counters live on the process,
+// and a probe that spawns an encoder and reaps it takes them with it,
+// unlike CPU time, which rolls up into the parent.
+// So the counters are read on an interval,
+// and the highest value each client reached is what it did.
 //
 // Counters are per client and monotonic, so the work one did is its last reading less its first.
 type engineWatcher struct {
@@ -81,8 +82,9 @@ func (w *engineWatcher) read() {
 
 // stop ends the watch and answers what the pipelines below the root spent, per engine.
 //
-// The root's own clients are left out: the backend decodes the broadcast preview in its own
-// process, and that decode reaches the same silicon an encode does.
+// The root's own clients are left out:
+// the backend decodes the broadcast preview in its own process,
+// and that decode reaches the same silicon an encode does.
 func (w *engineWatcher) stop() map[string]int64 {
 	close(w.stopped)
 	<-w.done

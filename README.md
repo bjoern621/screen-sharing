@@ -9,7 +9,9 @@ Capture, encode and decode = **ffmpeg** and **GStreamer**.
 Every stream crosses two legs, publisher to relay and relay to viewer, and each leg picks its own protocol.
 The relay re-serves what it ingests on all its listeners, so a stream published over SRT can be watched over RTSP.
 
-No accounts. No remote control. Everyone publishes and watches at once.
+No accounts.
+No remote control.
+Everyone publishes and watches at once.
 Full colour, 4:4:4 and full range, so no WebRTC washout.
 
 A group is one key friends share, and a member is in it for as long as their own app says so.
@@ -17,17 +19,18 @@ A group is one key friends share, and a member is in it for as long as their own
 
 ## Install
 
-Packages for Windows, Arch, Fedora, NixOS and other Linux distributions are on the
-[releases page](https://github.com/bjoern621/screen-sharing/releases).
+Packages for Windows, Arch, Fedora, NixOS and other Linux distributions are on the [releases page](https://github.com/bjoern621/screen-sharing/releases).
 [`docs/install.md`](docs/install.md) has the steps for each.
 
 One window, two programs behind it: a headless backend and the shell in front of it.
-Opening the shell starts the backend. Nothing else to launch.
+Opening the shell starts the backend.
+Nothing else to launch.
 
 ## The relay
 
 Streams do not travel between machines directly.
-Every publisher sends to one relay and every viewer reads from it, so one machine everybody can reach runs MediaMTX and the group service that signs the tokens it checks: a VPS, a box on the LAN, a host on a Tailscale network.
+Every publisher sends to one relay and every viewer reads from it.
+So one machine everybody can reach runs MediaMTX and the group service that signs the tokens it checks: a VPS, a box on the LAN, a host on a Tailscale network.
 
 ```bash
 task relay
@@ -51,11 +54,11 @@ Friend B         ──SRT──┘                            HLS/WebRTC/MoQ fo
 
 ## Bandwidth reality
 
-- **Upload** = sum of your publish bitrates.
-- **Download** = sum of the bitrates you watch.
+- **Upload** = sum of the publish bitrates.
+- **Download** = sum of the bitrates being watched.
 - Relay egress = publishers x viewers x bitrate, which scales fast.
 
-Start modest, 40 to 80 Mbps HEVC 4:4:4 already beating Discord, and crank it when few are watching.
+A modest 40 to 80 Mbps HEVC 4:4:4 already beats Discord, and the rate goes up where few are watching.
 
 ## Repository layout
 
@@ -81,7 +84,7 @@ Start modest, 40 to 80 Mbps HEVC 4:4:4 already beating Discord, and crank it whe
 `docs/packaging.md` states what the app needs at run time and how each channel provides it.
 Recipes are in `packaging/` and `nix/`.
 
-`scripts/` also holds the PowerShell tools the app replaced, which publish, watch and list live streams from a terminal: `publish.ps1`, `watch.ps1`, `whoislive.ps1`.
+`scripts/` also holds PowerShell tools that publish, watch and list live streams from a terminal: `publish.ps1`, `watch.ps1`, `whoislive.ps1`.
 
 ## License
 

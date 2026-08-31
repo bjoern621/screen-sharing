@@ -15,7 +15,8 @@ namespace ScreenShare.App.Features.Broadcast.TestStreams.ViewModel;
 /// no publisher, and the two strings a reader takes elsewhere.
 ///
 /// <b>Nothing here is measured.</b> What a slot is doing is the relay's business and appears on the roster like
-/// any other path; what this card carries is what the backend states about the children it launched.
+/// any other path.
+/// This card carries what the backend states about the children it launched.
 /// </summary>
 public sealed class TestStreamsViewModel : Observable
 {

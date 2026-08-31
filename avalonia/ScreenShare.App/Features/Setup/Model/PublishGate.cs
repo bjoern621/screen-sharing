@@ -4,7 +4,8 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// What pressing commit does. One control, two effects.
+/// What pressing commit does.
+/// One control, two effects.
 /// Settings cross either way; <c>PublishState.live</c> decides which (<c>docs/ipc-api.md</c>, "The rule").
 /// </summary>
 public enum PublishCommit
@@ -21,10 +22,11 @@ public enum PublishCommit
 
 /// <summary>
 /// Whether commit can be pressed, which effect it is, and the one sentence saying why not.
-/// Every condition is a whole state another side stated, read rather than evaluated (<c>docs/ipc-api.md</c>, "The rule").
+/// Every condition is a whole state another side stated, read rather than evaluated (<c>docs/ipc-api.md</c>,
+/// "The rule").
 /// Live stream blocks nothing; it picks <see cref="Commit"/> instead.
-/// Record, so a render pass over unchanged state compares equal and
-/// <see cref="ReviewStep.ViewModel.ReviewStepViewModel.Apply"/> stays idempotent.
+/// Record, so a render pass over unchanged state compares equal
+/// and <see cref="ReviewStep.ViewModel.ReviewStepViewModel.Apply"/> stays idempotent.
 /// </summary>
 public sealed record PublishGate
 {
@@ -37,7 +39,8 @@ public sealed record PublishGate
     public required PublishCommit Commit { get; init; }
 
     /// <summary>
-    /// Why not pressable. Empty where pressable, and where the settings themselves block.
+    /// Why not pressable.
+    /// Empty where pressable, and where the settings themselves block.
     /// Preflight list beside the button carries those in the backend's words.
     /// </summary>
     public required string Blocked { get; init; }
@@ -71,8 +74,8 @@ public sealed record PublishGate
             Blocked = blocked,
         };
 
-        // Asserted where produced, not where relied on: review draws the label off this gate, flow sends the
-        // effect it names.
+        // Asserted where produced, not where relied on: review draws the label off this gate,
+        // flow sends the effect it names.
         Assert.That(
             (gate.Commit == PublishCommit.Apply) == (publish?.Live is not null),
             "a commit that applies has a stream to apply to", gate.Commit);
@@ -90,8 +93,9 @@ public sealed record PublishGate
         => publish?.Live is not null ? PublishCommit.Apply : PublishCommit.Start;
 
     /// <summary>
-    /// First condition in the way, in the order a reader fixes them: unreachable backend, then relay with
-    /// nothing to send to. One sentence only, the second saying no more than the first.
+    /// First condition in the way, in the order a reader fixes them: unreachable backend,
+    /// then relay with nothing to send to.
+    /// One sentence only, the second saying no more than the first.
     /// Live stream is not among them: <see cref="PublishCommit.Apply"/> is the effect for that state.
     /// </summary>
     private static string BlockedBy(string unreachable, RelayStatus? relay)

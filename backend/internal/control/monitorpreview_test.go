@@ -15,9 +15,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// A start the backend refuses with a plain error is FAILED_PRECONDITION: the request is well formed,
-// every integer being a monitor index somewhere, and what refuses it is a fact about this machine.
-// That is the line docs/ipc-api.md draws between the two codes.
+// A start the backend refuses with a plain error is FAILED_PRECONDITION:
+// the request is well formed, every integer being a monitor index somewhere,
+// and what refuses it is a fact about this machine.
+// The line docs/ipc-api.md draws between the two codes.
 // The sentence stays the backend's, so the reason travels instead of being replaced.
 func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	server := New(&fakeBackend{err: errors.New("this session cannot read one monitor apart from another")},
@@ -41,9 +42,10 @@ func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	}
 }
 
-// An index no output is enumerated under is INVALID_ARGUMENT, which the contract states and which
-// only a typed refusal can carry: both cases arrive as an error from one method, and a code read off
-// the sentence would be the contract deriving itself from prose (refusal.go).
+// An index no output is enumerated under is INVALID_ARGUMENT,
+// which the contract states and which only a typed refusal can carry:
+// both cases arrive as an error from one method,
+// and a code read off the sentence would be the contract deriving itself from prose (refusal.go).
 func TestAPreviewOfAScreenThatDoesNotExistIsARequestFault(t *testing.T) {
 	server := New(&fakeBackend{err: Refuse("monitor 9 is not one of this machine's outputs")},
 		events.New(), "test")
@@ -61,9 +63,9 @@ func TestAPreviewOfAScreenThatDoesNotExistIsARequestFault(t *testing.T) {
 	}
 }
 
-// The same line on the watch pair: a leg this build has no viewer for is the request naming
-// something that does not exist, while a leg that cannot carry the stream's present format is the
-// world not being ready.
+// The same line on the watch pair:
+// a leg this build has no viewer for is the request naming something that does not exist,
+// while a leg that cannot carry the stream's format is the world not being ready.
 func TestAWatchOverALegThisBuildHasNoViewerForIsARequestFault(t *testing.T) {
 	viewer := &screensharev1.StreamRef{StreamName: "desk", Transport: "moq"}
 
@@ -80,8 +82,8 @@ func TestAWatchOverALegThisBuildHasNoViewerForIsARequestFault(t *testing.T) {
 	}
 }
 
-// A stop names the state the caller wants, and for a screen nothing is reading that state already
-// holds, so the call succeeds: the idempotency the whole contract is built on.
+// A stop names the state the caller wants, and for a screen nothing is reading that state holds,
+// so the call succeeds: the idempotency the whole contract is built on.
 // The backend's error field is set to prove the stop never consults it.
 func TestStoppingAScreenNobodyIsReadingSucceeds(t *testing.T) {
 	server := New(&fakeBackend{err: errors.New("would refuse anything that asked")}, events.New(), "test")
@@ -92,10 +94,11 @@ func TestStoppingAScreenNobodyIsReadingSucceeds(t *testing.T) {
 	}
 }
 
-// The three subscription arms reach three different backend methods, and one that named no arm is
-// refused rather than served the first.
-// Two arms carry no key, so a discriminator read off a missing key would send an empty request to
-// whichever method it fell through to.
+// The three subscription arms reach three different backend methods,
+// and one that named no arm is refused rather than served the first.
+// Two arms carry no key,
+// so a discriminator read off a missing key would send an empty request to whichever method it fell
+// through to.
 func TestAFrameSubscriptionNamesOneOfTheThreePictures(t *testing.T) {
 	for name, tc := range map[string]struct {
 		subscribe *screensharev1.FrameSubscribe

@@ -7,13 +7,11 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Audio source list, as the shell writes into it.
-///
-/// A field key addresses the settings message, and a list entry makes that address three steps rather than
-/// two: the group, the entry of a repeated field, the field inside it.
-///
-/// What these lock out is the shell knowing anything more about the list.
-/// It appends no entry it was not addressed to, decides nothing about which entry is which, and looks copy up
-/// by the control rather than by the entry (docs/ipc-api.md, "The rule").
+/// A field key addresses the settings message, and a list entry makes that address three steps rather than two:
+/// the group, the entry of a repeated field, the field inside it.
+/// Locked out is the shell knowing anything more about the list.
+/// It appends no entry it was not addressed to, decides nothing about which entry is which,
+/// and looks copy up by the control rather than by the entry (<c>docs/ipc-api.md</c>, "The rule").
 /// </summary>
 public sealed class AudioListTests
 {
@@ -34,8 +32,8 @@ public sealed class AudioListTests
 
     /// <summary>
     /// The row the form draws past the end is what a reader grows the list by.
-    /// Adding a source is therefore an ordinary settings write through an ordinary control, with no effect of
-    /// its own on the contract.
+    /// Adding a source is an ordinary settings write through an ordinary control,
+    /// with no effect of its own on the contract.
     /// </summary>
     [Fact]
     public void AWriteOnePastTheEndAddsTheEntry()
@@ -50,8 +48,7 @@ public sealed class AudioListTests
 
     /// <summary>
     /// An absent level is unity rather than silence.
-    /// The field carries presence for that reason: a source a reader has just added is not one nobody can
-    /// hear.
+    /// The field carries presence: a source a reader has just added is not one nobody can hear.
     /// </summary>
     [Fact]
     public void AFreshEntryCarriesNoLevelOfItsOwn()

@@ -6,7 +6,7 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Wait every asked-for effect on this surface is drawn from.
 /// One field carries it, read both by the control that draws the spinner and by the refusal of a second press,
-/// so what is asserted is what those two readers see rather than that a flag was assigned.
+/// so asserted is what those two readers see, not that a flag was assigned.
 /// </summary>
 public sealed class PendingCommandTests
 {

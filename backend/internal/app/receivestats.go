@@ -9,37 +9,36 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// receiveStatsInterval is how often the poll below reads the running decodes.
-//
-// One second, the publish side's progress cadence: a diagnostic moving at two speeds on two screens
-// of one app is one a reader has to learn twice.
+// receiveStatsInterval is how often the poll reads the running decodes.
+// The publish side's progress cadence:
+// a diagnostic moving at two speeds on two screens of one app is one a reader learns twice.
 const receiveStatsInterval = time.Second
 
 // startReceiveStatsPoll begins the sampling of the running decodes.
 //
-// Idempotent, and sync.Once is what states it, as in startRelayPoll: a second call joins the loop
-// already running rather than starting a second one that samples twice as often and halves the
-// interval the deltas are divided by.
+// Idempotent through sync.Once, as startRelayPoll is:
+// a second call joins the loop already running rather than starting one that samples twice as often
+// and halves the interval the deltas are divided by.
 func (a *App) startReceiveStatsPoll() {
 	a.receiveStatsOnce.Do(func() { go a.pollReceiveStats() })
 }
 
 // stopReceiveStatsPoll ends the sampling, and is safe with none running:
-// the channel is closed once, and a loop that has not started yet finds it closed at its first
-// select.
+// the channel closes once, and a loop yet to start finds it closed at its first select.
 func (a *App) stopReceiveStatsPoll() {
 	a.receiveStatsStopOnce.Do(func() { close(a.receiveStatsStop) })
 }
 
 // pollReceiveStats samples every running decode until receiveStatsStop closes.
 //
-// The previous sample lives here rather than on the App, and that is what keeps it honest:
-// this goroutine is the only writer and the only reader, so no other path can slip a sample in
-// between two ticks and shorten the interval a delta is divided by.
+// The previous sample lives here rather than on the App:
+// this goroutine is the only writer and the only reader,
+// so no other path can slip a sample in between two ticks,
+// shortening the interval a delta is divided by.
 //
 // The wait comes before the sample.
-// Nothing is decoding at process start, and the first tick after a decode opens is the first with
-// two readings to subtract anyway.
+// Nothing is decoding at process start,
+// and the first tick after a decode opens is the first with two readings to subtract anyway.
 func (a *App) pollReceiveStats() {
 	assert.Assert(receiveStatsInterval > 0, "a sampling interval is positive")
 
@@ -49,8 +48,8 @@ func (a *App) pollReceiveStats() {
 	previous := map[StreamRef]receive.Stats{}
 
 	// Quiet to begin with, so a process that has never decoded anything announces nothing:
-	// the empty announcement below exists to take a decode's counters off a shell holding them, and
-	// before the first decode there are none to take off.
+	// the empty announcement below takes a decode's counters off a shell holding them,
+	// and before the first decode there are none to take off.
 	quiet := true
 
 	for {
@@ -62,9 +61,8 @@ func (a *App) pollReceiveStats() {
 
 		sample := a.sampleReceiveStats(previous)
 
-		// A tick with nothing decoding is announced once and then not again.
-		// The announcement is what takes the last decode's counters off a shell still holding them;
-		// repeating it every second afterwards would wake every subscriber to say nothing happened.
+		// A tick with nothing decoding is announced once and not again:
+		// repeating it every second would wake every subscriber to say nothing happened.
 		if len(sample) == 0 {
 			if quiet {
 				continue
@@ -81,11 +79,11 @@ func (a *App) pollReceiveStats() {
 // sampleReceiveStats reads every running decode and derives the rates against the previous reading,
 // which it then replaces.
 //
-// It holds procMu across the reads, as ReceiveState does and for the same reason: a receiver's stats
-// are read off its running pipeline, and a receiver a stop took out of the map meanwhile is one
-// whose pipeline is being torn down.
+// procMu is held across the reads, as ReceiveState holds it:
+// stats are read off a running pipeline,
+// and a receiver a stop took out of the map meanwhile is one whose pipeline is being torn down.
 //
-// Decodes that have ended drop out of previous here.
+// Ended decodes drop out of previous here.
 // Nothing else prunes it, and it would otherwise hold a reading per decode this process ever ran.
 func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.ReceiveStreamStats {
 	a.procMu.Lock()
@@ -97,8 +95,8 @@ func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.Re
 		}
 	}
 
-	// The publishing stages of a budget are this machine's own leg, and they belong to a decode only
-	// where that decode is of the stream this machine sends.
+	// A budget's publishing stages are this machine's own leg,
+	// and belong to a decode only where that decode is of the stream this machine sends.
 	// Read once for the whole sample: a.run is the same run for every decode in it.
 	published, publishing := a.publishedPathLocked()
 
@@ -124,12 +122,13 @@ func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.Re
 // receiveStatsOf turns one reading into the sample a shell draws.
 //
 // Counters, sizes and the negotiated figures are the reading as it stands.
-// A rate is derived against the reading before it, and is absent rather than zero where there is no
-// interval to take it over: absent is unmeasured, and a measured zero is a stream carrying nothing.
+// A rate is derived against the reading before it,
+// absent rather than zero where there is no interval to take it over:
+// absent is unmeasured, and a measured zero is a stream carrying nothing.
 //
 // last is the previous reading and seen whether there was one.
-// Both are needed: a decode on its first tick has no previous reading, and a rebuilt decode has one
-// belonging to a pipeline that no longer exists.
+// Both are needed: a decode on its first tick has no previous reading,
+// and a rebuilt decode has one belonging to a pipeline that is gone.
 func receiveStatsOf(ref StreamRef, now, last receive.Stats, seen bool) wire.ReceiveStreamStats {
 	out := wire.ReceiveStreamStats{
 		Stream: wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
@@ -195,13 +194,13 @@ func receiveStatsOf(ref StreamRef, now, last receive.Stats, seen bool) wire.Rece
 	}
 
 	// The interval is the difference between the pipeline's own two uptimes, not the ticker's period.
-	// A tick the scheduler held back would otherwise divide a real delta by a nominal interval and
-	// report a rate the decode never ran at.
+	// A tick the scheduler held back would otherwise divide a real delta by a nominal interval,
+	// reporting a rate the decode never ran at.
 	elapsed := (now.Uptime - last.Uptime).Seconds()
 	if !seen || elapsed <= 0 {
-		// A pipeline rebuilt under one ref restarts its uptime and its counters, so the reading before
-		// it describes something that no longer exists.
-		// No rate is the honest answer for that tick, and the next one has two readings of one run.
+		// A pipeline rebuilt under one ref restarts its uptime and its counters,
+		// so the reading before it describes a pipeline that is gone.
+		// No rate is the honest answer for that tick, and the next has two readings of one run.
 		return out
 	}
 
@@ -213,13 +212,13 @@ func receiveStatsOf(ref StreamRef, now, last receive.Stats, seen bool) wire.Rece
 	return out
 }
 
-// heldBack is what the decoder has taken in and not handed on, which is the frames it discarded
-// answering QoS plus the few it is holding at this instant.
+// heldBack is what the decoder took in and did not hand on:
+// frames discarded answering QoS, plus the few held at this instant.
 //
-// A rate over two of these is the discard alone: a decoder's own depth is a constant handful, so it
-// stands in both readings and cancels.
-// Zero rather than a negative where the output pad is the one ahead, the two counters being read one
-// after the other off a pipeline that is still running.
+// A rate over two of these is the discard alone,
+// a decoder's own depth being a constant handful that stands in both readings and cancels.
+// Zero rather than a negative where the output pad is the one ahead,
+// the two counters being read one after the other off a running pipeline.
 func heldBack(s receive.Stats) uint64 {
 	if s.VideoDecoded >= s.VideoFrames {
 		return 0
@@ -227,8 +226,7 @@ func heldBack(s receive.Stats) uint64 {
 	return s.VideoFrames - s.VideoDecoded
 }
 
-// receiveStatGroupsOf carries the transport's own counters over, in the order the pipeline holds the
-// elements.
+// receiveStatGroupsOf carries the transport's own counters over, in the pipeline's element order.
 func receiveStatGroupsOf(groups []receive.StatGroup) []wire.ReceiveStatGroup {
 	if len(groups) == 0 {
 		return nil
@@ -245,11 +243,11 @@ func receiveStatGroupsOf(groups []receive.StatGroup) []wire.ReceiveStatGroup {
 	return out
 }
 
-// perSecond is one monotonic counter's rate over elapsed seconds, scaled into the unit the figure is
-// reported in: bytes to Mbit/s at 8.0/1e6, frames to a frame rate at 1.
+// perSecond is one monotonic counter's rate over elapsed seconds, scaled into the reported unit:
+// bytes to Mbit/s at 8.0/1e6, frames to a frame rate at 1.
 //
-// nil where the counter went backwards, which means the pipeline behind it was replaced: that is a
-// rebuild rather than a measurement of zero.
+// nil where the counter went backwards, which is the pipeline behind it replaced:
+// a rebuild rather than a measurement of zero.
 // The interval is the caller's to have checked.
 func perSecond(now, last uint64, elapsed, scale float64) *float64 {
 	assert.Assert(elapsed > 0, "a rate is taken over a positive interval", elapsed)
@@ -262,6 +260,6 @@ func perSecond(now, last uint64, elapsed, scale float64) *float64 {
 	return &rate
 }
 
-// msOf is a duration in milliseconds, the unit the contract states latencies in because it is the
-// unit the settings ask for them in.
+// msOf is a duration in milliseconds,
+// the unit the contract states latencies in because the settings ask for them in it.
 func msOf(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }

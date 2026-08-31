@@ -3,8 +3,8 @@ package receive
 import "testing"
 
 // TestStatSourcesAreWellFormed holds the table's invariants.
-// A source that names no factory matches no element, and one that takes no field would report an
-// empty group for every pipeline holding that element.
+// A source that names no factory matches no element, and one that takes no field would report
+// an empty group for every pipeline holding that element.
 func TestStatSourcesAreWellFormed(t *testing.T) {
 	seen := map[string]bool{}
 	for _, src := range statSources {
@@ -34,7 +34,7 @@ func TestStatSourcesAreWellFormed(t *testing.T) {
 
 // TestStatValueReadsTheTypesElementsCount guards the one narrowing this file does.
 // A counter arrives as whatever GValue the element chose, so a type statValue leaves out is a row
-// that silently never appears.
+// that never appears.
 func TestStatValueReadsTheTypesElementsCount(t *testing.T) {
 	counted := []any{float64(1), float32(1), int(1), int32(1), int64(1), uint32(1), uint64(1)}
 	for _, v := range counted {

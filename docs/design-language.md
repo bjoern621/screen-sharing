@@ -61,12 +61,12 @@ The module ships the family (`Avalonia.Fonts.Inter`, registered in `Program`), s
 A single role spends it, the **transcript**: a line reproduced from another process rather than composed here, which is the session log and what lands in it.
 Such a line is an error nobody here wrote, wrapping over several rows of element names, socket addresses and codes, and the reader's next move is to copy a piece of it into a search box or a bug report.
 Mono is what that reading needs: the columns hold under the wrap, and `0` stays unmistakable against `O`.
-The cut bundled is the ligature-free one (`JetBrains Mono NL`), because `->` or `//` drawn as a single glyph is a string the reader can no longer match against the text the backend printed.
+The cut bundled is the ligature-free one (`JetBrains Mono NL`), because `->` or `//` drawn as a single glyph is a string the reader cannot match against the text the backend printed.
 
 Nothing else crosses over.
 An identifier this product names for itself, `hevc_nvenc` or `gbrp`, sits inline in prose where a change of face would read as a change of subject, so it keeps Inter and is marked by the identifier role instead, one step quieter and one smaller than the copy beside it.
 Digit alignment likewise stays a font feature rather than a face: **numbers that tick, count or sit in a column are set in tabular figures** (`FigureFeatures`, Inter's `tnum`), one advance width per digit without changing the face.
-A timer, a throughput reading, a table cell and a plot annotation hold still as they update, and a line mixing prose and figures no longer changes shape halfway through.
+A timer, a throughput reading, a table cell and a plot annotation hold still as they update, and a line mixing prose and figures keeps its shape halfway through.
 
 Weight is where the dark palette is paid for.
 400 on `#141414`–`#262626` reads thin enough that muted grey copy starts to disappear, so body weight is **500** and emphasis **600**.
@@ -146,7 +146,8 @@ One vocabulary everywhere, on a chip, a tile, the status bar and a button:
   Otherwise the tile names the one thing it waits for.
 - Live: the same small dot, and on the publishing surface the sharing pill: a solid white dot, the word `Sharing`, an elapsed timer in tabular figures.
 - Degraded: the amber, the figure that is out of bounds, and the stream still running.
-- Failed: the red, the reason in words, and a retry the surface already offers. Video tiles and the chips that drop them carry the reason in words alone and spend no colour on it ("Video surfaces").
+- Failed: the red, the reason in words, and a retry the surface already offers.
+  Video tiles and the chips that drop them carry the reason in words alone and spend no colour on it ("Video surfaces").
 
 The dot stays small (7px): state, not decoration.
 
@@ -272,7 +273,7 @@ Emoji are never used: the platform emoji font paints them in colour and ignores 
 Window controls are geometry rather than text, for the same reason a font's box-drawing metrics cannot be relied on: on Windows the caption glyphs live in Segoe Fluent Icons' private use area, so a missing face paints a tofu box where the close button was.
 
 The shell uses the Tabler outline set, through `TablerIcons.Avalonia`.
-Platform icon themes are deliberately not used, so every surface shows the same glyphs.
+Platform icon themes go unused, so every surface shows the same glyphs.
 No surface draws its own path: a hand-written tick or chevron would be a fourth icon set nobody maintains, and would miss the stroke rule the first time it was resized.
 
 The window controls are the one exception and are not on the ladder above.

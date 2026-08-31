@@ -1,6 +1,6 @@
 <#
-  whoislive.ps1 - list active streams on the relay via MediaMTX HTTP API.
-  This is your account-free discovery: shows who is publishing + their bitrate.
+  whoislive.ps1 - list the relay's active streams over the MediaMTX HTTP API.
+  Account-free discovery: who is publishing, their tracks and their readers.
 
   Examples:
     ./whoislive.ps1

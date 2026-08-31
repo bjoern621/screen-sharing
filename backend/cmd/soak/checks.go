@@ -14,34 +14,37 @@ import (
 
 // What a control owes the widget bound to it, and what a form owes the screen as a whole.
 //
-// Every check here is one a reader meets as a blank or as a figure that is wrong rather than
-// missing: a slider whose top a drag never lands on, a control carrying one number while the draft
-// holds another, an entry listed twice, a sentence anchored to a field the form does not draw.
+// Every check here is one a reader meets as a blank,
+// or as a figure that is wrong rather than missing:
+// a slider whose top a drag never lands on,
+// a control carrying one number while the draft holds another,
+// an entry listed twice, a sentence anchored to a field the form does not draw.
 // None of them needs silicon, so they run on every resolve the walk makes.
 
-// encoderRateCeiling is the largest rate an encoder takes, every one of them reading it as a signed
-// 32-bit count of bits per second.
+// encoderRateCeiling is the largest rate an encoder takes,
+// every one of them reading it as a signed 32-bit count of bits per second.
 // A command carrying more than this is a pipeline that dies at launch on a value the form offered.
 const encoderRateCeiling = math.MaxInt32
 
-// longNumber finds the figures in a rendered command large enough to be worth checking against that
-// ceiling. Ten digits is the width at which a bits-per-second value first reaches it.
+// longNumber finds the figures in a rendered command large enough to check against that ceiling.
+// Ten digits is the width at which a bits-per-second value first reaches it.
 var longNumber = regexp.MustCompile(`[0-9]{10,}`)
 
 // checkControl holds one control to what a widget bound to it needs.
 func checkControl(run *session, field *v1.Field, settings *v1.Settings) {
 	key := field.GetKey()
 
-	// A widget draws Field.value and a start sends the draft, so a disagreement between them is a
-	// figure on screen that no stream will ever run.
+	// A widget draws Field.value and a start sends the draft,
+	// so a disagreement between them is a figure on screen that no stream will ever run.
 	if shown, held := shownValue(field.GetValue()), readField(settings, key); shown != "" && held != "" && !sameValue(shown, held) {
 		run.report.report("form.value_disagrees_with_settings", "form/value-mismatch/"+key,
 			fmt.Sprintf("the control carries %q and the draft holds %q", shown, held),
 			map[string]string{"key": key, "shown": shown, "held": held}, settings)
 	}
 
-	// A read-back figure lists nothing and edits nothing, so its cause is what the screen puts in
-	// place of an interaction (form.proto, CONTROL_KIND_READONLY).
+	// A read-back figure lists nothing and edits nothing,
+	// so its cause is what the screen puts in place of an interaction
+	// (form.proto, CONTROL_KIND_READONLY).
 	if field.GetControl() == v1.ControlKind_CONTROL_KIND_READONLY && field.GetEnabled() {
 		run.report.report("form.readonly_enabled", "form/readonly-enabled/"+key,
 			"a figure carrying no input arrives editable", map[string]string{"key": key}, settings)
@@ -68,14 +71,14 @@ func checkControl(run *session, field *v1.Field, settings *v1.Settings) {
 
 // checkRangeShape holds a numeric control to the band it states.
 //
-// The stops a slider offers are the round figures inside the band plus both ends, so a 20 ms floor
-// stepping by 50 stops on 20, 50, 100 and reaches 8000
+// The stops a slider offers are the round figures inside the band plus both ends,
+// so a 20 ms floor stepping by 50 stops on 20, 50, 100 and reaches 8000
 // (avalonia/.../Fields/ViewModel/FieldViewModel.cs, Ticks).
-// A held value off that ladder is one no drag lands on, and a drag past it is a figure changing
-// under the reader's hands.
+// A held value off that ladder is one no drag lands on,
+// and a drag past it is a figure changing under the reader's hands.
 //
-// An entry outside the band is legal on a number-select and on nothing else, the burst ceiling's
-// zero being the case that exists (form.proto, CONTROL_KIND_NUMBER_SELECT).
+// An entry outside the band is legal on a number-select and on nothing else,
+// the burst ceiling's zero being the case that exists (form.proto, CONTROL_KIND_NUMBER_SELECT).
 func checkRangeShape(run *session, field *v1.Field, settings *v1.Settings) {
 	key := field.GetKey()
 	r := field.GetRange()
@@ -130,8 +133,8 @@ func checkWhole(run *session, form *v1.Form, settings *v1.Settings) {
 				"a diagnostic carries no statement to word",
 				map[string]string{"key": d.GetFieldKey()}, settings)
 		}
-		// A diagnostic is drawn beside the control it names, so one naming a field this form does
-		// not carry is a sentence with nowhere to land.
+		// A diagnostic is drawn beside the control it names,
+		// so one naming a field this form does not carry is a sentence with nowhere to land.
 		if key := d.GetFieldKey(); key != "" && !drawn[key] {
 			run.report.report("form.diagnostic_off_form", "form/orphan-diagnostic/"+key,
 				fmt.Sprintf("a diagnostic names %s and no group carries that field", key),
@@ -142,8 +145,9 @@ func checkWhole(run *session, form *v1.Form, settings *v1.Settings) {
 		}
 	}
 
-	// Publishable is given rather than derived so that a start button disables without a shell
-	// ranking diagnostics, which holds only while the two agree (form.proto, Form.publishable).
+	// Publishable is given rather than derived,
+	// so a start button disables without a shell ranking diagnostics,
+	// which holds only while the two agree (form.proto, Form.publishable).
 	switch {
 	case form.GetPublishable() && blocking != "":
 		run.report.report("form.publishable_with_error", "form/publishable-error/"+blocking,
@@ -158,8 +162,9 @@ func checkWhole(run *session, form *v1.Form, settings *v1.Settings) {
 	checkSummary(run, form, settings)
 }
 
-// checkPresetShape holds the built-in presets to what each one owes: an outcome or a reason, never
-// both and never neither, and at most one of them already delivered.
+// checkPresetShape holds the built-in presets to what each one owes:
+// an outcome or a reason, never both and never neither,
+// and at most one of them already delivered.
 func checkPresetShape(run *session, form *v1.Form, settings *v1.Settings) {
 	selected := []string{}
 	for _, preset := range form.GetPresets() {
@@ -185,8 +190,9 @@ func checkPresetShape(run *session, form *v1.Form, settings *v1.Settings) {
 				map[string]string{"preset": key}, settings)
 		}
 	}
-	// The promises are written pairwise disjoint, so a draft delivering two of them is a table that
-	// stopped holding them apart (form.proto, BuiltinPreset.selected).
+	// The promises are written pairwise disjoint,
+	// so a draft delivering two of them is a table that stopped holding them apart
+	// (form.proto, BuiltinPreset.selected).
 	if len(selected) > 1 {
 		run.report.report("form.presets_both_selected", "form/presets-selected/"+strings.Join(selected, "+"),
 			fmt.Sprintf("the draft is reported as delivering %s at once", strings.Join(selected, " and ")),
@@ -226,9 +232,9 @@ func checkSummary(run *session, form *v1.Form, settings *v1.Settings) {
 			map[string]string{"figure": "headroom_mbps"}, settings)
 	}
 
-	// Every encoder reads its rate as a signed 32-bit count of bits per second and refuses the
-	// encode rather than clamping, so a figure above that ceiling is a launch that fails on a value
-	// the form offered as legal.
+	// Every encoder reads its rate as a signed 32-bit count of bits per second
+	// and refuses the encode rather than clamping,
+	// so a figure above that ceiling is a launch that fails on a value the form offered as legal.
 	for _, token := range longNumber.FindAllString(summary.GetCommand(), -1) {
 		value, err := strconv.ParseInt(token, 10, 64)
 		if err == nil && value > encoderRateCeiling {
@@ -242,8 +248,8 @@ func checkSummary(run *session, form *v1.Form, settings *v1.Settings) {
 
 // checkRepairsNamed holds a resolve to the moves it reported making.
 //
-// A shell reports the move instead of quietly rewriting what somebody typed (form.proto,
-// Form.repaired_field_keys), which it can do only for the keys the resolve names.
+// A shell reports the move instead of quietly rewriting what somebody typed
+// (form.proto, Form.repaired_field_keys), which it can do only for the keys the resolve names.
 // A value that moved unannounced is a control that changes under a reader's hands.
 func checkRepairsNamed(run *session, form *v1.Form, draft *v1.Settings, moved, chosen string) {
 	named := map[string]bool{}
@@ -254,8 +260,8 @@ func checkRepairsNamed(run *session, form *v1.Form, draft *v1.Settings, moved, c
 	for _, group := range form.GetGroups() {
 		for _, field := range group.GetFields() {
 			key := field.GetKey()
-			// A field the draft never set is one the backend fills, which is a default and not a
-			// repair: gain carries presence exactly so that a silent source and an unset one differ,
+			// A field the draft never set is one the backend fills, a default rather than a repair:
+			// gain carries presence exactly so that a silent source and an unset one differ,
 			// and a read answers both with zero (backend/internal/wire/settings.go, audioGain).
 			if named[key] || shifted(draft, form.GetSettings(), key) || !stated(draft, key) {
 				continue
@@ -274,8 +280,9 @@ func checkRepairsNamed(run *session, form *v1.Form, draft *v1.Settings, moved, c
 
 // shifted says whether a key names an entry of a list whose length moved between the two drafts.
 //
-// A removal takes the entries after it down a row, so every key past the removed one names a
-// different entry in the two drafts and comparing them by key compares two different sources.
+// A removal takes the entries after it down a row,
+// so every key past the removed one names a different entry in the two drafts,
+// and comparing them by key compares two different sources.
 // The removal itself is what the resolve names as the repair.
 func shifted(before, after *v1.Settings, key string) bool {
 	open := strings.Index(key, "[")
@@ -290,8 +297,8 @@ func shifted(before, after *v1.Settings, key string) bool {
 	return ok && was != is
 }
 
-// stated says whether a draft carries a value of its own for a key, as against leaving the field
-// for the backend to fill.
+// stated says whether a draft carries a value of its own for a key,
+// as against leaving the field for the backend to fill.
 func stated(settings *v1.Settings, key string) bool {
 	message, desc, err := locate(settings, key, false)
 	return err == nil && message.Has(desc)
@@ -305,11 +312,11 @@ func listLength(settings *v1.Settings, key string) (int, bool) {
 	return message.Get(desc).List().Len(), true
 }
 
-// coverage is what the walk reached, so a run states what it never asked for rather than leaving
-// that to be guessed from a seed.
+// coverage is what the walk reached,
+// so a run states what it never asked for rather than leaving that to be guessed from a seed.
 //
-// An entry offered on every form and held on none is a corner of the settings space no finding can
-// come out of, which is a gap in the run and not a defect in the product.
+// An entry offered on every form and held on none is a corner of the settings space
+// no finding can come out of, a gap in the run rather than a defect in the product.
 type coverage struct {
 	mu      sync.Mutex
 	offered map[string]map[string]bool
@@ -333,10 +340,11 @@ func newCoverage() *coverage {
 
 // see records what one form offered and what it held.
 //
-// Only what the walk may move: a field it is barred from writing was never going to be covered, and
-// reporting the fact would be the run describing its own rules back to itself.
-// Only the entries of a select, too, a number-select's being shortcuts recomputed against whatever
-// the target holds rather than a list to work through (form.proto, CONTROL_KIND_NUMBER_SELECT).
+// Only what the walk may move: a field it is barred from writing was never going to be covered,
+// and reporting the fact would be the run describing its own rules back to itself.
+// Only the entries of a select, too,
+// a number-select's being shortcuts recomputed against whatever the target holds
+// rather than a list to work through (form.proto, CONTROL_KIND_NUMBER_SELECT).
 func (c *coverage) see(form *v1.Form) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -379,8 +387,8 @@ func (c *coverage) see(form *v1.Form) {
 	}
 }
 
-// report states every entry the walk was offered and never held, and every band it never stood at
-// an end of.
+// report states every entry the walk was offered and never held,
+// and every band it never stood at an end of.
 func (c *coverage) report(run *session) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -453,8 +461,8 @@ func heldNumber(value *v1.FieldValue) (int64, bool) {
 	return 0, false
 }
 
-// offered says whether a number is one of the entries listed beside a band, which is the one thing
-// a number-select can say that a range alone cannot.
+// offered says whether a number is one of the entries listed beside a band,
+// which is the one thing a number-select can say that a range alone cannot.
 func offered(field *v1.Field, value int64) bool {
 	for _, option := range field.GetOptions() {
 		if n, err := strconv.ParseInt(option.GetValue(), 10, 64); err == nil && n == value {

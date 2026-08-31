@@ -7,8 +7,8 @@ namespace ScreenShare.App.Features.Shell.TitleBar.ViewModel;
 /// <summary>
 /// Title bar's state: which window this is, and the commands its window controls fire.
 ///
-/// Minimise, maximise and close are the platform's rather than the app's, and the only effects on any screen a
-/// view model cannot carry out itself.
+/// Minimise, maximise and close are the platform's rather than the app's, and the only effects on any screen
+/// a view model cannot carry out itself.
 /// They arrive through <see cref="Attach"/> rather than being reached for, so the bar is constructible in a test
 /// and the window is built around the view model rather than the other way round.
 /// </summary>
@@ -52,8 +52,8 @@ public sealed class TitleBarViewModel : Observable
 
     /// <summary>
     /// Whether the window is maximised.
-    /// Told rather than inferred from the command last fired: the window state also moves from the desktop, from
-    /// a double click on the band and from a snap gesture.
+    /// Told rather than inferred from the command last fired: the window state also moves from the desktop,
+    /// from a double click on the band and from a snap gesture.
     /// Idempotent.
     /// </summary>
     public void ShowMaximised(bool maximised)
@@ -97,8 +97,8 @@ public sealed class TitleBarViewModel : Observable
 
     /// <summary>
     /// One render function.
-    /// The design names a title for the viewer window alone, so the pattern (destination, middle dot, session) is
-    /// this module's reading of that one, applied to every destination.
+    /// The design names a title for the viewer window alone, so the pattern (destination, middle dot, session)
+    /// is this module's reading of that one, applied to every destination.
     /// </summary>
     public void Apply()
     {

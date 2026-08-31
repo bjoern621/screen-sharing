@@ -39,9 +39,12 @@ A view that caches `stream.Transport` at construction and never refreshes it kee
 Rules:
 
 - A field on a view that mirrors a model field is a defect, unless it is a widget handle or a cache the render function refills on every pass.
-- A model exposes accessors, not its slice. `Session.Stream(i)` is read through. A view that stores the result must refresh it from the same accessor when the model says it changed.
+- A model exposes accessors, not its slice.
+  `Session.Stream(i)` is read through.
+  A view that stores the result must refresh it from the same accessor when the model says it changed.
 - State that must survive a restart is written through a store, not reconstructed from widgets.
-- An observer that ignores a change kind is silently stale. Handle every kind or assert on the ones that cannot occur.
+- An observer that ignores a change kind is silently stale.
+  Handle every kind or assert on the ones that cannot occur.
 
 ## One render function per component
 
@@ -50,7 +53,7 @@ The house names are `apply`, `draw` and `sync`.
 
 Event handlers change the model and call the render function.
 They do not reach into widgets themselves.
-A handler that sets a label directly means the render function alone can no longer restore a correct view.
+A handler that sets a label directly means the render function alone cannot restore a correct view.
 The component then has two definitions of what it looks like.
 
 The render function sets everything the component can show on every pass, including the branch that turns something off.
@@ -63,7 +66,8 @@ A second run with unchanged input produces no visible change, no new widgets, no
 
 Naming carries the contract:
 
-- `SetX`, `Apply`, `Sync`, `Draw`, `Rebuild`: idempotent. Calling twice equals calling once.
+- `SetX`, `Apply`, `Sync`, `Draw`, `Rebuild`: idempotent.
+  Calling twice equals calling once.
 - `ToggleX`, `Move`, `Step`, `Advance`: not idempotent, and the verb says so.
 
 A reconcile takes desired state and converges to it.

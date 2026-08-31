@@ -8,8 +8,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The two player-and-pipeline lists differ by one leg, and it is one no player URL expresses: WHEP
-// is a signaling exchange rather than an address.
+// The player and pipeline lists differ by one leg no player URL expresses: WHEP is a signaling
+// exchange rather than an address.
 func TestWatchNamesArePerEngine(t *testing.T) {
 	players := WatchNames(capabilities.EngineFfmpeg)
 	pipeline := WatchNames(capabilities.EngineGst)
@@ -37,7 +37,7 @@ func TestWatchNamesArePerEngine(t *testing.T) {
 	}
 }
 
-// The browser's list is neither of the other two: it is the legs the relay serves a page for.
+// The browser's list is neither of the others: the legs the relay serves a page for.
 // WHEP and MoQ are on it and no player opens either, and SRT is off it although both other readers
 // take it, a browser reaching a relay listener over HTTP and nothing else.
 func TestBrowserWatchNamesAreTheLegsWithAPage(t *testing.T) {

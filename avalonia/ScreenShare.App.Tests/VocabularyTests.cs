@@ -8,15 +8,14 @@ namespace ScreenShare.App.Tests;
 /// What an entry is called, where its own value does not say enough.
 ///
 /// Defect locked out: one name printed twice.
-/// The backend identifies an option by its value alone and leaves the naming to the shell, and one screen is
-/// read by both publish engines, so the source name alone offers the same entry twice.
-/// The separating fact is a column of the catalog, so the rule is: name against the table rather than off the
-/// row.
+/// The backend identifies an option by its value alone and leaves the naming to the shell,
+/// and one screen is read by both publish engines, so the source name alone offers the same entry twice.
+/// The separating fact is a column of the catalog, so a name is composed against the table and not off the row.
 /// </summary>
 public sealed class VocabularyTests
 {
     /// <summary>
-    /// The catalog rows a name is composed from.
+    /// Catalog rows a name is composed from.
     /// Only the columns the naming reads are set, so a test about naming asserts nothing about availability.
     /// </summary>
     private static Vocabulary Words(params object[] rows)
@@ -60,8 +59,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// The engine is what a refusal elsewhere tells the reader to change, so it is on every entry rather than
-    /// only on the ones that would otherwise collide.
+    /// Engine is what a refusal elsewhere tells the reader to change,
+    /// so it is on every entry rather than only on the ones that would otherwise collide.
     /// </summary>
     [Fact]
     public void ACaptureBackendNamesItsEngineEvenWhereNothingSharesItsSource()
@@ -72,8 +71,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// The CPU encoders are what the reader chooses between once a format is picked, so each names its own
-    /// project: three of them code AV1 and "CPU" alone would offer the same entry three times.
+    /// CPU encoders are what the reader chooses between once a format is picked, so each names its own project:
+    /// three of them code AV1, and "CPU" alone offers the same entry three times.
     /// </summary>
     [Fact]
     public void TheCpuEncodersOfOneFormatAreToldApart()
@@ -87,8 +86,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// A hardware family is one encoder, so the entry is named for the thing a reader either has or does not
-    /// rather than for the runtime that drives it.
+    /// A hardware family is one encoder,
+    /// so the entry is named for the thing a reader either has or does not, never for the runtime driving it.
     /// </summary>
     [Fact]
     public void AHardwareEncoderIsNamedByTheHardware()
@@ -97,9 +96,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// The catalog arrives after the first form does, so an entry is nameable without it.
-    /// What is left where nothing names a value is the backend's own, which a reader can still pick, search for
-    /// and report.
+    /// Catalog arrives after the first form does, so an entry is nameable without it.
+    /// Where nothing names a value the backend's own is left, which a reader can pick, search for and report.
     /// </summary>
     [Fact]
     public void WithoutTheCatalogAnEntryIsNamedByWhatTheBackendCalledIt()
@@ -108,7 +106,7 @@ public sealed class VocabularyTests
         Assert.Equal("X11 screen", Vocabulary.Empty.Name("publish.capture", "x11grab"));
     }
 
-    /// <summary>The quality group as the backend resolves it, with the ceiling control in the state it stated.</summary>
+    /// <summary>Quality group as the backend resolves it, with the ceiling control in the state it stated.</summary>
     private static FieldGroup QualityGroup(bool ceilingOffered, long ceilingMbps)
     {
         var group = new FieldGroup { Key = "quality" };
@@ -128,8 +126,8 @@ public sealed class VocabularyTests
     };
 
     /// <summary>
-    /// A quality target names no rate a reader can hold against their connection, so the line carries the rate the
-    /// encode is held to where there is one.
+    /// A quality target names no rate a reader can hold against their connection,
+    /// so the line carries the rate the encode is held to where there is one.
     /// </summary>
     [Fact]
     public void AQualityTargetCarriesTheRateItIsHeldTo()
@@ -143,8 +141,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// An encoder that bounds nothing greys the control, and the line then names no bound: the stored figure is
-    /// one the encode is not holding, and printing it would describe a stream nobody is sending.
+    /// An encoder that bounds nothing greys the control, and the line then names no bound:
+    /// the stored figure is one the encode is not holding, and printing it describes a stream nobody is sending.
     /// </summary>
     [Fact]
     public void AnUnboundedQualityTargetNamesNoRate()

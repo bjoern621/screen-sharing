@@ -20,23 +20,27 @@
         Foreground="{StaticResource ControlForegroundBrush}">
 
   <!--
-    This theme and the client-area extension are applied together from the code-behind, and only where this app
-    draws the caption (Features/Shell/Model/WindowChrome.cs). Where the desktop draws the frame, on Linux,
-    neither is applied and above the nav strip is whatever that desktop puts there, which on a tiling session
-    is nothing.
+    This theme and the client-area extension are applied together from the code-behind,
+    and only where this app draws the caption (Features/Shell/Model/WindowChrome.cs).
+    Where the desktop draws the frame, on Linux, neither is applied,
+    and above the nav strip is whatever that desktop puts there, which on a tiling session is nothing.
 
-    Decorations stay Full with the client area extended over them, rather than BorderOnly. BorderOnly drops the
-    caption from the native frame, and on Win32 the caption is what the compositor animates: no open, close,
-    minimise or restore transition, and a top edge widened to the bare resize frame. Extending keeps the frame
-    whole and paints underneath it, so the platform's animations, snap and shadow survive.
+    Decorations stay Full with the client area extended over them, rather than BorderOnly.
+    BorderOnly drops the caption from the native frame,
+    and on Win32 the caption is what the compositor animates:
+    no open, close, minimise or restore transition, and a top edge widened to the bare resize frame.
+    Extending keeps the frame whole and paints underneath it,
+    so the platform's animations, snap and shadow survive.
 
-    The cost is hit-testing. With the caption present and invisible, every part of the band below has to name
-    the caption element it stands in for, which is what the WindowDecorationProperties.ElementRole marks in
-    TitleBarView do, and what puts the Windows 11 snap-layout flyout back under the maximise button.
+    The cost is hit-testing.
+    With the caption present and invisible, every part of the band below has to name the caption element it
+    stands in for, which is what the WindowDecorationProperties.ElementRole marks in TitleBarView do,
+    and what puts the Windows 11 snap-layout flyout back under the maximise button.
 
-    Extending also makes the platform ask the theme for a replacement caption, and the stock one paints its own
-    title and buttons over the band below. This theme draws nothing instead: empty decorations content, with
-    the geometry parts zeroed so no frame, shadow or caption strip is reserved either.
+    Extending also makes the platform ask the theme for a replacement caption,
+    and the stock one paints its own title and buttons over the band below.
+    This theme draws nothing instead: empty decorations content,
+    with the geometry parts zeroed so no frame, shadow or caption strip is reserved either.
   -->
   <Window.Resources>
     <ControlTheme x:Key="EmptyDecorations" TargetType="chrome:WindowDrawnDecorations">
@@ -53,16 +57,16 @@
 
   <Window.KeyBindings>
     <!--
-      A filled window draws no rail, no band and no menu, so the keyboard is the way out of it. The command
-      names the state rather than toggling one, so the key changes nothing on any other screen
-      (Features/Viewer/Model/TileIntent.cs).
+      A filled window draws no rail, no band and no menu, so the keyboard is the way out of it.
+      The command names the state rather than toggling one,
+      so the key changes nothing on any other screen (Features/Viewer/Model/TileIntent.cs).
     -->
     <KeyBinding Gesture="Escape" Command="{Binding Viewer.LeaveFullscreen}" />
   </Window.KeyBindings>
 
   <!--
-    How a destination becomes a screen: the shell picks the view model and the template picks the view, so
-    nothing in the shell names a view type.
+    How a destination becomes a screen: the shell picks the view model and the template picks the view,
+    so nothing in the shell names a view type.
   -->
   <Window.DataTemplates>
     <DataTemplate DataType="setupVm:SetupViewModel" x:DataType="setupVm:SetupViewModel">
@@ -77,23 +81,24 @@
   </Window.DataTemplates>
 
   <!--
-    Auto rows, each band stating its own height and a band that is not drawn taking none, which gives a filled
-    window to the body. The bands whose prose wraps state a minimum rather than a fixed height.
+    Auto rows, each band stating its own height and a band that is not drawn taking none,
+    which gives a filled window to the body.
+    The bands whose prose wraps state a minimum rather than a fixed height.
 
-    Each band's visibility is bound to a fact the shell owns rather than written by whoever moved it: a picture
-    filling the window under a strip is the app filling the screen instead of the stream
+    Each band's visibility is bound to a fact the shell owns rather than written by whoever moved it:
+    a picture filling the window under a strip is the app filling the screen instead of the stream
     (Features/Shell/ViewModel/ShellViewModel.cs).
 
-    Maximised, Windows hangs the frame's resize border off every edge of the work area and the client area goes
-    with it, so an unpadded band sits under the screen edge. OffScreenMargin is that overhang, read
-    continuously, so restoring gives it back to zero.
+    Maximised, Windows hangs the frame's resize border off every edge of the work area,
+    and the client area goes with it, so an unpadded band sits under the screen edge.
+    OffScreenMargin is that overhang, read continuously, so restoring gives it back to zero.
   -->
   <Grid RowDefinitions="Auto,Auto,*,Auto"
         Margin="{Binding $parent[Window].OffScreenMargin}">
 
     <!--
-      A band's own data context is its view model, so visibility is read off the window's instead: the fact is
-      the shell's and no band holds a copy of it.
+      A band's own data context is its view model, so visibility is read off the window's instead:
+      the fact is the shell's and no band holds a copy of it.
     -->
     <titlebar:TitleBarView Grid.Row="0"
                            IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasCaption}"

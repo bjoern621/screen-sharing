@@ -5,8 +5,7 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Which exclusion a system gets.
-/// Neither implementation holds state a test can read: Windows is a user32 call, every other system does
-/// nothing.
+/// Neither implementation holds readable state: Windows is a user32 call, every other system does nothing.
 /// </summary>
 public sealed class CaptureExclusionTests
 {

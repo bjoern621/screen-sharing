@@ -9,14 +9,13 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Grid is a second path to <c>publish.monitor</c>, so picking writes what the list writes and nothing else.
-/// Each picture costs a backend capture, so it is asked for on the source step with the window in front,
-/// once per screen.
+/// Each picture costs a backend capture,
+/// so it is asked for once per screen, on the source step, with the window in front.
 /// </summary>
 public sealed class ScreenPickerTests
 {
     /// <summary>
-    /// Reads every state once and stops before the reconnect delay, so nothing is left dialling behind the
-    /// assertions.
+    /// Reads every state once and stops before the reconnect delay, so nothing is left dialling behind the assertions.
     /// </summary>
     private static void Load(Session session)
     {
@@ -45,8 +44,7 @@ public sealed class ScreenPickerTests
         Assert.Equal([0, 1], flow.Screens.Screens.Select(screen => screen.Monitor));
         Assert.All(flow.Screens.Screens, screen => Assert.True(screen.IsEnabled));
 
-        // Label is composed here from the catalog row.
-        // The backend sends no name for a screen.
+        // Label is composed here from the catalog row, the backend sending no name for a screen.
         Assert.Contains("2560", flow.Screens.Screens[0].Label);
         Assert.Contains("144", flow.Screens.Screens[0].Label);
 
@@ -54,10 +52,7 @@ public sealed class ScreenPickerTests
         Assert.False(flow.Screens.Screens[1].IsSelected);
     }
 
-    /// <summary>
-    /// The mark follows the draft rather than the press: the form answering with the new value is what moves
-    /// it.
-    /// </summary>
+    /// <summary>Mark follows the draft rather than the press, the form answering with the value being what moves it.</summary>
     [Fact]
     public void PickingAScreenWritesTheSettingAndMovesTheMark()
     {
@@ -75,8 +70,8 @@ public sealed class ScreenPickerTests
     }
 
     /// <summary>
-    /// The flow re-renders on every keystroke, so a converge that asked again on each pass would cost a call
-    /// per screen per keystroke.
+    /// Flow re-renders on every keystroke,
+    /// so a converge asking again on each pass costs a call per screen per keystroke.
     /// </summary>
     [Fact]
     public void EveryScreenIsAskedForOnceWhileTheGridIsDrawn()
@@ -92,9 +87,7 @@ public sealed class ScreenPickerTests
         Assert.Equal([0, 1], backend.PreviewStarts);
     }
 
-    /// <summary>
-    /// The wizard renders every step's model on every pass, so being rendered is not what opens a capture.
-    /// </summary>
+    /// <summary>Wizard renders every step's model on every pass, so being rendered is not what opens a capture.</summary>
     [Fact]
     public void NoScreenIsReadFromAnotherStep()
     {
@@ -113,8 +106,8 @@ public sealed class ScreenPickerTests
     }
 
     /// <summary>
-    /// A picture nobody is looking at goes on grabbing every screen five times a second for as long as the
-    /// app is open.
+    /// A picture nobody is looking at goes on grabbing every screen five times a second
+    /// for as long as the app is open.
     /// </summary>
     [Fact]
     public void LeavingTheStepStopsReadingTheScreens()
@@ -130,7 +123,7 @@ public sealed class ScreenPickerTests
         Assert.False(flow.Screens.IsVisible);
     }
 
-    /// <summary>The step and the window are separate facts, so either one turning false is enough.</summary>
+    /// <summary>Step and window are separate facts, so either one turning false is enough.</summary>
     [Fact]
     public void AWindowThatWentBehindStopsReadingTheScreens()
     {
@@ -144,9 +137,9 @@ public sealed class ScreenPickerTests
     }
 
     /// <summary>
-    /// Previews outlive the window that asked for them, as decodes do, so nothing else would ever close one.
-    /// A connecting shell learns of the leftover by reading the state, which is why that read is on the
-    /// contract rather than left to the event stream.
+    /// Previews outlive the window that asked for them, as decodes do, so nothing else closes one.
+    /// A connecting shell learns of the leftover by reading the state,
+    /// so that read is on the contract rather than left to the event stream.
     /// </summary>
     [Fact]
     public void AScreenLeftBeingReadByAnEarlierShellIsClosed()
@@ -159,14 +152,13 @@ public sealed class ScreenPickerTests
 
         Assert.Equal([1], session.PreviewedMonitors.Select(previewed => previewed.Monitor));
 
-        // Building the flow renders once, with nothing being looked at yet, and that pass closes the
-        // leftover.
+        // Building the flow renders once with nothing being looked at, and that pass closes the leftover.
         Flows.Setup(backend, session);
 
         Assert.Empty(backend.Previewed);
     }
 
-    /// <summary>The sentence is the backend's own, and captures that would all be refused are not opened.</summary>
+    /// <summary>Sentence is the backend's own, and nothing is opened where every capture is refused.</summary>
     [Fact]
     public void AMachineThatCannotShowOneScreenSaysSoAndOpensNothing()
     {
@@ -192,8 +184,8 @@ public sealed class ScreenPickerTests
     }
 
     /// <summary>
-    /// A subscription naming a screen nothing is reading is refused once and never retried, so a tile made
-    /// while the start was still in flight would sit dark for as long as the reader stayed on the step.
+    /// A subscription naming a screen nothing is reading is refused once and never retried,
+    /// so a tile made while the start is in flight sits dark for as long as the reader stays on the step.
     /// </summary>
     [Fact]
     public void AScreenThatIsNotBeingReadYetCarriesNoTile()
@@ -216,9 +208,7 @@ public sealed class ScreenPickerTests
         Assert.False(flow.Screens.Screens[1].HasPlaceholder);
     }
 
-    /// <summary>
-    /// The form resolves on every keystroke, so a pass that rebuilt the tiles would re-subscribe that often.
-    /// </summary>
+    /// <summary>Form resolves on every keystroke, so a pass rebuilding the tiles re-subscribes that often.</summary>
     [Fact]
     public void ARenderPassKeepsTheTilesItAlreadyHas()
     {
@@ -232,7 +222,7 @@ public sealed class ScreenPickerTests
         Assert.Equal(before, flow.Screens.Screens.Select(screen => screen.Tile));
     }
 
-    /// <summary>Fixture already reading these screens, what puts a tile on a row.</summary>
+    /// <summary>Fixture already reading these screens, which is what puts a tile on a row.</summary>
     private static SeededBackend Reading(params int[] monitors)
     {
         var backend = new SeededBackend("linux");

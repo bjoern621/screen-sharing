@@ -10,34 +10,31 @@ import (
 
 // Reader is one connection the relay is serving a path to.
 //
-// The path list names a reader by type and id and says nothing else about it, so every figure below
-// comes from the per-protocol list that type is served by, joined on that id.
-// Hence a pointer per figure: a protocol that reports none leaves it absent, and absent is not a
-// measured zero.
-// An SRT reader is the only one the relay measures a round trip and a loss rate for, and the rest
-// report what was sent to them and little more (readerKinds).
+// The path list names a reader by type and id alone, so every figure below comes
+// from the per-protocol list that type is served by, joined on that id.
+// Hence a pointer per figure: a protocol reporting none leaves it absent, and absent is not
+// a measured zero.
+// SRT alone is measured for a round trip and a loss rate, the rest reporting what was sent to them
+// and little more (readerKinds).
 type Reader struct {
-	// Type is the relay's own token for what this reader is, such as srtConn.
-	// Kept as the relay wrote it, because it is the join key's other half and a reader of a snapshot
-	// should be able to find the connection it came from.
+	// Type is the relay's own token for what this reader is: "srtConn".
+	// Kept as the relay wrote it, being the join key's other half and what finds the connection
+	// a snapshot row came from.
 	Type string `json:"type"`
 	ID   string `json:"id"`
-	// Transport is Type in this app's transport vocabulary, srt, rtsp, rtmp, webrtc, hls or moq,
-	// which is what a viewer's leg is named everywhere else in this codebase.
-	// A type this build has no row for keeps the relay's own token, so an unknown reader reads as
-	// whatever the relay called it rather than as nothing.
-	// A reader the relay named nothing at all leaves this empty, the same "unknown" an unrecognised
-	// track format leaves on the path beside it, and consumers read it the same way.
+	// Transport is Type in this app's vocabulary: "srt", "rtsp", "rtmp", "webrtc", "hls", "moq".
+	// A type with no row here keeps the relay's own token, so an unknown reader reads as whatever
+	// the relay called it rather than as nothing.
+	// A reader the relay named nothing leaves this empty, the same "unknown" an unrecognised track
+	// format leaves on the path beside it.
 	Transport string `json:"transport"`
 
-	// RemoteAddr is host:port as the relay saw it, and empty where the join found no connection: a
-	// reader that ended between the two calls, or one on a protocol whose list this relay does not
-	// serve.
+	// RemoteAddr is host:port as the relay saw it, empty where the join found no connection: a reader
+	// that ended between the two calls, or one on a protocol whose list this relay does not serve.
 	RemoteAddr string `json:"remoteAddr,omitempty"`
-	// Joined is when the relay accepted this reader, in the relay's own RFC 3339 spelling and its own
-	// clock.
-	// Passed through unparsed: the relay's clock is the only one that can date its connections, and
-	// reformatting it here would put a second opinion about the time on the wire.
+	// Joined is when the relay accepted this reader, in the relay's own RFC 3339 spelling and clock.
+	// Passed through unparsed: only the relay's clock dates its connections, and reformatting here
+	// would put a second opinion about the time on the wire.
 	Joined string `json:"joined,omitempty"`
 
 	BytesSent *uint64 `json:"bytesSent,omitempty"`
@@ -45,35 +42,33 @@ type Reader struct {
 	// SRT alone reports one.
 	RttMs *float64 `json:"rttMs,omitempty"`
 	// LossPercent is SRT's own send-side loss rate, percent of resent data against sent data.
-	// The relay's figure rather than one computed here from two counters, because a rate off lifetime
-	// counters would be a run's average wearing the look of a current reading.
+	// The relay's figure rather than one computed from two counters, a rate off lifetime counters
+	// being a run's average wearing the look of a current reading.
 	LossPercent *float64 `json:"lossPercent,omitempty"`
 
 	PacketsSent *uint64 `json:"packetsSent,omitempty"`
 	// PacketsLost were lost on the way to this reader, as the sender counted them or as the receiver
 	// reported them back.
-	// Cumulative over the connection, as are the two counters below it.
+	// Cumulative over the connection, as are PacketsDropped and FramesDiscarded.
 	PacketsLost *uint64 `json:"packetsLost,omitempty"`
 	// PacketsDropped were given up on by the sender rather than lost in transit.
 	PacketsDropped *uint64 `json:"packetsDropped,omitempty"`
-	// FramesDiscarded were dropped by the relay itself because this reader's outgoing queue was full.
-	// It is the one congestion signal the protocols with no round trip and no loss rate still give,
-	// and a fact about the relay rather than about the line, which is why it is counted apart from
-	// the two above.
+	// FramesDiscarded were dropped by the relay itself on a full outgoing queue for this reader.
+	// The one congestion signal protocols with no round trip and no loss rate still give, and a fact
+	// about the relay rather than the line, so it is counted apart from the loss counters.
 	FramesDiscarded *uint64 `json:"framesDiscarded,omitempty"`
 }
 
-// readerKind states, for one kind of reader the relay can report, which per-protocol list describes
-// it and what this app calls the leg it is watching over.
+// readerKind states, per kind of reader the relay can report, which per-protocol list describes it
+// and what this app calls the leg.
 //
-// The same move trackFormats makes for codec names: the relay names a thing in its own vocabulary,
-// one table converts it to this app's, and every consumer reads the table instead of restating the
-// rule.
-// The list segment is the other half, since the path list gives a type and an id and nothing else,
-// so the type is the only thing that can say where the figures for that id live.
+// The move trackFormats makes for codec names: the relay names a thing in its own vocabulary, one
+// table converts it, and every consumer reads the table instead of restating the rule.
+// The list segment is the other half, the path list giving a type and an id alone, so the type
+// is the only thing that can say where the figures for that id live.
 //
-// Which figures each list actually carries, verified against a MediaMTX v1.20.0 relay and its
-// OpenAPI document rather than assumed:
+// Which figures each list carries, measured against a MediaMTX v1.20.0 relay and its OpenAPI
+// document:
 //
 //	kind                      list              sent  rtt  loss  pkts  lost  drop  discarded
 //	srtConn                   srtconns           y     y    y     y     y     y     y
@@ -85,15 +80,14 @@ type Reader struct {
 //	moqSession                moqsessions        y     -    -     -     -     -     -
 //	hidden                    -                  -     -    -     -     -     -     -
 //
-// Nothing enforces that table beyond the field names in apiConn: a list that carries no field for a
-// figure leaves it absent, which is what the whole shape is for.
-// A reader type this build has no row for is not an error either.
-// A newer relay may serve a protocol this one has never heard of, and the honest snapshot of that
-// is a reader named and unmeasured rather than a reader dropped.
+// Nothing enforces that table beyond the field names in apiConn: a list carrying no field
+// for a figure leaves it absent.
+// A reader type with no row here is no error either: a relay serving a protocol this build never
+// heard of reads honestly as a reader named and unmeasured rather than a reader dropped.
 type readerKind struct {
 	list      string
 	transport string
-	// kick is whether that list takes a kick beside it, which is what membership enforcement sweeps
+	// kick is whether that list takes a kick beside it, what membership enforcement sweeps
 	// (sessions.go).
 	//
 	// Measured against v1.20.0: rtspconns and rtspsconns answer a list and have no kick of their own,
@@ -110,34 +104,33 @@ var readerKinds = map[string]readerKind{
 	"hlsSession":    {list: "hlssessions", transport: "hls", kick: true},
 	"moqSession":    {list: "moqsessions", transport: "moq", kick: true},
 
-	// The TLS variants are the same protocol to a viewer, and this app's transport vocabulary has one
-	// name for each.
-	// Which listener the relay was reached over is a fact about the relay rather than about the leg,
-	// and no consumer here asks it.
+	// TLS variants are the same protocol to a viewer, one name each in this app's vocabulary.
+	// Which listener the relay was reached over is a fact about the relay rather than the leg, and no
+	// consumer asks it.
 	"rtspsConn":    {list: "rtspsconns", transport: "rtsp"},
 	"rtspsSession": {list: "rtspssessions", transport: "rtsp", kick: true},
 	"rtmpsConn":    {list: "rtmpsconns", transport: "rtmp", kick: true},
 
 	// A reader the relay declines to describe.
-	// Listed rather than left out, so the one type with deliberately no list is visible beside the
-	// ones that have one; the empty segment takes the same path an unknown type takes.
+	// Listed rather than left out, so a type with no list is visible beside the ones that have one.
+	// Empty segment takes the path an unknown type takes.
 	"hidden": {list: "", transport: ""},
 }
 
-// apiConn is one item of a per-protocol connection or session list, decoded into the union of the
-// fields this app reads across all of them.
+// apiConn is one item of a per-protocol connection or session list, decoded into the union
+// of fields this app reads across all of them.
 //
-// One struct rather than one per endpoint, because absence then falls out of decoding: a list that
-// carries no msRTT leaves MsRTT nil without anything here having to know which lists those are.
-// That also fixes the direction a mistake fails in.
-// A wrong field name decodes to nil and the figure reads as unmeasured, where a name right for the
-// wrong endpoint would decode to a zero and read as a measurement, and a measured zero and an
-// absence are the two things this snapshot may never confuse.
+// One struct rather than one per endpoint, so absence falls out of decoding: a list carrying no
+// msRTT leaves MsRTT nil without anything here knowing which lists those are.
+// That also fixes the direction a mistake fails in: a wrong field name decodes to nil and reads
+// as unmeasured, where a name right for the wrong endpoint decodes to a zero and reads
+// as a measurement.
+// A measured zero and an absence are the two things this snapshot may never confuse.
 //
-// The pairs below are two spellings of one figure, never two figures.
+// The paired fields are two spellings of one figure, never two figures.
 // Every list states the bytes it sent as outboundBytes and repeats it as the deprecated bytesSent,
-// except the SRT list, which carries bytesSent alone; and the packet counters are SRT's sender-side
-// names beside the RTSP session's RTCP-reported ones.
+// except the SRT list, which carries bytesSent alone.
+// Packet counters are SRT's sender-side names beside the RTSP session's RTCP-reported ones.
 type apiConn struct {
 	ID         string `json:"id"`
 	RemoteAddr string `json:"remoteAddr"`
@@ -169,18 +162,16 @@ type apiConnList struct {
 // fetchConnLists reads every per-protocol list the given readers are described by, once each, keyed
 // by list segment and then by connection id.
 //
-// Once each and not once per path, because the lists are relay-wide: two paths served over SRT are
-// two slices of one answer, and a fetch per path would ask the same question twice and get two
-// moments.
-// A protocol no reader is on is not asked about at all, so a relay with one SRT viewer costs one
-// extra call and a relay with none costs zero.
+// Once each and not once per path, the lists being relay-wide: two paths served over SRT are two
+// slices of one answer, and a fetch per path would ask twice and get two moments.
+// A protocol no reader is on is not asked about, so a relay with one SRT viewer costs one extra
+// call and a relay with none costs zero.
 //
 // Nothing here can make a reachable relay unreachable.
-// A list that refuses, times out or answers with something undecodable is left out and its readers
-// stay named and unmeasured, which is the honest reading rather than a failure.
-// The relay answered the question this snapshot is about, and a protocol whose listener is switched
-// off has no list at all: a relay running without MoQ answers 404 for moqsessions, a fact about its
-// configuration and not about its health.
+// A list that refuses, times out or answers undecodably is left out and its readers stay named and
+// unmeasured.
+// A protocol whose listener is switched off has no list at all: a relay running without MoQ answers
+// 404 for moqsessions, a fact about its configuration and not its health.
 func fetchConnLists(httpClient *http.Client, host string, apiPort int, named []apiReader) map[string]map[string]apiConn {
 	assert.IsNotNil(httpClient, "a roster is joined over the client the snapshot was read with")
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)
@@ -203,8 +194,8 @@ func fetchConnLists(httpClient *http.Client, host string, apiPort int, named []a
 
 // joinReaders turns the readers a path named into rows with figures on them, against lists already
 // fetched.
-// It is the whole of the interpretation this package does to a reader, and a pure function of the
-// two answers so that a test can state both.
+// The whole interpretation this package does to a reader, and a pure function of the two answers so
+// a test can state both.
 func joinReaders(lists map[string]map[string]apiConn, named []apiReader) []Reader {
 	readers := make([]Reader, 0, len(named))
 	for _, named := range named {
@@ -234,10 +225,10 @@ func joinReaders(lists map[string]map[string]apiConn, named []apiReader) []Reade
 	return readers
 }
 
-// fetchConns reads one per-protocol list and keys it by connection id, and answers nil for a list
+// fetchConns reads one per-protocol list and keys it by connection id, answering nil for a list
 // that could not be read.
-// Nil rather than an error, because every caller's response to a list it did not get is to leave
-// the figures absent: one thing to do with the answer, and no branch that could do something else.
+// Nil rather than an error, every caller's response to a missing list being to leave the figures
+// absent.
 func fetchConns(httpClient *http.Client, host string, apiPort int, segment string) map[string]apiConn {
 	assert.IsNotNil(httpClient, "a list is fetched over a client")
 	assert.Assert(segment != "", "a list is fetched from a named endpoint")
@@ -267,8 +258,8 @@ func fetchConns(httpClient *http.Client, host string, apiPort int, segment strin
 	return conns
 }
 
-// firstPresent answers with the first spelling of one figure the list carried, and nil where it
-// carried none.
+// firstPresent answers the first spelling of one figure the list carried, nil where it carried
+// none.
 func firstPresent[T any](values ...*T) *T {
 	for _, value := range values {
 		if value != nil {

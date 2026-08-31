@@ -1,17 +1,14 @@
 // Package cursor names what the pointer does in the captured frames.
 //
-// The settings hold one of these, the capture backends decide which they serve and the form offers
-// the list, so the values live in a package that depends on nothing and all three read it.
-// Which backend serves which mode is a fact about the backend and lives with it
-// (internal/publish/cursor.go).
+// Settings, capture backends and the form all read these values,
+// so they live in a package depending on nothing.
+// Which backend serves which mode lives with the backend (internal/publish/cursor.go).
 package cursor
 
-// The pointer modes, three values rather than a flag with an exception.
-// An embedded pointer is drawn into the picture, costing bitrate and blurring with everything else
-// the encoder spends bits on.
-// A hidden one is absent.
-// A metadata pointer travels beside the stream as a position, so a viewer that draws one keeps it
-// sharp at any scale and a viewer that does not sees none at all.
+// Embedded is drawn into the picture, costing bitrate.
+// Hidden is absent.
+// Metadata travels beside the stream as a position,
+// so a viewer that draws one keeps it sharp at any scale and one that does not sees none.
 const (
 	Embedded = "embedded"
 	Hidden   = "hidden"
@@ -22,8 +19,8 @@ const (
 var Modes = []string{Embedded, Hidden, Metadata}
 
 // Known reports whether mode is one of Modes.
-// Every string is a legal input: the value comes off settings or another process, so an unknown one
-// is the answer rather than a broken contract.
+// Every string is legal input: the value comes off settings or another process,
+// so unknown is an answer rather than a broken contract.
 func Known(mode string) bool {
 	for _, m := range Modes {
 		if m == mode {

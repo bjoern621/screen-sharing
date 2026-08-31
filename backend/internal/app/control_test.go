@@ -11,24 +11,24 @@ import (
 )
 
 // Two readers hold the publish state to one rule: a shell renders "attempt n of m" off the attempt
-// and the budget, and the contract asserts that a state nothing is retrying carries neither figure
+// and the budget, and the contract asserts a state nothing is retrying carries neither figure
 // (wire.PublishState).
 //
-// These tests run the real producer through the real conversion into the contract, so a state that
-// is legal on one surface and a panic on the other fails here rather than on the first shell that
-// connects while a stream is healthy.
+// Real producer through the real conversion,
+// so a state legal on one surface and a panic on the other fails here
+// rather than on the first shell that connects while a stream is healthy.
 
-// liveHandle stands in for a pipeline that is running.
-// Stop does nothing: what these tests read is the state around the pipeline.
+// liveHandle stands in for a running pipeline.
+// Stop does nothing: these tests read the state around the pipeline.
 type liveHandle struct{}
 
 func (liveHandle) Running() bool { return true }
 func (liveHandle) Stop()         {}
 
-// TestALiveStreamCarriesNoRetryFigures: a stream carrying frames spends no attempts, so the attempt
-// and the budget stay at zero.
-// A budget reported beside it would name attempts nothing is spending, and the contract refuses to
-// carry one.
+// TestALiveStreamCarriesNoRetryFigures: a stream carrying frames spends no attempts,
+// so the attempt and the budget stay at zero.
+// A budget beside it would name attempts nothing is spending,
+// and the contract refuses to carry one.
 func TestALiveStreamCarriesNoRetryFigures(t *testing.T) {
 	a := &App{run: &publishRun{settings: settings.Settings{
 		Publish: settings.Publish{
@@ -44,13 +44,13 @@ func TestALiveStreamCarriesNoRetryFigures(t *testing.T) {
 		t.Errorf("a live stream reports attempt %d of %d, want neither figure", state.Attempt, state.Budget)
 	}
 
-	// The contract asserts the same rule, so a state that broke it panics here rather than on the shell
-	// that read it.
+	// The contract asserts the same rule, so a broken state panics here rather than at the shell
+	// reading it.
 	wire.PublishState(publishSnapshot(state))
 }
 
-// TestAPendingRetryCarriesTheAttemptAndTheBudget: between attempts the attempt and the budget are
-// what the state has to say, and they reach the contract unchanged.
+// TestAPendingRetryCarriesTheAttemptAndTheBudget: between attempts the attempt and the budget
+// are what the state has to say, and they reach the contract unchanged.
 func TestAPendingRetryCarriesTheAttemptAndTheBudget(t *testing.T) {
 	a := &App{retry: &publishRetry{settings: settings.Settings{
 		Publish: settings.Publish{
@@ -78,8 +78,8 @@ func TestAPendingRetryCarriesTheAttemptAndTheBudget(t *testing.T) {
 	wire.PublishState(snapshot)
 }
 
-// TestARetryCarriesWhyOnEveryAttempt: a shell that mounts between two attempts reads why the last
-// pipeline died, where the exit event alone reaches only the shells that were listening when it did.
+// TestARetryCarriesWhyOnEveryAttempt: a shell mounting between two attempts reads why the last
+// pipeline died, where the exit event reaches only the shells listening when it fired.
 func TestARetryCarriesWhyOnEveryAttempt(t *testing.T) {
 	a := &App{retry: &publishRetry{
 		settings: settings.Settings{Publish: settings.Publish{Name: "bob"}},
@@ -106,8 +106,8 @@ func TestARetryCarriesWhyOnEveryAttempt(t *testing.T) {
 	}
 }
 
-// TestAStoppedStreamCarriesNothing: no pipeline and no relaunch pending leaves no stream to
-// describe, so the settings stay absent rather than crossing as a stream configured entirely wrong.
+// TestAStoppedStreamCarriesNothing: no pipeline and no relaunch pending leaves no stream
+// to describe, so the settings stay absent rather than crossing as a stream configured wrong.
 func TestAStoppedStreamCarriesNothing(t *testing.T) {
 	a := &App{}
 
@@ -127,11 +127,10 @@ func TestAStoppedStreamCarriesNothing(t *testing.T) {
 	wire.PublishState(snapshot)
 }
 
-// TestStoppingTheControlServiceTwiceIsOneStop: the shutdown path is reachable more than once, and a
-// second run finds nothing left to stop rather than calling GracefulStop again on a server that has
-// released its socket.
-// The flag it sets is the other half of that: a service still opening its socket is stopped by it
-// when the shutdown got there first.
+// TestStoppingTheControlServiceTwiceIsOneStop: the shutdown path is reachable more than once,
+// so a second run finds nothing left to stop rather than calling GracefulStop on a released socket.
+// The flag it sets is the other half: a service still opening its socket is stopped by it
+// where the shutdown got there first.
 func TestStoppingTheControlServiceTwiceIsOneStop(t *testing.T) {
 	a := &App{}
 

@@ -12,12 +12,12 @@ import (
 
 // StoreNotice turns a store failure into the statement a surface shows, nil for no failure.
 //
-// The code is the caller's, the two stores failing alike and meaning different things: the working
-// settings coming back as defaults and the preset list coming back empty are two things to tell a
-// user, and one function choosing between them would be reading the error text.
+// The code is the caller's, the two stores failing alike and meaning different things.
+// Working settings back as defaults and a preset list back empty are two things to tell a user,
+// and one function choosing between them would be reading the error text.
 //
-// A failure that could not move the old values aside carries no path, and the statement then says
-// the shorter thing rather than pointing at a file that is not there.
+// A failure that could not move the old values aside carries no path,
+// and the statement then says the shorter thing rather than pointing at a file that is not there.
 func StoreNotice(code screensharev1.TextCode, err error) *screensharev1.Text {
 	assert.Assert(code != screensharev1.TextCode_TEXT_CODE_UNSPECIFIED,
 		"a store notice names which statement it is")

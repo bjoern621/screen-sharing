@@ -10,8 +10,8 @@ import (
 // a real one: a reader that compiled and reported nothing would be a channel carrying a position
 // nobody moved.
 
-// A session without an X server says so rather than failing, since that is a Wayland session, where
-// the position comes from the capture's own metadata instead.
+// A session without an X server says so rather than failing, that being a Wayland session,
+// where the position comes from the capture's own metadata instead.
 func TestTheX11ReaderAnswersWhereThereIsADisplay(t *testing.T) {
 	r, ok := NewX11()
 	if !ok {

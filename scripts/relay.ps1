@@ -2,24 +2,24 @@
 <#
   relay.ps1 - run the relay and the group service beside it on Windows.
 
-  The relay verifies every connection against the key set the group service publishes, so a relay
-  started on its own refuses every publisher: the two come up together or neither serves anything.
+  The relay verifies every connection against the key set the group service publishes,
+  so a relay started on its own refuses every publisher:
+  the two come up together or neither serves anything.
 
-  Linux and macOS take both binaries from the flake's dev shell (scripts/relay.sh), which Windows
-  has none of, so mediamtx.exe is fetched into bin/ on first run and the group service is built out
-  of backend/.
-  Anything that puts a NAT between the host and the relay is worth avoiding here: a UDP proxy that
-  rewrites the source port breaks SRT's handshake with "I/O error", where a native binary binds
-  :8890 on the host and SRT just works.
+  Linux and macOS take both binaries from the flake's dev shell (scripts/relay.sh),
+  which Windows has none of,
+  so mediamtx.exe is fetched into bin/ on first run and the group service is built out of backend/.
+  Anything putting a NAT between the host and the relay is worth avoiding here:
+  a UDP proxy that rewrites the source port breaks SRT's handshake with "I/O error",
+  where a native binary binds :8890 on the host and SRT works.
 
-  What a machine without a deployment's certificate and hook paths needs is handed to MediaMTX as
-  environment overrides, the file itself being the one every relay reads
-  (deploy/mediamtx-groups.yml).
+  A machine with no deployment certificate and no hook paths takes both as environment overrides,
+  the file itself being the one every relay reads (deploy/mediamtx-groups.yml).
 
   Foreground, and Ctrl+C ends both.
 
-  PowerShell 7 for the certificate: the key is written through .NET APIs that Windows PowerShell's
-  runtime does not carry.
+  PowerShell 7 for the certificate:
+  the key is written through .NET APIs Windows PowerShell's runtime does not carry.
 #>
 param(
   [string]$Version = "1.20.0"
@@ -30,9 +30,9 @@ $root = Split-Path $PSScriptRoot -Parent
 $bin  = Join-Path $root "bin"
 $exe  = Join-Path $bin "mediamtx.exe"
 $conf = Join-Path $root "deploy/mediamtx-groups.yml"
-# Everything drawn for a development relay, none of it committed: the certificate the TLS listeners
-# hold, the key the group service signs with, and the MoQ pair MediaMTX draws in its working
-# directory.
+# Everything drawn for a development relay, none of it committed:
+# the certificate the TLS listeners hold, the key the group service signs with,
+# and the MoQ pair MediaMTX draws in its working directory.
 $dev  = Join-Path $root "dev-relay"
 $cert = Join-Path $dev "cert.pem"
 $key  = Join-Path $dev "key.pem"
@@ -87,9 +87,10 @@ try {
   Pop-Location
 }
 
-# The signing key is stored, so tokens issued before a restart are still verified after one: the
-# relay caches the key set it fetched and a service that drew a new key on every start would refuse
-# every connection until that cache turned over.
+# The signing key is stored, so tokens issued before a restart are still verified after one:
+# the relay caches the key set it fetched,
+# and a service drawing a new key on every start would refuse every connection
+# until that cache turned over.
 $service = Start-Process -FilePath (Join-Path $bin "groupd.exe") -PassThru -NoNewWindow `
   -ArgumentList "-key", (Join-Path $dev "signing-key.pem")
 
@@ -97,8 +98,8 @@ $env:MTX_RTSPSERVERCERT = $cert
 $env:MTX_RTSPSERVERKEY  = $key
 $env:MTX_RTMPSERVERCERT = $cert
 $env:MTX_RTMPSERVERKEY  = $key
-# The read hook is a shell script and nothing here runs one, so this relay reports no read and
-# enforcement waits for the group service's next reconcile.
+# The read hook is a shell script and nothing here runs one,
+# so this relay reports no read and enforcement waits for the group service's next reconcile.
 $env:MTX_PATHDEFAULTS_RUNONREAD = ""
 
 # From the relay's own directory, because MediaMTX draws the MoQ pair beside whatever it runs in.

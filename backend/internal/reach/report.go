@@ -11,8 +11,8 @@ import (
 
 // Subcommand runs a check from the command line: "backend check-relay".
 //
-// A question rather than a start: it dials, prints and exits, and the app it shares an executable
-// with is not brought up to answer it.
+// A question rather than a start: dials, prints and exits, without bringing up the app it shares
+// an executable with.
 const Subcommand = "check-relay"
 
 // The mark a verdict prints under.
@@ -24,18 +24,17 @@ var marks = map[Verdict]string{
 
 // Why a leg was dialled nowhere, in the words a reader gets.
 //
-// The words are here because the only reader is the terminal a check is run from.
-// Rows crossing to a shell would carry the code and the shell would write the sentence, which is
-// the rule wherever the control contract reaches (docs/ipc-api.md).
+// Words live here because the only reader is the terminal a check runs from.
+// Rows crossing to a shell carry the code and the shell writes the sentence (docs/ipc-api.md).
 var reasons = map[Reason]string{
 	ReasonNoRelay:      "no relay is named in the settings",
 	ReasonLoopbackOnly: "answers on the relay's own machine alone",
 }
 
-// Report writes a line per leg: the mark, the leg, where it was dialled, what came back, and how
-// long it waited.
+// Report writes a line per leg: mark, leg, where it was dialled, what came back, how long it
+// waited.
 //
-// In the order the rows arrive, which is Check's, so the same relay prints the same way twice.
+// In Check's order, so the same relay prints the same way twice.
 func Report(w io.Writer, results []Result) error {
 	assert.IsNotNil(w, "a report names where it is written")
 
@@ -49,8 +48,8 @@ func Report(w io.Writer, results []Result) error {
 	return table.Flush()
 }
 
-// Failed reports whether a leg this deployment addresses did not answer, which is what an exit
-// status carries so a script reads the answer without parsing the table.
+// Failed reports whether a leg this deployment addresses did not answer, carried as an exit status
+// so a script reads the answer without parsing the table.
 // A leg addressed nowhere is no failure: nothing was asked of it.
 func Failed(results []Result) bool {
 	for _, r := range results {
@@ -73,7 +72,7 @@ func detailOf(r Result) string {
 }
 
 // waitOf is how long the probe waited, and nothing where nothing was dialled.
-// Rounded to the millisecond, a figure a reader compares legs by rather than measures anything with.
+// Rounded to the millisecond, a figure for comparing legs rather than measuring with.
 func waitOf(r Result) string {
 	if r.Took == 0 {
 		return ""

@@ -13,13 +13,14 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 )
 
-// probedBackend is a machine whose encoder probe has been taken: one family it cannot run, one it
-// can.
+// probedBackend is a machine whose encoder probe has been taken:
+// one family it cannot run, one it can.
 // Everything else is fakeBackend's.
 //
-// The platform is stated because it decides which capture backends are reachable, and a backend
-// with no operating system names no publish engine: every codec would then stay ungreyed for want
-// of an engine to grey it on, and the test would pass for the wrong reason.
+// The platform is stated because it decides which capture backends are reachable,
+// and a backend with no operating system names no publish engine:
+// every codec would then stay ungreyed for want of an engine to grey it on,
+// and the test would pass for the wrong reason.
 type probedBackend struct {
 	fakeBackend
 	// probed is what the probe found, left zero by the test that wants an unprobed machine.
@@ -34,27 +35,27 @@ func (p *probedBackend) CachedEncoders() encoders.Availability { return p.probed
 func (p *probedBackend) AudioDevices() []platform.AudioDevice  { return nil }
 func (p *probedBackend) Pointer() (pointer.Position, bool)     { return pointer.Position{}, false }
 
-// Encoders counts its calls, which is how a test says a read did not probe.
-// The split exists because reading the catalog may not start seconds of work, and a count is the
-// only way to observe that it did not.
+// Encoders counts its calls, how a test says a read did not probe.
+// The split exists because reading the catalog may not start seconds of work,
+// and a count is the only way to observe that it did not.
 func (p *probedBackend) Encoders(context.Context) encoders.Availability {
 	p.probes++
 	return p.probed
 }
 
-// qsvMissing is what the probe finds on a machine with no Intel GPU: the two Quick Sync encoders
-// would not run, the NVIDIA one did.
-// The zero Availability is that machine before the probe, a different fact rather than a weaker
-// version of this one.
+// qsvMissing is what the probe finds on a machine with no Intel GPU:
+// the two Quick Sync encoders would not run, the NVIDIA one did.
+// The zero Availability is that machine before the probe,
+// a different fact rather than a weaker version of this one.
 var qsvMissing = encoders.Availability{Usable: map[string]map[string]bool{
 	capabilities.EngineFfmpeg: {"h264_qsv": false, "hevc_qsv": false, "hevc_nvenc": true},
 }}
 
-// encoderOption finds one entry of the encoder control in a resolved form, so a test reads the
-// contract's own shape instead of form's internals.
+// encoderOption finds one entry of the encoder control in a resolved form,
+// so a test reads the contract's own shape instead of form's internals.
 //
-// Which row that entry is about follows the format the draft holds, the pair being what addresses
-// one: the defaults publish HEVC, so "qsv" here is the Quick Sync HEVC encoder.
+// Which row that entry is about follows the format the draft holds, the pair being what addresses one:
+// the defaults publish HEVC, so "qsv" here is the Quick Sync HEVC encoder.
 func encoderOption(t *testing.T, form *screensharev1.Form, encoder string) *screensharev1.FieldOption {
 	t.Helper()
 
@@ -77,15 +78,15 @@ func encoderOption(t *testing.T, form *screensharev1.Form, encoder string) *scre
 
 // The seam between the probe and the screen, and the one place both halves show at once.
 //
-// The probe knows an Intel encoder is absent, the form says so, and ResolveForm is where the first
-// reaches the second.
+// The probe knows an Intel encoder is absent, the form says so,
+// and ResolveForm is where the first reaches the second.
 // It reads CachedEncoders rather than probing, so this is also the difference the read is written
-// around: before a probe the same call greys nothing, and a shell that never asked for one goes on
-// offering an encoder that fails at launch.
+// around: before a probe the same call greys nothing,
+// and a shell that never asked for one goes on offering an encoder that fails at launch.
 //
-// The entry stays in the list, which is the treatment and not an accident.
-// A general concept the machine blocks is taught by a greyed option and its sentence, not by a
-// dropdown quietly one item shorter (docs/field-availability.md, "The rule").
+// The entry stays in the list, the treatment and not an accident.
+// A general concept the machine blocks is taught by a greyed option and its sentence,
+// not by a dropdown quietly one item shorter (docs/field-availability.md, "The rule").
 func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 	server := New(&probedBackend{probed: qsvMissing}, events.New(), "test")
 
@@ -99,8 +100,7 @@ func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 		t.Fatal("the Quick Sync encoder is offered on a machine whose probe could not run it")
 	}
 	// The statement names the family whose device is missing and not a sentence about it.
-	// How "no Intel Quick Sync encoder on this machine" reads belongs to the surface; what is true is
-	// this.
+	// How "no Intel Quick Sync encoder on this machine" reads belongs to the surface.
 	// A reason greying the codec without naming the family would leave the reader nothing to act on.
 	if option.GetReason().GetCode() != screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE {
 		t.Errorf("the Quick Sync encoder greys with %v, want the probe's no-device verdict", option.GetReason().GetCode())
@@ -110,13 +110,13 @@ func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 	}
 }
 
-// The other half, which is what makes the greying above mean something.
+// The other half, what makes the greying above mean something.
 //
 // An engine with no verdicts is a machine nothing has asked about and not one with nothing usable,
 // so the form withholds no codec under a fact nobody established.
-// Hence the contract having a shell ask for the probe and read again: the difference between these
-// two answers is the whole of what a probe buys, and it reaches the screen only where somebody
-// asks.
+// Hence the contract having a shell ask for the probe and read again:
+// the difference between these two answers is the whole of what a probe buys,
+// and it reaches the screen only where somebody asks.
 func TestResolveFormGreysNothingBeforeTheProbeHasRun(t *testing.T) {
 	server := New(&probedBackend{}, events.New(), "test")
 
@@ -130,8 +130,8 @@ func TestResolveFormGreysNothingBeforeTheProbeHasRun(t *testing.T) {
 	}
 }
 
-// The read hands a shell something to draw and changes nothing, which is what lets a mount call it
-// without putting seconds in front of the first paint.
+// The read hands a shell something to draw and changes nothing,
+// which lets a mount call it without putting seconds in front of the first paint.
 // A flag that started the probe would let one shell's read replace the result a different shell's
 // next resolve answers from.
 func TestGetCatalogNeverProbes(t *testing.T) {
@@ -153,10 +153,11 @@ func TestGetCatalogNeverProbes(t *testing.T) {
 	}
 }
 
-// The probe replaces what every later resolve is answered from, so without the event a shell that
-// never asked for one would watch its form start greying codecs with nothing having told it why.
-// The event carries the whole catalog, never a delta: a shell holding one has nothing to merge a
-// half-state into.
+// The probe replaces what every later resolve is answered from,
+// so without the event a shell that never asked for one would watch its form start greying codecs
+// with nothing having told it why.
+// The event carries the whole catalog, never a delta:
+// a shell holding one has nothing to merge a half-state into.
 func TestProbeEncodersAnnouncesWhatItFound(t *testing.T) {
 	backend := &probedBackend{probed: qsvMissing}
 	broker := events.New()
@@ -190,8 +191,8 @@ func TestProbeEncodersAnnouncesWhatItFound(t *testing.T) {
 }
 
 // textArgID reads one identifier out of a statement, and the empty string where it carries none.
-// A statement names what it is about by argument name and not by position, so a test asks for one
-// the way a surface does.
+// A statement names what it is about by argument name and not by position,
+// so a test asks for one the way a surface does.
 func textArgID(t *screensharev1.Text, name screensharev1.TextArgName) string {
 	for _, arg := range t.GetArgs() {
 		if arg.GetName() == name {

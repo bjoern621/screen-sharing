@@ -14,17 +14,17 @@ namespace ScreenShare.App.Backend;
 /// Effects are the only members that change the world.
 /// Stream carries what changed, including what this shell did not do.
 ///
-/// Interface, so the flow runs against a fixture in a test as well as against <see cref="ControlBackend"/> over
-/// the local socket, and the view layer is written once.
+/// Interface, so the flow runs against <see cref="ControlBackend"/> over the local socket or a test fixture,
+/// and the view layer is written once.
 ///
-/// Every read asynchronous and cancellable: the transport is gRPC over a named pipe or a Unix socket, and a
-/// synchronous signature could only be honoured by blocking the thread that draws the window.
-/// A stand-in answers from memory on an already-completed task, so implementations differ in latency and in
-/// nothing else.
+/// Every read asynchronous and cancellable: the transport is gRPC over a named pipe or a Unix socket,
+/// and a synchronous signature could only be honoured by blocking the thread that draws the window.
+/// A stand-in answers from memory on an already-completed task, so implementations differ in latency
+/// and in nothing else.
 ///
-/// <c>ResolveForm</c> is cheap enough to call on every keystroke, so a keystroke routinely arrives while the
-/// previous draft's answer is in flight, and cancelling the older call stops paying for an answer about to be
-/// discarded.
+/// <c>ResolveForm</c> is cheap enough to call on every keystroke,
+/// so a keystroke routinely arrives while the previous draft's answer is in flight,
+/// and cancelling the older call stops paying for an answer about to be discarded.
 /// Cancellation is cooperative and can lose that race, so a caller that must be right when it does guards itself.
 ///
 /// Failure the app has to survive: <see cref="BackendUnavailableException"/> carrying the backend's own prose.
@@ -58,8 +58,8 @@ public interface IBackend
     /// exist and what each produces, what the screens are, what each transport carries.
     ///
     /// Read to explain, never to decide: which values a control may offer is the form's answer.
-    /// Naming a codec takes the format and the family off its row, naming a screen the size and refresh rate of
-    /// the output at that index (<c>docs/ipc-api.md</c>).
+    /// Naming a codec takes the format and the family off its row, naming a screen the size
+    /// and refresh rate of the output at that index (<c>docs/ipc-api.md</c>).
     ///
     /// Moves when the encoder probe lands, which <see cref="Changed"/> announces.
     /// </summary>
@@ -70,10 +70,10 @@ public interface IBackend
     /// Side-effect free and idempotent: one draft resolves to one form, so a caller skips the round trip while
     /// the draft has not moved since the one the form on screen was resolved against.
     ///
-    /// Answer carries a possibly repaired draft, adopted wholesale, which keeps a greyed option and its
-    /// replacement from disagreeing.
-    /// A repair walks to the first legal value rather than suggesting one, so the returned draft resolves to the
-    /// form that carried it.
+    /// Answer carries a possibly repaired draft, adopted wholesale, which keeps a greyed option
+    /// and its replacement from disagreeing.
+    /// A repair walks to the first legal value rather than suggesting one,
+    /// so the returned draft resolves to the form that carried it.
     /// </summary>
     Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default);
 
@@ -86,8 +86,9 @@ public interface IBackend
 
     /// <summary>
     /// Latest relay snapshot.
-    /// Read rather than fetched: the backend owns the polling, so several shells reading it do not multiply the
-    /// requests and the byte-delta bitrates stay computed against one steady interval.
+    /// Read rather than fetched: the backend owns the polling,
+    /// so several shells reading it do not multiply the requests
+    /// and the byte-delta bitrates stay computed against one steady interval.
     ///
     /// An unreachable relay is a snapshot whose <c>reachable</c> is false carrying the reason, never a failed
     /// call.
@@ -108,8 +109,8 @@ public interface IBackend
     Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default);
 
     /// <summary>
-    /// Who this machine shares a group with, as the presence loop last read it, and whether this machine is in
-    /// the group at all.
+    /// Who this machine shares a group with, as the presence loop last read it,
+    /// and whether this machine is in the group at all.
     ///
     /// A reading of the group and never a roster this shell keeps: every member's own app states its presence,
     /// the lease lapses where it stops being stated, and a member who left drops out by not appearing.
@@ -155,8 +156,8 @@ public interface IBackend
     /// <summary>
     /// Persists the settings and starts the encoder on them.
     ///
-    /// The whole draft crosses rather than a reference to something the backend holds: the draft is what the
-    /// reader configured, the stored settings only what the last commit left behind.
+    /// The whole draft crosses rather than a reference to something the backend holds:
+    /// the draft is what the reader configured, the stored settings only what the last commit left behind.
     ///
     /// Refused while a stream is already in force, a retry backoff included, and a combination no engine can
     /// build is refused before anything is launched.
@@ -166,17 +167,17 @@ public interface IBackend
 
     /// <summary>
     /// Persists the settings and restarts the running stream on them.
-    /// Separate from a start because the two are different intentions about different worlds: put a stream on
-    /// the air, and change the one already there.
+    /// Separate from a start because the two are different intentions about different worlds:
+    /// put a stream on the air, and change the one already there.
     /// The whole draft crosses, for the reason <see cref="StartPublishAsync"/> gives.
     ///
     /// Names a transition on purpose, and is the one effect here that a repeat does not leave alone.
-    /// Both engines run a child built from an argv and neither takes a value back once running, so applying
-    /// tears the pipeline down and launches another, and a second call is a second restart rather than a state
-    /// that already holds.
+    /// Both engines run a child built from an argv and neither takes a value back once running,
+    /// so applying tears the pipeline down and launches another,
+    /// and a second call is a second restart rather than a state that already holds.
     /// One of two departures in <c>docs/development-principles.md</c>, "Effects across a process boundary".
-    /// Nothing on this contract is live-safe, so the broadcast screen's quality track is inert and carries the
-    /// reason rather than being wired to this.
+    /// Nothing on this contract is live-safe, so the broadcast screen's quality track is inert
+    /// and carries the reason rather than being wired to this.
     ///
     /// With nothing publishing there is no pipeline to apply to, and the backend refuses rather than quietly
     /// starting one: a stream the reader had stopped coming back is not what they asked for.
@@ -235,8 +236,8 @@ public interface IBackend
     Task StopPublishAsync(CancellationToken cancellation = default);
 
     /// <summary>
-    /// Measures this machine's real upload throughput, Mbit/s, so a guessed uplink figure can be replaced by an
-    /// observed one.
+    /// Measures this machine's real upload throughput, Mbit/s,
+    /// so a guessed uplink figure can be replaced by an observed one.
     ///
     /// An effect, and the one that answers with something: it uploads a payload and times it, changing no state
     /// the backend holds, so there is nothing for an event to carry.
@@ -244,8 +245,9 @@ public interface IBackend
     /// and a typed one one value.
     ///
     /// Runs the real thing and takes seconds.
-    /// Refused outright while a stream is publishing, as <see cref="BackendUnavailableException"/> carrying the
-    /// backend's own sentence, a measurement competing with the stream for the line.
+    /// Refused outright while a stream is publishing,
+    /// as <see cref="BackendUnavailableException"/> carrying the backend's own sentence,
+    /// a measurement competing with the stream for the line.
     /// </summary>
     Task<double> MeasureUplinkAsync(CancellationToken cancellation = default);
 
@@ -253,7 +255,8 @@ public interface IBackend
     /// Dials every leg of the relay the given settings name and answers what each listener said.
     ///
     /// A row per leg whatever the network did, so a relay that answers nothing comes back as rows saying so
-    /// rather than as a failed call. Takes seconds against a listener that is not there.
+    /// rather than as a failed call.
+    /// Takes seconds against a listener that is not there.
     /// Refused for a draft that is empty, as <see cref="BackendUnavailableException"/>: which relay is being
     /// asked about is the draft's to say.
     /// </summary>
@@ -262,8 +265,9 @@ public interface IBackend
     /// <summary>
     /// Draws a group key at the relay's group service and answers it with the prefix it derives.
     ///
-    /// Stores nothing and joins nothing: possession of the key is membership, so what moves this machine into
-    /// the group is the caller writing the key to the settings field, like a value that was pasted.
+    /// Stores nothing and joins nothing: possession of the key is membership,
+    /// so what moves this machine into the group is the caller writing the key to the settings field,
+    /// like a value that was pasted.
     /// A relay with no group service is refused with the backend's own sentence.
     /// </summary>
     Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default);
@@ -273,25 +277,25 @@ public interface IBackend
     /// its presence at once.
     ///
     /// Names a state and is safe to repeat: joining a group this machine is already in is that state holding.
-    /// The membership itself arrives on the event stream, so a window that pressed the button and a window that
-    /// did not learn it the same way.
+    /// The membership itself arrives on the event stream, so a window that pressed the button
+    /// and a window that did not learn it the same way.
     ///
-    /// A name another member holds, and settings naming no group key or no name for this machine, arrive as
-    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    /// A name another member holds, and settings naming no group key or no name for this machine,
+    /// arrive as <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
     /// </summary>
     Task JoinGroupAsync(CancellationToken cancellation = default);
 
     /// <summary>
-    /// Leaves the group, releasing this machine's presence and dropping the identity it held in it, which the
-    /// relay answers by closing what this machine had open there.
+    /// Leaves the group, releasing this machine's presence and dropping the identity it held in it,
+    /// which the relay answers by closing what this machine had open there.
     /// Safe to repeat: leaving a group this machine is outside is that state holding.
     /// </summary>
     Task LeaveGroupAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens an external viewer for one stream over one transport.
-    /// A leg that cannot carry the stream's format is refused with the format named, rather than opening a
-    /// viewer that connects and receives nothing.
+    /// A leg that cannot carry the stream's format is refused with the format named,
+    /// rather than opening a viewer that connects and receives nothing.
     /// </summary>
     Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default);
 
@@ -303,28 +307,28 @@ public interface IBackend
     /// A leg the stream's format does not cross is refused the way <see cref="StartWatchAsync"/> refuses one.
     ///
     /// Nothing is opened that can be closed again.
-    /// The tab belongs to the browser, so no viewer state grows a member and there is no counterpart call: a
-    /// control for it names an action rather than a state, and shows no tick.
+    /// The tab belongs to the browser, so no viewer state grows a member and there is no counterpart call:
+    /// a control for it names an action rather than a state, and shows no tick.
     ///
-    /// A repeat opens the page again, a departure from the idempotency the rest of this contract holds to
-    /// (<c>docs/development-principles.md</c>).
-    /// The effect lands in a program neither side owns, so there is no state a second call could read back to
-    /// decide it had already happened.
+    /// A repeat opens the page again,
+    /// a departure from the idempotency the rest of this contract holds to (<c>docs/development-principles.md</c>).
+    /// The effect lands in a program neither side owns,
+    /// so there is no state a second call could read back to decide it had already happened.
     /// </summary>
     Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens a decode for one stream on one leg, inside the backend.
-    /// The tile path's counterpart of <see cref="StartWatchAsync"/>, differing in where the frames end up: a
-    /// watch launches a player window the backend does not draw in, a receive decodes into the backend, from
-    /// where the frame channel hands the frames to this shell.
+    /// The tile path's counterpart of <see cref="StartWatchAsync"/>, differing in where the frames end up:
+    /// a watch launches a player window the backend does not draw in, a receive decodes into the backend,
+    /// from where the frame channel hands the frames to this shell.
     ///
     /// What it opens is a decode and not a tile.
     /// Nothing about a grid, a layout or a window crosses here, how a viewer arranges what it receives being
     /// this shell's whole job (<c>docs/ipc-api.md</c>).
     ///
-    /// A leg that cannot carry the stream's format is refused with the format named, as
-    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    /// A leg that cannot carry the stream's format is refused with the format named,
+    /// as <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
     ///
     /// <paramref name="toneMap"/> asks for an HDR stream to be rolled down into the range a standard display
     /// shows, and is part of what the decode is built from rather than a value written to a running one.
@@ -361,10 +365,10 @@ public interface IBackend
     /// a volume would have to know whether the second undid the first.
     ///
     /// Safe to repeat and safe to send early.
-    /// A decode already at that loudness is a state that holds, and a volume set before the decoder has exposed
-    /// an audio pad is applied when it does.
-    /// A decode that is not running is refused as <see cref="BackendUnavailableException"/>, that being a
-    /// request about something absent.
+    /// A decode already at that loudness is a state that holds,
+    /// and a volume set before the decoder has exposed an audio pad is applied when it does.
+    /// A decode that is not running is refused as <see cref="BackendUnavailableException"/>,
+    /// that being a request about something absent.
     /// </summary>
     Task SetReceiveAudioAsync(string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default);
 
@@ -388,12 +392,13 @@ public interface IBackend
     ///
     /// Names nothing, and both halves of that are the point.
     /// There is at most one publish, so the preview needs no identity of its own.
-    /// Its frames crossed no protocol, so a synthetic leg would put a transport nothing could act on in the
-    /// table every consumer reads.
+    /// Its frames crossed no protocol,
+    /// so a synthetic leg would put a transport nothing could act on in the table every consumer reads.
     ///
     /// Opens no pipeline.
-    /// The publish is what brings the preview up, so a call made with nothing publishing is refused as
-    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    /// The publish is what brings the preview up,
+    /// so a call made with nothing publishing is refused as <see cref="BackendUnavailableException"/>,
+    /// carrying the backend's own sentence.
     /// A caller reads <c>PublishState</c> to know whether there is one to ask for.
     /// </summary>
     Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default);
@@ -420,9 +425,9 @@ public interface IBackend
     /// <summary>
     /// Monitors the backend is reading, and whether a frame has come off each one.
     ///
-    /// Read when a shell connects, for the reason the running decodes are: a preview outlives the window that
-    /// asked for it, so a shell that crashed with screens being read leaves them running and this is how the
-    /// next one finds them.
+    /// Read when a shell connects, for the reason the running decodes are:
+    /// a preview outlives the window that asked for it,
+    /// so a shell that crashed with screens being read leaves them running and this is how the next one finds them.
     /// The same shape arrives on the event stream whenever it moves.
     /// </summary>
     Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default);
@@ -467,8 +472,8 @@ public interface IBackend
     /// a duplicate event is harmless and a dropped connection is recovered from by reading the state again, not
     /// by replaying history.
     ///
-    /// It carries the changes this shell did not make, which is the whole reason it exists: another window's
-    /// stop, a pipeline that died on its own, a viewer that closed, an encoder probe that landed.
+    /// It carries the changes this shell did not make: another window's stop, a pipeline that died on its own,
+    /// a viewer that closed, an encoder probe that landed.
     /// </summary>
     IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default);
 
@@ -496,10 +501,10 @@ public interface IBackend
     /// A stream of its own for the reason the levels are one, and one degree more so: sending a position instead
     /// of drawing it into the picture costs no frame, so it moves at its own rate rather than the stream's.
     ///
-    /// Carries positions only while a publish whose cursor mode sends them is running, and stays open and silent
-    /// otherwise.
-    /// The mode can change under a subscription, and a shell that had to resubscribe would be one holding a
-    /// pointer from the mode before.
+    /// Carries positions only while a publish whose cursor mode sends them is running, and stays open
+    /// and silent otherwise.
+    /// The mode can change under a subscription,
+    /// and a shell that had to resubscribe would be one holding a pointer from the mode before.
     /// </summary>
     IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default);
 }

@@ -6,17 +6,17 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// The vocabulary, declared once, so a rule and the form control it greys name a fact by one
-// identifier.
+// The vocabulary, declared once, so a rule
+// and the form control it greys name a fact by one identifier.
 //
 // An axis that is a settings field carries that field's key.
-// The keys are spelled here rather than imported, because every other domain package registers into
-// this one and it may import nothing of theirs.
-// A form test holds the two lists to each other, so a rename reaching only one of them fails there
-// rather than by binding nothing.
+// Spelled here rather than imported: every other domain package registers into this one,
+// so this one imports none of theirs.
+// A form test holds the two lists to each other,
+// so a rename reaching only one fails there rather than by binding nothing.
 //
-// The rest are derived facts and carry no field key, there being no control to name: the publish
-// engine follows from the capture backend and is no setting of its own.
+// The rest are derived facts and carry no field key, there being no control to name:
+// the publish engine follows from the capture backend and is no setting of its own.
 const (
 	AxisFormat     = "publish.format"
 	AxisEncoder    = "publish.encoder"
@@ -33,31 +33,31 @@ const (
 	AxisCq         = "publish.cq"
 	AxisGop        = "publish.gop"
 
-	// FieldAudioGain is a control a rule lands on and nothing matches on: the level one entry of the
-	// audio list runs at is a fact rules state liveness about, and no configuration reads it.
+	// FieldAudioGain is a control a rule lands on and nothing matches on:
+	// rules state liveness about the level one audio entry runs at, and no configuration reads it.
 	// Spelled here for the reason the axes are, the form and the publish engine both naming it.
 	FieldAudioGain = "publish.audio_sources[].gain"
 
 	AxisEngine = "engine"
 	AxisFamily = "codec.family"
 	// AxisCodec is the row the format and the encoder address between them, as an engine spells it.
-	// A derived fact rather than a field: the two controls are what a draft carries and what a
-	// greying lands on, and the row is what they resolve to (capabilities.Row).
+	// A derived fact rather than a field: the two controls are what a draft carries
+	// and what a greying lands on, and the row is what they resolve to (capabilities.Row).
 	AxisCodec   = "codec.name"
 	AxisOS      = "platform.os"
 	AxisDisplay = "platform.display"
 
-	// The video driver an encode runs through, which a rule binds on where the constraint is the
-	// installed driver's rather than the encoder's (internal/gpu).
-	// Its release is a figure so a rule can name the version a defect is fixed in and stop binding
-	// there.
+	// The video driver an encode runs through, bound on where the constraint is the installed driver's
+	// rather than the encoder's (internal/gpu).
+	// Its release is a figure, so a rule names the version
+	// a defect is fixed in and stops binding there.
 	AxisGpuDriver        = "gpu.driver"
 	AxisGpuModel         = "gpu.model"
 	AxisGpuDriverVersion = "gpu.driver_version"
 )
 
-// Kind is what an axis reads as: how a match against it is written, and which half of a Value
-// carries it.
+// Kind is what an axis reads as: how a match against it is written,
+// and which half of a Value carries it.
 type Kind int
 
 const (
@@ -72,17 +72,18 @@ type Axis struct {
 	// Name is the settings field key where the axis is a field, a bare identifier where it is derived.
 	Name string
 	Kind Kind
-	// Arg is the reason argument this axis rides under, so a statement naming the axis gets the
-	// current reading attached without the rule spelling it.
-	// Every axis carries one, asserted at load: a fact worth constraining on is worth naming in the
-	// refusal.
+	// Arg is the reason argument this axis rides under, so a statement naming the axis gets
+	// the reading attached without the rule spelling it.
+	// Every axis carries one, asserted at load:
+	// a fact worth constraining on is worth naming in the refusal.
 	Arg screensharev1.TextArgName
 }
 
 // axes is the vocabulary, in domain order.
 //
-// A reason attaches the axes its rule matched on in this order, so one set of facts always yields
-// the identifiers in one sequence and a shell reading them meets the subject before the qualifier.
+// A reason attaches the axes its rule matched on in this order,
+// so one set of facts yields the identifiers in one sequence and a shell reading them meets
+// the subject before the qualifier.
 var axes = []Axis{
 	{Name: AxisCapture, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CAPTURE},
 	{Name: AxisEngine, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE},
@@ -108,8 +109,8 @@ var axes = []Axis{
 	{Name: AxisGpuDriverVersion, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_GPU_DRIVER_VERSION},
 }
 
-// One vocabulary, so a duplicate name or an axis with nothing to carry its reading is an
-// Entwicklungsfehler and fails at load.
+// One vocabulary, so a duplicate name or an axis with nothing to carry its reading
+// is an Entwicklungsfehler and fails at load.
 func init() {
 	seen := make(map[string]bool, len(axes))
 	for _, a := range axes {
@@ -132,15 +133,15 @@ func Declared(name string) (Axis, bool) {
 	return Axis{}, false
 }
 
-// Axes returns the vocabulary in domain order, for a caller assembling the facts or listing what
-// may be matched.
+// Axes returns the vocabulary in domain order, for a caller assembling the facts
+// or listing what may be matched.
 func Axes() []Axis {
 	return axes
 }
 
 // Value is one axis's reading.
-// The axis's Kind decides which half carries it, and reading the other half asserts rather than
-// answering a zero.
+// The axis's Kind decides which half carries it,
+// and reading the other half asserts rather than answering a zero.
 type Value struct {
 	text string
 	num  int
@@ -167,8 +168,8 @@ func (v Value) Number() int {
 
 // Facts is one configuration as the axes read it.
 //
-// The caller holding the settings and the machine's answers assembles it, which is what keeps this
-// package free of both.
+// The caller holding the settings and the machine's answers assembles it,
+// so this package holds neither.
 // Every axis a registered rule names has to be present: an absent one makes the rule bind nothing,
 // which reads on screen as a combination the app allows rather than as a question nobody answered.
 type Facts map[string]Value

@@ -61,8 +61,7 @@ var srtFormats = Formats{
 func (SRT) Formats() Formats { return srtFormats }
 
 // ListenerURL is the relay's SRT listener, "srt://relay:8890".
-// No TLS on this leg at all: it is UDP, and what protects it is the per-prefix passphrase
-// (settings.Relay.SrtPassphrase).
+// No TLS on this leg: UDP, protected by the per-prefix passphrase (settings.Relay.SrtPassphrase).
 func (SRT) ListenerURL(s settings.Settings) string {
 	return fmt.Sprintf("srt://%s:%d", s.Relay.Host, s.Relay.SrtPort)
 }
@@ -79,8 +78,8 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 }
 
 // GstSink configures srtsink the way libsrt takes it, which is not the way ffmpeg's srt protocol
-// does: the URI is a bare srt://host:port, and streamid and latency are properties, latency in
-// MILLISECONDS rather than microseconds.
+// does: the URI is a bare srt://host:port, and streamid and latency are properties, latency
+// in MILLISECONDS rather than microseconds.
 // alignment=7 packs 7 * 188-byte TS packets per buffer, matching the SRT payload size.
 func (SRT) GstSink(s settings.Settings) []string {
 	return append([]string{
@@ -131,19 +130,18 @@ var srtWatchKnobs = []watchKnob{
 
 func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(srtWatchKnobs, s) }
 
-// ValidatePublishSettings refuses a stream id that would not survive the wire, and a stream that
-// would leave this machine unencrypted.
+// ValidatePublishSettings refuses a stream id that would not survive the wire, and a stream
+// that would leave this machine unencrypted.
 //
 // The id carries the path and the token, and SRT truncates at srtStreamIDBytes rather than
 // refusing, so a cut token reaches the relay as a signature error naming nothing a user can act on.
 // A settings problem with a settings fix, caught here and named as one.
 //
-// The passphrase is what encrypts SRT, there being no TLS on it: it is UDP, and the reverse proxy
-// that wraps every HTTP leg of an encrypted relay never sees this one.
-// It derives from the group key,
-// so the one deployment none derives for is a stored key that will not read back,
-// and a relay across the internet refuses the leg here
-// rather than sending the stream in the clear to a path the relay refuses anyway.
+// The passphrase encrypts SRT, there being no TLS on it: UDP, and the reverse proxy wrapping every
+// HTTP leg of an encrypted relay never sees this one.
+// It derives from the group key, so the one deployment none derives for is a stored key that will
+// not read back, and a relay across the internet refuses the leg here rather than sending
+// the stream in the clear to a path the relay refuses anyway.
 func (SRT) ValidatePublishSettings(s settings.Settings) error {
 	id := srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name))
 	if !srtStreamIDFits(id) {
@@ -160,11 +158,10 @@ func (t SRT) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), srtWatchKnobs, s, key, value)
 }
 
-// srtPassphraseQuery is the passphrase as ffmpeg's srt protocol takes it,
-// empty where the path is one no derivation keys (settings.Relay.SrtPassphrase).
+// srtPassphraseQuery is the passphrase as ffmpeg's srt protocol takes it, empty where the path
+// is one no derivation keys (settings.Relay.SrtPassphrase).
 //
-// Both legs carry it because the relay keys both directions of a prefix alike
-// (internal/groupsvc).
+// Both legs carry it, the relay keying both directions of a prefix alike (internal/groupsvc).
 // A passphrase on one side only is a stream that connects and never plays.
 func srtPassphraseQuery(s settings.Settings) string {
 	passphrase := s.Relay.SrtPassphrase()
@@ -174,8 +171,8 @@ func srtPassphraseQuery(s settings.Settings) string {
 	return "&passphrase=" + url.QueryEscape(passphrase)
 }
 
-// srtPassphraseProperty is the same value as srtsink and srtsrc take it, a property rather than a
-// URI query, which is the split the latency and the stream id already have between the two engines.
+// srtPassphraseProperty is the same value as srtsink and srtsrc take it, a property rather than
+// a URI query, the split the latency and the stream id already have between the two engines.
 func srtPassphraseProperty(s settings.Settings) []string {
 	passphrase := s.Relay.SrtPassphrase()
 	if passphrase == "" {

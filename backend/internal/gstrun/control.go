@@ -18,8 +18,7 @@ import (
 // Changing a bitrate does not have to become another pipeline.
 // A relaunch costs every viewer a reconnect, so a knob the encoder takes while it runs reaches it
 // while it runs.
-// A launcher cannot do that at all, which is why the pipeline moved into a process of this app's
-// own.
+// A launcher cannot do that at all, so the pipeline runs in a process of this app's own.
 //
 // What crosses is a property write and never a settings field.
 // The vocabulary stays in the parent, which knows a bitrate is kbit on x264enc and bits per second
@@ -28,8 +27,8 @@ import (
 
 // LiveState is the whole of what a pipeline should be holding, as element property writes.
 //
-// Whole rather than a delta: a child converging to a complete state makes a crash-restart and an
-// apply the same operation, and leaves no message whose loss pins the pipeline on a value nobody
+// Whole rather than a delta: a child converging to a complete state makes a crash-restart and
+// an apply the same operation, and leaves no message whose loss pins the pipeline on a value nobody
 // chose.
 // The same state sent twice changes nothing the second time.
 type LiveState struct {
@@ -53,8 +52,8 @@ const AppliedPrefix = "screenshare-applied "
 // serveControl accepts one connection at a time and applies what arrives, on its own goroutine
 // until the listener closes.
 //
-// One at a time because there is one parent: the socket exists for the process that spawned this
-// one, and a second connection is a second opinion about what the pipeline should be holding.
+// One at a time, there being one parent: the socket exists for the process that spawned this one,
+// and a second connection is a second opinion about what the pipeline should be holding.
 func serveControl(listener net.Listener, pipeline gst.Pipeline, out io.Writer) {
 	assert.IsNotNil(listener, "a control server serves a listening socket")
 	assert.IsNotNil(out, "a control server reports what it applied to a writer")
@@ -102,9 +101,9 @@ func readControl(r io.Reader, pipeline gst.Pipeline, out io.Writer) {
 	}
 }
 
-// listenControl opens the control socket at path, and nothing at all for the empty path.
-// A run nobody talks to takes no socket, which is what the rendered command shows and what the
-// measuring runs use.
+// listenControl opens the control socket at path, and nothing for the empty path.
+// A run nobody talks to takes no socket, which the rendered command shows and the measuring runs
+// use.
 func listenControl(path string) (net.Listener, error) {
 	if path == "" {
 		return nil, nil

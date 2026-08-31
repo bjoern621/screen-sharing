@@ -10,8 +10,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
-// SRT is keyed per group: the app derives the passphrase from the group key, and this service
-// writes the same derivation into the relay's per-prefix path configuration.
+// SRT is keyed per group: the app derives the passphrase from the group key,
+// and this service writes the same derivation into the relay's per-prefix path configuration.
 // These hold that every route handed a group key writes the keys through,
 // and that a relay that will not take them costs the leg and never the answer.
 

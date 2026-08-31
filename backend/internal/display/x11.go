@@ -13,8 +13,8 @@ import (
 
 // x11ConnectedRe matches an xrandr output header for a connected output with an active mode:
 // "HDMI-A-1 connected primary 1920x1080+2560+0 (normal left inverted right x axis y axis)".
-// A connected output that is turned off carries no geometry, so it does not match and stays out of
-// the listing.
+// A connected output that is turned off carries no geometry,
+// so it does not match and stays out of the listing.
 var x11ConnectedRe = regexp.MustCompile(`^(\S+) connected (primary )?(\d+)x(\d+)\+(\d+)\+(\d+)`)
 
 // x11CurrentModeRe pulls the refresh rate off an indented mode line.
@@ -22,9 +22,9 @@ var x11ConnectedRe = regexp.MustCompile(`^(\S+) connected (primary )?(\d+)x(\d+)
 var x11CurrentModeRe = regexp.MustCompile(`([\d.]+)\s*\*`)
 
 // listX11 enumerates monitors from "xrandr --query", the RandR view of the X screen.
-// A connected output with an active mode becomes one entry, indexed in xrandr's listing order and
-// carrying its offset within the X screen, which is the origin crop-based capture starts its
-// rectangle at.
+// A connected output with an active mode becomes one entry,
+// indexed in xrandr's listing order and carrying its offset within the X screen,
+// the origin crop-based capture starts its rectangle at.
 //
 // xrandr missing and xrandr reporting no active output are Umgebungsfehler, so neither asserts:
 // both answer nil and the caller falls through to the next provider or to the placeholder.
@@ -47,8 +47,8 @@ func listX11() []Monitor {
 			})
 			continue
 		}
-		// A mode line is indented under its output header, and the flagged one carries that output's
-		// refresh rate.
+		// A mode line is indented under its output header,
+		// and the flagged one carries that output's refresh rate.
 		if len(monitors) > 0 && indented(line) {
 			if r := x11CurrentModeRe.FindStringSubmatch(line); r != nil {
 				monitors[len(monitors)-1].RefreshHz = roundHz(r[1])
@@ -72,8 +72,8 @@ func atoi(s string) int {
 }
 
 // roundHz rounds a decimal refresh rate to the nearest whole Hz.
-// Text that does not parse yields zero, the unknown-refresh sentinel: it came out of another
-// program and is not this app's to guarantee.
+// Text that does not parse yields zero, the unknown-refresh sentinel:
+// it came out of another program and is not this app's to guarantee.
 func roundHz(s string) int {
 	hz, err := strconv.ParseFloat(s, 64)
 	if err != nil {

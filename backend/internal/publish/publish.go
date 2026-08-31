@@ -1,5 +1,5 @@
-// Package publish selects and supervises the pipeline that captures the screen and pushes the
-// encoded stream to the relay.
+// Package publish selects and supervises the pipeline that captures the screen and pushes
+// the encoded stream to the relay.
 //
 // The seam is the Publisher: the app starts and stops a Publisher and never names ffmpeg or
 // GStreamer.
@@ -26,7 +26,7 @@ import (
 // The ffmpeg progress shape is the wire format, and an engine with no equivalent progress stream
 // measures the same figures its own way (gstMeter).
 // A figure the pipeline exposes no measurement for is marked in Missing rather than sent as a zero,
-// since zero is the reading that marks a stalled encoder.
+// zero being the reading that marks a stalled encoder.
 type Stats = ffmpeg.Stats
 
 // Missing is the set of Stats figures a sample carries no measurement for.
@@ -48,8 +48,8 @@ type Callbacks struct {
 	OnExit  func(err error, stderrTail string, logPath string)
 	// OnPointer receives where the pointer is, for a publish whose cursor mode sends the position
 	// instead of drawing it into the frames.
-	// It fires at the reader's own rate, faster than the frame rate on purpose, and never on any other
-	// mode or any engine whose child cannot report one (internal/pointer).
+	// It fires at the reader's own rate, faster than the frame rate, and never on any other mode or
+	// any engine whose child cannot report one (internal/pointer).
 	OnPointer func(pointer.Position)
 }
 
@@ -59,25 +59,25 @@ type Publisher interface {
 	Command(s settings.Settings) (string, error)
 	// Start runs the pipeline.
 	// preview is the loopback leg the child copies its already-encoded video to for the local preview,
-	// and its zero value is a run with none, which a rendered command always is: the port belongs to
-	// one launch (preview.go).
+	// and its zero value is a run with none, which a rendered command always is: the port belongs
+	// to one launch (preview.go).
 	Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error)
 	// Engine names the publish engine that runs the pipeline, "ffmpeg" or "gstreamer".
 	// The lifecycle code above the seam never reads it, and the settings form does: which rate-control
-	// knobs reach the encoder differs per engine, and a control the engine ignores is greyed with that
-	// reason instead of silently doing nothing.
+	// knobs reach the encoder differs per engine, and a control the engine ignores is greyed
+	// with that reason instead of silently doing nothing.
 	Engine() string
 	// Carries reports whether the transport implements the publish capability this engine serializes
 	// through.
-	// The ffmpeg engine needs an FFmpegPublisher and the GStreamer engine a GstPublisher, so a
-	// GStreamer capture backend cannot carry a transport with no GStreamer sink.
+	// The ffmpeg engine needs an FFmpegPublisher and the GStreamer engine a GstPublisher, so
+	// a GStreamer capture backend cannot carry a transport with no GStreamer sink.
 	Carries(transportName string) bool
 }
 
 // The publish engines that run the capture backends.
 // An engine names itself to capabilities.Validate, to the encoder probe and to the settings form,
-// so the spelling is the capability table's own rather than a second one able to drift from the
-// engine a Gap names.
+// so the spelling is the capability table's own rather than a second one able to drift
+// from the engine a Gap names.
 const (
 	EngineFfmpeg = capabilities.EngineFfmpeg
 	EngineGst    = capabilities.EngineGst
@@ -93,8 +93,8 @@ const (
 // the Windows desktop ddagrab or gdigrab under ffmpeg and d3d11screencapturesrc under GStreamer.
 //
 // A row with one engine is a source the other framework has nothing for.
-// ffmpeg has no PipeWire input device, so the portal is GStreamer's alone; GStreamer has no capture
-// element for DRM/KMS scanout buffers, so kmsgrab is ffmpeg's.
+// ffmpeg has no PipeWire input device, so the portal is GStreamer's alone.
+// GStreamer has no capture element for DRM/KMS scanout buffers, so kmsgrab is ffmpeg's.
 var captureBackends = map[string]Publisher{
 	"ddagrab":      ffmpegEngine{},
 	"gdigrab":      ffmpegEngine{},
@@ -113,9 +113,9 @@ var captureBackends = map[string]Publisher{
 //
 // A capability discovered by assertion rather than a method on Publisher, the way a child taking
 // values while it plays is (live.go).
-// Acquiring anything at all is the portal's alone: every other backend opens its source from the
-// element or the input device and holds nothing between runs, and a Release on each of them would be
-// four methods that do nothing.
+// Acquiring anything at all is the portal's alone: every other backend opens its source
+// from the element or the input device and holds nothing between runs, and a Release on each
+// of them would be four methods that do nothing.
 type sourceHolder interface {
 	// Release drops the held source, and succeeds where nothing is held.
 	Release()
@@ -134,8 +134,8 @@ func ReleaseSources() {
 // ReleaseSourcesExcept drops what every backend but the named one holds.
 //
 // Called at a launch, which is where the stream can move to another capture backend: the one it
-// moved off would otherwise keep a source no child reads, and for the portal that is a screen the
-// compositor goes on sharing for the rest of the stream.
+// moved off would otherwise keep a source no child reads, and for the portal that is a screen
+// the compositor goes on sharing for the rest of the stream.
 // A backend named here that holds nothing, and a name no row carries, both release nothing.
 func ReleaseSourcesExcept(capture string) {
 	for name, p := range captureBackends {
@@ -160,9 +160,9 @@ func For(capture string) (Publisher, error) {
 // The engine owning the selected capture backend renders it, so the result is an ffmpeg command
 // line or a gst-launch pipeline.
 //
-// Every check a publish is refused for runs here, since the command is what a run executes.
-// A caller holding settings against the engines needs no second validation path,
-// and the line the UI displays is one the publish button can start.
+// Every check a publish is refused for runs here, the command being what a run executes.
+// A caller holding settings against the engines needs no second validation path, and the line
+// the UI displays is one the publish button can start.
 func Command(s settings.Settings) (string, error) {
 	p, err := For(s.Publish.Capture)
 	if err != nil {
@@ -171,15 +171,15 @@ func Command(s settings.Settings) (string, error) {
 	return p.Command(s)
 }
 
-// SamePipeline reports whether two settings publish through the same pipeline, which is what says
-// whether moving from one to the other needs the child process relaunched.
+// SamePipeline reports whether two settings publish through the same pipeline, which says whether
+// moving from one to the other needs the child process relaunched.
 //
 // The rendered command is the whole of what an engine hands its child, and both engines render it
 // from the settings alone, so a field no builder reads cannot change the string and one a builder
 // reads always does.
 // Comparing the render is therefore the question itself.
-// A table of which fields matter would be a second statement of it, and would fall behind the
-// builders the first time one of them read a field the table does not name.
+// A table of which fields matter would be a second statement of it, and would fall behind
+// the builders the first time one of them read a field the table does not name.
 //
 // Settings neither engine can render carry the reason instead of an answer: they name a pipeline
 // that cannot run, so whether some other pipeline equals it is not a question with one.
@@ -188,8 +188,8 @@ func Command(s settings.Settings) (string, error) {
 func SamePipeline(before, after settings.Settings) (bool, error) {
 	// The one field a builder reads that is not part of what the pipeline is.
 	// Minted per start and good for minutes, so comparing it would make every repeat a different
-	// pipeline: a start naming the running stream would relaunch it, and a shell could no longer
-	// repeat a request whose answer went missing.
+	// pipeline: a start naming the running stream would relaunch it, and a shell could not repeat
+	// a request whose answer went missing.
 	before.Relay.Token, after.Relay.Token = "", ""
 
 	if reflect.DeepEqual(before, after) {
@@ -218,7 +218,7 @@ func Captures() []string {
 
 // Engines lists the publish engines that run the capture backends, sorted for a stable order.
 // Each answers capabilities.Validate under its own name and is probed separately for the codecs it
-// runs here, since the two wrap different encoder implementations.
+// runs here, the two wrapping different encoder implementations.
 func Engines() []string {
 	seen := make(map[string]bool, len(captureBackends))
 	var out []string
@@ -243,9 +243,9 @@ func EngineFor(capture string) (string, error) {
 // RateCeilingMbps is the rate an encode on these settings is held to, and false where it is bounded
 // by nothing.
 //
-// What counts as a ceiling is the mode's answer: a bitrate held every second is its own ceiling, a
-// constrained burst is the figure above the target, and a quality target has one only where the
-// element holds it inside a rate buffer (capabilities.QualityCeiling).
+// What counts as a ceiling is the mode's answer: a bitrate held every second is its own ceiling,
+// a constrained burst is the figure above the target, and a quality target has one only where
+// the element holds it inside a rate buffer (capabilities.QualityCeiling).
 // An average target bursts freely and a lossless encode costs what exactness costs, so neither has
 // one.
 //

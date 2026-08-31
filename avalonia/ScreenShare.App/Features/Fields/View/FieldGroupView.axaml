@@ -5,9 +5,9 @@
              x:DataType="vm:FieldGroupViewModel">
 
   <!--
-    One group of the resolved form, drawn generically. Which controls appear, what they are
-    called, which are greyed and why all arrive in the message, and this file decides where a
-    control sits (docs/ipc-api.md).
+    One group of the resolved form, drawn generically.
+    Which controls appear, what they are called, which are greyed and why all arrive in the message,
+    and this file decides where a control sits (docs/ipc-api.md).
     What one control looks like is the shared row (FieldRow.axaml).
   -->
 

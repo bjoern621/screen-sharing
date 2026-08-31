@@ -8,11 +8,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// The rules and the gaps are one table read two ways, and they answer alike for every codec,
-// engine, option and value there is.
+// The rules and the gaps are one table read two ways,
+// and they answer alike for every codec, engine, option and value there is.
 //
-// Exhaustive rather than sampled on purpose: the gaps can only be retired once the two agree
-// everywhere, and agreement on the rows somebody thought to list retires nothing.
+// Exhaustive rather than sampled:
+// the gaps are retired once the two agree everywhere,
+// and agreement on the rows somebody thought to list retires nothing.
 func TestRulesAnswerWhatTheGapsAnswer(t *testing.T) {
 	values := map[string][]string{
 		OptionChroma:     chromasDeclared(),
@@ -56,8 +57,8 @@ func TestAnEngineWideGapRefusesTheCodecEntry(t *testing.T) {
 	}
 }
 
-// A gap belonging to the format or the library binds on both engines, and a gap belonging to one
-// wrapper binds only there.
+// A gap belonging to the format or the library binds on both engines,
+// and a gap belonging to one wrapper binds only there.
 // The rules carry the distinction by naming the engine axis or leaving it out.
 func TestAnEngineWideFactBindsOnBothEngines(t *testing.T) {
 	// libvpx signals no colour range on either engine: VP8's keyframe header has no field for it,
@@ -69,8 +70,8 @@ func TestAnEngineWideFactBindsOnBothEngines(t *testing.T) {
 		}
 	}
 
-	// x265 codes planar RGB through ffmpeg and no GStreamer element takes it, so one value is one
-	// engine's alone.
+	// x265 codes planar RGB through ffmpeg and no GStreamer element takes it,
+	// so one value is one engine's alone.
 	if v := rules.EvaluateRules(codecFacts("libx265", EngineFfmpeg, ModeCrf), codecRules()); !v.ValueEnabled(rules.AxisChroma, "gbrp") {
 		t.Error("planar RGB was refused on the engine that codes it")
 	}
@@ -100,11 +101,12 @@ func TestARefusalNamesTheCodecItIsAbout(t *testing.T) {
 }
 
 // codecFacts is the axes the codec table's rules match on.
-// A rule binds on the axes it names, so naming more here would assert facts the table never
-// claimed.
-// The device goes in unidentified, which is what makes the gaps and the rules comparable: a gap is
-// what the encoder cannot do on any machine, and a driver defect binds only where a driver was
-// named, so a codec question with no driver in it reads the gaps alone.
+// A rule binds on the axes it names,
+// so naming more here would assert facts the table never claimed.
+// The device goes in unidentified, which is what makes the gaps and the rules comparable:
+// a gap is what the encoder cannot do on any machine,
+// and a driver defect binds only where a driver was named,
+// so a codec question with no driver in it reads the gaps alone.
 func codecFacts(codec, engine, mode string) rules.Facts {
 	return deviceCodecFacts(codec, engine, mode, Device{})
 }
@@ -156,8 +158,8 @@ func TestRulesNarrowToTheCeilingsTheColumnsDeclare(t *testing.T) {
 func TestACeilingBindsOnlyInTheModesThatReadIt(t *testing.T) {
 	const offered = 10000
 
-	// libsvtav1 declares a bitrate ceiling, and a constant-quality encode sends no target for it to
-	// apply to.
+	// libsvtav1 declares a bitrate ceiling,
+	// and a constant-quality encode sends no target for it to apply to.
 	crf := rules.EvaluateRules(codecFacts("libsvtav1", EngineFfmpeg, ModeCrf), codecRules())
 	if _, high := crf.Bounds(rules.AxisBitrateM, 0, offered); high != offered {
 		t.Errorf("the bitrate narrowed to %d in a mode that aims at no bitrate", high)
@@ -173,8 +175,8 @@ func TestACeilingBindsOnlyInTheModesThatReadIt(t *testing.T) {
 	}
 }
 
-// The statement that narrows the control carries the limit itself: no axis holds it, and a reader
-// looking at a slider that stops early is owed the number it stops at.
+// The statement that narrows the control carries the limit itself:
+// no axis holds it, and a reader looking at a slider that stops early is owed the number.
 func TestACeilingStatesTheLimitItNarrowsTo(t *testing.T) {
 	v := rules.EvaluateRules(codecFacts("libsvtav1", EngineFfmpeg, ModeAbr), codecRules())
 
@@ -193,8 +195,8 @@ func TestACeilingStatesTheLimitItNarrowsTo(t *testing.T) {
 	}
 }
 
-// chromasDeclared is every pixel format any row lists, so a sweep asks about formats a codec does
-// not carry as well as the ones it does.
+// chromasDeclared is every pixel format any row lists,
+// so a sweep asks about formats a codec does not carry as well as the ones it does.
 func chromasDeclared() []string {
 	var out []string
 	for _, c := range Codecs {

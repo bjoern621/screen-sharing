@@ -81,8 +81,8 @@ public sealed class CardColumn : Panel
 
     /// <summary>
     /// Whether a child put anything on the screen this pass.
-    /// A hidden child measures to nothing, and so does one whose own content is all hidden, which is the case a
-    /// gap must not be charged for.
+    /// A hidden child measures to nothing, and so does one whose own content is all hidden,
+    /// which is the case a gap must not be charged for.
     /// </summary>
     private static bool Draws(Control child) => child.DesiredSize.Height > 0;
 }

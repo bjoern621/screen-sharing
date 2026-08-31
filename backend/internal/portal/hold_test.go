@@ -2,8 +2,8 @@ package portal
 
 import "testing"
 
-// A session with no client behind it: Close finds nothing to release, which is what lets a hold be
-// exercised without a compositor.
+// A session with no client behind it: Close finds nothing to release,
+// which is what lets a hold be exercised without a compositor.
 func heldSessions(t *testing.T) (*Hold, *int) {
 	t.Helper()
 
@@ -15,8 +15,8 @@ func heldSessions(t *testing.T) (*Hold, *int) {
 	return hold, &opened
 }
 
-// The whole point of the hold: a relaunch reuses the consent the first launch took, so a compositor
-// that persists none pops its picker once per stream rather than once per child.
+// The whole point of the hold: a relaunch reuses the consent the first launch took,
+// so a compositor that persists none pops its picker once per stream rather than once per child.
 func TestASecondCaptureReusesTheHeldSession(t *testing.T) {
 	hold, opened := heldSessions(t)
 	opts := Options{Types: SourceMonitor | SourceWindow, Cursor: CursorEmbedded}
@@ -38,8 +38,9 @@ func TestASecondCaptureReusesTheHeldSession(t *testing.T) {
 	}
 }
 
-// The restore token moves under a held session: the store is rewritten after every capture, and a
-// consent already granted is not reopened over what the next one would start from.
+// The restore token moves under a held session:
+// the store is rewritten after every capture,
+// and a consent already granted is not reopened over what the next one would start from.
 func TestAMovedRestoreTokenReusesTheHeldSession(t *testing.T) {
 	hold, opened := heldSessions(t)
 
@@ -55,8 +56,8 @@ func TestAMovedRestoreTokenReusesTheHeldSession(t *testing.T) {
 	}
 }
 
-// The defaults Open fills are not a different source, so a caller that spells one out and one that
-// leaves it off share a session.
+// The defaults Open fills are not a different source,
+// so a caller that spells one out and one that leaves it off share a session.
 func TestSpelledOutDefaultsReuseTheHeldSession(t *testing.T) {
 	hold, opened := heldSessions(t)
 

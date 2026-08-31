@@ -7,8 +7,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// <summary>
 /// Whether a control is being looked at: standing in a visual tree, in a window in front of the reader.
 ///
-/// <b>For a surface whose drawing costs the backend something.</b> The wizard's screen picker is one: its
-/// pictures come off a screen capture per monitor the backend opens because the grid asked for it.
+/// <b>For a surface whose drawing costs the backend something.</b> The wizard's screen picker is one:
+/// its pictures come off a screen capture per monitor the backend opens because the grid asked for it.
 /// The shell renders every destination on every pass, so a grid drawing whenever anything is available charges
 /// a reader who never opened the screen, and one drawing for as long as the screen is open charges a reader
 /// whose window has been behind a terminal for an hour.
@@ -137,8 +137,8 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Starts the wait, leaving one already running to finish: a window going further behind is no reason to
-    /// draw longer.
+    /// Starts the wait, leaving one already running to finish: a window going further behind is no reason
+    /// to draw longer.
     /// </summary>
     private void Wait()
     {

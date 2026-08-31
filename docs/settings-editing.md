@@ -24,8 +24,7 @@ The window opens on the stored settings, read once, and edits that copy.
 | Presses publish | `StartPublish` | Per press |
 | Edits a group the form marks `applied` | `SaveSettings` | Per change, one write in flight at a time |
 
-`ResolveForm` is a read: no file is written, no pipeline is touched, and asking twice for one draft answers twice the same
-(`ipc-api.md`).
+`ResolveForm` is a read: no file is written, no pipeline is touched, and asking twice for one draft answers twice the same (`ipc-api.md`).
 
 ## The form is an answer about one draft
 

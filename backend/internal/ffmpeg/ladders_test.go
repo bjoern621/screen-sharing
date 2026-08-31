@@ -10,9 +10,9 @@ import (
 
 // The flag each encoder spells its effort knob with, and the one it spells its tune with.
 //
-// Stated rather than derived: they are this engine's spelling of a fact the table holds in the
-// encoder's own vocabulary, ffmpeg saying -preset where the GStreamer elements say speed-preset,
-// and the aom family -cpu-used where rav1e says -speed.
+// Stated rather than derived: they are this engine's spelling of a fact the table holds
+// in the encoder's own vocabulary, ffmpeg saying -preset where the GStreamer elements say
+// speed-preset, and the aom family -cpu-used where rav1e says -speed.
 // The table declares the step; which flag carries it is the builder's.
 var (
 	effortFlags = map[string]string{
@@ -26,8 +26,8 @@ var (
 		"hevc_nvenc": "-preset",
 		"h264_nvenc": "-preset",
 		"av1_nvenc":  "-preset",
-		// ffmpeg names the seven points of oneVPL's target-usage scale, so the ladder's numbers reach
-		// this engine through the map that spells them (qsvPresets).
+		// ffmpeg names the seven points of oneVPL's target-usage scale,
+		// so the ladder's numbers reach this engine through the map that spells them (qsvPresets).
 		"h264_qsv": "-preset",
 		"hevc_qsv": "-preset",
 		"av1_qsv":  "-preset",
@@ -52,19 +52,20 @@ var (
 		// oneVPL's tuning is a scenario the session is for, so ffmpeg puts it on its own flag.
 		"h264_qsv": "-scenario",
 		"hevc_qsv": "-scenario",
-		// The two libraries whose wrapper puts no tune flag on at all: the step is one key of the
-		// colon-separated string carrying everything the library takes and the wrapper does not name.
+		// The two libraries whose wrapper puts no tune flag on at all:
+		// the step is one key of the colon-separated string carrying everything the library takes
+		// and the wrapper does not name.
 		"libsvtav1": "-svtav1-params",
 		"librav1e":  "-rav1e-params",
 	}
 
-	// paramFlags are the tune flags carrying a key set rather than one value, so an assertion looks for
-	// the key inside the string and not for the string itself.
+	// paramFlags are the tune flags carrying a key set rather than one value,
+	// so an assertion looks for the key inside the string and not for the string itself.
 	paramFlags = map[string]bool{"-svtav1-params": true, "-rav1e-params": true}
 )
 
-// A speed decision the table declares and a builder spends is one written in two places, so any
-// drift between them fails here rather than in a stream nobody can explain.
+// A speed decision the table declares and a builder spends is one written in two places,
+// so any drift between them fails here rather than in a stream nobody can explain.
 func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -121,19 +122,19 @@ func TestEveryDefaultIsAStepOfItsLadder(t *testing.T) {
 // withheldEffort are the codecs whose row declares an effort ladder that this engine spends nothing
 // of, each covered by a row of form.availabilityEngineRules that greys the control here.
 //
-// The VAAPI family is the one: its ladder is the seven points the va elements take, where ffmpeg's
-// -quality counts over the range the installed driver reports, so a step carried across would spend
-// a different amount of work per vendor.
-// A withheld knob is the departure table's business rather than a missing mapping, which is why it
-// is named here instead of failing the pairing below.
+// The VAAPI family is the one: its ladder is the seven points the va elements take,
+// where ffmpeg's -quality counts over the range the installed driver reports,
+// so a step carried across would spend a different amount of work per vendor.
+// A withheld knob is the departure table's business rather than a missing mapping,
+// so it is named here instead of failing the pairing below.
 var withheldEffort = map[string]bool{
 	"h264_vaapi": true, "hevc_vaapi": true, "av1_vaapi": true, "vp9_vaapi": true, "vp8_vaapi": true,
 }
 
-// A codec whose builder spends a step declares a ladder, and one that declares a ladder has a
-// builder that spends it, unless the departure table withholds the knob on this engine.
-// The two maps above are the builders' side of that, so a codec missing from either is a knob the
-// form offers and the command drops.
+// A codec whose builder spends a step declares a ladder, and one that declares a ladder
+// has a builder that spends it, unless the departure table withholds the knob on this engine.
+// The two maps above are the builders' side of that, so a codec missing from either is a knob
+// the form offers and the command drops.
 func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -150,9 +151,9 @@ func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
 	}
 }
 
-// mustEncoderArgs builds one encoder's arguments for one mode on a draft the codec accepts: the
-// quantizer rides its own scale and the bitrate stays under its ceiling, so nothing but the knob
-// under test can refuse it.
+// mustEncoderArgs builds one encoder's arguments for one mode on a draft the codec accepts:
+// the quantizer rides its own scale and the bitrate stays under its ceiling, so nothing
+// but the knob under test can refuse it.
 func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 	t.Helper()
 
@@ -163,10 +164,10 @@ func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 	}
 	s.Publish.UseCodec(c.Name)
 	s.Publish.Mode, s.Publish.Chroma = mode, chromas[len(chromas)-1]
-	// Both steps come off the codec's own row, as a fresh installation, the migration and the repair
-	// leave them.
-	// A draft carrying another codec's step is what the repair exists to move, and not what this asks
-	// about.
+	// Both steps come off the codec's own row, as a fresh installation, the migration
+	// and the repair leave them.
+	// A draft carrying another codec's step is what the repair exists to move,
+	// and not what this asks about.
 	s.Publish.Effort, _ = c.Effort.StepFor(mode)
 	s.Publish.Tune, _ = c.Tune.StepFor(mode)
 	s.Publish.Cq = c.CqMaxOn(capabilities.EngineFfmpeg) / 2
@@ -217,8 +218,9 @@ func assertFlagCarries(t *testing.T, args []string, flag, key string) {
 }
 
 // assertUntuned holds the builder to spending nothing where the table leaves the knob unset.
-// A flag carrying a key set is exempt from the flag being absent, the rate control putting its own
-// keys in the same string, so what is asserted there is that no tune key rode along.
+// A flag carrying a key set is exempt from the flag being absent,
+// the rate control putting its own keys in the same string, so what is asserted there
+// is that no tune key rode along.
 func assertUntuned(t *testing.T, args []string, flag string) {
 	t.Helper()
 
@@ -240,8 +242,8 @@ func assertUntuned(t *testing.T, args []string, flag string) {
 // tuneSpelling is how this engine writes one step of a codec's tune ladder.
 //
 // Every ladder but SVT-AV1's reaches ffmpeg as the step itself.
-// That library takes a number where the ladder names the mode it stands for, so this reads the
-// pairing the table declares rather than a second copy of it.
+// That library takes a number where the ladder names the mode it stands for,
+// so this reads the pairing the table declares rather than a second copy of it.
 func tuneSpelling(c capabilities.Codec, step string) string {
 	if c.Name != "libsvtav1" {
 		return step
@@ -252,11 +254,11 @@ func tuneSpelling(c capabilities.Codec, step string) string {
 
 // effortSpelling is how this engine writes one step of a codec's ladder.
 //
-// Almost every ladder reaches ffmpeg as the step itself, the two engines differing in what the
-// option is called and not in what it carries.
+// Almost every ladder reaches ffmpeg as the step itself, the two engines differing
+// in what the option is called and not in what it carries.
 // oneVPL is the exception: the scale it defines is a number where ffmpeg names its seven points,
-// so this reads the builder's own map rather than a second one, which would be a second spelling
-// free to disagree with what the encoder is given.
+// so this reads the builder's own map rather than a second one,
+// which would be a second spelling free to disagree with what the encoder is given.
 func effortSpelling(c capabilities.Codec, step string) string {
 	if c.Family != capabilities.FamilyQsv {
 		return step

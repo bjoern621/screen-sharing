@@ -11,17 +11,15 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// The advanced card draws the part of the quality group the step above it places nowhere.
-///
-/// What these lock out is the card inventing a value: every assertion here is against one some form carried
-/// (docs/ipc-api.md, "The rule").
-///
-/// The group is driven directly rather than through a backend, since what is under test is the split between
-/// the two layouts and not a resolve.
+/// Locked out is the card inventing a value: every assertion is against one some form carried
+/// (<c>docs/ipc-api.md</c>, "The rule").
+/// The group is driven directly rather than through a backend,
+/// the subject being the split between the two layouts and not a resolve.
 /// EveryFieldOfTheGroupIsDrawnExactlyOnce is the exception, and states that split as an invariant.
 /// </summary>
 public sealed class AdvancedGroupTests
 {
-    /// <summary>The fields rendered once, with the writes the group reports collected.</summary>
+    /// <summary>Fields rendered once, with the writes the group reports collected.</summary>
     private static (FieldGroupViewModel Group, List<(string Key, FieldValue Value)> Writes) GroupOf(params Field[] fields)
     {
         var writes = new List<(string, FieldValue)>();
@@ -95,8 +93,8 @@ public sealed class AdvancedGroupTests
 
         var row = new AdvancedGroupViewModel(group).Rows.Single();
 
-        // Value and unit come off the form, heading and paragraph off this side, looked up by the key the
-        // form named the field by.
+        // Value and unit come off the form, heading and paragraph off this side,
+        // looked up by the key the form named the field by.
         Assert.Equal("2000", row.Readback);
         Assert.Equal(Fields.Of("vbv_ms").Label, row.Label);
         Assert.Equal(Fields.Of("vbv_ms").Help, row.Help);
@@ -116,8 +114,8 @@ public sealed class AdvancedGroupTests
     }
 
     /// <summary>
-    /// Read as a plain number the ladder is dropped, read as a select there is no box for a rate the ladder
-    /// does not carry.
+    /// Read as a plain number the ladder is dropped,
+    /// read as a select there is no box for a rate the ladder does not carry.
     /// </summary>
     [Fact]
     public void ANumberCarryingALadderIsOneControlAndNotTwo()
@@ -137,7 +135,7 @@ public sealed class AdvancedGroupTests
 
     /// <summary>
     /// Options are strings, so a step written back as one is where a value silently becomes zero.
-    /// The field carries the kind its value arrived in for that reason.
+    /// The field carries the kind its value arrived in.
     /// </summary>
     [Fact]
     public void BothHalvesOfALadderedNumberWriteTheSameNumber()
@@ -163,8 +161,8 @@ public sealed class AdvancedGroupTests
     }
 
     /// <summary>
-    /// A row that survives a pass unchanged is what lets a spinner keep its caret
-    /// (docs/development-principles.md, "Idempotency").
+    /// A row surviving a pass unchanged lets a spinner keep its caret
+    /// (<c>docs/development-principles.md</c>, "Idempotency").
     /// </summary>
     [Fact]
     public void ASecondRenderPassLeavesTheRowsAlone()
@@ -180,7 +178,7 @@ public sealed class AdvancedGroupTests
 
     /// <summary>
     /// A field in neither layout is a setting nobody can edit, one in both a setting edited from two places.
-    /// Stated against a whole flow, since it is the two layouts together that have to cover the group.
+    /// Stated against a whole flow, the two layouts together having to cover the group.
     /// </summary>
     [Fact]
     public async Task EveryFieldOfTheGroupIsDrawnExactlyOnce()

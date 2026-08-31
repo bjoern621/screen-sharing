@@ -8,15 +8,15 @@ import (
 )
 
 // Codes with no meaning beyond being valid.
-// A statement is checked by the identifiers riding with it, never by wording, which lives on the
-// surface.
+// A statement is checked by the identifiers riding with it,
+// never by wording, which the surface owns.
 const (
 	someReason  = screensharev1.TextCode_TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA
 	otherReason = screensharev1.TextCode_TEXT_CODE_CODEC_CODES_NO_RGB
 )
 
 // facts is a whole configuration, so a test states what it changes rather than what it carries.
-// Every declared axis is present, which is what the evaluator requires of a caller.
+// Every declared axis is present, as the evaluator requires of a caller.
 func facts(over map[string]Value) Facts {
 	f := Facts{
 		AxisCapture:    TextValue("portal"),
@@ -228,7 +228,6 @@ func TestHidingTakesTheControlOffTheScreen(t *testing.T) {
 }
 
 // The matched axes in vocabulary order, then the control and the single value taken.
-// That is what lets a row state a code alone.
 func TestReasonCarriesTheIdentifiersItIsAbout(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{{
 		When: map[string]Match{

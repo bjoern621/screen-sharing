@@ -12,10 +12,10 @@ import (
 
 // isolateConfig points os.UserConfigDir at a fresh temp directory.
 //
-// All three variables, os.UserConfigDir reading a different one per platform: XDG_CONFIG_HOME on
-// Linux, AppData on Windows, HOME on macOS.
-// Isolating one platform's is a test that draws identities into the developer's own config
-// directory on the others.
+// All three variables, os.UserConfigDir reading a different one per platform:
+// XDG_CONFIG_HOME on Linux, AppData on Windows, HOME on macOS.
+// Isolating one platform's is a test that draws identities
+// into the developer's own config directory on the others.
 func isolateConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -35,8 +35,8 @@ func isolateConfig(t *testing.T) {
 const aGroup = "MFRGGZDFMZTWQ2LKNNWG3"
 const anotherGroup = "NBSWY3DPEB3W64TMMQQQ2"
 
-// A machine that has joined no group holds no identity for one, which is what the app reads before
-// it decides whether to draw one.
+// A machine that has joined no group holds no identity for one,
+// which is what the app reads before deciding whether to draw one.
 func TestAMachineThatHasNotJoinedHoldsNothing(t *testing.T) {
 	isolateConfig(t)
 
@@ -49,8 +49,8 @@ func TestAMachineThatHasNotJoinedHoldsNothing(t *testing.T) {
 	}
 }
 
-// Joining twice is joining once: the secret is what this member is known by inside the group, and a
-// second one would be a second member with the first one's connections still open.
+// Joining twice is joining once: the secret is what this member is known by inside the group,
+// and a second one would be a second member with the first one's connections still open.
 func TestJoiningTwiceKeepsTheSecretAndTakesTheName(t *testing.T) {
 	isolateConfig(t)
 
@@ -82,8 +82,8 @@ func TestJoiningTwiceKeepsTheSecretAndTakesTheName(t *testing.T) {
 	}
 }
 
-// A drawn secret is what nobody else can state this member's presence with, so it is drawn whole and
-// stored as the service reads it.
+// A drawn secret is what nobody else can state this member's presence with,
+// so it is drawn whole and stored as the service reads it.
 func TestADrawnSecretIsWholeAndOneGroupsOwn(t *testing.T) {
 	isolateConfig(t)
 
@@ -108,8 +108,9 @@ func TestADrawnSecretIsWholeAndOneGroupsOwn(t *testing.T) {
 	}
 }
 
-// The file carries a secret, so it is the owner's alone, and so is the directory holding one file
-// per group: which groups this machine is in is nobody else's reading either.
+// The file carries a secret, so it is the owner's alone,
+// and so is the directory holding one file per group:
+// which groups this machine is in is nobody else's reading either.
 func TestAnIdentityIsTheOwnersAlone(t *testing.T) {
 	isolateConfig(t)
 
@@ -137,8 +138,8 @@ func TestAnIdentityIsTheOwnersAlone(t *testing.T) {
 	}
 }
 
-// The file is what another member's app and the service both read this machine's identity out of, so
-// its keys are the ones they spell.
+// The file is what another member's app and the service both read this machine's identity out of,
+// so its keys are the ones they spell.
 func TestTheFileSpellsWhatTheServiceReads(t *testing.T) {
 	isolateConfig(t)
 
@@ -164,8 +165,8 @@ func TestTheFileSpellsWhatTheServiceReads(t *testing.T) {
 	}
 }
 
-// Leaving a group is dropping the identity, and leaving one this machine never joined is the state
-// the call names.
+// Leaving a group is dropping the identity,
+// and leaving one this machine never joined is the state the call names.
 func TestForgettingIsIdempotent(t *testing.T) {
 	isolateConfig(t)
 
@@ -195,8 +196,8 @@ func TestForgettingIsIdempotent(t *testing.T) {
 	}
 }
 
-// A file the user can edit is a file that can come back damaged, and a secret read out of a damaged
-// one derives a member id nobody knows.
+// A file the user can edit is a file that can come back damaged,
+// and a secret read out of a damaged one derives a member id nobody knows.
 // The reason names the file, that being the thing to move aside.
 func TestADamagedIdentityIsReported(t *testing.T) {
 	isolateConfig(t)
@@ -229,8 +230,8 @@ func TestADamagedIdentityIsReported(t *testing.T) {
 	}
 }
 
-// The directory holds one file per group and nothing else, so a group id that is not one file name
-// is a caller that made it up rather than a path to follow.
+// The directory holds one file per group and nothing else,
+// so a group id that is not one file name is a caller that made it up rather than a path to follow.
 func TestOneGroupIsOneFile(t *testing.T) {
 	isolateConfig(t)
 

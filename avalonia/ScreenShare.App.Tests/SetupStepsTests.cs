@@ -11,9 +11,9 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The strip is the resolved form's groups, never a table held here.
-/// Pins the defect a step table shipped with: keys naming groups no backend answers with drew empty columns,
-/// the groups it missed were unreachable, and the fixture was written from the same table.
+/// Strip is the resolved form's groups, never a table held here.
+/// A table draws empty columns for keys no backend answers with, leaves the groups it misses unreachable,
+/// and asserts nothing where the fixture is written from the same table.
 /// </summary>
 public sealed class SetupStepsTests
 {
@@ -32,7 +32,7 @@ public sealed class SetupStepsTests
         var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
         var flow = await FlowAsync();
 
-        // The form names the groups and this shell places them.
+        // Form names the groups and this shell places them.
         var sent = form.Groups.Where(group => GroupPlacement.InSetup(group.Key)).ToList();
 
         Assert.Equal(sent.Count + 1, flow.Steps.Count);
@@ -40,16 +40,15 @@ public sealed class SetupStepsTests
             sent.Select(group => group.Key).Append(SetupSteps.ShareKey),
             flow.Steps.Select(step => step.Key));
         // Chip titles are this shell's, keyed by the form's group key.
-        // What fits on a chip is this strip's decision, and the contract cannot see how wide one is.
+        // What fits on a chip is this strip's decision, the contract not seeing how wide one is.
         Assert.Equal(
             sent.Select(group => Fields.Group(group.Key).Title),
             flow.Steps.Take(sent.Count).Select(step => step.Label));
     }
 
     /// <summary>
-    /// The wizard configures what this machine sends.
-    /// Pins the defect that shipped: a page of watching settings inside the sending wizard, which persisted
-    /// only if the reader went live.
+    /// Wizard configures what this machine sends.
+    /// Watching settings on a page inside it persist only if the reader goes live.
     /// </summary>
     [Fact]
     public async Task TheWatchingGroupIsNoStepOfTheSendingWizard()
@@ -58,7 +57,7 @@ public sealed class SetupStepsTests
         var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
         var flow = await FlowAsync();
 
-        // The fixture carries one, so what follows tests a filter and not a form that lacked the group.
+        // Fixture carries one, so what follows tests a filter and not a form missing the group.
         Assert.Contains(form.Groups, group => GroupPlacement.InViewer(group.Key));
 
         Assert.DoesNotContain(flow.Steps, step => GroupPlacement.InViewer(step.Key));
@@ -116,10 +115,7 @@ public sealed class SetupStepsTests
         Assert.True(flow.ShowsReview);
     }
 
-    /// <summary>
-    /// The fallback is read through rather than written back, so a group that returns puts the reader back
-    /// on it.
-    /// </summary>
+    /// <summary>Fallback is read through rather than written back, so a group that returns puts the reader back on it.</summary>
     [Fact]
     public async Task AStepTheFormDoesNotCarryFallsBackToTheFirst()
     {
@@ -171,9 +167,7 @@ public sealed class CostRailTests
         Assert.InRange(flow.Rail.FillShare, 0, flow.Rail.UplinkShare);
     }
 
-    /// <summary>
-    /// One control per setting: the rail names the step that edits the uplink and carries no second spinner.
-    /// </summary>
+    /// <summary>One control per setting: the rail names the step editing the uplink and carries no second spinner.</summary>
     [Fact]
     public async Task TheRailReadsTheUplinkAndNamesTheStepThatEditsIt()
     {
@@ -186,10 +180,7 @@ public sealed class CostRailTests
         Assert.Contains(owner.Label, flow.Rail.UplinkHint);
     }
 
-    /// <summary>
-    /// Placement is this shell's and the form describes none, so the measurement rides on the field it
-    /// writes.
-    /// </summary>
+    /// <summary>Placement is this shell's and the form describes none, so the measurement rides on the field it writes.</summary>
     [Fact]
     public async Task TheMeasurementIsOfferedBesideTheControlItWrites()
     {
@@ -240,9 +231,8 @@ public sealed class CostRailTests
 
     /// <summary>
     /// One column, drawn the same on every step.
-    /// Pins the arrangement this replaced: the checks and the presets were the terminal step's own column, so
-    /// the rail disappeared on the one step that read the settings back, and a preset could be reached only by
-    /// walking to the end of the flow.
+    /// Checks and presets held as the terminal step's own column leave the rail on that step alone,
+    /// and put a preset behind a walk to the end of the flow.
     /// </summary>
     [Fact]
     public async Task TheRailIsTheSameColumnOnEveryStep()
@@ -267,8 +257,8 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// The refusal stands with the checks rather than under the form being edited: one place says what is
-    /// owed, and it is the same place on every step.
+    /// Refusal stands with the checks rather than under the form being edited:
+    /// one place says what is owed, and it is the same place on every step.
     /// </summary>
     [Fact]
     public async Task TheRailCarriesWhyNoPipelineBuilds()
@@ -297,9 +287,9 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// A live stream blocks the measurement and no field (<c>docs/field-availability.md</c>), so the figure
-    /// stays editable.
-    /// The lock is read through on every pass, so a stream that ended puts the button back.
+    /// A live stream blocks the measurement and no field (<c>docs/field-availability.md</c>),
+    /// so the figure stays editable.
+    /// Lock is read through on every pass, so a stream that ended puts the button back.
     /// </summary>
     [Fact]
     public void AStreamOnTheAirGreysTheMeasurementAndSaysWhyBesideIt()

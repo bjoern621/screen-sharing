@@ -13,9 +13,9 @@ import (
 
 // What a running pipeline takes, and what it does not.
 //
-// A publish that changes one of these stays the same pipeline: the value reaches the encoder over
-// the child's control socket and every viewer keeps watching, where a relaunch costs each of them a
-// reconnect.
+// A publish that changes one of these stays the same pipeline: the value reaches the encoder
+// over the child's control socket and every viewer keeps watching, where a relaunch costs each
+// of them a reconnect.
 // Everything else is a different pipeline and says so by changing the rendered command
 // (SamePipeline).
 //
@@ -30,26 +30,27 @@ import (
 // liveRules registers the same rows into the evaluator, so a form saying a control costs no
 // reconnect and an apply that costs none are one fact.
 // gstLiveState turns them into the writes the child converges to.
-// A list of field names per consumer is what this replaces, and the consumer that fell behind would
-// have been the one deciding whether to kill a stream.
+// A list of field names per consumer is the alternative, and the consumer that fell behind would be
+// the one deciding whether to kill a stream.
 
 // liveField is one settings field a running pipeline takes a new value for.
 type liveField struct {
-	// key is the settings field, spelled as the form addresses the control and as a rule names the
-	// axis, which are one identifier.
+	// key is the settings field, spelled as the form addresses the control and as a rule names
+	// the axis, which are one identifier.
 	key string
-	// when is what has to hold for a running pipeline to take it: the engine whose child carries the
-	// write, and whatever else decides the value reaches the encoder at all.
+	// when is what has to hold for a running pipeline to take it: the engine whose child carries
+	// the write, and whatever else decides the value reaches the encoder at all.
 	// A field whose value the encoder never sees is ignored rather than live, and reporting that edit
 	// as applied would be a lie either way.
 	when map[string]rules.Match
 	// hold copies this field's value from one settings object onto another.
-	// It is what lets LiveOnly ask its question by rendering rather than by listing: put the running
-	// values back and see whether anything else moved.
+	// Lets LiveOnly ask its question by rendering rather than by listing: put the running values back
+	// and see whether anything else moved.
 	hold func(from settings.Settings, onto *settings.Settings)
 	// write is what the running child is told, as the property writes it converges to.
-	// Each row's own when names the engine whose child carries them; a field another engine took live
-	// would carry that engine's writes here and be gated the same way.
+	// Each row's own when names the engine whose child carries them.
+	// A field another engine took live would carry that engine's writes here and be gated the same
+	// way.
 	write func(settings.Settings) []gstrun.Property
 }
 
@@ -75,20 +76,20 @@ var liveFields = []liveField{{
 	// An element that multiplies takes both as one value, so a muted source is one at zero and
 	// unmuting is a write to the running pipeline rather than a rebuild of the audio graph.
 	//
-	// The whole list is one field, because the mixer is one graph: an entry added or taken off is a
-	// different graph and a relaunch, and what is live is the level each existing branch runs at.
+	// The whole list is one field, because the mixer is one graph: an entry added or taken off
+	// is a different graph and a relaunch, and what is live is the level each existing branch runs at.
 	key:   rules.FieldAudioGain,
 	when:  map[string]rules.Match{rules.AxisEngine: rules.OneOf(EngineGst)},
 	hold:  holdAudioLevels,
 	write: gstLiveGainWrite,
 }}
 
-// holdAudioLevels puts the running levels back onto a proposal, so what is left differing is
-// everything the mixer's shape depends on.
+// holdAudioLevels puts the running levels back onto a proposal, so what is left differing
+// is everything the mixer's shape depends on.
 //
 // The list is cloned before anything is written to it.
-// A settings value is copied by assignment everywhere else in this package, and a slice copied that
-// way shares its entries: writing through the copy would move the caller's own settings,
+// A settings value is copied by assignment everywhere else in this package, and a slice copied
+// that way shares its entries: writing through the copy would move the caller's own settings,
 // which for LiveOnly's probe means answering a question by changing it.
 func holdAudioLevels(from settings.Settings, onto *settings.Settings) {
 	assert.IsNotNil(onto, "a held level is written onto a proposal")
@@ -139,8 +140,8 @@ func liveRules() []rules.Rule {
 // LiveFields is every settings field a pipeline built from s takes a new value for while it runs,
 // in table order.
 //
-// It evaluates against the facts the rows name and no more, which is what lets this package answer
-// without the machine's own answers: the engine follows from the capture backend, and the codec and
+// It evaluates against the facts the rows name and no more, so this package answers without
+// the machine's own answers: the engine follows from the capture backend, and the codec and
 // the mode are the draft's.
 // A capture backend no publisher runs names no engine and matches no row, so an unbuildable
 // configuration answers as not live rather than being guessed at.
@@ -172,10 +173,10 @@ func liveFacts(s settings.Settings) rules.Facts {
 // LiveOnly reports whether next differs from running in nothing but what a running pipeline takes.
 //
 // Asked rather than derived from a list of field names: the running settings' live values go back
-// onto the proposal, and if the two then render the same pipeline, everything that differs is
-// something the socket can carry.
+// onto the proposal, and if the two then render the same pipeline, everything that differs
+// is something the socket can carry.
 // A field no builder reads changes neither rendering and is no reason to relaunch either,
-// which is the answer SamePipeline already gives.
+// the answer SamePipeline already gives.
 //
 // The live set is the running stream's and not the proposal's.
 // What decides whether a change can be applied is what the running child accepts, and a proposal

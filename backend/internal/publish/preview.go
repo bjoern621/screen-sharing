@@ -11,21 +11,21 @@ import (
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 )
 
-// The local preview leg: how a publish child hands a copy of the stream it is already encoding to a
-// decoder in this process, without the relay ever seeing it (docs/viewer-architecture.md,
+// The local preview leg: how a publish child hands a copy of the stream it is already encoding
+// to a decoder in this process, without the relay ever seeing it (docs/viewer-architecture.md,
 // "What the broadcast preview draws").
 //
-// It exists because the encoder is an external child.
-// Both engines run one, a gst-launch-1.0 pipeline or an ffmpeg command, which is what keeps a dying
-// pipeline from taking the backend with it (supervise.go), so there is no in-process appsink to
-// attach to the encoder's output.
-// What both engines do have is a way to write the encoded stream twice, so the child writes it to
-// the relay and to a loopback port, and this process decodes what arrives there.
+// The encoder is an external child.
+// Both engines run one, a gst-launch-1.0 pipeline or an ffmpeg command, keeping a dying pipeline
+// from taking the backend with it (supervise.go), so there is no in-process appsink to attach
+// to the encoder's output.
+// What both engines do have is a way to write the encoded stream twice, so the child writes it
+// to the relay and to a loopback port, and this process decodes what arrives there.
 //
-// Both halves of that wire format live here, for the reason gststats.go holds both halves of the
-// progress format: the payloader the child is given and the caps the receiving pipeline is built
-// with have to agree on a payload type and an encoding name, and two files stating that agreement
-// are two places for it to stop being true.
+// Both halves of that wire format live here, for the reason gststats.go holds both halves
+// of the progress format: the payloader the child is given and the caps the receiving pipeline
+// is built with have to agree on a payload type and an encoding name, and two files stating
+// that agreement are two places for it to stop being true.
 
 // previewHost is the address the child sends the copy to and this process receives it on.
 // Loopback alone: what travels here is the user's screen, and its only intended peer is the process
@@ -36,13 +36,13 @@ const previewHost = "127.0.0.1"
 //
 // RTP has no static type for any format here, so each is a dynamic type, and which number a dynamic
 // type takes is normally negotiated out of band: in an SDP, or in the RTSP or WHEP exchange.
-// This leg has no such exchange and needs none, since one process writes both of its ends,
-// so the number is stated once and read by both.
+// This leg has no such exchange and needs none, one process writing both of its ends, so the number
+// is stated once and read by both.
 // 96 is the first of the dynamic range.
 const previewPayloadType = 96
 
 // previewClockRate is the RTP timestamp rate every video payload format here runs at.
-// 90 kHz for all of them, which is what makes it a constant rather than a carriage column.
+// 90 kHz for all of them, hence a constant rather than a carriage column.
 const previewClockRate = 90000
 
 // previewCarriage is one bitstream format's local preview leg: how the GStreamer child payloads it,
@@ -57,21 +57,21 @@ const previewClockRate = 90000
 //
 // A format with no row is a format with no local preview.
 // Nothing else about the publish changes for it: the child is launched without the second sink and
-// the state reports no preview, which is what the broadcast screen says rather than drawing a
-// picture that would never arrive.
+// the state reports no preview, what the broadcast screen says rather than drawing a picture
+// that would never arrive.
 type previewCarriage struct {
 	// payloader is the GStreamer payloader element and its properties, one argument per token the way
 	// every element list in this package is written.
 	payloader []string
-	// encoding is the RTP encoding name the receiving caps state, and what the depayloader is
-	// autoplugged from.
-	// It is the half of the agreement the child never spells out: both payloaders write the payload
-	// format this names and neither announces which one it wrote.
+	// encoding is the RTP encoding name the receiving caps state, and what the depayloader
+	// is autoplugged from.
+	// The half of the agreement the child never spells out: both payloaders write the payload format
+	// this names and neither announces which one it wrote.
 	encoding string
 	// draft says the RTP payload format is an IETF draft, which ffmpeg's RTP muxer refuses to write
 	// without compliance loosened.
-	// The same fact transport.draftRtpFormats carries for the RTSP publish leg, restated here because
-	// it is a property of the payload format and this leg writes the same one.
+	// The same fact transport.draftRtpFormats carries for the RTSP publish leg, restated here
+	// as a property of the payload format this leg also writes.
 	draft bool
 }
 
@@ -92,12 +92,12 @@ var previewCarriages = map[string]previewCarriage{
 }
 
 // PreviewLeg is where a publish child copies its already-encoded video to for the local preview.
-// The zero value is a run with no preview, which is what Command renders and what a format with no
-// carriage row gets.
+// The zero value is a run with no preview, what Command renders and what a format with no carriage
+// row gets.
 type PreviewLeg struct {
 	// Port is the loopback UDP port the child sends to.
-	// The backend allocates it per run (AllocatePreviewPort) rather than this package picking a
-	// number, so two launches in a row cannot land on one socket.
+	// The backend allocates it per run (AllocatePreviewPort) rather than this package picking
+	// a number, so two launches in a row cannot land on one socket.
 	Port int
 }
 
@@ -122,10 +122,10 @@ func PreviewCarried(codec string) (format string, carried bool) {
 //
 // The socket closes before the port is handed out, and the window that opens is stated rather than
 // hidden.
-// Nothing here can hold it: the receiving pipeline's udpsrc binds the port itself, and two binds on
-// one datagram socket deliver to whichever of them the operating system feels like.
-// Losing that race costs a receiver that fails to bind and says so,
-// which is a preview that does not come up beside a publish that does, never a stream that fails.
+// Nothing here can hold it: the receiving pipeline's udpsrc binds the port itself, and two binds
+// on one datagram socket deliver to whichever of them the operating system feels like.
+// Losing that race costs a receiver that fails to bind and says so: a preview that does not come up
+// beside a publish that does, never a stream that fails.
 func AllocatePreviewPort() (int, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(previewHost), Port: 0})
 	if err != nil {
@@ -147,14 +147,14 @@ func AllocatePreviewPort() (int, error) {
 // The caps are stated rather than discovered because a udpsrc has nothing to discover them from:
 // RTP carries no format announcement, and the exchange that normally supplies one is what this leg
 // leaves out.
-// They are the other half of previewCarriages, and a depayloader is autoplugged from them by the
-// decodebin the chain already ends the source in.
+// They are the other half of previewCarriages, and a depayloader is autoplugged from them
+// by the decodebin the chain already ends the source in.
 //
 // The jitter buffer holds one frame rather than the tens of milliseconds a network leg is given.
-// Reordering and loss are what a jitter buffer absorbs and neither happens on loopback, so what is
-// left for it to do is hold the RTP timestamps against the pipeline clock.
-// Sized for a network it does not cross,
-// it would spend the preview's whole latency budget on jitter that cannot occur.
+// Reordering and loss are what a jitter buffer absorbs and neither happens on loopback, so what
+// is left for it to do is hold the RTP timestamps against the pipeline clock.
+// Sized for a network it does not cross, it would spend the preview's whole latency budget
+// on jitter that cannot occur.
 func PreviewSource(codec string, port int) (string, error) {
 	assert.Assert(port > 0, "a preview source names the port it receives on", codec, port)
 
@@ -180,10 +180,10 @@ const previewJitterMs = 20
 // gstPreviewTap returns the branch a GStreamer publish pipeline copies its encoded video to,
 // empty for a format with no local preview leg.
 //
-// The queue leaks downstream and the sink neither synchronizes to the clock nor prerolls,
-// the same shape the meter's branch has and for the same reason: a branch able to backpressure the
-// encode path is a preview able to stall the stream it previews.
-// What a slow process costs here is preview frames, which is what a leaky queue drops.
+// The queue leaks downstream and the sink neither synchronizes to the clock nor prerolls, the same
+// shape the meter's branch has and for the same reason: a branch able to backpressure the encode
+// path is a preview able to stall the stream it previews.
+// What a slow process costs here is preview frames, what a leaky queue drops.
 func gstPreviewTap(codec string, preview PreviewLeg) ([]string, error) {
 	assert.Assert(preview.Wanted(), "a preview branch is built for a run that wants one", codec)
 
@@ -210,15 +210,15 @@ func gstPreviewTap(codec string, preview PreviewLeg) ([]string, error) {
 // ffmpegPreviewTap returns the second output an ffmpeg publish command copies its already-encoded
 // video to, and false for a format with no local preview leg.
 //
-// select=v is what makes it the video alone.
+// select=v keeps it to the video alone.
 // The RTP muxer writes one stream and the preview draws pictures, so an audio track on this leg
 // would be a track nothing reads, and the mux would refuse it before it got the chance.
 //
-// onfail=ignore is what keeps the preview from ever ending the stream.
-// Every other slave of the tee aborts the whole command when it cannot be opened, which is right
+// onfail=ignore keeps the preview from ending the stream.
+// Every other slave of the tee aborts the whole command when it cannot be opened, right
 // for the relay leg and wrong here.
-// A publish that fails because this process could not hold a loopback port loses the stream,
-// and loses it for a picture nobody outside the window would have seen.
+// A publish that fails because this process could not hold a loopback port loses the stream, and
+// loses it for a picture nobody outside the window would have seen.
 func ffmpegPreviewTap(codec string, preview PreviewLeg) (ffmpeg.Tap, bool) {
 	assert.Assert(preview.Wanted(), "a preview output is built for a run that wants one", codec)
 

@@ -3,17 +3,16 @@ using System.Diagnostics;
 namespace ScreenShare.App.Backend;
 
 /// <summary>
-/// Backend, started by the shell when nothing is listening on the control endpoint.
+/// Backend, started when nothing is listening on the control endpoint.
 /// Nothing else starts it on a packaged install: no service, no launcher, no tray.
 ///
-/// A fallback and never the first move.
-/// The shell connects first, so a backend already up (a <c>task dev</c> run, a second window) is used rather than
+/// Connect comes first, so a backend already up (a <c>task dev</c> run, a second window) is used rather than
 /// duplicated.
 /// A spawn that fails changes nothing on screen: the connect failure stands, naming the endpoint
 /// (<c>README.md</c>, "Running it").
 ///
-/// One this shell started dies with it, the backend supervising encoder children and one left behind going on
-/// publishing with nothing on screen to say so.
+/// One this shell started dies with it, the backend supervising encoder children and one left behind publishing
+/// with nothing on screen to say so.
 /// One it did not start is left running.
 /// </summary>
 internal static class BackendProcess
@@ -25,15 +24,16 @@ internal static class BackendProcess
     private static readonly Lock Gate = new();
 
     /// <summary>
-    /// Backend this shell started. Null until it has started one.
+    /// Backend this shell started. Null until one is started.
     /// Kept so a second connect failure starts no second backend, and so the exit hook has something to stop.
     /// </summary>
     private static Process? _started;
 
     /// <summary>
-    /// Starts the backend unless this shell already has one, and reports whether one is on its way up.
-    /// False where no binary was found or the operating system refused to run it, neither of which is worth a
-    /// sentence of its own beside the connect failure the caller already shows.
+    /// Starts the backend unless this shell already has one.
+    /// True where one is on its way up.
+    /// False where no binary was found or the operating system refused to run it, neither worth a sentence beside
+    /// the connect failure the caller already shows.
     /// </summary>
     public static bool EnsureStarted()
     {
@@ -41,7 +41,7 @@ internal static class BackendProcess
         {
             if (_started is { HasExited: false })
             {
-                // The caller waits on the endpoint rather than on this process: the socket is what it needs.
+                // Caller waits on the endpoint, not on this process.
                 return true;
             }
 
@@ -55,8 +55,8 @@ internal static class BackendProcess
             {
                 _started = Process.Start(new ProcessStartInfo(exe)
                 {
-                    // The backend writes to its own run logs and has nothing to show, and a console flashing up
-                    // beside the window would be the one visible sign that this app is two programs.
+                    // Backend writes to its own run logs, so a console beside the window would be the one visible
+                    // sign this app is two programs.
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
@@ -64,8 +64,7 @@ internal static class BackendProcess
             }
             catch (Exception)
             {
-                // Umgebungsfehler whichever it was: a binary that will not execute, a policy refusing it, a
-                // directory that vanished.
+                // Umgebungsfehler: a binary that will not execute, a policy refusing it, a directory that vanished.
                 _started = null;
                 return false;
             }
@@ -79,9 +78,9 @@ internal static class BackendProcess
     }
 
     /// <summary>
-    /// Stops the backend this shell started, on the way out, and its children with it.
+    /// Stops the backend this shell started, and its children with it.
     /// The backend supervises the encoder and viewer processes it spawned, so a kill taking the parent alone
-    /// would leave those encoding.
+    /// leaves those encoding.
     /// </summary>
     private static void StopStarted(object? sender, EventArgs e)
     {
@@ -98,7 +97,7 @@ internal static class BackendProcess
             }
             catch (Exception)
             {
-                // Exited between the check and the kill, or the kill was refused.
+                // Exited between check and kill, or kill refused.
                 // Neither holds up the shell's own exit.
             }
         }
@@ -106,10 +105,10 @@ internal static class BackendProcess
 
     /// <summary>
     /// Backend binary: beside this shell, then the directory above it, then on PATH. Null where none has it.
-    /// Beside first is what makes a packaged install work unconfigured, and it is the order the backend resolves
-    /// ffmpeg and the GStreamer launcher in (<c>backend/internal/ffmpeg/exe.go</c>).
-    /// The directory above is searched because the build tasks put the shell in <c>build/bin/avalonia</c> and the
-    /// backend in <c>build/bin</c>.
+    /// Beside first makes a packaged install work unconfigured, and matches the order the backend resolves ffmpeg
+    /// and the GStreamer launcher in (<c>backend/internal/ffmpeg/exe.go</c>).
+    /// The directory above covers the build tasks putting the shell in <c>build/bin/avalonia</c> and the backend
+    /// in <c>build/bin</c>.
     /// </summary>
     private static string? Locate()
     {
@@ -153,8 +152,8 @@ internal static class BackendProcess
             }
             catch (ArgumentException)
             {
-                // A PATH entry holding characters no path may.
-                // Skipped rather than fatal: the rest of the list is still worth walking.
+                // PATH entry holding characters no path may.
+                // Skipped, the rest of the list still worth walking.
             }
         }
 

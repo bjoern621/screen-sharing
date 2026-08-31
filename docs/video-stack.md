@@ -381,7 +381,7 @@ flowchart LR
 **RTP** is packetization rather than a container.
 Each codec has a payload format saying how to split a coded picture across packets that fit an MTU, how to mark the last packet of a frame, and how to carry parameter sets.
 H.264 and HEVC have published RFCs.
-VP9 and AV1 payload formats remain drafts, so some muxers refuse them without an explicit opt-in.
+The VP9 and AV1 payload formats are drafts, so some muxers refuse them without an explicit opt-in.
 
 **Mux** combines elementary streams into a container, **demux** splits them back, **remux** rewraps into a different container without re-encoding.
 None of the three touches the coded pictures, which is how a relay re-serves one ingest on several protocols without decoding.

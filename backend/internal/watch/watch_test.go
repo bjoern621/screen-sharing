@@ -26,8 +26,8 @@ func srtStream() settings.Settings {
 	}
 }
 
-// rtspStream holds a watch-leg protocol other than the default, so a viewer that forces TCP fails
-// these tests rather than passing them by accident.
+// rtspStream holds a watch-leg protocol other than the default,
+// so a viewer that forces TCP fails these tests rather than passing them by accident.
 func rtspStream() settings.Settings {
 	s := srtStream()
 	s.Publish.Transport = "rtsp"
@@ -46,8 +46,8 @@ func rtmpStream() settings.Settings {
 	return s
 }
 
-// hlsStream watches over the relay's HTTP leg, whose address carries TLS only where a proxy
-// terminates it (settings.Relay.HTTPOrigin).
+// hlsStream watches over the relay's HTTP leg,
+// whose address carries TLS only where a proxy terminates it (settings.Relay.HTTPOrigin).
 func hlsStream() settings.Settings {
 	s := srtStream()
 	s.Viewer.TileWatchTransport = "hls"
@@ -73,8 +73,8 @@ type watchTlsCase struct {
 }
 
 // The two deployments per leg, the rule internal/transport holds the pipelines to (tls.go).
-// A relay on this network holds a self-signed pair no store carries, and one across somebody else's
-// network holds a certificate issued for the name it is reached by.
+// A relay on this network holds a self-signed pair no store carries,
+// and one across somebody else's network holds a certificate issued for the name it is reached by.
 // A leg carrying no TLS is measured against nothing.
 func watchTlsCases() []watchTlsCase {
 	return []watchTlsCase{
@@ -93,10 +93,9 @@ func containsPair(args []string, flag, value string) bool {
 	return at >= 0 && at+1 < len(args) && args[at+1] == value
 }
 
-// ffmpeg's tls protocol verifies nothing unless told to, and the option reaches it under whichever
-// demuxer opened the address.
-// Stated per leg: ffplay refuses to open an input carrying a format option no protocol under it
-// reads.
+// ffmpeg's tls protocol verifies nothing unless told to,
+// and the option reaches it under whichever demuxer opened the address.
+// Stated per leg: ffplay refuses to open an input carrying a format option no protocol under it reads.
 func TestFfplayMeasuresTheRelayCertificateOnEveryTlsLeg(t *testing.T) {
 	for _, tc := range watchTlsCases() {
 		args, _, err := ffplay{}.Command(tc.s, "bob", tc.leg)

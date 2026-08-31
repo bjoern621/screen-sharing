@@ -14,30 +14,28 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Every figure on the live screen is a measurement some other side took.
 ///
-/// A figure with nothing behind it looks like a measured one: a timer reading the same eight digits whatever is
-/// publishing, a window label naming a span the plot does not cover, a rule marking a ceiling wherever the design
-/// put it.
-/// Each test states a reading and asserts that the screen's figure came out of it, which a fixed number cannot
-/// do.
+/// A figure with nothing behind it looks measured: a timer reading the same eight digits whatever is publishing,
+/// a window label naming a span the plot does not cover, a rule marking a ceiling wherever the design put it.
+/// Each test states a reading and asserts the screen's figure came out of it, which a fixed number cannot do.
 /// </summary>
 public sealed class BroadcastFiguresTests
 {
-    /// <summary>A rate over the last interval, at a point in the run.</summary>
+    /// <summary>Rate over the last interval, at a point in the run.</summary>
     private static PublishStats Sample(double mbps, double timeSec) => new()
     {
         InstMbps = mbps,
         TimeSec = timeSec,
     };
 
-    /// <summary>A sample from a run that has been timed and not yet measured a rate.</summary>
+    /// <summary>Sample from a run that has been timed and has measured no rate.</summary>
     private static PublishStats Timed(double timeSec) => new()
     {
         TimeSec = timeSec,
     };
 
     /// <summary>
-    /// A running stream, held to a rate where one is passed.
-    /// The ceiling is the backend's reading of what bounds this encoder rather than the settings field beside it:
+    /// Running stream, held to a rate where one is passed.
+    /// The ceiling is the backend's reading of what bounds this encoder, not the settings field beside it:
     /// a quality target on an encoder that holds none is unbounded whatever the field carries.
     /// </summary>
     private static PublishState Live(int? ceilingMbps = null)
@@ -92,8 +90,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The screen reports the stream that has ended as well as the running one, so the segment that opens it
-    /// is not a control the running state takes away.
+    /// The screen reports the stream that has ended as well as the running one,
+    /// so the segment that opens it is not a control the running state takes away.
     /// </summary>
     [Fact]
     public void TheStripReachesBroadcastWithNothingPublishing()
@@ -134,14 +132,14 @@ public sealed class BroadcastFiguresTests
         };
 
         // Figures[3] and Figures[4] are round trip and loss, which only the relay measures.
-        // No snapshot is therefore no measurement, and no measurement is an ellipsis.
+        // No snapshot, no measurement, and no measurement reads as an ellipsis.
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
         Assert.Equal(Figure.NoValue, bar.Figures[4].Value);
     }
 
     /// <summary>
-    /// The axis is a fixed span, so the label names the axis rather than the span the samples happen to
-    /// cover, which read <c>3 s</c> a moment after sharing started and crept upwards from there.
+    /// The axis is a fixed span, so the label names the axis, not the span the samples happen to cover:
+    /// that reads <c>3 s</c> a moment after sharing starts and creeps upwards from there.
     /// </summary>
     [Fact]
     public void ThePlotStatesTheWindowItCoversWhateverTheRunHasReached()
@@ -166,8 +164,8 @@ public sealed class BroadcastFiguresTests
 
     /// <summary>
     /// The newest sample is the right edge, and how far left a point sits is how long ago it was taken.
-    /// A run younger than the window therefore fills the right of the plot and leaves the rest empty rather
-    /// than being stretched across it.
+    /// A run younger than the window fills the right of the plot and leaves the rest empty,
+    /// rather than stretching across it.
     /// </summary>
     [Fact]
     public void APointIsPlacedByWhenItWasTakenAndNotByHowManyThereAre()
@@ -178,8 +176,7 @@ public sealed class BroadcastFiguresTests
             Samples = [Sample(3, 0), Sample(5, 5), Sample(4, 15)],
         };
 
-        // 15 s of a 60 s window: the oldest point a quarter of the width in, the newest hard against the
-        // right edge.
+        // 15 s of a 60 s window: oldest point a quarter of the width in, newest hard against the right edge.
         Assert.Equal(3, young.Egress.Count);
         Assert.Equal(PlotSeries.Extent.Width, young.Egress[^1].X, 6);
         Assert.Equal(PlotSeries.Extent.Width * 0.75, young.Egress[0].X, 6);
@@ -197,10 +194,10 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A pipeline that dies and comes back leaves the stream live, so its samples are appended to the earlier
-    /// ones and its clock starts again at zero.
-    /// The plot draws the run the newest sample belongs to, since one axis over both would put the earlier
-    /// run off the right edge of the card.
+    /// A pipeline that dies and comes back leaves the stream live, so its samples follow the earlier ones
+    /// and its clock starts again at zero.
+    /// The plot draws the run the newest sample belongs to,
+    /// one axis over both putting the earlier run off the right edge of the card.
     /// </summary>
     [Fact]
     public void ARelaunchedPipelineIsNotDrawnOverTheOneBeforeIt()
@@ -217,9 +214,8 @@ public sealed class BroadcastFiguresTests
 
     /// <summary>
     /// A rate is measured over the last interval, so the first sample of a run carries a time and no rate.
-    /// The axis is then on the new run's clock while every rate in the buffer is on the old one's, and the
-    /// card waits for the new run to have a shape rather than placing the old one against a clock that never
-    /// counted it.
+    /// The axis is then on the new run's clock while every rate in the buffer is on the old one's,
+    /// so the card waits for a shape on the new clock rather than plotting the old run against it.
     /// </summary>
     [Fact]
     public void ARunThatHasBeenTimedAndNotYetMeasuredDrawsNothing()
@@ -250,8 +246,8 @@ public sealed class BroadcastFiguresTests
     [Fact]
     public void TheCeilingRuleSitsWhereTheCeilingFallsOnTheCurve()
     {
-        // Peak 5 Mb/s against a 4 Mb/s ceiling: the peak sits 85% up from the floor, so the ceiling lands at
-        // 68% of that height, 32% down from the top.
+        // Peak 5 Mb/s against a 4 Mb/s ceiling: the peak sits 85% up from the floor,
+        // so the ceiling lands at 68% of that height, 32% down from the top.
         var plots = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(ceilingMbps: 4), Sample(5, 20), null),
@@ -276,8 +272,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The relay marks no congestion interval, so the plot shades none and nothing names one: a caption
-    /// would be placed over a band the plot cannot draw, at a fraction of the width this side chose.
+    /// The relay marks no congestion interval, so the plot shades none and nothing names one:
+    /// a caption would sit over a band the plot cannot draw, at a fraction of the width this side chose.
     /// </summary>
     [Fact]
     public void NothingDetectsCongestionSoNoBandIsNamed()
@@ -288,9 +284,9 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The card offers no live-safe apply the backend has no effect for: the greying and the reason are both
-    /// bound, so what the markup shows is what the view model states.
-    /// Both sentences come off one table, so the card's words and the card's behaviour agree.
+    /// The card offers no apply the backend has no effect for: the greying and the reason are both bound,
+    /// so the markup shows what the view model states.
+    /// Both sentences come off one table, so the card's words and its behaviour agree.
     /// </summary>
     [Fact]
     public void TheNudgeCardNeverPromisesAnApplyTheBackendHasNoEffectFor()
@@ -322,8 +318,8 @@ public sealed class BroadcastFiguresTests
 
     /// <summary>
     /// The card is empty for two different reasons, and the destination is reachable in both.
-    /// A resolve that has not answered is the ordinary first second of every broadcast, and a card saying it
-    /// is reading a pipeline with nothing publishing would wait on an answer nothing asked for.
+    /// A resolve that has not answered is the ordinary first second of every broadcast,
+    /// and a card reading a pipeline with nothing publishing would wait on an answer nothing asked for.
     /// </summary>
     [Fact]
     public void AnUndescribedConfigurationSaysWhichAbsenceItIs()
@@ -339,14 +335,14 @@ public sealed class BroadcastFiguresTests
         Assert.Contains("Nothing is publishing", idle.Notice);
     }
 
-    /// <summary>A sample from a run that timed a frame through the encoder.</summary>
+    /// <summary>Sample from a run that timed a frame through the encoder.</summary>
     private static PublishStats Encoded(double transitMs, double timeSec) => new()
     {
         TransitMs = transitMs,
         TimeSec = timeSec,
     };
 
-    /// <summary>One reader on this stream's path, timed where the leg is one the relay times.</summary>
+    /// <summary>One reader on this stream's path, timed where the relay times the leg.</summary>
     private static RelayStatus Roster(double? rttMs)
     {
         var reader = new RelayReader { Transport = "srt" };
@@ -364,9 +360,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// One second is short enough for a healthy stream to measure nothing in it: an encoder that emitted no
-    /// frame over the interval timed none, and the row would otherwise alternate between a figure and an
-    /// ellipsis.
+    /// One second is short enough for a healthy stream to measure nothing: an encoder that emitted no frame
+    /// over the interval timed none, and the row would otherwise alternate between a figure and an ellipsis.
     /// </summary>
     [Fact]
     public void AFigureNoPassMeasuredReadsTheLastOneThatDid()
@@ -399,8 +394,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A path naming readers and timing none of them is the relay's answer rather than a gap in it, and the
-    /// header explains that absence in a sentence.
+    /// A path naming readers and timing none of them is the relay's answer rather than a gap in it,
+    /// and the header explains that absence in a sentence.
     /// A round trip held over it would name one nobody is taking.
     /// </summary>
     [Fact]
@@ -416,8 +411,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A poll that landed on nothing states no path, which says nothing about the viewers on it: the stream is
-    /// the same stream and the readers on it were counted a second ago.
+    /// A poll that landed on nothing states no path, which says nothing about the viewers on it:
+    /// same stream, and the readers on it were counted a second ago.
     /// </summary>
     [Fact]
     public void APollThatNamesNoPathHoldsWhatTheLastOneNamed()
@@ -449,8 +444,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A quality target the encoder holds free of the rate is drawn without a rule and without a label: a height
-    /// marked on a plot reads as a bound something is holding.
+    /// A quality target the encoder holds free of the rate gets no rule and no label:
+    /// a height marked on a plot reads as a bound something is holding.
     /// </summary>
     [Fact]
     public void AnUnboundedEncodeIsMarkedByNoCeiling()

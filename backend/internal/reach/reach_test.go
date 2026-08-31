@@ -47,8 +47,8 @@ func TestEveryLegIsDialledWhereThisRelayAddressesIt(t *testing.T) {
 	}
 }
 
-// A relay this network reaches directly has no proxy in front of it, so every HTTP leg is a port of
-// the relay's own (settings.Relay.HTTPOrigin).
+// A relay this network reaches directly has no proxy in front of it, so every HTTP leg is a port
+// of the relay's own (settings.Relay.HTTPOrigin).
 func TestARelayOnThisNetworkIsDialledOnItsOwnPorts(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "192.168.1.9"
@@ -72,8 +72,8 @@ func TestARelayOnThisNetworkIsDialledOnItsOwnPorts(t *testing.T) {
 	}
 }
 
-// The relay answers its API to loopback alone (deploy/mediamtx-groups.yml), so a check dialling it
-// from anywhere else would print a cross against a relay that is behaving.
+// Relay answers its API to loopback alone (deploy/mediamtx-groups.yml), so a check dialling it
+// from anywhere else would cross a relay that is behaving.
 func TestTheRelayApiIsDialledOnThisMachineAlone(t *testing.T) {
 	for host, want := range map[string]Reason{
 		"127.0.0.1":                    ReasonNone,
@@ -109,8 +109,7 @@ func TestNoRelayNamedDialsNothing(t *testing.T) {
 	}
 }
 
-// A transport left out of the check is a leg nobody is told about, which is the state this whole
-// package exists to end.
+// A transport left out of the check is a leg nobody is told about.
 func TestEveryTransportIsChecked(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
@@ -123,8 +122,8 @@ func TestEveryTransportIsChecked(t *testing.T) {
 	}
 }
 
-// Every row carries either an address or the reason there is none, one row per leg, and never both
-// answers or neither.
+// One row per leg, carrying either an address or the reason there is none, never both and never
+// neither.
 func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
@@ -163,8 +162,7 @@ func TestAListenerAnsweringRtspIsReachable(t *testing.T) {
 	}
 }
 
-// A listener that is there and speaks something else is not the leg being checked, and saying so
-// beats calling the port open: what a publish needs there is RTSP.
+// A listener speaking something else is not the leg being checked: a publish there needs RTSP.
 func TestAListenerThatIsNotRtspIsUnreachable(t *testing.T) {
 	address := serveTLS(t, func(c net.Conn) {
 		buf := make([]byte, 256)
@@ -183,8 +181,8 @@ func TestAListenerThatIsNotRtspIsUnreachable(t *testing.T) {
 	}
 }
 
-// Nothing on the port is the cross this check exists for, and the dial's own words are what a
-// reader takes to a bug report.
+// Nothing on the port is the cross this check exists for, and the dial's own words go to a bug
+// report.
 func TestAPortWithNoListenerIsUnreachable(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -202,8 +200,8 @@ func TestAPortWithNoListenerIsUnreachable(t *testing.T) {
 	}
 }
 
-// A listener that answers is the tick on the HTTP legs too, whatever status it answers with: what
-// is asked is whether the server is there.
+// A listener that answers is the tick on the HTTP legs too, whatever the status: the question
+// is whether the server is there.
 func TestAnHttpListenerRefusingTheRouteIsStillReachable(t *testing.T) {
 	address := serveTCP(t, func(c net.Conn) {
 		buf := make([]byte, 512)
@@ -245,11 +243,11 @@ func TestAnSrtListenerAnsweringInductionIsReachable(t *testing.T) {
 	}
 }
 
-// A UDP port nothing is bound to swallows the request, so the answer is a wait rather than an
-// error, and the check has to be the one that ends it.
+// A UDP port nothing is bound to swallows the request, so the answer is a wait rather than an error
+// and the check ends it.
 //
 // Ended here by the caller's own deadline rather than probeTimeout, run taking whichever comes
-// first, so the suite waits a second for this instead of the five a reader waits.
+// first, so the suite waits a second instead of five.
 func TestASilentUdpPortIsUnreachable(t *testing.T) {
 	address := serveUDP(t, func([]byte) []byte { return nil })
 
@@ -336,17 +334,7 @@ func endpointFor(endpoints []Endpoint, leg string) (Endpoint, bool) {
 	return Endpoint{}, false
 }
 
-func resultFor(results []Result, leg string) (Result, bool) {
-	for _, r := range results {
-		if r.Leg == leg {
-			return r, true
-		}
-	}
-	return Result{}, false
-}
-
-// probeOne runs one address through the probe its scheme names, which is what Check does per row
-// with the address the settings resolved.
+// probeOne runs one address through the probe its scheme names, as Check does per row.
 func probeOne(t *testing.T, address string, insecure bool) Result {
 	t.Helper()
 
@@ -354,7 +342,7 @@ func probeOne(t *testing.T, address string, insecure bool) Result {
 }
 
 // serveTLS answers each connection with whatever handle writes, under a certificate nothing issued,
-// which is the relay a development machine runs (scripts/relay.sh).
+// as a development relay runs (scripts/relay.sh).
 func serveTLS(t *testing.T, handle func(net.Conn)) string {
 	t.Helper()
 

@@ -4,20 +4,17 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Fields.Model;
 
 /// <summary>
-/// An effect a screen offers beside a group's heading, as against beside one of its controls
-/// (<see cref="FieldAction"/>).
-/// It sits on the heading because it is about every setting under it, and a field carrying it would speak for
-/// its neighbours.
+/// Effect a screen offers beside a group's heading, as against beside one of its controls (<see cref="FieldAction"/>).
+/// On the heading because it is about every setting under it, a field carrying it speaking for its neighbours.
 /// Putting a group back to what a fresh installation holds is the shape.
 ///
 /// Carries no values.
-/// What each field starts as is stated per field by the form (<c>form.proto</c>, <c>Field.default_value</c>), so
-/// the press reaches the draft through the writes every control uses and this side holds no table of defaults.
+/// What each field starts as is stated per field by the form (<c>form.proto</c>, <c>Field.default_value</c>),
+/// so the press reaches the draft through the writes every control uses and this side holds no table of defaults.
 ///
-/// A record, so a pass over unchanged state produces an action that compares equal to the last and the bound
-/// properties are left alone.
-/// <see cref="Command"/> is held by whoever offers the action, so two passes compare equal rather than merely
-/// alike.
+/// A record, so a pass over unchanged state produces an action that compares equal to the last
+/// and the bound properties are left alone.
+/// <see cref="Command"/> is held by whoever offers the action, so two passes compare equal rather than merely alike.
 /// </summary>
 public sealed record GroupAction
 {

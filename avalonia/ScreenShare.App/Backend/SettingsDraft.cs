@@ -8,10 +8,11 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Reads and writes one field of a settings draft, addressed by the key the form sent.
 ///
-/// The whole of what this shell knows about <see cref="Settings"/>: a <c>Field.key</c> names a group of that
-/// message and a field in that group, and a <c>FieldValue</c> fits that field.
-/// A write goes through the message descriptors rather than a switch over field names, so a field added to the
-/// contract is a control that appears and works with nothing here to edit (docs/ipc-api.md, "The rule").
+/// The whole of what this shell knows about <see cref="Settings"/>: a <c>Field.key</c> names a group of that message
+/// and a field in that group, and a <c>FieldValue</c> fits that field.
+/// A write goes through the message descriptors rather than a switch over field names,
+/// so a field added to the contract is a control that appears and works with nothing here to edit (<c>docs/ipc-api.md</c>,
+/// "The rule").
 /// </summary>
 public static class SettingsDraft
 {
@@ -37,9 +38,8 @@ public static class SettingsDraft
     }
 
     /// <summary>
-    /// Reads one field of a settings draft, addressed by the key the form sent.
-    /// Inverse of <see cref="Write"/>, here for the same reason: a key resolves to a message in one place rather
-    /// than at every caller wanting a value out of a draft.
+    /// Inverse of <see cref="Write"/>: a key resolves to a message in one place rather than at every caller
+    /// wanting a value out of a draft.
     /// </summary>
     public static FieldValue Read(Settings draft, string key)
     {

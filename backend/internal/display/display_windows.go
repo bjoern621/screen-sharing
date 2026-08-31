@@ -23,8 +23,8 @@ var (
 const monitorinfofPrimary = 0x1
 
 // enumCurrentSettings is ENUM_CURRENT_SETTINGS, -1 as a DWORD.
-// EnumDisplaySettingsW then reports the mode the display runs on rather than an entry from its mode
-// table.
+// EnumDisplaySettingsW then reports the mode the display runs on,
+// rather than an entry from its mode table.
 const enumCurrentSettings = 0xFFFFFFFF
 
 const (
@@ -47,8 +47,8 @@ type monitorInfoEx struct {
 }
 
 // devModeW mirrors Win32 DEVMODEW in its display-union variant.
-// Field order and widths match it exactly, or dmDisplayFrequency is read off an offset Windows
-// never wrote.
+// Field order and widths match it exactly,
+// or dmDisplayFrequency is read off an offset Windows never wrote.
 type devModeW struct {
 	dmDeviceName         [cchDeviceName]uint16
 	dmSpecVersion        uint16
@@ -101,8 +101,8 @@ func refreshHz(device *uint16) int {
 }
 
 // enumMu guards enumTarget across one enumeration.
-// EnumDisplayMonitors runs the callback on the calling thread before it returns, so the lock spans
-// the call and no reading of one enumeration reaches another.
+// EnumDisplayMonitors runs the callback on the calling thread before it returns,
+// so the lock spans the call and no reading of one enumeration reaches another.
 var (
 	enumMu     sync.Mutex
 	enumTarget []Monitor
@@ -110,12 +110,12 @@ var (
 
 // enumMonitorProc collects one output per call into enumTarget.
 //
-// Registered once for the process, and it has to be: the runtime keeps every callback it is handed
-// for the life of the program and dedups on the closure it was given, so a closure built per call
-// matches none of the ones before it and takes a slot of its own.
-// The table holds 2000 and passing it is a runtime throw rather than an error, which a form resolve
-// reading the monitor list on every keystroke reaches well inside one session.
-// Writing through a package variable is what leaves nothing per call to capture.
+// Registered once for the process, and it has to be:
+// the runtime keeps every callback for the life of the program and dedups on the closure handed in,
+// so a closure built per call matches none before it and takes a slot of its own.
+// The table holds 2000 and passing it is a runtime throw rather than an error,
+// which a form resolve reading the monitor list on every keystroke reaches well inside one session.
+// Writing through a package variable leaves nothing per call to capture.
 var enumMonitorProc = syscall.NewCallback(func(hMonitor, _, _, _ uintptr) uintptr {
 	var mi monitorInfoEx
 	mi.cbSize = uint32(unsafe.Sizeof(mi))
@@ -135,8 +135,9 @@ var enumMonitorProc = syscall.NewCallback(func(hMonitor, _, _, _ uintptr) uintpt
 })
 
 // List enumerates the monitors through EnumDisplayMonitors, whose order Index counts in.
-// The offsets are rcMonitor, virtual-screen coordinates whose origin is the primary output's
-// top-left corner, so an output placed left of or above it carries negative ones.
+// The offsets are rcMonitor.
+// Origin is the primary output's top-left corner,
+// so an output placed left of or above it carries negative ones.
 // Enumeration failing answers an empty slice, which a caller reads as an unknown resolution.
 func List() []Monitor {
 	enumMu.Lock()

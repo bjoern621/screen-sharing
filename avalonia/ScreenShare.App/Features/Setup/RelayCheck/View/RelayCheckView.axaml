@@ -54,8 +54,9 @@
 
       <!--
         Why the check itself could not be made, which is not a relay that answered nothing: that arrives as rows.
-        The backend's own sentence and a string a reader has to get into a bug report, so it is selectable and
-        wraps rather than trimming (CLAUDE.md, "Every error message is selectable and copyable").
+        The backend's own sentence and a string a reader has to get into a bug report,
+        so it is selectable and wraps rather than trimming
+        (CLAUDE.md, "Every error message is selectable and copyable").
       -->
       <SelectableTextBlock Classes="hint danger"
                            TextWrapping="Wrap"

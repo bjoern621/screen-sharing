@@ -7,20 +7,22 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// Which of the quality group's controls the step lays out, and which fall to the card under it.
 ///
 /// One table for both, the two being a partition.
-/// A field in neither is a setting the backend offered that nobody can reach, and a field in both is one setting
-/// edited from two places.
+/// A field in neither is a setting the backend offered that nobody can reach,
+/// and a field in both is one setting edited from two places.
 ///
-/// The split is by control kind rather than by key, so a field the form adds to the group lands in whichever half
-/// suits its widget with no line changing here.
-/// The two exceptions are named because the step draws them as cards and a banded track, which a generic renderer
-/// has no shape for, and choosing where a field sits is placement (docs/ipc-api.md, "The rule").
+/// The split is by control kind rather than by key,
+/// so a field the form adds to the group lands in whichever half suits its widget with no line changing here.
+/// The two exceptions are named because the step draws them as cards and a banded track,
+/// which a generic renderer has no shape for, and choosing where a field sits is placement (<c>docs/ipc-api.md</c>,
+/// "The rule").
 /// </summary>
 public static class QualityLayout
 {
     /// <summary>
     /// The one group drawn by a layout of its own rather than the generic renderer.
-    /// Naming it is placement: what the group holds, what its controls are called and which are greyed stays the
-    /// form's answer, and a group the backend renames falls back to the generic renderer.
+    /// Naming it is placement: what the group holds,
+    /// what its controls are called and which are greyed stays the form's answer,
+    /// and a group the backend renames falls back to the generic renderer.
     /// </summary>
     public const string GroupKey = "quality";
 
@@ -31,8 +33,8 @@ public static class QualityLayout
     public const string QuantizerKey = "publish.cq";
 
     /// <summary>
-    /// Whether the step places this control: the two it lays out by name, and every field whose whole control is a
-    /// choice, drawn as a dropdown in the read-back row.
+    /// Whether the step places this control: the two it lays out by name,
+    /// and every field whose whole control is a choice, drawn as a dropdown in the read-back row.
     /// A number carrying a ladder is a typed value first, and typed values live in the card below.
     /// </summary>
     public static bool OnStep(FieldViewModel field)
@@ -42,7 +44,8 @@ public static class QualityLayout
         return field.IsSelect || field.IsRadio || field.Key is ModeKey or QuantizerKey;
     }
 
-    /// <summary>Complement of <see cref="OnStep"/>, so between them the group's fields are drawn exactly once.</summary>
+    /// <summary>Complement of <see cref="OnStep"/>,
+    /// so between them the group's fields are drawn exactly once.</summary>
     public static bool BelowStep(FieldViewModel field) => !OnStep(field);
 
     /// <summary>Whether the read-back row draws it: an options field the step does not lay out by name.</summary>
@@ -51,11 +54,10 @@ public static class QualityLayout
 
     /// <summary>
     /// How many cards the rate control sets across, for an option count only the form knows.
-    /// Squared off so an option's paragraph gets a third of the column rather than a fifth: five modes across one
-    /// row set each explanation thirty characters wide, reading as a column of fragments.
-    /// Stated here rather than left to the panel because a UniformGrid asked for neither dimension squares off
-    /// <b>both</b>: five options become a three by three, and the row under the cards is a card's worth of empty
-    /// column.
+    /// Squared off so an option's paragraph gets a third of the column rather than a fifth:
+    /// five modes across one row set each explanation thirty characters wide, reading as a column of fragments.
+    /// Stated here rather than left to the panel, a UniformGrid asked for neither dimension squaring off <b>both</b>:
+    /// five options become a three by three, and the row under the cards is a card's worth of empty column.
     /// Given the columns, the panel divides for the rows and only the last can be short.
     /// </summary>
     public static int CardColumns(int options)
@@ -76,9 +78,9 @@ public static class QualityLayout
     ///
     /// Shares and not numbers, the scale being the codec's on the engine driving it: 0..51 for the H.26x encoders,
     /// 0..63 for libvpx and software AV1, further for one exposing a raw quantizer index.
-    /// A quantizer moves between two scales by proportion, the rule the backend converts a preset's target by
-    /// (<c>backend/internal/form/presets.go</c>, <c>presetCq</c>), so one share names the same picture on every
-    /// scale.
+    /// A quantizer moves between two scales by proportion,
+    /// the rule the backend converts a preset's target by (<c>backend/internal/form/presets.go</c>, <c>presetCq</c>),
+    /// so one share names the same picture on every scale.
     /// On the H.26x scale these two read as 18 and 24.
     ///
     /// The track's own colours are four star columns in <c>QualityStepView.axaml</c> holding the same four shares,

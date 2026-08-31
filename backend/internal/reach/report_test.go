@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// A row is read at a glance, so the mark is what tells the three verdicts apart, and each carries
-// the words behind it.
+// A row is read at a glance, so the mark tells the verdicts apart and each carries the words behind
+// it.
 func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	var out strings.Builder
 	err := Report(&out, []Result{
@@ -39,8 +39,8 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	}
 }
 
-// The exit status is the answer for a caller that reads no table: a leg that did not answer is a
-// failure, and a leg nothing dialled is not.
+// Exit status is the answer for a caller that reads no table: a leg that did not answer
+// is a failure, a leg nothing dialled is not.
 func TestOnlyALegThatWasDialledCanFail(t *testing.T) {
 	if Failed([]Result{{Leg: legAPI, Verdict: Unaddressed, Unaddressed: ReasonLoopbackOnly}}) {
 		t.Error("a leg addressed nowhere reads as a failure")

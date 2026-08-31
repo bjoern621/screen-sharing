@@ -9,11 +9,11 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Saved ways of publishing: what the card lists, what a save sends, what applying one does to the draft,
 /// and what a refused call leaves on screen.
-/// Which presets exist and what is in each is the backend's, so the fixture is written through the call the
-/// card makes and read back the same way.
-/// The shell's half is what is asserted: rows follow the store, a save is followed by a read rather than by a
-/// guess at what the store now holds, applying replaces the publish group alone, and the row in force is
-/// derived from the settings rather than remembered from the press.
+/// Which presets exist and what is in each is the backend's, so the fixture is written through the call
+/// the card makes and read back the same way.
+/// Asserted is the shell's half: rows follow the store, a save is followed by a read rather than by a guess
+/// at what the store holds, applying replaces the publish group alone,
+/// and the row in force is derived from the settings rather than remembered from the press.
 /// </summary>
 public sealed class PresetsTests
 {
@@ -24,8 +24,7 @@ public sealed class PresetsTests
 
     /// <summary>
     /// A flow whose first form has landed and whose preset card has read the store once.
-    /// Answers come from memory over an inline dispatcher, so what a test reads next is what the render pass
-    /// wrote.
+    /// Answers come from memory over an inline dispatcher, so what a test reads next is what the render pass wrote.
     /// </summary>
     private static async Task<Card> CardAsync(SeededBackend? seeded = null)
     {
@@ -72,7 +71,7 @@ public sealed class PresetsTests
         Assert.Equal("", card.Presets.Refusal);
     }
 
-    /// <summary>A store that answered and holds nothing is a state, not a failure, so it gets its own sentence.</summary>
+    /// <summary>An answering store that holds nothing is a state, not a failure, so it gets its own sentence.</summary>
     [Fact]
     public async Task AnEmptyStoreSaysNothingIsSavedYet()
     {
@@ -145,8 +144,8 @@ public sealed class PresetsTests
     }
 
     /// <summary>
-    /// Spaces are an empty name, and the backend refuses one, so sending it would be asking for a refusal the
-    /// card could answer itself.
+    /// Spaces are an empty name and the backend refuses one,
+    /// so sending it would be asking for a refusal the card could answer itself.
     /// </summary>
     [Fact]
     public async Task ANameWithNothingInItIsNotOfferedAsASave()
@@ -189,8 +188,8 @@ public sealed class PresetsTests
     {
         var card = await CardAsync();
 
-        // Saved off the draft with one field moved, so the repair returns the preset itself rather than a
-        // walked-to-legal version of it.
+        // Saved off the draft with one field moved,
+        // so the repair returns the preset itself rather than a walked-to-legal version of it.
         var kept = Publish(card).Clone();
         kept.Name = "from-preset";
         await card.Backend.SavePresetAsync("work", kept);
@@ -210,8 +209,7 @@ public sealed class PresetsTests
     }
 
     /// <summary>
-    /// A snapshot claims nothing about a region of the settings space, so being in force can only mean being
-    /// equal.
+    /// A snapshot claims nothing about a region of the settings space, so being in force can only mean equality.
     /// No stored selection is left to disagree with the draft (<c>docs/presets.md</c>, "Saved presets").
     /// </summary>
     [Fact]
@@ -305,8 +303,7 @@ public sealed class PresetsTests
     }
 
     /// <summary>
-    /// Nothing saved and nothing readable are different facts, and only the notice names where the old file
-    /// went.
+    /// Nothing saved and nothing readable are different facts, and only the notice names where the file went.
     /// </summary>
     [Fact]
     public async Task AnUnreadableStoreCarriesTheNoticeRatherThanTheEmptySentence()
@@ -348,13 +345,12 @@ public sealed class PresetsTests
 
     // --- The built-in presets ---------------------------------------------------------
     //
-    // The other kind of preset.
-    // A saved one is a snapshot under a name; a built-in one is a promise about the picture, resolved against
-    // this machine by the backend (docs/presets.md).
+    // A saved preset is a snapshot under a name; a built-in one is a promise about the picture,
+    // resolved against this machine by the backend (docs/presets.md).
 
     /// <summary>
-    /// Which presets exist is not a shell's to know, so the rows are the form's, each carrying the words this
-    /// shell keeps for the identifier.
+    /// Which presets exist is not a shell's to know, so the rows are the form's,
+    /// each carrying the words this shell keeps for the identifier.
     /// </summary>
     [Fact]
     public async Task TheCardListsTheBuiltInPresetsTheFormCarried()
@@ -391,8 +387,8 @@ public sealed class PresetsTests
     }
 
     /// <summary>
-    /// The mark is derived from the settings on every resolve rather than remembered from the press.
-    /// The promises are written so that no settings deliver two of them.
+    /// The mark is derived from the settings on every resolve,
+    /// and the promises are written so that no settings deliver two of them.
     /// </summary>
     [Fact]
     public async Task ApplyingABuiltInPresetMarksItAndNothingElse()
@@ -431,8 +427,8 @@ public sealed class PresetsTests
     }
 
     /// <summary>
-    /// An unreachable preset keeps its row, greyed, under the backend's reason, which is the treatment every
-    /// ruled-out choice gets.
+    /// An unreachable preset keeps its row, greyed, under the backend's reason,
+    /// the treatment every ruled-out choice gets.
     /// The press does nothing: a repaired near miss would be a way of publishing the reader did not ask for,
     /// under the name of one they did.
     /// </summary>

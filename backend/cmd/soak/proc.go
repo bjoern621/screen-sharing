@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// One reading of a process tree: what it spent on the CPU, what it holds resident, and how long
-// each GPU engine ran for it.
+// One reading of a process tree: what it spent on the CPU, what it holds resident,
+// and how long each GPU engine ran for it.
 //
-// The engine times are what tells a hardware encode from a software one on the machine rather than
-// from the settings that asked for it.
+// The engine times are what tells a hardware encode from a software one on the machine
+// rather than from the settings that asked for it.
 // They are per process, so a second job loading the same GPU moves no figure here.
 type treeSample struct {
 	At      time.Time
@@ -22,11 +22,11 @@ type treeSample struct {
 	RSSKiB  int64
 	Threads int
 	FDs     int
-	// The root process alone, which is what a leak shows in: a child holds its own and takes them
-	// with it when it ends.
-	// A tree figure moves by hundreds of megabytes and a hundred threads depending on whether a
-	// pipeline happened to be up at the moment of the reading, so a leak is read here and the tree
-	// stands beside it as context.
+	// The root process alone, which is what a leak shows in:
+	// a child holds its own and takes them with it when it ends.
+	// A tree figure moves by hundreds of megabytes and a hundred threads
+	// depending on whether a pipeline happened to be up at the moment of the reading,
+	// so a leak is read here and the tree stands beside it as context.
 	RootFDs     int
 	RootRSSKiB  int64
 	RootThreads int
@@ -48,8 +48,8 @@ type treeDelta struct {
 
 var clockTicks = 100.0
 
-// GPU engine time over every engine, which is what a hardware encode has and a software one has
-// none of.
+// GPU engine time over every engine,
+// which is what a hardware encode has and a software one has none of.
 func (d treeDelta) engineTotal() int64 {
 	var total int64
 	for _, ns := range d.EngineNs {
@@ -98,8 +98,8 @@ func diff(before, after treeSample) treeDelta {
 
 // sampleTree reads one process and everything descended from it.
 //
-// A process that ended between the walk and the read contributes nothing rather than failing the
-// sample: a publish child dying is the thing being measured.
+// A process that ended between the walk and the read contributes nothing
+// rather than failing the sample: a publish child dying is the thing being measured.
 func sampleTree(root int) treeSample {
 	s := treeSample{At: time.Now(), EngineNs: map[string]int64{}, PipelineNs: map[string]int64{}}
 	seen := map[uint64]bool{}
@@ -123,8 +123,9 @@ func sampleTree(root int) treeSample {
 		readEngines(pid, seen, engines)
 		for name, ns := range engines {
 			s.EngineNs[name] += ns
-			// The backend decodes the broadcast preview in its own process, and that decode reaches
-			// the same silicon an encode does. Only what runs below it is the pipeline's own work.
+			// The backend decodes the broadcast preview in its own process,
+			// and that decode reaches the same silicon an encode does.
+			// Only what runs below it is the pipeline's own work.
 			if pid != root {
 				s.PipelineNs[name] += ns
 			}
@@ -166,8 +167,8 @@ type procStat struct {
 	threads int
 }
 
-// readStat parses /proc/<pid>/stat past the comm field, which may itself hold spaces and
-// parentheses.
+// readStat parses /proc/<pid>/stat past the comm field,
+// which may itself hold spaces and parentheses.
 func readStat(pid int) (procStat, bool) {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {
@@ -187,8 +188,9 @@ func readStat(pid int) (procStat, bool) {
 		v, _ := strconv.ParseInt(fields[n-3], 10, 64)
 		return v
 	}
-	// Children that have been waited for are counted too: a probe that spawns an encoder and
-	// reaps it would otherwise read as a process that spent nothing.
+	// Children that have been waited for are counted too:
+	// a probe that spawns an encoder and reaps it
+	// would otherwise read as a process that spent nothing.
 	return procStat{
 		ppid:    int(at(4)),
 		cpuSec:  float64(at(14)+at(15)+at(16)+at(17)) / clockTicks,
@@ -207,8 +209,9 @@ func countFDs(pid int) int {
 
 // readEngines adds this process's DRM engine times to total.
 //
-// One GPU context appears under every descriptor that names it, so a client already counted is
-// skipped: adding the same fdinfo twice would report several times the engine time actually spent.
+// One GPU context appears under every descriptor that names it,
+// so a client already counted is skipped:
+// adding the same fdinfo twice would report several times the engine time spent.
 // Key: "drm-engine-enc" under client 16544 on 0000:c3:00.0.
 func readEngines(pid int, seen map[uint64]bool, total map[string]int64) {
 	clients := map[uint64]map[string]int64{}
@@ -224,8 +227,8 @@ func readEngines(pid int, seen map[uint64]bool, total map[string]int64) {
 	}
 }
 
-// readClients reads one process's DRM clients out of its descriptors, keyed so the same context is
-// read once however many descriptors name it.
+// readClients reads one process's DRM clients out of its descriptors,
+// keyed so the same context is read once however many descriptors name it.
 // Key: client 16544 on 0000:c3:00.0, holding "drm-engine-enc".
 func readClients(dir string, out map[uint64]map[string]int64) {
 	entries, err := os.ReadDir(dir)

@@ -15,17 +15,18 @@ import (
 )
 
 // Stats is one encoder progress sample.
-// Both publish engines emit it off their own pipelines, so a field means what is stated here rather
-// than what filled it:
+// Both publish engines emit it off their own pipelines,
+// so a field means what is stated here rather than what filled it:
 //
-//   - Fps, CaptureFps and InstMbps are per-interval rates: frames encoded, frames
-//     captured and bytes produced since the previous sample, over the wall-clock
-//     interval between the two. An average over the run takes minutes to follow a
-//     collapse.
+//   - Fps, CaptureFps and InstMbps are per-interval rates:
+//     frames encoded, frames captured and bytes produced since the previous sample,
+//     over the wall-clock interval between the two.
+//     An average over the run takes minutes to follow a collapse.
 //   - Speed and AvgMbps are cumulative over the run.
-//   - Dup counts frames the encoder repeated to hold the output rate, which is
-//     what rises when capture falls behind it. Drop counts input frames discarded
-//     for arriving faster than the output rate, the opposite event.
+//   - Dup counts frames the encoder repeated to hold the output rate,
+//     which rises when capture falls behind it.
+//     Drop counts input frames discarded for arriving faster than the output rate,
+//     the opposite event.
 //   - Missing marks the figures this sample carries no measurement for.
 //
 // MarshalJSON is the wire format of the "publish:stats" event.
@@ -39,25 +40,26 @@ type Stats struct {
 	Drop     int
 	InstMbps float64
 	AvgMbps  float64
-	// CaptureFps is how often the screen produced a picture, against Fps, how often the encoder
-	// emitted one.
+	// CaptureFps is how often the screen produced a picture, against Fps,
+	// how often the encoder emitted one.
 	// The two part wherever a backend paces its output independently of its source:
-	// the portal path repeats the newest damage frame at the configured rate, so its Fps holds at the
-	// target whatever the screen does, and a starved capture or a still screen shows up here alone.
+	// the portal path repeats the newest damage frame at the configured rate,
+	// so its Fps holds at the target whatever the screen does, and a starved capture
+	// or a still screen shows up here alone.
 	// A pipeline built with no rate probe marks it missing rather than reporting a zero rate.
 	CaptureFps float64
 
 	// What the publish leg costs a frame, and the stages a machine sending a stream can measure.
 	//
-	// TransitMs is the mean wall clock one frame spent between the capture stamping it and the
-	// encoded stream leaving the pipeline, over the last interval: converting, encoding and parsing.
-	// LinkMs is the delivery window the leg settled on with the relay, the delay every packet is held
-	// for so a lost one has room to arrive again, and RttMs the round trip that says whether the
-	// window has room for that.
+	// TransitMs is the mean wall clock one frame spent between the capture stamping it and the encoded
+	// stream leaving the pipeline, over the last interval: converting, encoding and parsing.
+	// LinkMs is the delivery window the leg settled on with the relay,
+	// the delay every packet is held for so a lost one has room to arrive again,
+	// and RttMs the round trip that says whether the window has room for that.
 	//
 	// All three are an engine's to measure or to mark missing.
-	// Only a pipeline this app runs itself can answer them, so the ffmpeg engine marks all three, and
-	// a leg whose transport keeps no link counters marks the last two.
+	// Only a pipeline this app runs itself can answer them, so the ffmpeg engine marks all three,
+	// and a leg whose transport keeps no link counters marks the last two.
 	TransitMs float64
 	LinkMs    float64
 	RttMs     float64
@@ -83,8 +85,8 @@ type Missing struct {
 	RttMs      bool
 }
 
-// MarshalJSON writes every figure Missing marks as null, which keeps an unmeasured figure out of the
-// UI's numbers.
+// MarshalJSON writes every figure Missing marks as null,
+// which keeps an unmeasured figure out of the UI's numbers.
 // encoding/json carries no per-field presence for a float64, hence the pointer-shaped wire struct.
 func (s Stats) MarshalJSON() ([]byte, error) {
 	measured := func(v float64, missing bool) *float64 {
@@ -135,7 +137,7 @@ type Proc struct {
 	Stdin io.WriteCloser
 }
 
-// Running goes false when the child has been reaped, which is after its output pipes have drained.
+// Running goes false when the child has been reaped, after its output pipes have drained.
 func (p *Proc) Running() bool { return p.running.Load() }
 
 // Stop kills the child.
@@ -156,15 +158,15 @@ func (p *Proc) Stop() {
 
 // stdoutLineInitial and stdoutLineMax size the scanner behind onLine.
 // One line is one message and the roster the native grid answers grows with the stream count,
-// so the ceiling is generous rather than tuned.
+// so the ceiling holds a roster of any size a session reaches.
 const (
 	stdoutLineInitial = 64 * 1024
 	stdoutLineMax     = 4 * 1024 * 1024
 )
 
 // Start launches exe with args and supervises it until it exits.
-// The child outlives the call and is stopped through Proc.Stop, or by App.shutdown, or on Windows by
-// the Job Object (KillOnAppExit).
+// The child outlives the call and is stopped through Proc.Stop, or by App.shutdown,
+// or on Windows by the Job Object (KillOnAppExit).
 //
 // hideWindow hides the child's console window on Windows and does nothing elsewhere.
 // It must be false for ffplay, whose video window the same flag would hide.
@@ -172,11 +174,11 @@ const (
 // Without it the child reads the null device.
 // tag names the run log.
 // onStats, when non-nil, takes one encoder progress sample per ffmpeg -progress block.
-// onLine, when non-nil, takes every line the child writes to stdout, for a child that talks back
-// rather than only logging.
+// onLine, when non-nil, takes every line the child writes to stdout,
+// for a child that talks back rather than only logging.
 // Both read the one pipe, so a caller passes one or the other.
-// onExit fires once, carrying a non-nil error only on an unexpected exit, the bounded tail of stderr
-// and the path of the full run log.
+// onExit fires once, carrying a non-nil error only on an unexpected exit,
+// the bounded tail of stderr and the path of the full run log.
 func Start(
 	exe string,
 	args []string,
@@ -200,8 +202,8 @@ func Start(
 
 	full := args
 	if onStats != nil {
-		// Machine-readable progress on stdout, added here and not in BuildPublishArgs so the command the
-		// UI shows stays the plain encoder line.
+		// Machine-readable progress on stdout, added here and not in BuildPublishArgs
+		// so the command the UI shows stays the plain encoder line.
 		full = append(append([]string{}, args...), "-progress", "pipe:1")
 	}
 
@@ -278,8 +280,8 @@ func Start(
 		readers.Add(1)
 		go func() {
 			defer readers.Done()
-			// Mirrored into the run log a line at a time, so the log holds what a run with no reader on
-			// the pipe would have written.
+			// Mirrored into the run log a line at a time, so the log holds what a run with no reader
+			// on the pipe would have written.
 			sc := bufio.NewScanner(stdout)
 			sc.Buffer(make([]byte, 0, stdoutLineInitial), stdoutLineMax)
 			for sc.Scan() {

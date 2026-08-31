@@ -7,14 +7,14 @@ using TablerIcons;
 namespace ScreenShare.App.Features.Viewer.ViewModel;
 
 /// <summary>
-/// One stream on the relay, as the rail draws it: what it is, what it is carrying, and the legs this machine can
-/// open a viewer on.
+/// One stream on the relay, as the rail draws it: what it is, what it is carrying,
+/// and the legs this machine can open a viewer on.
 ///
-/// <b>Outputs only.</b> The row holds no input of its own: a press runs one of its commands, which asks the
-/// backend and waits for the event stream to say what happened.
+/// <b>Outputs only.</b>
+/// A press runs one of the row's commands, which asks the backend and waits for the event stream to answer.
 ///
-/// Kept across passes and updated in place rather than rebuilt, so the commands stay the same instances and an
-/// expanded row does not collapse under the pointer on every relay poll.
+/// Kept across passes and updated in place rather than rebuilt,
+/// so the commands stay the same instances and an expanded row does not collapse on every relay poll.
 /// </summary>
 public sealed class StreamRowViewModel : Observable
 {
@@ -27,7 +27,7 @@ public sealed class StreamRowViewModel : Observable
     /// <summary>Read when the command runs rather than captured, so one instance stays right across passes.</summary>
     private bool _tiled;
 
-    /// <summary>Which legs are open, read by the commands this row hands out.</summary>
+    /// <summary>Which legs are open, read by the commands the row hands out.</summary>
     private IReadOnlyList<string> _watchedOn = [];
 
     public StreamRowViewModel(
@@ -50,11 +50,10 @@ public sealed class StreamRowViewModel : Observable
         Legs = [];
         BrowserLegs = [];
 
-        // Made once, like the leg commands and for the same reason: a row outlives a pass, and a command rebuilt
-        // per pass is a button that loses its press.
+        // Made once, like the leg commands: a row outlives a pass, and a command rebuilt per pass loses its press.
         //
         // A tile is two calls and the decode behind them, so the toggle waits on the answer.
-        // Without the wait, every press landing while the first is being opened starts a second decode.
+        // Without the wait, a press landing while the first is opening starts a second decode.
         Show = new PendingCommand(() => tile(Name, _tiled), dispatch);
     }
 
@@ -76,14 +75,14 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>
     /// Legs the relay serves a player page for, in the order the backend offered them.
-    /// A second list rather than a flag on the first: what a native player reaches and what a browser reaches are
-    /// different sets, and neither contains the other.
+    /// A second list rather than a flag on the first:
+    /// what a native player reaches and what a browser reaches are different sets, neither containing the other.
     /// </summary>
     public ObservableCollection<BrowserLegViewModel> BrowserLegs { get; }
 
     /// <summary>
-    /// Word the entry carries: the stream's own name, with the prefix every row of one group shares taken off by
-    /// the backend.
+    /// Word the entry carries: the stream's own name,
+    /// with the prefix every row of one group shares taken off by the backend.
     /// <see cref="Name"/> is the whole path and stays what the commands open.
     /// </summary>
     public string Label { get => _label; private set => Set(ref _label, value); }
@@ -97,30 +96,28 @@ public sealed class StreamRowViewModel : Observable
     /// <summary>Readers the relay counts, as the row prints them.</summary>
     public string Readers { get => _readers; private set => Set(ref _readers, value); }
 
-    /// <summary>Whether a publisher is connected. A path that is not ready draws dimmed.</summary>
+    /// <summary>Whether a publisher is connected.</summary>
     public bool IsReady { get => _isReady; private set => Set(ref _isReady, value); }
 
     /// <summary>Whether this machine has any external viewer open on this stream.</summary>
     public bool IsWatched { get => _isWatched; private set => Set(ref _isWatched, value); }
 
     /// <summary>
-    /// Whether this stream has a tile in the grid.
-    /// Not the same fact as <see cref="IsWatched"/>: a viewer is a player window the backend launched, a tile is a
-    /// decode this window draws.
+    /// Not the same fact as <see cref="IsWatched"/>:
+    /// a viewer is a player window the backend launched, a tile is a decode this window draws.
     /// One stream can have both at once, over different legs.
     /// </summary>
     public bool IsTiled { get => _isTiled; private set => Set(ref _isTiled, value); }
 
-    /// <summary>Adds this stream to the grid, or removes it.</summary>
+    /// <summary>Adds the stream to the grid, or takes it out.</summary>
     public PendingCommand Show { get; }
 
     private string _watchLabel = "";
 
     /// <summary>
-    /// What the action says it will do.
-    /// Names the effect and not the state: the dot already says whether anything is publishing and the pressed
-    /// toggle says whether the stream is in the grid, so a label repeating either would be a third opinion about
-    /// one fact.
+    /// What the action says it will do, the effect and not the state.
+    /// The dot says whether anything is publishing and the pressed toggle says whether the stream is in the grid,
+    /// so a label repeating either is a third opinion about one fact.
     /// </summary>
     public string WatchLabel { get => _watchLabel; private set => Set(ref _watchLabel, value); }
 
@@ -128,15 +125,15 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>
     /// Action's glyph: on screen, or off it.
-    /// One glyph that changes rather than two controls one of which is hidden, so the action never moves under the
-    /// pointer.
+    /// One glyph that changes rather than two controls one of which is hidden,
+    /// so the action never moves under the pointer.
     /// </summary>
     public Icons WatchGlyph { get => _watchGlyph; private set => Set(ref _watchGlyph, value); }
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: every output is written on every pass, the legs of two passes over one row compare
-    /// equal, and the commands are reused by value.
+    /// Safe to run twice: every output is written on every pass,
+    /// the legs of two passes over one row compare equal, and the commands are reused by value.
     /// </summary>
     public void Apply(StreamRow row, IReadOnlyList<WatchLeg> legs, IReadOnlyList<WatchLeg> browserLegs, bool tiled)
     {
@@ -176,17 +173,17 @@ public sealed class StreamRowViewModel : Observable
         Assert.That(Legs.Count == legs.Count, "a control per offered leg", Legs.Count, legs.Count);
         Assert.That(BrowserLegs.Count == browserLegs.Count,
             "a control per offered browser leg", BrowserLegs.Count, browserLegs.Count);
-        // Gated on legs being offered at all, and not as an economy: a pass running before the catalog lands
-        // offers none, while a stream the backend is already supervising arrives watched on that same pass.
-        // The invariant is what a drawn leg list means, so a row with nothing drawn yet states nothing.
+        // Gated on legs being offered at all: a pass before the catalog lands offers none,
+        // while a stream the backend already supervises arrives watched on that same pass.
+        // A row with nothing drawn states nothing.
         Assert.That(Legs.Count == 0 || !IsWatched || Legs.Any(leg => leg.IsOpen),
             "a watched stream offering legs has one to close", Name, row.WatchedOn.Count);
     }
 
     /// <summary>
     /// Command for one leg, made once and reused.
-    /// Which direction it goes is read when it runs rather than captured now, so a command made on one pass still
-    /// does the right thing on the next.
+    /// Direction is read when it runs rather than captured,
+    /// so a command made on one pass still does the right thing on the next.
     /// </summary>
     private PendingCommand ToggleOf(string transport)
     {
@@ -195,9 +192,9 @@ public sealed class StreamRowViewModel : Observable
             return command;
         }
 
-        // Opening a viewer launches a player on the backend's machine and closing one brings that player down, and
-        // neither is quick.
-        // The command holds its own call, so a leg being opened says so while the ones beside it stay pressable.
+        // Opening a viewer launches a player on the backend's machine and closing one brings it down,
+        // and neither is quick.
+        // One command per leg, so a leg being opened says so while the ones beside it stay pressable.
         command = new PendingCommand(
             () => _watch(Name, transport, _watchedOn.Contains(transport)), _dispatch);
 
@@ -206,10 +203,8 @@ public sealed class StreamRowViewModel : Observable
     }
 
     /// <summary>
-    /// The command for one browser leg, made once and reused for the reason the leg toggles are.
-    ///
-    /// It reads nothing as it runs, which is what separates it from a toggle: one direction, because a page
-    /// this app opened is one it cannot find again.
+    /// Command for one browser leg, made once and reused for the reason the leg toggles are.
+    /// One direction and nothing read as it runs, a page this app opened being one it cannot find again.
     /// </summary>
     private PendingCommand PageOf(string transport)
     {
@@ -227,6 +222,6 @@ public sealed class StreamRowViewModel : Observable
 
 /// <summary>
 /// One transport the backend offered as a leg: the value the effect takes, and the word a control shows.
-/// The value is the catalog's and the word is this side's.
+/// Value is the catalog's, word is this side's.
 /// </summary>
 public sealed record WatchLeg(string Value, string Label);

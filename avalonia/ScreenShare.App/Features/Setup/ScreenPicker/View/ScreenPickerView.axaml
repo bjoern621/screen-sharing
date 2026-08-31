@@ -39,10 +39,10 @@
 
                     <!--
                       Two sentences for a dark tile, from opposite sides.
-                      Before there is a tile the row says why: the screen is opening, or the
-                      backend refused to read it.
-                      Once there is one, the tile's own three take over: read with no picture
-                      yet, the reading ended, or this window could not draw what it was handed.
+                      Before there is a tile the row says why:
+                      the screen is opening, or the backend refused to read it.
+                      Once there is one, the tile's own three take over:
+                      read with no picture yet, the reading ended, or this window could not draw what it was handed.
                     -->
                     <SelectableTextBlock Classes="hint"
                                          Text="{Binding Placeholder}"

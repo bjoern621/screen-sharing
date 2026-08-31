@@ -15,16 +15,16 @@ import (
 
 // ControlFlag tells the runner where to listen, as the first argument after the subcommand
 // (cmd/backend).
-// A run given none takes no socket, which is what the rendered command shows and what the measuring
-// runs launch with.
+// A run given none takes no socket, which the rendered command shows and the measuring runs launch
+// with.
 const ControlFlag = "--control="
 
 // gstHandle is a running GStreamer publish: the supervised child, and the socket its pipeline takes
 // values on.
 //
 // A Handle with one method more.
-// An engine whose pipeline takes nothing while it runs returns a plain handle, which is how the
-// ffmpeg engine says it is not live without a flag anywhere saying so (LiveApplier).
+// An engine whose pipeline takes nothing while it runs returns a plain handle, which is how
+// the ffmpeg engine says it is not live without a flag anywhere saying so (LiveApplier).
 type gstHandle struct {
 	Handle
 
@@ -36,9 +36,7 @@ type gstHandle struct {
 
 // ApplyLive hands the running pipeline the whole state these settings ask for.
 //
-// Whole rather than what changed, because the child converges to what it is told: the same state
-// sent twice changes nothing the second time, and a state that never arrived cannot leave the
-// pipeline on a value nobody chose.
+// Whole rather than what changed, the child converging to what it is told (gstrun.LiveState).
 // Settings with nothing live in them send nothing.
 func (h *gstHandle) ApplyLive(s settings.Settings) error {
 	state := gstLiveState(s)
@@ -61,8 +59,8 @@ func (h *gstHandle) ApplyLive(s settings.Settings) error {
 		return err
 	}
 	if _, err := h.conn.Write(append(line, '\n')); err != nil {
-		// A failed write is a connection that died with the pipeline behind it, so it is dropped and the
-		// next apply dials again rather than reporting this one forever.
+		// A failed write is a connection that died with the pipeline behind it, so it is dropped and
+		// the next apply dials again rather than reporting this one forever.
 		h.conn.Close()
 		h.conn = nil
 		return fmt.Errorf("writing to the pipeline: %w", err)
@@ -104,8 +102,8 @@ func gstLiveArgs(socket string) []string {
 	return []string{ControlFlag + socket}
 }
 
-// LiveApplier is a Handle whose pipeline takes values while it runs, and an engine states that by
-// implementing it.
+// LiveApplier is a Handle whose pipeline takes values while it runs, and an engine states
+// that by implementing it.
 //
 // The ffmpeg engine does not: neither ffmpeg nor its command line takes a value back once running,
 // so asking a running ffmpeg publish to apply anything is asking for a relaunch, and the type says
@@ -124,11 +122,11 @@ func Live(h Handle) (LiveApplier, bool) {
 // socket, whether to report where the pointer is, and where to measure a frame's delay.
 //
 // They lead the arguments, so everything after them is the pipeline itself.
-// That is what the child's own parsing relies on, and what keeps a rendered command reading as a
-// pipeline from the first word after the subcommand.
+// The child's own parsing relies on that, and a rendered command reads as a pipeline from the first
+// word after the subcommand.
 //
-// metered is whether this run's pipeline carries the encoded-frame counter, which is the element a
-// delay is measured at: the two are one piece of instrumentation, so a run that counts no frames
+// metered is whether this run's pipeline carries the encoded-frame counter, which is the element
+// a delay is measured at: the two are one piece of instrumentation, so a run that counts no frames
 // times none either and the displayed command still reads as the command that ran.
 func gstChildArgs(s settings.Settings, socket string, metered bool) []string {
 	args := gstLiveArgs(socket)

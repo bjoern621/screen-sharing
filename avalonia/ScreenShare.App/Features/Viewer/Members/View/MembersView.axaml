@@ -21,10 +21,8 @@
     <TextBlock Classes="caption" Text="{Binding Title}" Margin="7,0,0,0" />
 
     <!--
-      A row per member: what they go by, whether the relay carries a stream from them, and which row is
-      this machine.
-      Nothing about what anybody is watching, which the group does not state and this card could not
-      draw.
+      A row per member: the name, whether the relay carries a stream from them, and which row is this machine.
+      Nothing about what anybody is watching, which the group does not state.
     -->
     <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}">
       <ItemsControl.ItemTemplate>

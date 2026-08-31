@@ -1,13 +1,15 @@
-// Package metrics is the group service's scrape: what it holds, rendered in the Prometheus text
-// exposition format.
+// Package metrics is the group service's scrape:
+// what it holds, rendered in the Prometheus text exposition format.
 //
-// The format is written here rather than taken from a client library. What is exported is a dozen
-// families off state one process already holds, and a library brings a registry to keep them in,
-// which is a second copy of facts the registry and the service own (docs/development-principles.md).
+// The format is written here rather than taken from a client library.
+// What is exported is families off state one process already holds,
+// and a library brings a registry to keep them in,
+// a second copy of facts the registry and the service own (docs/development-principles.md).
 //
-// A scrape is a read and never a write. Every gauge is derived from its owner when the request
-// arrives, so nothing here has to be kept in step with a membership change, and a scrape that never
-// comes costs nothing.
+// A scrape is a read and never a write.
+// Every gauge is derived from its owner when the request arrives,
+// so nothing here has to be kept in step with a membership change,
+// and a scrape that never comes costs nothing.
 package metrics
 
 import (
@@ -19,14 +21,16 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// The two kinds this exports. A counter only ever rises and carries a _total suffix; a gauge is a
-// reading that moves either way.
+// The two kinds this exports.
+// A counter only ever rises and carries a _total suffix.
+// A gauge is a reading that moves either way.
 const (
 	Gauge   = "gauge"
 	Counter = "counter"
 )
 
-// Label is one dimension of a sample. Order is the caller's and is written as given.
+// Label is one dimension of a sample.
+// Order is the caller's and is written as given.
 type Label struct {
 	Name  string
 	Value string
@@ -51,8 +55,9 @@ type Family struct {
 
 // Render writes families to w in the order given.
 //
-// Every failure is w's. The caller is an HTTP handler and the response is already partly written by
-// the time one lands, so it is returned rather than turned into a page of its own.
+// Every failure is w's.
+// The caller is an HTTP handler and the response is already partly written by the time one lands,
+// so it is returned rather than turned into a page of its own.
 func Render(w io.Writer, families []Family) error {
 	assert.IsNotNil(w, "a scrape is rendered to somewhere")
 
@@ -97,15 +102,15 @@ func labels(carried []Label) string {
 }
 
 // value renders a reading in the shortest form that reads back as itself.
-// 'g' would reach for an exponent on a figure a counter can plausibly hold, and a scrape carrying
-// 1e+06 is one a reader has to decode.
+// 'g' would reach for an exponent on a figure a counter can plausibly hold,
+// and a scrape carrying 1e+06 is one a reader has to decode.
 func value(reading float64) string {
 	return strconv.FormatFloat(reading, 'f', -1, 64)
 }
 
 // escapeValue escapes a label value.
-// A display name arrives from whatever the member typed, so the three characters the format reserves
-// are escaped rather than trusted.
+// A display name arrives from whatever the member typed,
+// so the three characters the format reserves are escaped rather than trusted.
 var escapeValue = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace
 
 // escapeHelp escapes help text, where a quote needs none and a newline would end the line early.

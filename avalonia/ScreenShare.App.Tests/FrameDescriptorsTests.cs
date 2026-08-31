@@ -6,20 +6,20 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Consumer's half of a descriptor pool, and the one part of it that fails silently: the shape of the
-/// kernel's control message.
-/// A descriptor travels beside the payload, in a header whose fields are pointer-sized and pointer-aligned, so
-/// a reader that lays it out wrong lifts a number out of the padding and imports whatever file that names.
-/// The symptom is a tile drawing noise on one machine and nothing on another, so the layout is asserted
-/// against descriptors of a known size.
-/// The sender is this file rather than the backend, writing what
-/// <c>backend/internal/receive/descriptors_linux.go</c> writes.
+/// Consumer's half of a descriptor pool, and the one part of it that fails silently:
+/// the shape of the kernel's control message.
+/// A descriptor travels beside the payload, in a header whose fields are pointer-sized and pointer-aligned,
+/// so a reader laying it out wrong lifts a number out of the padding and imports whatever file that names.
+/// The symptom is a tile drawing noise on one machine and nothing on another,
+/// so the layout is asserted against descriptors of a known size.
+/// The sender is this file rather than the backend,
+/// writing what <c>backend/internal/receive/descriptors_linux.go</c> writes.
 /// </summary>
 public sealed class FrameDescriptorsTests
 {
     private const int Slots = 3;
 
-    /// <summary>A size no other file has, so a received descriptor can be checked by seeking it.</summary>
+    /// <summary>Size no other file has, so a received descriptor can be checked by seeking it.</summary>
     private const int FileBytes = 4321;
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class FrameDescriptorsTests
         await using var sender = Sender.Listening(lent);
 
         // Fewer descriptors than slots is a backend that died mid-pool.
-        // A reader that waited for the missing one would be a tile that never draws and never says why.
+        // A reader waiting for the missing one is a tile that never draws and never says why.
         await Assert.ThrowsAsync<BackendUnavailableException>(
             () => FrameDescriptors.ReceiveAsync(sender.Address, Slots, CancellationToken.None));
     }
@@ -96,8 +96,8 @@ public sealed class FrameDescriptorsTests
     }
 
     /// <summary>
-    /// The backend's half: a socket answering a connection with one message per slot, carrying the slot index
-    /// as payload and the slot's descriptor as the right beside it.
+    /// The backend's half: a socket answering a connection with one message per slot,
+    /// carrying the slot index as payload and the slot's descriptor as the right beside it.
     /// </summary>
     private sealed class Sender : IAsyncDisposable
     {
@@ -143,7 +143,7 @@ public sealed class FrameDescriptorsTests
             }
             catch (Exception)
             {
-                // Dispose cancelled the accept, which is how a test that never connected ends.
+                // Dispose cancelled the accept, how a test that never connected ends.
             }
             Directory.Delete(_directory, recursive: true);
         }

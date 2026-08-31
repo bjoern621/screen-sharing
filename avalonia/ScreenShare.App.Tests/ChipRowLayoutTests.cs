@@ -5,9 +5,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// The row tiles the space it is handed and stops there.
-/// Pins the defect a row of rounded shares carries: one share rounded to a device pixel and multiplied by the chip
-/// count ends the row past the panel, the panel clips to its bounds, and the last chip loses its right border while
-/// keeping the corner arcs that curve inside the cut.
+/// One share rounded to a device pixel and multiplied by the chip count ends the row past the panel.
+/// The panel clips to its bounds, and the last chip loses its right border
+/// while keeping the corner arcs that curve inside the cut.
 /// </summary>
 public sealed class ChipRowLayoutTests
 {
@@ -36,7 +36,7 @@ public sealed class ChipRowLayoutTests
             Assert.Equal(0, edges[0]);
             Assert.True(edges[count] <= width, $"{edges[count]} runs past {width} at {scale}x");
 
-            // The leftover is under one device pixel, so the row fills its space rather than stopping short of it.
+            // Leftover is under one device pixel, so the row fills its space rather than stopping short of it.
             Assert.True(width - edges[count] < 1 / scale, $"{edges[count]} stops short of {width} at {scale}x");
         }
     }

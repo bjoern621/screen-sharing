@@ -10,16 +10,16 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 /// <b>Filled from the relay's reader roster, cell for cell.</b> The relay names each reader by the protocol it
 /// watches over and joins it to that protocol's connection list, so a row is an address, a join time and whatever
 /// the leg is instrumented for.
-/// SRT is the one leg the relay times a round trip and states a loss rate on; the rest report what was sent to
-/// them and what the relay's own queue threw away.
-/// A cell with no measurement behind it prints <see cref="Figure.NoValue"/> and never a zero, so a viewer on an
-/// untimed leg never reads as a perfect one.
+/// SRT is the one leg the relay times a round trip and states a loss rate on.
+/// The rest report what was sent to them and what the relay's own queue threw away.
+/// A cell with no measurement behind it prints <see cref="Figure.NoValue"/> and never a zero, so a viewer
+/// on an untimed leg never reads as a perfect one.
 ///
 /// <b>Two of the design's columns name figures the relay does not have, and carry what it does measure
 /// instead.</b> Buffer fill and the decoder in use are the viewer's own facts and reach no publisher, so a column
 /// for either prints an ellipsis in every row forever.
-/// The fifth carries what was discarded on the way out, the sixth the leg it went out over
-/// (<c>docs/field-availability.md</c>, "A figure with no measurement").
+/// The fifth carries what was discarded on the way out, the sixth the leg it went out
+/// over (<c>docs/field-availability.md</c>, "A figure with no measurement").
 ///
 /// <see cref="IsLast"/> is nobody's measurement: the render function derives it, the last row sitting flush
 /// against the card's rounded edge and carrying no separator.
@@ -42,8 +42,8 @@ public sealed record ViewerRow(
 {
     /// <summary>
     /// Percent. Loss at or above this reads as a viewer in trouble.
-    /// SRT states resent data against sent data, so the figure is already a rate, and a link losing a fiftieth of
-    /// what is sent to it is one the retransmits are working to hide.
+    /// SRT states resent data against sent data, so the figure is already a rate, and a link losing a fiftieth
+    /// of what is sent to it is one the retransmits are working to hide.
     /// </summary>
     private const double StrainingLossPercent = 2;
 
@@ -62,8 +62,8 @@ public sealed record ViewerRow(
     private const double StrainingDiscards = 1;
 
     /// <summary>
-    /// The whole severity rule: every figure that can put a row in the struggling state, and the measurement at
-    /// which it does.
+    /// The whole severity rule: every figure that can put a row in the struggling state, and the measurement
+    /// at which it does.
     ///
     /// A table rather than a condition in the render function or the view, on the rule every static fact here
     /// follows: the escalation lands in four places in the markup, fill, weight, the hot roles and the one red,
@@ -90,8 +90,8 @@ public sealed record ViewerRow(
     /// the leg states none.
     /// </summary>
     /// <remarks>
-    /// The two identifying cells fall back and then give up rather than asserting, and do it in
-    /// <see cref="Readers"/>, the session log naming the same readers (<c>docs/development-principles.md</c>,
+    /// The two identifying cells fall back and then give up rather than asserting, and do it
+    /// in <see cref="Readers"/>, the session log naming the same readers (<c>docs/development-principles.md</c>,
     /// "Contracts").
     /// </remarks>
     public static ViewerRow Of(RelayReader reader)
@@ -129,8 +129,8 @@ public sealed record ViewerRow(
     /// <summary>
     /// When the relay accepted this reader, as a wall clock time: <c>14:07</c>.
     /// An age reads better and is not used: this runs on every render pass, and an age would come from a clock
-    /// nobody handed it, so one roster would render differently on two consecutive passes and repaint under the
-    /// reader's pointer.
+    /// nobody handed it, so one roster would render differently on two consecutive passes and repaint under
+    /// the reader's pointer.
     /// The relay's stamp is its own clock's, so this converts it to the local zone and drops the date.
     /// </summary>
     private static string JoinedAt(RelayReader reader)

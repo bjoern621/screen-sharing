@@ -34,8 +34,8 @@ internal static class WindowPresences
     /// <summary>
     /// One reader per caller, disposed by the caller: it holds a subscription to the window.
     /// <see cref="ToplevelPresence"/> answers every platform, on the facts Avalonia normalises across them.
-    /// A system with a better answer of its own is a second implementation and a branch here, with nothing that
-    /// reads presence changing.
+    /// A system with a better answer of its own is a second implementation and a branch here, with nothing
+    /// that reads presence changing.
     /// </summary>
     public static IWindowPresence For(Window window) => new ToplevelPresence(window);
 }

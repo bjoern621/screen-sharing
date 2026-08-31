@@ -7,9 +7,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Where a swept control comes to rest.
-///
-/// A slider stops on the round figures its step names and on the two ends of its range, so a floor the step
-/// steps over stays reachable: 20 ms under a 50 ms step is offered 20, 50, 100 rather than 20, 70, 120.
+/// A slider stops on the round figures its step names and on the two ends of its range,
+/// so a floor the step steps over stays reachable:
+/// 20 ms under a 50 ms step is offered 20, 50, 100 rather than 20, 70, 120.
 /// The widget stops on both ends whatever it is handed, so the list carries neither.
 /// </summary>
 public sealed class SliderStopsTests
@@ -44,8 +44,8 @@ public sealed class SliderStopsTests
     }
 
     /// <summary>
-    /// A floor and a ceiling the step never lands on are the pair a sweep must still reach, the floor being
-    /// the shortest window there is.
+    /// A floor and a ceiling the step never lands on are the pair a sweep must still reach,
+    /// the floor being the shortest window there is.
     /// </summary>
     [Fact]
     public void TheEndsAreLeftToTheWidget()
@@ -106,8 +106,8 @@ public sealed class SliderStopsTests
     }
 
     /// <summary>
-    /// A control that is not swept states no ends, so building stops for one would count off the widest
-    /// number there is.
+    /// A control that is not swept states no ends,
+    /// so building stops for one would count off the widest number there is.
     /// </summary>
     [Fact]
     public void ATypedControlCarriesNoStops()

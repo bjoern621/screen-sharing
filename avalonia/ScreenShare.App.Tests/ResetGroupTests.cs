@@ -7,18 +7,20 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Putting one group of settings back to what a fresh installation holds.
-/// A staged group is a proposal a reader can walk away from; an applied group is stored as it is typed and is
-/// already what this machine is (<c>form.proto</c>, FieldGroup.applied), so it is the one nothing else
-/// restores.
+/// A staged group is a proposal a reader can walk away from.
+/// An applied group (<c>form.proto</c>, FieldGroup.applied) is stored as it is typed,
+/// and is already what this machine is.
+/// It is the one nothing else restores.
 /// The relay is such a group: a reader who changed its port has nowhere else to read the number it serves on.
-/// No value is named here, because none is named in the shell: every field carries what it starts as
-/// (<c>Field.default_value</c>), and what is asserted is that those are what a reset writes back.
+/// No value is named here, none being named in the shell:
+/// every field carries what it starts as (<c>Field.default_value</c>),
+/// and asserted is that a reset writes those back.
 /// </summary>
 public sealed class ResetGroupTests
 {
     private static readonly Action<Action> Inline = action => action();
 
-    /// <summary>The applied group. <see cref="StreamStep"/> is a staged one, for the negative case.</summary>
+    /// <summary>Applied group. <see cref="StreamStep"/> is a staged one, for the negative case.</summary>
     private const string RelayStep = "relay";
 
     private const string StreamStep = "stream";
@@ -42,7 +44,7 @@ public sealed class ResetGroupTests
     {
         var flow = await FlowAsync();
 
-        // The opening draft, which is a fresh installation's.
+        // Opening draft, a fresh installation's.
         var fresh = flow.Form.Draft!.Clone();
 
         flow.Form.Write("relay.host", new FieldValue { Text = "elsewhere.example" });
@@ -73,8 +75,8 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// One change of mind about a group, not a burst of the writes a reader could have made by hand, so every
-    /// field lands in the draft before anything is stored.
+    /// One change of mind about a group, not a burst of the writes a reader could have made by hand,
+    /// so every field lands in the draft before anything is stored.
     /// </summary>
     [Fact]
     public async Task AResetOfAnAppliedGroupIsStoredOnce()

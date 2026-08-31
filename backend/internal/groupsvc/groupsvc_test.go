@@ -17,19 +17,21 @@ import (
 
 // listing is the index request for one group key.
 //
-// The group key is escaped rather than pasted in: a group key is standard base64 and a '+' in a query
-// string decodes to a space, so an unescaped group key carrying one reaches the service corrupted.
+// The group key is escaped rather than pasted in:
+// a group key is standard base64 and a '+' in a query string decodes to a space,
+// so an unescaped group key carrying one reaches the service corrupted.
 func listing(groupKey group.Key) string {
 	return "/streams?groupKey=" + url.QueryEscape(groupKey.String())
 }
 
 // The service is three derivations and a bound.
-// These hold that each derivation answers what the other side computes, and that the one decision
-// the service makes, who may see which streams, is made here and not left to a caller to filter.
+// These hold that each derivation answers what the other side computes,
+// and that the one decision the service makes, who may see which streams,
+// is made here rather than left to a caller to filter.
 
 // paths is a relay carrying these streams.
-// All ready, because what an index answers about a path that is not is the same question as what it
-// answers about another group's, and that has its own test.
+// All ready, because what an index answers about a path that is not
+// is the same question as what it answers about another group's, and that has its own test.
 type paths []string
 
 func (p paths) Paths() []Stream {
@@ -66,8 +68,8 @@ func call(t *testing.T, s *Service, method, target, body string) (int, map[strin
 }
 
 // Creating a group draws a group key, and that key is what the client keeps.
-// The id beside it is the prefix that key derives, so a client can check the two agree without
-// deriving anything itself.
+// The id beside it is the prefix that key derives,
+// so a client can check the two agree without deriving anything itself.
 func TestCreatingAGroupHandsBackAKeyAndThePrefixItDerives(t *testing.T) {
 	s := service(t)
 
@@ -92,8 +94,8 @@ func TestCreatingAGroupHandsBackAKeyAndThePrefixItDerives(t *testing.T) {
 }
 
 // A group key buys a token granting that key's prefix and nothing else.
-// Nothing is looked up on the way: a caller holding a well-formed group key is in the group, and that
-// is the whole model.
+// Nothing is looked up on the way: a caller holding a well-formed group key is in the group,
+// and that is the whole model.
 func TestAKeyBuysATokenForItsOwnPrefix(t *testing.T) {
 	s := service(t)
 	groupKey, err := group.NewKey()
@@ -113,8 +115,8 @@ func TestAKeyBuysATokenForItsOwnPrefix(t *testing.T) {
 	if strings.Count(signed, ".") != 2 {
 		t.Fatalf("the token is %q, which is not a JWT", signed)
 	}
-	// The grant is anchored at this group's prefix, which keeps the token off every group whose id
-	// merely contains it.
+	// The grant is anchored at this group's prefix,
+	// which keeps the token off every group whose id merely contains it.
 	if !strings.Contains(claims(t, signed), "~^"+groupKey.ID()) {
 		t.Errorf("the token grants %s, which does not name this group's prefix", claims(t, signed))
 	}
@@ -135,8 +137,8 @@ func claims(t *testing.T, signed string) string {
 }
 
 // A group key nothing produced buys nothing.
-// A prefix derived from one grants a token for a path nobody publishes to, which reads as a group
-// that exists.
+// A prefix derived from one grants a token for a path nobody publishes to,
+// which reads as a group that exists.
 func TestAKeyTheServiceCannotReadBuysNothing(t *testing.T) {
 	s := service(t)
 	for _, body := range []string{`{"groupKey":"nonsense"}`, `{"groupKey":"c2hvcnQ="}`} {
@@ -168,8 +170,9 @@ func TestNoKeyBuysThePublicPrefix(t *testing.T) {
 	}
 }
 
-// The index enforces the split rather than leaving a shell to filter: a group key sees its own group,
-// naming none sees the public streams, and neither sees the other's.
+// The index enforces the split rather than leaving a shell to filter:
+// a group key sees its own group, naming none sees the public streams,
+// and neither sees the other's.
 func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	mine, err := group.NewKey()
 	if err != nil {
@@ -200,8 +203,8 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 }
 
 // names is the stream names off one answer.
-// A row carries what a viewer opens the stream with beside the name, so the name is read out of the
-// row rather than being it.
+// A row carries what a viewer opens the stream with beside the name,
+// so the name is read out of the row rather than being it.
 func names(body map[string]any) []string {
 	var out []string
 	for _, v := range body["streams"].([]any) {
@@ -210,8 +213,8 @@ func names(body map[string]any) []string {
 	return out
 }
 
-// A path with no group is in no listing, and neither is one nested a segment deeper than a group's
-// own grant reaches.
+// A path with no group is in no listing,
+// and neither is one nested a segment deeper than a group's own grant reaches.
 func TestAPathOutsideAGroupIsInNoListing(t *testing.T) {
 	groupKey, err := group.NewKey()
 	if err != nil {

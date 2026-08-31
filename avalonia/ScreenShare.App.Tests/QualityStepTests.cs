@@ -10,20 +10,19 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Quality step end to end: a backend describing a group, the flow adopting the draft it answers with, and
-/// the controls drawn from it.
-/// Asserted through the properties the markup binds, and against no value this module wrote: entries, labels,
-/// trailing notes and greying all arrive on the resolved form, so a shell that invented a list fails here
-/// rather than on a screen (docs/ipc-api.md, "The rule").
-/// Every test awaits because the seam is a round trip, and the answer lands on a later pass.
-/// The stand-in answers from memory over an inline dispatcher, so the wait is over before it starts, but a
-/// test that skipped it would assert against a timing the real client does not have.
+/// Quality step end to end: backend describing a group, flow adopting the draft it answers with, controls drawn from it.
+/// Asserted through the properties the markup binds and against no value this module wrote:
+/// entries, labels, trailing notes and greying all arrive on the resolved form,
+/// so a shell inventing a list fails here rather than on a screen (<c>docs/ipc-api.md</c>, "The rule").
+/// Every test awaits, the seam being a round trip whose answer lands on a later pass.
+/// The stand-in answers from memory over an inline dispatcher,
+/// so skipping the wait asserts against a timing the real client does not have.
 /// </summary>
 public sealed class QualityStepTests
 {
     /// <summary>
     /// A flow whose first form has landed.
-    /// The answer is dispatched straight through, so what a test reads next is what the render pass wrote.
+    /// Answer is dispatched straight through, so what a test reads next is what the render pass wrote.
     /// </summary>
     private static async Task<SetupViewModel> FlowAsync()
     {
@@ -37,11 +36,10 @@ public sealed class QualityStepTests
         => flow.Quality.Selects.Single(field => field.Key == key);
 
     /// <summary>
-    /// A step over a mode control offering the entries named, the ones prefixed with a dash being the refused
-    /// ones.
-    /// Stated here rather than seeded because the fixture's backend refuses no mode, and what a refusal does to
-    /// the layout only shows where <see cref="FieldViewModel.Shown"/> and <see cref="FieldViewModel.Options"/>
-    /// part company (RefusedEntriesTests, which seeds a select the same way).
+    /// Step over a mode control offering the entries named, a leading dash marking a refused one.
+    /// Stated here rather than seeded, the fixture's backend refusing no mode.
+    /// A refusal shows in the layout only where <see cref="FieldViewModel.Shown"/>
+    /// and <see cref="FieldViewModel.Options"/> part company (RefusedEntriesTests seeds a select the same way).
     /// </summary>
     private static QualityStepViewModel StepOver(params string[] modes)
     {
@@ -101,7 +99,7 @@ public sealed class QualityStepTests
         });
     }
 
-    /// <summary>Pins the regression where the control printed a value and opened onto nothing.</summary>
+    /// <summary>Control carries entries behind the value it prints, and never opens onto nothing.</summary>
     [Fact]
     public async Task TheOutputResolutionOffersTheSourceAndTheScalesBelowIt()
     {
@@ -113,8 +111,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The note names what the entry was derived from, so the cost is readable without opening the step that
-    /// owns the source.
+    /// Note names what the entry was derived from,
+    /// so the cost reads without opening the step that owns the source.
     /// </summary>
     [Fact]
     public async Task AScaledResolutionSaysWhatItWasScaledFrom()
@@ -140,9 +138,7 @@ public sealed class QualityStepTests
         Assert.Equal("1280x720", after.Options.Single(option => option.IsSelected).Value);
     }
 
-    /// <summary>
-    /// The frame rate is a select over a number, and a string-only write marks the entry while storing zero.
-    /// </summary>
+    /// <summary>Frame rate is a select over a number, so a string-only write marks the entry while storing zero.</summary>
     [Fact]
     public async Task PickingAFramerateStoresTheNumberAndNotAZero()
     {
@@ -157,8 +153,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Above the screen's refresh rate the encoder codes repeats, which costs bandwidth and buys no motion.
-    /// It is legal to ask for, so the form carries a diagnostic instead of taking the entry away.
+    /// Above the screen's refresh rate the encoder codes repeats, costing bandwidth and buying no motion.
+    /// Legal to ask for, so the form carries a diagnostic instead of taking the entry away.
     /// </summary>
     [Fact]
     public async Task AFramerateAboveTheSourceIsStillOffered()
@@ -170,8 +166,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Nothing here knows a mode and a quantizer are related: the backend states the greying and one control
-    /// draws either answer.
+    /// Nothing here knows a mode and a quantizer are related:
+    /// the backend states the greying and one control draws either answer.
     /// </summary>
     [Fact]
     public async Task TheQuantizerFollowsTheRateControlMode()
@@ -188,10 +184,10 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The shape is the step's and the count is the form's, so one more mode from the backend is laid out by
-    /// the same rule rather than by an edit here.
-    /// Measured against the list the grid is given, which is the drawn one: a shape derived from the entries
-    /// the form offered would open a column for a card the refusals took away.
+    /// Shape is the step's and the count is the form's,
+    /// so one more mode from the backend is laid out by the same rule rather than by an edit here.
+    /// Measured against the drawn list the grid is given:
+    /// a shape derived from the offered entries opens a column for a card the refusals took away.
     /// </summary>
     [Fact]
     public async Task TheRateControlCardsFillEveryRowTheyOpen()
@@ -207,8 +203,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Five modes with one refused draw four cards, and four across three columns leave the second row holding
-    /// one card beside two empty cells.
+    /// Five modes with one refused draw four cards,
+    /// and four across three columns leave the second row holding one card beside two empty cells.
     /// </summary>
     [Fact]
     public void TheGridIsShapedForTheCardsARefusalLeavesStanding()
@@ -220,8 +216,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Revealing the refused entries is the one input a field carries that no group notices, so a step reading
-    /// its shape off the group alone would go on drawing the narrower grid over the longer list.
+    /// Revealing the refused entries is the one input a field carries that no group notices,
+    /// so a step reading its shape off the group alone draws the narrower grid over the longer list.
     /// </summary>
     [Fact]
     public void RevealingARefusedModeReshapesTheGridAroundIt()
@@ -235,8 +231,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The counts a UniformGrid gets wrong on its own: given neither dimension it squares off both, so five
-    /// options open a three by three and leave a row of empty columns under the cards.
+    /// Counts a UniformGrid gets wrong on its own: given neither dimension it squares off both,
+    /// so five options open a three by three and leave a row of empty columns under the cards.
     /// </summary>
     [Theory]
     [InlineData(0, 1)]
@@ -262,8 +258,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Equal rows over an unchanged draft are what lets an open menu survive a pass
-    /// (docs/development-principles.md, "Idempotency").
+    /// Equal rows over an unchanged draft let an open menu survive a pass
+    /// (<c>docs/development-principles.md</c>, "Idempotency").
     /// </summary>
     [Fact]
     public async Task ASecondRenderPassLeavesTheEntriesAlone()

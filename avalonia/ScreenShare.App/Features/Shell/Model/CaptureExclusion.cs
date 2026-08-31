@@ -13,8 +13,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// the capture sees is the only place to stop it.
 ///
 /// <b>Why an interface.</b> Whether a window can be hidden from a capture at all is the windowing system's answer.
-/// Windows stores a display affinity against the window in kernel mode and honours it in the capture paths the
-/// desktop window manager composes for.
+/// Windows stores a display affinity against the window in kernel mode and honours it in the capture paths
+/// the desktop window manager composes for.
 /// X11 hands the root window to any client that asks, with nothing mediating the read.
 /// No Wayland protocol carries the request, so what exists is per compositor and is the user's configuration
 /// rather than a call.

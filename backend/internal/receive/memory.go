@@ -10,8 +10,8 @@ import (
 
 // The caps features this side reads memory out of.
 //
-// A "memory:" feature names where the frames live; a "meta:" feature names something riding
-// along with them and says nothing about memory.
+// A "memory:" feature names where the frames live.
+// A "meta:" feature names something riding along with them and says nothing about memory.
 //
 // Caps carrying no feature at all are system memory, so absence reads as MemorySystem rather
 // than as a gap, and one spelling of that value serves every reader.
@@ -26,8 +26,8 @@ const (
 //
 // A feature list belongs to a structure and negotiated caps hold one, so the answer comes off
 // the first.
-// A list naming no memory is system memory, which is what GStreamer means by leaving the feature
-// out.
+// A list naming no memory is system memory,
+// which is what GStreamer means by leaving the feature out.
 func memoryOf(caps *gst.Caps) string {
 	if caps == nil || caps.GetSize() == 0 {
 		return memoryUnknown
@@ -45,10 +45,10 @@ func memoryOf(caps *gst.Caps) string {
 }
 
 // verifyMemory compares the memory the chain asks for with the memory its filter negotiated.
-// It runs once a frame has left the sink, the point where every pad of the chain has caps.
+// Runs once a frame has left the sink, the point where every pad of the chain has caps.
 //
-// A chain that asked for device memory and got system memory is an Umgebungsfehler and not a
-// broken contract: the elements existed, the parser linked them, and what they agreed on between
+// A chain that asked for device memory and got system memory is an Umgebungsfehler and not
+// a broken contract: the elements existed, the parser linked them, and what they agreed on between
 // themselves is theirs.
 // The stream plays, more slowly than the chain promised, so this warns and the receive state's
 // memory rows carry the same fact.

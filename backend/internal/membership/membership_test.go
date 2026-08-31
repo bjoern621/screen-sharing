@@ -12,10 +12,11 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 )
 
-// Membership is a presence lease a member's own app holds, and enforcing it means closing what
-// anybody holding none does.
-// These hold the two halves that make it safe to run on every pass of a 2 s poll: it acts on the
-// group it was given and no other, and a second run over unchanged leases does nothing.
+// Membership is a presence lease a member's own app holds,
+// and enforcing it means closing what anybody holding none does.
+// These hold the two halves that make it safe to run on every pass of a 2 s poll:
+// it acts on the group it was given and no other,
+// and a second run over unchanged leases does nothing.
 
 // fakeRelay stands in for the relay's connection lists and its kicks.
 type fakeRelay struct {
@@ -28,8 +29,8 @@ type fakeRelay struct {
 	reads int
 }
 
-// Sessions answers a snapshot, the way the client does: a kick closes a connection at the relay and
-// never edits a listing a caller is already reading.
+// Sessions answers a snapshot, the way the client does:
+// a kick closes a connection at the relay and never edits a listing a caller is already reading.
 func (f *fakeRelay) Sessions() ([]relay.Session, []relay.Unread) {
 	f.reads++
 	if f.listErr != nil {
@@ -65,8 +66,8 @@ func mustSecret(t *testing.T) group.MemberSecret {
 	return secret
 }
 
-// past moves the registry's clock beyond the sweep window, so the next call reads the relay again
-// rather than answering off the look before it.
+// past moves the registry's clock beyond the sweep window,
+// so the next call reads the relay again rather than answering off the look before it.
 // Every step is far inside a lease, a test that means to lapse one saying so itself.
 func past(r *Registry) {
 	at := r.now().Add(SweepWindow + time.Second)
@@ -83,8 +84,8 @@ func stated(t *testing.T, r *Registry, groupKey group.Key, secret group.MemberSe
 	return answered
 }
 
-// Claim and refresh are one call, so what it answers is the whole of what the caller needs: the id
-// it is known by, the name it holds, and how long the lease it just stated runs.
+// Claim and refresh are one call, so what it answers is the whole of what the caller needs:
+// the id it is known by, the name it holds, and how long the lease it just stated runs.
 func TestAMemberStatesItsOwnPresence(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	registry := New(&fakeRelay{})
@@ -104,8 +105,8 @@ func TestAMemberStatesItsOwnPresence(t *testing.T) {
 	}
 }
 
-// A second statement over an unchanged secret and name is the first one again, which is what lets
-// the poll that already runs be the heartbeat.
+// A second statement over an unchanged secret and name is the first one again,
+// which is what lets the poll that already runs be the heartbeat.
 func TestRefreshingIsTheSameCallAsClaiming(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
@@ -122,8 +123,9 @@ func TestRefreshingIsTheSameCallAsClaiming(t *testing.T) {
 	}
 }
 
-// Identity cannot be forged inside a group: a member claiming another member's name still holds
-// their own id, so the name is refused rather than moved.
+// Identity cannot be forged inside a group:
+// a member claiming another member's name still holds their own id,
+// so the name is refused rather than moved.
 func TestANameHeldByAnotherMemberIsRefused(t *testing.T) {
 	groupKey := mustKey(t)
 	first, second := mustSecret(t), mustSecret(t)
@@ -141,8 +143,8 @@ func TestANameHeldByAnotherMemberIsRefused(t *testing.T) {
 	}
 }
 
-// A refresh is a member claiming the name it already holds, which is the case a first-claim-wins
-// rule has to let through.
+// A refresh is a member claiming the name it already holds,
+// which is the case a first-claim-wins rule has to let through.
 func TestAMemberKeepsItsOwnNameOnEveryRefresh(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	registry := New(&fakeRelay{})
@@ -153,8 +155,8 @@ func TestAMemberKeepsItsOwnNameOnEveryRefresh(t *testing.T) {
 	}
 }
 
-// A name whose holder's lease lapsed is a name nobody holds, so the group does not keep it reserved
-// for an app that stopped refreshing.
+// A name whose holder's lease lapsed is a name nobody holds,
+// so the group does not keep it reserved for an app that stopped refreshing.
 func TestANameALapsedMemberHeldIsFree(t *testing.T) {
 	groupKey := mustKey(t)
 	first, second := mustSecret(t), mustSecret(t)
@@ -203,8 +205,8 @@ func TestMembershipClosesWhatANonMemberHolds(t *testing.T) {
 		t.Errorf("the answer names %+v", answered.Members)
 	}
 
-	// The relay's session id and the address it came from are an operator's view of the relay, and a
-	// caller here holds a group key rather than an operator's credential.
+	// The relay's session id and the address it came from are an operator's view of the relay,
+	// and a caller here holds a group key rather than an operator's credential.
 	// Taken off the run that closes a stranger's reconnect, that being the answer carrying one.
 	live.live = append(live.live, stranger)
 	past(registry)
@@ -239,8 +241,8 @@ func TestAMemberIsLeftAlone(t *testing.T) {
 	}
 }
 
-// Enforcement runs on every pass of the poll and on every read the relay reports, so a run that
-// changes nothing has to cost nothing.
+// Enforcement runs on every pass of the poll and on every read the relay reports,
+// so a run that changes nothing has to cost nothing.
 func TestASecondRunOverUnchangedLeasesClosesNothing(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{live: []relay.Session{
@@ -262,8 +264,8 @@ func TestASecondRunOverUnchangedLeasesClosesNothing(t *testing.T) {
 }
 
 // One relay carries every group, and a sweep reads all of them at once.
-// Acting on a connection outside the group being enforced would let one group close another's
-// streams.
+// Acting on a connection outside the group being enforced
+// would let one group close another's streams.
 func TestAConnectionOutsideTheGroupIsNotTouched(t *testing.T) {
 	here, elsewhere := mustKey(t), mustKey(t)
 	live := &fakeRelay{live: []relay.Session{
@@ -294,8 +296,8 @@ func TestAGroupWithNoLiveMembersIsNotEnforced(t *testing.T) {
 	}
 }
 
-// A lease that lapsed is a member who left, so what they were sharing goes with them, the same way
-// leaving a voice channel ends what was being shared into it.
+// A lease that lapsed is a member who left, so what they were sharing goes with them,
+// the same way leaving a voice channel ends what was being shared into it.
 func TestALapsedLeaseLosesBothWhatItWatchesAndWhatItShares(t *testing.T) {
 	groupKey := mustKey(t)
 	leaving, staying := mustSecret(t), mustSecret(t)
@@ -324,8 +326,9 @@ func TestALapsedLeaseLosesBothWhatItWatchesAndWhatItShares(t *testing.T) {
 	}
 }
 
-// The call that notices a lapse is the one that closes it, so a member who stopped refreshing is
-// gone by the next pass of another member's poll rather than at the next sweep of the reaper.
+// The call that notices a lapse is the one that closes it,
+// so a member who stopped refreshing is gone by the next pass of another member's poll
+// rather than at the next sweep of the reaper.
 func TestALapsedLeaseIsClosedByTheCallThatNoticesIt(t *testing.T) {
 	groupKey := mustKey(t)
 	lapsing, watching := mustSecret(t), mustSecret(t)
@@ -365,8 +368,8 @@ func TestEveryConnectionOneNonMemberHoldsGoes(t *testing.T) {
 	}
 }
 
-// A kick the relay would not perform is a non-member still watching, so it is reported rather than
-// counted as a removal.
+// A kick the relay would not perform is a non-member still watching,
+// so it is reported rather than counted as a removal.
 func TestAKickTheRelayRefusedIsReported(t *testing.T) {
 	groupKey := mustKey(t)
 	live := &fakeRelay{
@@ -390,8 +393,8 @@ func TestAKickTheRelayRefusedIsReported(t *testing.T) {
 	}
 }
 
-// A sweep that could not read every list may have missed the one connection that mattered, so the
-// answer carries that rather than reporting a clean enforcement.
+// A sweep that could not read every list may have missed the one connection that mattered,
+// so the answer carries that rather than reporting a clean enforcement.
 func TestListsThatCouldNotBeReadTravelWithTheAnswer(t *testing.T) {
 	groupKey := mustKey(t)
 	live := &fakeRelay{listErr: errors.New("the relay answered 500")}
@@ -431,8 +434,8 @@ func TestReleasingAMemberClosesWhatItHeld(t *testing.T) {
 }
 
 // A release closes what the leaver itself holds, by its own id, whether or not anybody is left.
-// The carve-out is about a run: a group with no live member is not enforced, so a connection nobody
-// released stays open until somebody states presence again.
+// The carve-out is about a run: a group with no live member is not enforced,
+// so a connection nobody released stays open until somebody states presence again.
 func TestTheLastMemberLeavingClosesWhatItHeld(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
@@ -461,9 +464,9 @@ func TestTheLastMemberLeavingClosesWhatItHeld(t *testing.T) {
 	}
 }
 
-// Reading the relay is a round trip, and a member that states presence inside one holds a lease by
-// the moment a kick would land. The leases are read again for each connection rather than off the
-// snapshot the run started from.
+// Reading the relay is a round trip,
+// and a member that states presence inside one holds a lease by the moment a kick would land.
+// The leases are read again for each connection rather than off the snapshot the run started from.
 func TestAMemberStatingPresenceDuringTheRelayReadIsLeftAlone(t *testing.T) {
 	groupKey := mustKey(t)
 	holding, returning := mustSecret(t), mustSecret(t)
@@ -493,13 +496,14 @@ func TestAMemberStatingPresenceDuringTheRelayReadIsLeftAlone(t *testing.T) {
 	}
 }
 
-// during is a relay that lets a second request reach the registry while its connection lists are
-// being read, which is the window a run's snapshot of the leases is stale for.
+// during is a relay that lets a second request reach the registry
+// while its connection lists are read,
+// which is the window a run's snapshot of the leases is stale for.
 type during struct {
 	live   []relay.Session
 	kicked []string
-	// crossing runs inside the first read and is dropped, the request it starts reading the relay for
-	// itself rather than waiting on the read it crosses.
+	// crossing runs inside the first read and is dropped,
+	// the request it starts reading the relay for itself rather than waiting on the read it crosses.
 	crossing func()
 }
 
@@ -524,8 +528,8 @@ func holds(r *Registry, groupKey group.Key, secret group.MemberSecret) bool {
 	return member
 }
 
-// until waits for what a crossing request brings about, that request holding a lock this one has to
-// let go of first.
+// until waits for what a crossing request brings about,
+// that request holding a lock this one has to let go of first.
 func until(t *testing.T, reached func() bool) {
 	t.Helper()
 	for range 10_000 {
@@ -537,9 +541,9 @@ func until(t *testing.T, reached func() bool) {
 	t.Fatal("a crossing request never reached the registry")
 }
 
-// A read of the relay is a request per connection list, each paged, and every statement of presence
-// and every view reaches one. One look per group inside the window, and every request arriving in it
-// is answered off that look.
+// A read of the relay is a request per connection list, each paged,
+// and every statement of presence and every view reaches one.
+// One look per group inside the window, and every request arriving in it is answered off that look.
 func TestOneLookAtTheRelayAnswersEveryRequestInsideTheWindow(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
@@ -564,9 +568,9 @@ func TestOneLookAtTheRelayAnswersEveryRequestInsideTheWindow(t *testing.T) {
 	}
 }
 
-// A list that would not answer leaves every member on it publishing nothing, which reads exactly
-// like a member sending nothing. What could not be read travels with the answer, so an app can tell
-// the two apart.
+// A list that would not answer leaves every member on it publishing nothing,
+// which reads exactly like a member sending nothing.
+// What could not be read travels with the answer, so an app can tell the two apart.
 func TestAnAnswerCarriesTheListsThatWouldNotAnswer(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{listErr: errors.New("the relay answered 500")}
@@ -608,8 +612,8 @@ func TestReleasingAMemberWhoHoldsNoLeaseIsASuccess(t *testing.T) {
 	}
 }
 
-// Who is publishing is the relay's fact, read through on every answer, so a member whose publish
-// dropped stops being shown as publishing without anybody stating it.
+// Who is publishing is the relay's fact, read through on every answer,
+// so a member whose publish dropped stops being shown as publishing without anybody stating it.
 func TestPublishingIsReadOffTheRelay(t *testing.T) {
 	groupKey := mustKey(t)
 	publishing, watching := mustSecret(t), mustSecret(t)
@@ -646,8 +650,8 @@ func TestPublishingIsReadOffTheRelay(t *testing.T) {
 	}
 }
 
-// The view answers who is in the group without stating anything, which is what a reader holding the
-// group key asks for.
+// The view answers who is in the group without stating anything,
+// which is what a reader holding the group key asks for.
 func TestTheViewStatesNothing(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{live: []relay.Session{
@@ -672,8 +676,8 @@ func TestTheViewStatesNothing(t *testing.T) {
 	}
 }
 
-// The reaper is the only timer, and what it sweeps is a lease nobody refreshed while the members
-// around it went on holding theirs.
+// The reaper is the only timer,
+// and what it sweeps is a lease nobody refreshed while the members around it went on holding theirs.
 func TestTheReaperClosesWhatALapsedLeaseHeld(t *testing.T) {
 	groupKey := mustKey(t)
 	lapsing, staying := mustSecret(t), mustSecret(t)
@@ -715,8 +719,8 @@ func TestTheReaperClosesWhatALapsedLeaseHeld(t *testing.T) {
 	}
 }
 
-// Streams under the public prefix are watchable by anybody, so there is no membership to hold them
-// against and a run there closes nothing.
+// Streams under the public prefix are watchable by anybody,
+// so there is no membership to hold them against and a run there closes nothing.
 func TestThePublicPrefixIsNeverEnforced(t *testing.T) {
 	live := &fakeRelay{live: []relay.Session{
 		{Segment: "srtconns", ID: "watcher", Path: group.PublicPrefix + "desk", User: "public", State: "read"},
@@ -731,8 +735,8 @@ func TestThePublicPrefixIsNeverEnforced(t *testing.T) {
 	}
 }
 
-// A member watching a public stream is watching something their group does not own, so their own
-// group's membership leaves it alone.
+// A member watching a public stream is watching something their group does not own,
+// so their own group's membership leaves it alone.
 func TestAMembersPublicViewingIsNotTheGroupsToClose(t *testing.T) {
 	groupKey := mustKey(t)
 	live := &fakeRelay{live: []relay.Session{
@@ -785,9 +789,9 @@ func TestAClosedConnectionIsNamedTheWayTheIndexNamesIt(t *testing.T) {
 	}
 }
 
-// A release reaching the registry while a statement is between its lock and its answer is two
-// well-formed requests crossing, which is what this app does to itself on every leave: LeaveGroup
-// sends DELETE /members while the 2 s poll has a PUT /members in flight.
+// A release reaching the registry while a statement is between its lock and its answer
+// is two well-formed requests crossing, which is what this app does to itself on every leave:
+// LeaveGroup sends DELETE /members while the 2 s poll has a PUT /members in flight.
 // The statement answers the group without this member in it rather than ending the process.
 func TestAStatementCrossingAReleaseAnswers(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
@@ -809,8 +813,9 @@ func TestAStatementCrossingAReleaseAnswers(t *testing.T) {
 	<-released
 }
 
-// The same pair the other way round: the poll's statement lands while the leave it crossed is
-// reading the relay, and the release answers rather than ending the process.
+// The same pair the other way round:
+// the poll's statement lands while the leave it crossed is reading the relay,
+// and the release answers rather than ending the process.
 func TestAReleaseCrossingAStatementAnswers(t *testing.T) {
 	groupKey := mustKey(t)
 	leaving, staying := mustSecret(t), mustSecret(t)
@@ -836,8 +841,8 @@ func TestAReleaseCrossingAStatementAnswers(t *testing.T) {
 	<-restated
 }
 
-// Token issuance asks whether a group states its members, so a group nobody stated presence in has
-// to answer that it does not.
+// Token issuance asks whether a group states its members,
+// so a group nobody stated presence in has to answer that it does not.
 func TestAGroupAnswersWhetherAnybodyStatedPresence(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	registry := New(&fakeRelay{})

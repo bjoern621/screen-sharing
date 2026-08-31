@@ -42,8 +42,8 @@ func TestASecretIsHiddenInEveryCarriageForm(t *testing.T) {
 	}
 }
 
-// The public prefix's passphrase is a well-known label, so a log keeps it:
-// blacking it out would dress it up as a secret worth asking about.
+// The public prefix's passphrase is a well-known label, so a log keeps it: blacking it out would
+// dress it up as a secret worth asking about.
 func TestThePublicPassphraseStaysReadable(t *testing.T) {
 	s := testStream()
 	line := "srt://relay:8890?passphrase=" + url.QueryEscape(group.PublicSrtPassphrase)
@@ -52,8 +52,8 @@ func TestThePublicPassphraseStaysReadable(t *testing.T) {
 	}
 }
 
-// What a reader opens a run log for has to survive the redaction, or the log stops answering the
-// question it exists for.
+// What a reader opens a run log for has to survive the redaction, or the log stops answering
+// the question it exists for.
 func TestRedactingKeepsTheAddressAroundTheSecret(t *testing.T) {
 	s := testStream()
 	s.Relay.Token = "a-token"

@@ -33,9 +33,9 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="model:TestStreamSlotRow">
             <!--
-              Everything but the heading is selectable and wraps: the cause, the child's own words and the
-              log path are what a reader carries out of this card, and trimming cuts away the characters
-              they came for.
+              Everything but the heading is selectable and wraps:
+              the cause, the child's own words and the log path are what a reader carries out of this card,
+              and trimming cuts away the characters they came for.
             -->
             <StackPanel>
               <StackPanel Spacing="2">

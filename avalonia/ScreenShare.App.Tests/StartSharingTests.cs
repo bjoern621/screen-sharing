@@ -8,17 +8,14 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Commit gate, read off four whole states this module does not decide.
-/// <c>Form.publishable</c>, a backend that answers and <c>RelayStatus.reachable</c> say whether it can be
-/// pressed at all.
-/// <c>PublishState.live</c> says what pressing it does: start a stream, or restart the running one on these
-/// settings.
+/// <c>Form.publishable</c>, a backend that answers and <c>RelayStatus.reachable</c> decide whether it is pressable.
+/// <c>PublishState.live</c> decides what pressing it does: start a stream, or restart the running one.
 /// </summary>
 public sealed class StartSharingTests
 {
     /// <summary>
     /// Flow with its first form landed and one reading of the running state behind it.
-    /// The fixtures answer from memory and the dispatcher runs inline, so a call returns with the render
-    /// pass done.
+    /// Fixtures answer from memory and the dispatcher runs inline, so a call returns with the render pass done.
     /// </summary>
     private static SetupViewModel Flow(PublishingBackend backend, out Session session)
     {
@@ -33,8 +30,7 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Reads every running state once and stops before the reconnect delay, so no poll runs behind the
-    /// assertions.
+    /// Reads every running state once and stops before the reconnect delay, so no poll runs behind the assertions.
     /// </summary>
     private static void Load(Session session)
     {
@@ -92,10 +88,7 @@ public sealed class StartSharingTests
             flow.Review.Blocked);
     }
 
-    /// <summary>
-    /// The reason is the relay's own: a sentence composed here would describe a failure this side did not
-    /// see.
-    /// </summary>
+    /// <summary>Reason is the relay's own: a sentence composed here describes a failure this side did not see.</summary>
     [Fact]
     public void AnUnreachableRelayLocksTheCommitAndCarriesTheRelaysReason()
     {
@@ -111,8 +104,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// The backend's opening snapshot is exactly this, unreachable with no reason, so the case is the first
-    /// seconds of every session rather than an edge.
+    /// Backend's opening snapshot is exactly this, unreachable with no reason,
+    /// so the case is the first seconds of every session rather than an edge.
     /// </summary>
     [Fact]
     public void ARelaySnapshotWithNoReasonStillLocksTheCommit()
@@ -126,8 +119,7 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// <c>ApplyToStream</c> is the effect for a stream in force, so a lock here would stand in front of a
-    /// call that succeeds.
+    /// <c>ApplyToStream</c> is the effect for a stream in force, so a lock here stands in front of a call that succeeds.
     /// </summary>
     [Fact]
     public void AStreamAlreadyPublishingLeavesTheCommitPressable()
@@ -146,8 +138,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Asserted against <c>CommitCopy</c>'s row rather than the wording, which would be the sentence written
-    /// down a second time and free to drift.
+    /// Asserted against <c>CommitCopy</c>'s row rather than the wording,
+    /// a copy of the sentence here being free to drift from it.
     /// </summary>
     [Fact]
     public void TheCommitsWordsFollowWhatPressingItWillDo()
@@ -170,7 +162,7 @@ public sealed class StartSharingTests
         Assert.NotEqual(start.Label, apply.Label);
     }
 
-    /// <summary>No live-safe change exists, so copy reading as a seamless swap would mislead.</summary>
+    /// <summary>Applying restarts the stream, so copy reading as a seamless swap misleads.</summary>
     [Fact]
     public void TheApplyWordingSaysTheStreamRestarts()
     {
@@ -181,8 +173,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Which effect it is comes off the running state on the press's own pass, so the label read and the
-    /// call sent cannot come apart.
+    /// Which effect it is comes off the running state on the press's own pass,
+    /// so the label read and the call sent cannot come apart.
     /// </summary>
     [Fact]
     public void PressingTheCommitWhileAStreamIsLiveAppliesToItRatherThanStartingAnother()
@@ -222,8 +214,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// The gate is a record so that two readings compare equal, which lets the review render twice
-    /// and write nothing (docs/development-principles.md, "Idempotency").
+    /// Gate is a record so two readings compare equal,
+    /// letting the review render twice and write nothing (<c>docs/development-principles.md</c>, "Idempotency").
     /// </summary>
     [Fact]
     public void TwoReadingsOfOneStateProduceTheSameGate()
@@ -268,8 +260,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A copy of the draft crosses rather than the draft itself, which the controls write in place: a
-    /// keystroke mid-flight would otherwise move the settings the stream is built from.
+    /// A copy of the draft crosses rather than the draft itself, which the controls write in place,
+    /// so a keystroke mid-flight cannot move the settings the stream is built from.
     /// </summary>
     [Fact]
     public void PressingStartSharingStartsThePublishOnTheDraftOnScreenAndAnnouncesIt()
@@ -291,8 +283,7 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// The command's guard is the fact the view binds, so a press that got through would be one the screen
-    /// never offered.
+    /// Command's guard is the fact the view binds, so a press getting through is one the screen never offered.
     /// </summary>
     [Fact]
     public void ALockedCommitStartsNothing()
@@ -306,8 +297,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A start that failed leaves no state here, so the button stays pressable for a reader who fixed what
-    /// the sentence named.
+    /// A start that failed leaves no state here,
+    /// so the button stays pressable for a reader who fixed what the sentence named.
     /// </summary>
     [Fact]
     public void ARefusedStartShowsTheBackendsSentenceAndLeavesTheButtonPressable()
@@ -346,7 +337,7 @@ public sealed class StartSharingTests
 
     /// <summary>
     /// One field carries both: the wait the control draws, and the guard the second press is refused off.
-    /// A button that looks busy is therefore a call in flight, and a stream cannot be asked for twice.
+    /// A busy button is a call in flight, and a stream cannot be asked for twice.
     /// </summary>
     [Fact]
     public void AStartThatHasNotBeenAnsweredSaysSoAndTakesNoSecondPress()

@@ -7,8 +7,8 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Pointer the publish sends beside the picture, as the preview draws it.
-/// A position arrives in the captured screen's pixels and is drawn in the card's, so the conversion is what is
-/// worth locking: a marker placed in the publisher's pixels lands wherever the card is not.
+/// A position arrives in the captured screen's pixels and is drawn in the card's,
+/// so the conversion is worth locking: a marker placed in the publisher's pixels lands wherever the card is not.
 /// </summary>
 public sealed class PointerTests
 {

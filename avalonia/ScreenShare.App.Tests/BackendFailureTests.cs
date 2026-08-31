@@ -8,18 +8,18 @@ namespace ScreenShare.App.Tests;
 /// What a failed call turns into on screen.
 ///
 /// <b>The division is who wrote the status, not which code it carries.</b>
-/// The contract's table gives the backend <c>UNAVAILABLE</c> for a relay it could not reach and for a child
-/// process that would not start (<c>docs/ipc-api.md</c>, "Errors"), so a shell reading that code as "nothing
-/// is listening" answered a press of Start sharing with a sentence about the connection to a backend it had
-/// just resolved a form through.
-/// Prose the backend wrote reaches the reader intact, and only a failure the client made itself names the
-/// endpoint.
+/// The contract's table gives the backend <c>UNAVAILABLE</c> for a relay it could not reach
+/// and for a child process that would not start (<c>docs/ipc-api.md</c>, "Errors"),
+/// so a shell reading that code as "nothing is listening" answers a press of Start sharing
+/// with a sentence about the connection to a backend it just resolved a form through.
+/// Prose the backend wrote reaches the reader intact,
+/// and only a failure the client made itself names the endpoint.
 /// </summary>
 public sealed class BackendFailureTests
 {
     /// <summary>
-    /// The sentence naming what went wrong is the useful part of the screen, and the code it travelled under
-    /// is not a second opinion about it.
+    /// Sentence naming what went wrong is the useful part of the screen,
+    /// and the code it travelled under is no second opinion about it.
     /// </summary>
     [Fact]
     public void ARefusalTheBackendServedKeepsItsOwnSentence()
@@ -34,10 +34,10 @@ public sealed class BackendFailureTests
     }
 
     /// <summary>
-    /// A failure the client library built from a local exception means the backend is not running, whatever
-    /// code it wears: an absent named pipe arrives as <c>INTERNAL</c> on Windows, an unbound socket as
-    /// <c>UNAVAILABLE</c>.
-    /// The sentence names the address that was tried, that being the part a reader can act on.
+    /// A failure the client library built from a local exception means the backend is not running,
+    /// whatever code it wears: an absent named pipe arrives as <c>INTERNAL</c> on Windows,
+    /// an unbound socket as <c>UNAVAILABLE</c>.
+    /// Sentence names the address that was tried, the part a reader can act on.
     /// </summary>
     [Theory]
     [InlineData(StatusCode.Internal)]
@@ -54,8 +54,8 @@ public sealed class BackendFailureTests
     }
 
     /// <summary>
-    /// The exception promises a sentence and the screen asserts on it, so a status carrying no prose is
-    /// named by its code rather than handed upwards blank.
+    /// Exception promises a sentence and the screen asserts on it,
+    /// so a status carrying no prose is named by its code rather than handed upwards blank.
     /// </summary>
     [Fact]
     public void AServedStatusWithNothingSaidNamesTheCode()
@@ -68,10 +68,7 @@ public sealed class BackendFailureTests
         Assert.Contains(ControlEndpoint.Describe(), unavailable.Message);
     }
 
-    /// <summary>
-    /// The flow cancels a resolve on every keystroke, and a superseded one is no failure the reader is told
-    /// about.
-    /// </summary>
+    /// <summary>Flow cancels a resolve on every keystroke, and a superseded one is no failure the reader is told about.</summary>
     [Fact]
     public void AReadThisShellCancelledIsNotASentence()
     {
@@ -85,9 +82,8 @@ public sealed class BackendFailureTests
     }
 
     /// <summary>
-    /// A <c>CANCELLED</c> the backend produced on its own is a failure like any other: nothing here asked
-    /// for it.
-    /// The token tells the two apart, and is checked alongside the code rather than instead of it.
+    /// A <c>CANCELLED</c> the backend produced on its own is a failure like any other, nothing here asked for it.
+    /// Token tells the two apart, and is checked alongside the code rather than instead of it.
     /// </summary>
     [Fact]
     public void ACancellationNobodyAskedForIsStillASentence()

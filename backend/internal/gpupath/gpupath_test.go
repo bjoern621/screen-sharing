@@ -9,8 +9,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 )
 
-// Both publish engines and the form read this table, so a row naming an engine or family the rest
-// of the app does not carry greys a control against a combination nothing can select.
+// Both publish engines and the form read this table.
+// A row naming an engine or family the app does not carry greys a control nothing can select.
 func TestEveryPathNamesAKnownEngineAndFamily(t *testing.T) {
 	for _, p := range Paths {
 		if !contains(capabilities.Engines, p.Engine) {
@@ -22,17 +22,17 @@ func TestEveryPathNamesAKnownEngineAndFamily(t *testing.T) {
 		if p.Capture == "" {
 			t.Errorf("%s/%s: a row names no capture backend", p.Engine, p.Family)
 		}
-		// The import is what the form shows in place of the greyed control and what a reader checks this
-		// machine against, so a row without one says a path exists and nothing about what carries the
-		// frames.
+		// The import is what the form shows in place of the greyed control,
+		// and what a reader checks this machine against,
+		// so a row without one says a path exists and nothing about what carries the frames.
 		if p.Import == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 			t.Errorf("%s/%s/%s: a row states no import", p.Engine, p.Capture, p.Family)
 		}
 	}
 }
 
-// A pair appearing twice makes For's answer depend on table order, and the two rows can disagree
-// about what carries the frames.
+// A pair appearing twice makes For's answer depend on table order,
+// and the two rows can disagree about what carries the frames.
 func TestNoPairIsDeclaredTwice(t *testing.T) {
 	seen := map[Path]bool{}
 	for _, p := range Paths {
@@ -44,8 +44,8 @@ func TestNoPairIsDeclaredTwice(t *testing.T) {
 	}
 }
 
-// Every combination satisfies auto, which is what makes it the value a settings file with no frame
-// memory is filled with.
+// Every combination satisfies auto,
+// which is what makes it the value a settings file with no frame memory is filled with.
 // A pair it refused would turn an upgrade into a publish that stops starting.
 func TestAutoResolvesForEveryPair(t *testing.T) {
 	for _, engine := range capabilities.Engines {
@@ -75,23 +75,24 @@ func TestAutoResolvesForEveryPair(t *testing.T) {
 }
 
 // The device path is a demand, not a preference.
-// A pair without one is refused, where resolving to the copy would hand back the round trip the
-// setting exists to avoid.
+// A pair without one is refused,
+// resolving to the copy handing back the round trip the setting exists to avoid.
 func TestGpuIsRefusedForAPairWithoutAPath(t *testing.T) {
 	memory, err := Resolve(capabilities.EngineGst, "ximagesrc", capabilities.FamilySoftware, MemoryGpu)
 	if err == nil {
 		t.Fatalf("a pair with no GPU path must refuse the gpu setting, got %q", memory)
 	}
-	// The message names the way out: a settings file that skipped the form reaches this with no
-	// control to read.
+	// The message names the way out:
+	// a settings file that skipped the form reaches this with no control to read.
 	if !strings.Contains(err.Error(), MemorySystem) {
 		t.Errorf("the refusal must name the memory that always works: %v", err)
 	}
 }
 
 // Every row resolves under a device demand, or the table declares a path no run can ask for.
-// The colour verdict decides which demand reaches it: gpu wants the colour too and
-// gpu-encoder-color pays the colour for the device, so between them they reach every row there is.
+// The colour verdict decides which demand reaches it:
+// gpu wants the colour too and gpu-encoder-color pays the colour for the device,
+// so between them they reach every row there is.
 func TestEveryPathResolvesUnderTheDemandThatFitsIt(t *testing.T) {
 	for _, p := range Paths {
 		want := MemoryGpu
@@ -112,11 +113,12 @@ func TestEveryPathResolvesUnderTheDemandThatFitsIt(t *testing.T) {
 }
 
 // The two kinds of row owe the user different things.
-// An encoder-colour row is offered only because it states what it costs: the refusal under gpu
-// quotes the cost, and the form greys the overridden fields with the signalled values in them, so a
-// row missing either greys a control and leaves the reader guessing what replaced it.
-// An exact row carries neither, the settings being the answer there and a second copy of them a
-// fact that can drift from the one the form holds.
+// An encoder-colour row is offered only because it states what it costs:
+// the refusal under gpu quotes the cost,
+// and the form greys the overridden fields with the signalled values in them,
+// so a row missing either greys a control and leaves the reader guessing what replaced it.
+// An exact row carries neither,
+// the settings being the answer there and a second copy a fact that can drift from the form's.
 func TestEveryPathStatesWhatItsColourCosts(t *testing.T) {
 	for _, p := range Paths {
 		switch p.Colour {
@@ -144,8 +146,8 @@ func TestEveryPathStatesWhatItsColourCosts(t *testing.T) {
 	}
 }
 
-// Auto fills a settings file that names no frame memory, so it may never answer with the memory
-// that trades the colour away.
+// Auto fills a settings file that names no frame memory,
+// so it may never answer with the memory that trades the colour away.
 // That is a choice, and a default does not make choices.
 func TestAutoNeverResolvesToTheEncoderColourMemory(t *testing.T) {
 	for _, p := range Paths {
@@ -160,10 +162,10 @@ func TestAutoNeverResolvesToTheEncoderColourMemory(t *testing.T) {
 	}
 }
 
-// The encoder-colour column of the resolution table, held against a row of that kind and not
-// against the reasoning behind it.
-// The row is installed for the test and taken out again, so the four answers stay covered whichever
-// rows the shipping table carries.
+// The encoder-colour column of the resolution table,
+// held against a row of that kind and not against the reasoning behind it.
+// The row is installed for the test and taken out again,
+// so the four answers stay covered whichever rows the shipping table carries.
 func TestAnEncoderColourRowResolvesByWhatEachDemandWillPay(t *testing.T) {
 	row := Path{
 		Engine: capabilities.EngineGst, Capture: "testsrc", Family: capabilities.FamilySoftware,
@@ -187,10 +189,11 @@ func TestAnEncoderColourRowResolvesByWhatEachDemandWillPay(t *testing.T) {
 		}
 	}
 
-	// The demand for the device and the colour is refused, and the refusal leaves the user somewhere
-	// to go: the value that takes the cost knowingly, and the value that keeps the colour instead.
-	// What the path takes is the row's Cost statement, shown by the form on the greyed control rather
-	// than inside this string.
+	// The demand for the device and the colour is refused,
+	// and the refusal leaves the user somewhere to go:
+	// the value that takes the cost knowingly, and the value that keeps the colour instead.
+	// What the path takes is the row's Cost statement,
+	// shown by the form on the greyed control rather than inside this string.
 	_, err := Resolve(row.Engine, row.Capture, row.Family, MemoryGpu)
 	if err == nil {
 		t.Fatalf("a row that trades the colour must refuse the gpu setting")
@@ -213,8 +216,8 @@ func TestSystemResolvesWhateverThePairIs(t *testing.T) {
 }
 
 // A value outside Memories is refused rather than read as auto.
-// The setting decides whether every frame makes a round trip through system memory, so substituting
-// one runs a pipeline the form does not show.
+// The setting decides whether every frame makes a round trip through system memory,
+// so substituting one runs a pipeline the form does not show.
 func TestAnUnknownMemoryIsRefused(t *testing.T) {
 	for _, bad := range []string{"", "GPU", "device", "zerocopy"} {
 		if _, err := Resolve(capabilities.EngineGst, "portal", capabilities.FamilyVaapi, bad); err == nil {
@@ -223,8 +226,8 @@ func TestAnUnknownMemoryIsRefused(t *testing.T) {
 	}
 }
 
-// A device refusal names the memory that gets the user publishing again, the machine's GPU count
-// not being something it can be talked out of.
+// A device refusal names the memory that gets the user publishing again,
+// the machine's GPU count not being something it can be talked out of.
 func TestTheDeviceRefusalsNameTheWayOut(t *testing.T) {
 	for _, err := range []error{
 		Undetermined("the portal does not name the GPU it captures on",
@@ -239,10 +242,10 @@ func TestTheDeviceRefusalsNameTheWayOut(t *testing.T) {
 	}
 }
 
-// Both device values keep the frames on the GPU and differ in who converts, not in where the frames
-// are.
-// A capture chain reading MemoryGpu alone would build the round trip for the other one, the cost
-// the setting was picked to avoid.
+// Both device values keep the frames on the GPU,
+// differing in who converts and not in where the frames are.
+// A capture chain reading MemoryGpu alone would build the round trip for the other one,
+// the cost the setting was picked to avoid.
 func TestOnDeviceCoversBothDeviceMemories(t *testing.T) {
 	for memory, want := range map[string]bool{
 		MemoryGpu:             true,

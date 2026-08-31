@@ -10,8 +10,8 @@ import (
 
 // Which protocols can carry a stream follows its bitstream format, and the relay names a track
 // after the format rather than the encoder.
-// A track name with no entry leaves the format empty, which callers read as "unknown" and act on by
-// refusing nothing: a snapshot older than the stream must not block a viewer that would work.
+// A track name with no entry leaves the format empty, which callers read as "unknown" and refuse
+// nothing on: a snapshot older than the stream must not block a viewer that would work.
 func TestFormatOfTracks(t *testing.T) {
 	cases := []struct {
 		tracks []string
@@ -24,8 +24,8 @@ func TestFormatOfTracks(t *testing.T) {
 		{tracks: []string{"VP9"}, want: "vp9"},
 		{tracks: []string{"AV1"}, want: "av1"},
 		{tracks: []string{"VP8"}, want: "vp8"},
-		// A muxed stream's audio track is not the format the transport question is about, so the
-		// video one answers wherever it sits in the list.
+		// A muxed stream's audio track is not the format the transport question is about, so the video
+		// one answers wherever it sits in the list.
 		{tracks: []string{"Opus", "AV1"}, want: "av1"},
 		{tracks: []string{"h264"}, want: "h264"},
 		{tracks: []string{"Opus"}, want: ""},
@@ -38,10 +38,10 @@ func TestFormatOfTracks(t *testing.T) {
 	}
 }
 
-// The fixtures below are a MediaMTX v1.20.0 relay's own answers, trimmed to the items under test
-// and otherwise left in the spelling it wrote them in.
-// They were taken off a running relay, one ffmpeg publishing over SRT and three reading the same
-// path over SRT, RTSP and RTMP, rather than composed from the field names this package hopes for:
+// Fixtures are a MediaMTX v1.20.0 relay's own answers, trimmed to the items under test and
+// otherwise left in the spelling it wrote them in.
+// Taken off a running relay, one ffmpeg publishing over SRT and three reading the same path
+// over SRT, RTSP and RTMP, rather than composed from the field names this package hopes for:
 // a fixture written to match the decoder proves only that the decoder matches itself.
 const (
 	pathsWithThreeReaders = `{"itemCount":1,"pageCount":1,"items":[{
@@ -54,11 +54,10 @@ const (
 			{"type":"srtConn","id":"8905cef7-0e3b-4452-b0fa-7fcb6f71201d"}],
 		"inboundBytes":581390,"outboundBytes":995983,"bytesReceived":581390,"bytesSent":995983}]}`
 
-	// Two items, and only the second is a reader: the first is the publisher, which the same list
-	// reports.
+	// Two items, only the second a reader: the first is the publisher, which the same list reports.
 	// Nothing filters on state here.
-	// The path named which ids are readers, so the publisher is left out by not being asked for
-	// rather than by a second rule that could disagree with the first.
+	// The path named which ids are readers, so the publisher is left out by not being asked for rather
+	// than by a second rule that could disagree with the first.
 	srtConns = `{"itemCount":2,"pageCount":1,"items":[
 		{"id":"18404ade-9c49-46fa-818b-e822a27de51a","created":"2026-08-09T22:01:04.141901+02:00",
 		 "remoteAddr":"127.0.0.1:52152","state":"publish","path":"teststream",
@@ -82,9 +81,9 @@ const (
 		 "bytesReceived":3428,"bytesSent":358672}]}`
 )
 
-// relayServing answers the given endpoints and 404s every other one, as a real relay does for a
-// protocol whose listener is switched off.
-// It hands back the host and port to point a client at.
+// relayServing answers the given endpoints and 404s every other one, as a real relay does
+// for a protocol whose listener is switched off.
+// Answers the host and port to point a client at.
 func relayServing(t *testing.T, answers map[string]string) (string, int) {
 	t.Helper()
 
@@ -128,8 +127,8 @@ func readerByType(t *testing.T, path Path, kind string) Reader {
 
 // A path's readers are named by the path list and measured by the per-protocol list each one's type
 // points at.
-// What each protocol reports differs, and the roster says which figures those are by carrying the
-// ones it was told and leaving the rest absent rather than zero.
+// What each protocol reports differs, so the roster carries the figures it was told and leaves
+// the rest absent rather than zero.
 func TestFetchJoinsEachReaderToItsProtocolsList(t *testing.T) {
 	host, port := relayServing(t, map[string]string{
 		"/v3/paths/list":        pathsWithThreeReaders,
@@ -217,8 +216,8 @@ func TestFetchJoinsEachReaderToItsProtocolsList(t *testing.T) {
 }
 
 // A per-protocol list that cannot be read leaves its readers named and unmeasured.
-// It does not fail the snapshot: the relay answered the question the snapshot is about, and a
-// protocol whose listener is off has no list at all, which is the 404 below.
+// The snapshot does not fail: the relay answered the question it is about, and a protocol whose
+// listener is off has no list at all, answering 404.
 func TestAListThatRefusesLeavesItsReadersUnmeasured(t *testing.T) {
 	host, port := relayServing(t, map[string]string{
 		"/v3/paths/list":        pathsWithThreeReaders,
@@ -253,8 +252,9 @@ func TestAListThatRefusesLeavesItsReadersUnmeasured(t *testing.T) {
 }
 
 // A reader on a protocol this build has no row for is named and left unmeasured rather than
-// dropped: a newer relay may serve a leg this one has never heard of, and a roster that hid it
-// would disagree with the count beside it.
+// dropped:
+// a relay may serve a leg this build never heard of, and a roster that hid it would disagree
+// with the count beside it.
 func TestAnUnknownReaderKeepsTheRelaysOwnWords(t *testing.T) {
 	host, port := relayServing(t, map[string]string{
 		"/v3/paths/list": `{"itemCount":1,"pageCount":1,"items":[{

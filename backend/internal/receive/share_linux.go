@@ -25,12 +25,12 @@ import (
 // OpenGL and EGL are share_linux.c's.
 
 // errorBytes is the room a C failure is given to say what happened.
-// The sentences are one line naming an API and a reason, and a reason too long to fit would be a
-// reason nobody wrote.
+// The sentences are one line naming an API and a reason,
+// and a reason too long to fit would be a reason nobody wrote.
 const errorBytes = 256
 
-// The DRM formats a converted frame can arrive in, spelled here rather than pulled through cgo
-// because they are the wire's business: the value is matched against what the contract carries,
+// The DRM formats a converted frame can arrive in, spelled here rather than pulled through cgo,
+// being the wire's business: the value is matched against what the contract carries,
 // and a constant that exists only inside a preamble cannot be.
 //
 // A fourcc names the order the channels sit in memory, the reverse of the order it is written in:
@@ -42,11 +42,11 @@ const (
 
 // glPlatformVariable is the environment variable GStreamer picks its GL platform with.
 //
-// The frame channel has one requirement of that choice: a descriptor is exported through EGL, and
-// GLX has no export at all.
-// GStreamer prefers GLX on an X11 display, so a session without a Wayland compositor would decode
-// onto a context whose frames cannot be named to the shell, which the exporter reports and
-// nothing downstream can fix.
+// The frame channel has one requirement of that choice:
+// a descriptor is exported through EGL, and GLX has no export at all.
+// GStreamer prefers GLX on an X11 display,
+// so a session without a Wayland compositor would decode onto a context whose frames cannot be
+// named to the shell, which the exporter reports and nothing downstream can fix.
 //
 // A value already in the environment is left alone: steering a choice nobody made is a default,
 // and overwriting one somebody made is a substitution.
@@ -66,26 +66,27 @@ type dmabufSharer struct {
 	// A zeroed pool is safe to close, but a close on one that was never opened would
 	// still unref a context that is not there.
 	opened bool
-	// lent answers the socket the pool announces: a descriptor does not travel in a
-	// message (descriptors_linux.go).
-	// It borrows the pool's descriptors: a send duplicates one into the consumer, and
-	// closing this side's stays screenshare_share_close's job.
+	// lent answers the socket the pool announces:
+	// a descriptor does not travel in a message (descriptors_linux.go).
+	// It borrows the pool's descriptors: a send duplicates one into the consumer,
+	// and closing this side's stays screenshare_share_close's job.
 	lent *descriptorSocket
 }
 
-// newSharer holds nothing until a frame opens it: a pool matches the memory a frame turned out to
-// be in and not the caps a chain asked for.
+// newSharer holds nothing until a frame opens it:
+// a pool matches the memory a frame turned out to be in and not the caps a chain asked for.
 func newSharer() sharer { return &dmabufSharer{} }
 
-// onSample runs one C export entry point over a sample and turns its answer into an error, which
-// is what this file's two calls have in common: the fault buffer, the sample's lifetime and the
-// "0 means it wrote a reason" convention.
+// onSample runs one C export entry point over a sample and turns its answer into an error,
+// what this file's two calls have in common:
+// the fault buffer, the sample's lifetime and the "0 means it wrote a reason" convention.
 //
 // The lifetime is why it is one function rather than two call sites.
-// The sample is a C object the Go wrapper owns and unrefs from a finalizer, and samplePointer
-// yields a bare address the collector cannot see: without the KeepAlive the wrapper is dead from
-// the moment the argument is evaluated, and a collection during the call frees the buffer whose
-// texture is being allocated from or copied out of.
+// The sample is a C object the Go wrapper owns and unrefs from a finalizer,
+// and samplePointer yields a bare address the collector cannot see:
+// without the KeepAlive the wrapper is dead from the moment the argument is evaluated,
+// and a collection during the call frees the buffer whose texture is being allocated from or copied
+// out of.
 func onSample(sample *gst.Sample, run func(sample unsafe.Pointer, fault *C.char, size C.int) C.int) error {
 	fault := make([]byte, errorBytes)
 	ok := run(samplePointer(sample), (*C.char)(unsafe.Pointer(&fault[0])), C.int(len(fault)))
@@ -135,8 +136,8 @@ func (s *dmabufSharer) open(sample *gst.Sample, slots int) (Pool, error) {
 		Width:  int(s.pool.width),
 		Height: int(s.pool.height),
 		// A dmabuf describes its own extent, so MemorySize stays zero.
-		// The copy is a straight blit and a GL texture GStreamer filled holds the top
-		// row at row zero, so row zero is the picture's first row.
+		// The copy is a straight blit and a GL texture GStreamer filled holds the top row
+		// at row zero, so row zero is the picture's first row.
 		TopLeftOrigin: true,
 		FDSocket:      s.lent.path(),
 		Modifier:      uint64(s.pool.modifier),
@@ -145,9 +146,10 @@ func (s *dmabufSharer) open(sample *gst.Sample, slots int) (Pool, error) {
 	for i := range count {
 		pool.Slots = append(pool.Slots, Slot{
 			Index: i,
-			// Handle stays zero on this kind: what names the memory is the descriptor the
-			// socket hands over, one per slot in index order, and a number out of this
-			// process's table would name a file of the consumer's rather than a frame.
+			// Handle stays zero on this kind: what names the memory is the descriptor
+			// the socket hands over, one per slot in index order,
+			// and a number out of this process's table would name a file of the consumer's
+			// rather than a frame.
 			Planes: []Plane{{
 				Offset: uint64(s.pool.offsets[i]),
 				Stride: uint32(s.pool.strides[i]),
@@ -171,8 +173,8 @@ func (s *dmabufSharer) close() {
 	if !s.opened {
 		return
 	}
-	// The socket goes first: it hands out descriptors the close below invalidates, and a
-	// consumer connecting in between would be lent a number naming nothing.
+	// The socket goes first: it hands out descriptors the close below invalidates,
+	// and a consumer connecting in between would be lent a number naming nothing.
 	if s.lent != nil {
 		s.lent.close()
 		s.lent = nil
@@ -183,9 +185,10 @@ func (s *dmabufSharer) close() {
 
 // shareFormat is the contract's name for a DRM format.
 //
-// Anything but the two is a chain that stopped pinning RGBA at its last filter, and it is refused
-// rather than carried: a consumer told the wrong channel order draws swapped colours, which reads
-// as a decoder fault and is not one.
+// Anything but the two is a chain that stopped pinning RGBA at its last filter,
+// and it is refused rather than carried:
+// a consumer told the wrong channel order draws swapped colours,
+// which reads as a decoder fault and is not one.
 func shareFormat(fourcc uint32) (ShareFormat, error) {
 	switch fourcc {
 	case drmFormatABGR8888:
@@ -198,8 +201,8 @@ func shareFormat(fourcc uint32) (ShareFormat, error) {
 	}
 }
 
-// fourccName spells a DRM format as its four characters, the way drivers and specifications
-// write it, and as hex where a byte is unprintable.
+// fourccName spells a DRM format as its four characters, the way drivers and specifications write
+// it, and as hex where a byte is unprintable.
 func fourccName(fourcc uint32) string {
 	name := []byte{byte(fourcc), byte(fourcc >> 8), byte(fourcc >> 16), byte(fourcc >> 24)}
 	for _, b := range name {

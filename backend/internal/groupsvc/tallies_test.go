@@ -25,8 +25,8 @@ func TestATokenIssuedIsCounted(t *testing.T) {
 	}
 }
 
-// A refusal is the reading an operator came for: a run of them is somebody holding a key this
-// deployment does not sign for.
+// A refusal is the reading an operator came for:
+// a run of them is somebody holding a key this deployment does not sign for.
 func TestATokenRefusedIsCounted(t *testing.T) {
 	s := service(t)
 
@@ -43,8 +43,8 @@ func TestATokenRefusedIsCounted(t *testing.T) {
 	}
 }
 
-// Only the token route is counted here. A group that could not be created is its own refusal and is
-// not a token anybody was refused.
+// Only the token route is counted here.
+// A group that could not be created is its own refusal and not a token anybody was refused.
 func TestCreatingAGroupIsNotCountedAsAToken(t *testing.T) {
 	s := service(t)
 

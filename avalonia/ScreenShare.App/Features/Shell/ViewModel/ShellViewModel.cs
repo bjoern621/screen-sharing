@@ -14,17 +14,17 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.ViewModel;
 
 /// <summary>
-/// Window's own state, and sole owner of the one fact the rest of the screen turns on: which destination is
-/// showing.
+/// Window's own state, and sole owner of the one fact the rest of the screen turns on: which destination
+/// is showing.
 /// A band holds no destination of its own and is told one on every render pass, so a lit segment cannot disagree
 /// with the body.
 ///
 /// Every destination is reachable at all times, broadcast included: what it reports about the stream that has
-/// just ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
+/// just ended is what a publisher goes looking for once it has (<c>docs/design-language.md</c>, "Surfaces and shape").
 ///
 /// <see cref="Show"/> is the named write.
-/// <see cref="Apply"/> is the one render function, pushing the state into every child and picking the body on
-/// every pass, off branches included (docs/development-principles.md, "One render function per component").
+/// <see cref="Apply"/> is the one render function, pushing the state into every child and picking the body
+/// on every pass, off branches included (<c>docs/development-principles.md</c>, "One render function per component").
 /// </summary>
 public sealed class ShellViewModel : Observable
 {
@@ -59,8 +59,8 @@ public sealed class ShellViewModel : Observable
         // Every value, label, greying and figure a destination draws arrives through it already decided
         // (docs/ipc-api.md).
         //
-        // Constructing opens nothing: the connection is made by the first read and remade by the next one after a
-        // failure, so a window whose backend is not up paints its notice and reaches a backend once there is one.
+        // Constructing opens nothing: the connection is made by the first read and remade by the next one after
+        // a failure, so a window whose backend is not up paints its notice and reaches a backend once there is one.
         // An absent backend is an Umgebungsfehler the window survives.
         //
         // Reads are asynchronous because a socket is, so an answer lands on whichever thread the transport
@@ -84,12 +84,12 @@ public sealed class ShellViewModel : Observable
         Broadcast = new BroadcastViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 
-        // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so the
-        // preview's end-to-end route and a grid tile can be the same decode.
+        // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so
+        // the preview's end-to-end route and a grid tile can be the same decode.
         // A stop from either would take the picture out of the other, so the card reads the grid's answer
         // through before closing anything (Preview/ViewModel/PreviewViewModel.cs).
-        // Wired here because the shell holds both screens, and the viewer does not exist yet when the
-        // broadcast screen is built.
+        // Wired here because the shell holds both screens, and the viewer does not exist yet when
+        // the broadcast screen is built.
         Broadcast.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
 
         // Every destination re-renders on any change, the chrome reading them all: the strip's pill says whether
@@ -108,8 +108,8 @@ public sealed class ShellViewModel : Observable
 
         _body = BodyFor(_current);
 
-        // A reader toggling a chip moves the viewer's figures without going through a write of the shell's, so the
-        // band re-renders off the viewer's own notification rather than waiting for a destination change.
+        // A reader toggling a chip moves the viewer's figures without going through a write of the shell's, so
+        // the band re-renders off the viewer's own notification rather than waiting for a destination change.
         // A stream taken fullscreen from a tile's menu arrives the same way, and takes the bands off the window.
         Viewer.PropertyChanged += (_, _) =>
         {
@@ -122,14 +122,15 @@ public sealed class ShellViewModel : Observable
         // Every other action that screen raises it performs itself against the backend.
         Broadcast.ActionRequested += OnBroadcastRequested;
 
-        // Setup owns the commit and performs it. Where the window goes afterwards is the window's.
+        // Setup owns the commit and performs it.
+        // Where the window goes afterwards is the window's.
         // Moved on the accepted reply rather than on the live state landing: the destination is reachable either
-        // way, so the screen the start leads to comes up at once and fills in as the event stream reports what the
-        // stream became.
+        // way, so the screen the start leads to comes up at once and fills in as the event stream reports what
+        // the stream became.
         Setup.WentLive += () => Show(Destination.Broadcast);
 
-        // Rendered before anything is read, so the window paints a complete view model whether or not the
-        // backend is reachable, and the first state lands on a later pass.
+        // Rendered before anything is read, so the window paints a complete view model whether or not
+        // the backend is reachable, and the first state lands on a later pass.
         Apply();
 
         // Not awaited: it reads state and then holds the event stream open for as long as the window lives,
@@ -219,11 +220,11 @@ public sealed class ShellViewModel : Observable
         Broadcast.Apply();
         Viewer.Apply();
 
-        // After the bodies, so the strip's pill and the band's figures are what the destinations derived on
-        // this pass rather than what they held before it.
+        // After the bodies, so the strip's pill and the band's figures are what the destinations derived
+        // on this pass rather than what they held before it.
         //
-        // Both facts are read back off the broadcast screen's reading instead of being composed again, so the
-        // pill in the chrome and the pill in the header cannot disagree.
+        // Both facts are read back off the broadcast screen's reading instead of being composed again, so
+        // the pill in the chrome and the pill in the header cannot disagree.
         Nav.Show(_current, Broadcast.Snapshot.IsLive, Broadcast.Snapshot.Elapsed);
         RenderStatusBar();
         RenderChrome();
@@ -250,8 +251,8 @@ public sealed class ShellViewModel : Observable
 
     /// <summary>
     /// Hands the band the destination it stands in and the figures that destination derived.
-    /// Read through on every call and cached nowhere here, so the band and the tiles cannot disagree about what is
-    /// on screen.
+    /// Read through on every call and cached nowhere here, so the band and the tiles cannot disagree about what
+    /// is on screen.
     /// Idempotent.
     /// </summary>
     private void RenderStatusBar()

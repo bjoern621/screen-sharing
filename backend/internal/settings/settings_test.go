@@ -16,13 +16,13 @@ import (
 
 // isolateConfig points os.UserConfigDir at a fresh temp directory.
 //
-// All three variables, os.UserConfigDir reading a different one per platform: XDG_CONFIG_HOME on
-// Linux, AppData on Windows, HOME on macOS.
-// Isolating one platform's is a test that writes the developer's own settings, presets and portal
-// token on the others.
+// All three variables, os.UserConfigDir reading a different one per platform:
+// XDG_CONFIG_HOME on Linux, AppData on Windows, HOME on macOS.
+// Isolating one platform's is a test that writes the developer's own settings,
+// presets and portal token on the others.
 //
-// The result is read back rather than assumed, the wrong variable failing silently and
-// destructively.
+// The result is read back rather than assumed,
+// the wrong variable failing silently and destructively.
 func isolateConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -110,7 +110,7 @@ func TestLoadMigratesTheOneAudioSourceOntoTheList(t *testing.T) {
 
 	s := Defaults()
 	s.Publish.AudioSources = nil
-	s.Publish.LegacyAudio = platform.AudioSourceDesktop
+	s.Publish.FlatAudio = platform.AudioSourceDesktop
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -122,15 +122,15 @@ func TestLoadMigratesTheOneAudioSourceOntoTheList(t *testing.T) {
 	if gain := got.Publish.AudioSources[0].Gain; gain != GainUnity {
 		t.Errorf("the migrated source records at %d percent, want unity", gain)
 	}
-	// A file that has been through the migration no longer carries the old key, which is what keeps a
-	// second run off a list that already holds the entry.
-	if got.Publish.LegacyAudio != "" {
-		t.Errorf("the migrated settings still carry the old key: %q", got.Publish.LegacyAudio)
+	// A file that has been through the migration carries no old key,
+	// which is what keeps a second run off a list that already holds the entry.
+	if got.Publish.FlatAudio != "" {
+		t.Errorf("the migrated settings still carry the old key: %q", got.Publish.FlatAudio)
 	}
 }
 
-// A file written before the second track existed names no source, and gets the empty list a fresh
-// installation has rather than an entry recording nothing.
+// A file written before the second track existed names no source,
+// and gets the empty list a fresh installation has rather than an entry recording nothing.
 func TestLoadMigratesAFileWithNoAudioAtAll(t *testing.T) {
 	isolateConfig(t)
 
@@ -146,8 +146,8 @@ func TestLoadMigratesAFileWithNoAudioAtAll(t *testing.T) {
 }
 
 // A stream with the source off publishes no track whatever codec the file carries.
-// Both engines validate through this one value, which keeps a stale codec from turning a silent
-// stream into a refusal.
+// Both engines validate through this one value,
+// which keeps a stale codec from turning a silent stream into a refusal.
 func TestAudioTrackFollowsTheSource(t *testing.T) {
 	cases := []struct {
 		source, audioCodec, want string
@@ -172,10 +172,10 @@ func TestAudioTrackFollowsTheSource(t *testing.T) {
 	}
 }
 
-// A file written before the audio codec became a setting names none, and both engines refuse a
-// track whose codec no row carries.
-// The migration fills it with the codec those builds encoded, so a stored stream keeps publishing
-// the track it had.
+// A file written before the audio codec became a setting names none,
+// and both engines refuse a track whose codec no row carries.
+// The migration fills it with the codec those builds encoded,
+// so a stored stream keeps publishing the track it had.
 func TestLoadMigratesMissingAudioCodec(t *testing.T) {
 	isolateConfig(t)
 
@@ -231,8 +231,8 @@ func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	}
 }
 
-// The builder matches both fields against a table, so a file written before either option has to
-// arrive carrying a value that table names.
+// The builder matches both fields against a table,
+// so a file written before either option has to arrive carrying a value that table names.
 func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 	isolateConfig(t)
 
@@ -252,10 +252,10 @@ func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 	}
 }
 
-// A file written before the frame memory option names none, and both publish engines refuse a value
-// their table does not carry.
-// The table's own default is the one value every capture and codec pair satisfies, so migrating to
-// it is what keeps an upgrade from turning a working stream into a refusal.
+// A file written before the frame memory option names none,
+// and both publish engines refuse a value their table does not carry.
+// The table's own default is the one value every capture and codec pair satisfies,
+// so migrating to it keeps an upgrade from turning a working stream into a refusal.
 func TestLoadMigratesMissingCaptureMemory(t *testing.T) {
 	isolateConfig(t)
 
@@ -271,8 +271,8 @@ func TestLoadMigratesMissingCaptureMemory(t *testing.T) {
 	}
 }
 
-// The portal restore token is the compositor's receipt for one consent, and reusing it is what
-// keeps the picker off every publish.
+// The portal restore token is the compositor's receipt for one consent,
+// and reusing it is what keeps the picker off every publish.
 // Surviving a restart is the whole reason it is stored rather than held in the session.
 func TestPortalTokenSurvivesAReload(t *testing.T) {
 	isolateConfig(t)
@@ -287,8 +287,9 @@ func TestPortalTokenSurvivesAReload(t *testing.T) {
 		t.Errorf("token = %q, want the stored one", got)
 	}
 
-	// An empty token is the compositor saying the consent was not persisted, so the one on disk is
-	// spent and keeping it would send the next SelectSources a value no compositor honours.
+	// An empty token is the compositor saying the consent was not persisted,
+	// so the one on disk is spent,
+	// and keeping it would send the next SelectSources a value no compositor honours.
 	if err := SavePortalToken(""); err != nil {
 		t.Fatalf("SavePortalToken: %v", err)
 	}
@@ -311,8 +312,8 @@ func TestPortalTokenSurvivesAReload(t *testing.T) {
 	}
 }
 
-// The token is one machine's and one consent's, so a preset copied to another machine would carry
-// a token no compositor there issued.
+// The token is one machine's and one consent's,
+// so a preset copied to another machine would carry a token no compositor there issued.
 func TestPresetsCarryNoPortalToken(t *testing.T) {
 	isolateConfig(t)
 
@@ -336,8 +337,8 @@ func TestPresetsCarryNoPortalToken(t *testing.T) {
 }
 
 // The defaults come back with the reason beside them.
-// The form then opens on values the user did not choose, which is a state to report rather than one
-// to present as their settings.
+// The form then opens on values the user did not choose,
+// a state to report rather than one to present as their settings.
 func TestLoadCorruptFileReturnsDefaultsAndReason(t *testing.T) {
 	isolateConfig(t)
 
@@ -355,8 +356,8 @@ func TestLoadCorruptFileReturnsDefaultsAndReason(t *testing.T) {
 	}
 }
 
-// The next field change rewrites the working settings, so a corrupt file left in place is one that
-// write destroys.
+// The next field change rewrites the working settings,
+// so a corrupt file left in place is one that write destroys.
 // The bytes have to survive it.
 func TestLoadKeepsACorruptFileOutOfSavesReach(t *testing.T) {
 	isolateConfig(t)
@@ -412,9 +413,10 @@ func TestLoadKeepsTheFirstCorruptCopy(t *testing.T) {
 
 // Encryption is derived from the address, so nothing about it is kept.
 //
-// A stored flag is a second copy of a fact the host already carries, and the two disagree the
-// moment a host is edited: a "no" left beside a public name would send the picture in the clear on
-// the strength of a file, and reset-to-defaults would write that "no" itself.
+// A stored flag is a second copy of a fact the host already carries,
+// and the two disagree the moment a host is edited:
+// a "no" left beside a public name would send the picture in the clear on the strength of a file,
+// and reset-to-defaults would write that "no" itself.
 func TestEncryptionIsDerivedAndNeverStored(t *testing.T) {
 	encoded, err := json.Marshal(Defaults())
 	if err != nil {
@@ -424,7 +426,7 @@ func TestEncryptionIsDerivedAndNeverStored(t *testing.T) {
 		t.Errorf("the stored settings carry a tls key: %s", encoded)
 	}
 
-	// A file written by an older build still has one, and it is read as the noise it now is.
+	// A file written by an older build still has one, and it is read as noise.
 	var restored Settings
 	stored := `{"relay":{"host":"streamrelay.bjoernblessin.de","tls":false}}`
 	if err := json.Unmarshal([]byte(stored), &restored); err != nil {
@@ -439,9 +441,10 @@ func TestEncryptionIsDerivedAndNeverStored(t *testing.T) {
 	}
 }
 
-// Which relays are reached in the clear, which is the whole of the question above.
-// A name is encrypted whatever it resolves to: resolving it is a question this cannot ask, and the
-// wrong guess is a stream on the wire for anyone to read.
+// Which relays are reached in the clear, the whole of the question above.
+// A name is encrypted whatever it resolves to:
+// resolving it is a question this cannot ask,
+// and the wrong guess is a stream on the wire for anyone to read.
 func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
 	for host, want := range map[string]bool{
 		"192.168.1.9":                  false,
@@ -462,8 +465,8 @@ func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
 }
 
 // The prefix a list shortens a name by and the prefix a path is published under are one string.
-// Two derivations of it would let a viewer's list print a name the relay has no path for, which
-// reads as a stream that will not open.
+// Two derivations of it would let a viewer's list print a name the relay has no path for,
+// which reads as a stream that will not open.
 func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	groupKey, err := group.NewKey()
 	if err != nil {
@@ -484,8 +487,8 @@ func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	if got := (Relay{Host: "relay.example", GroupKey: groupKey.String()}).Prefix(); got != groupKey.Prefix() {
 		t.Errorf("a member reaches under %q, want the group's own %q", got, groupKey.Prefix())
 	}
-	// Every relay authenticates, so a keyless machine reaches the prefix anybody may watch wherever
-	// that relay stands.
+	// Every relay authenticates,
+	// so a keyless machine reaches the prefix anybody may watch wherever that relay stands.
 	for _, host := range []string{"relay.example", "192.168.1.9"} {
 		if got := (Relay{Host: host}).Prefix(); got != group.PublicPrefix {
 			t.Errorf("a keyless machine on %s reaches under %q, want the public prefix", host, got)
@@ -511,8 +514,8 @@ func TestTheSrtPassphraseFollowsTheGroupKey(t *testing.T) {
 		{Host: "relay.example", GroupKey: groupKey.String()}: groupKey.SrtPassphrase(),
 		{Host: "relay.example"}:                              group.PublicSrtPassphrase,
 		{Host: "192.168.1.9"}:                                group.PublicSrtPassphrase,
-		// A damaged key publishes to the bare name every relay refuses (Path), so the leg it would
-		// have keyed opens nowhere.
+		// A damaged key publishes to the bare name every relay refuses (Path),
+		// so the leg it would have keyed opens nowhere.
 		{Host: "relay.example", GroupKey: "not a group key"}: "",
 		{}: "",
 	} {
@@ -530,8 +533,8 @@ func TestTheSrtPassphraseFollowsTheGroupKey(t *testing.T) {
 	}
 }
 
-// A burst ceiling of zero is an answer and not an absence: it is the encode bounded by nothing, which
-// the form offers as an entry of its own beside the band a ceiling sits in
+// A burst ceiling of zero is an answer and not an absence: the encode bounded by nothing,
+// which the form offers as an entry of its own beside the ceiling's own band
 // (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
 // A store that replaced it with a default would take that answer back on the next start.
 func TestAnUncappedBurstSurvivesTheStore(t *testing.T) {
@@ -567,15 +570,16 @@ func TestAFileWithNoBurstCeilingKeepsTheDefault(t *testing.T) {
 	}
 }
 
-// A file written while the encode was one field carries an encoder name under the old key, which the
-// ordinary decode never reads: the pair replaced it and neither half spells a codec.
+// A file written while the encode was one field carries an encoder name under the old key,
+// which the ordinary decode never reads:
+// the pair replaced it and neither half spells a codec.
 // The stored stream keeps encoding as it did, on the row that name addressed.
 func TestLoadMigratesTheOneCodecKeyOntoThePair(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
 	s.Publish.Format, s.Publish.Encoder = "", ""
-	s.Publish.LegacyCodec = "libsvtav1"
+	s.Publish.FlatCodec = "libsvtav1"
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -587,17 +591,18 @@ func TestLoadMigratesTheOneCodecKeyOntoThePair(t *testing.T) {
 	if got.Publish.Codec() != "libsvtav1" {
 		t.Errorf("the migrated pair addresses %q, want libsvtav1", got.Publish.Codec())
 	}
-	if got.Publish.LegacyCodec != "" {
-		t.Errorf("an upgraded publish carries no pre-pair codec key, got %q", got.Publish.LegacyCodec)
+	if got.Publish.FlatCodec != "" {
+		t.Errorf("an upgraded publish carries no pre-pair codec key, got %q", got.Publish.FlatCodec)
 	}
 }
 
-// Every relay this app is pointed at runs a group service, and the address of one follows the
-// address of the relay: the proxy's own name off a trusted network, and the port groupd binds where
-// the relay is reached directly (scripts/relay.sh, cmd/groupd).
+// Every relay this app is pointed at runs a group service,
+// and the address of one follows the address of the relay:
+// the proxy's own name off a trusted network,
+// and the port groupd binds where the relay is reached directly (scripts/relay.sh, cmd/groupd).
 //
-// A relay on this machine answering none is a development relay that issues no token, and the relay
-// refuses every publisher that carries none.
+// A relay on this machine answering none is a development relay that issues no token,
+// and the relay refuses every publisher that carries none.
 func TestEveryNamedRelayNamesItsGroupService(t *testing.T) {
 	for host, want := range map[string]string{
 		"streamrelay.bjoernblessin.de": "https://streamrelay.bjoernblessin.de",
@@ -622,10 +627,10 @@ func TestEveryNamedRelayNamesItsGroupService(t *testing.T) {
 	}
 }
 
-// An empty display name is a state and not a gap: this machine has been given no name, and joining a
-// group asks for one.
-// A migration that filled it would join every group under whatever it filled with, which is a name
-// the user never chose and one another member may already hold.
+// An empty display name is a state and not a gap:
+// this machine has no name, and joining a group asks for one.
+// A migration that filled it would join every group under whatever it filled with,
+// a name the user never chose and one another member may already hold.
 func TestAnUnnamedMachineKeepsItsEmptyDisplayName(t *testing.T) {
 	isolateConfig(t)
 
@@ -644,14 +649,14 @@ func TestAnUnnamedMachineKeepsItsEmptyDisplayName(t *testing.T) {
 }
 
 // A stored name no row carries leaves the pair on what a fresh installation holds.
-// Splitting it would write a format nothing produces and an encoder no family answers to, and the
-// form would then grey both halves with no value to walk to.
+// Splitting it would write a format nothing produces and an encoder no family answers to,
+// and the form would then grey both halves with no value to walk to.
 func TestLoadMigratesAnUnknownCodecKeyOntoTheDefaults(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
 	s.Publish.Format, s.Publish.Encoder = "", ""
-	s.Publish.LegacyCodec = "h264_omx"
+	s.Publish.FlatCodec = "h264_omx"
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -664,10 +669,10 @@ func TestLoadMigratesAnUnknownCodecKeyOntoTheDefaults(t *testing.T) {
 }
 
 // Every relay terminates TLS on the RTSP and RTMP legs and binds no cleartext listener at all
-// (deploy/mediamtx-groups.yml, rtspEncryption), and both builders spell the address rtsps and rtmps
-// whatever port it carries (internal/transport).
-// A file naming a cleartext port therefore addresses a listener nothing answers, and a publish over
-// it waits out its timeout against a closed port instead of being refused.
+// (deploy/mediamtx-groups.yml, rtspEncryption),
+// and both builders spell the address rtsps and rtmps whatever port it carries (internal/transport).
+// A file naming a cleartext port therefore addresses a listener nothing answers,
+// and a publish over it waits out its timeout against a closed port instead of being refused.
 func TestLoadMigratesTheCleartextRelayPorts(t *testing.T) {
 	isolateConfig(t)
 
@@ -687,10 +692,10 @@ func TestLoadMigratesTheCleartextRelayPorts(t *testing.T) {
 	}
 }
 
-// A relay binds its TLS listeners wherever it is told to, a second one on the same host taking
-// numbers of its own (cmd/soak/scripts/start.sh).
-// Those are ports somebody chose, so the move above reaches the two numbers the cleartext listeners
-// had and no other.
+// A relay binds its TLS listeners wherever it is told to,
+// a second one on the same host taking numbers of its own (cmd/soak/scripts/start.sh).
+// Those are ports somebody chose,
+// so the move above reaches the two numbers the cleartext listeners had and no other.
 func TestARelayOnItsOwnPortsKeepsThem(t *testing.T) {
 	isolateConfig(t)
 

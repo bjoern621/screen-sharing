@@ -14,16 +14,17 @@ import (
 // crosses the socket the pool announces and names a buffer big enough to hold the picture.
 //
 // The picture itself is not checked.
-// Reading it back means importing the descriptor into a second EGL display, which is C, and a
-// test file cannot use cgo; the side that does import it is the shell, and a tile drawing noise
+// Reading it back means importing the descriptor into a second EGL display, which is C, and
+// a test file cannot use cgo; the side that does import it is the shell, and a tile drawing noise
 // is what says so.
 //
 // Every check skips where the machine has no GL to decode onto, which is a headless build host
 // rather than a failure: the leg is about a GPU, and a machine without one is a machine whose
 // viewer is the native player.
 
-// The size the test frames are decoded at. Small: what is under test is the export and not the
-// scaler.
+// The size the test frames are decoded at.
+// Small: what is under test is the export and not
+// the scaler.
 const (
 	probeWidth  = 320
 	probeHeight = 240
@@ -87,8 +88,8 @@ func TestExportedPoolLendsADescriptorPerSlot(t *testing.T) {
 	}()
 
 	for i, fd := range descriptors {
-		// A dmabuf answers its own extent, so a size check says the descriptor names the
-		// picture rather than any file this process happened to hold.
+		// A dmabuf answers its own extent, so a size check says the descriptor names
+		// the picture rather than any file this process happened to hold.
 		size, err := unix.Seek(fd, 0, unix.SEEK_END)
 		if err != nil {
 			t.Fatalf("slot %d's descriptor names nothing that can be sized: %v", i, err)
@@ -100,8 +101,8 @@ func TestExportedPoolLendsADescriptorPerSlot(t *testing.T) {
 	}
 }
 
-// The pool owns the socket, so a subscription that ended leaves nothing for a consumer to
-// connect to.
+// The pool owns the socket, so a subscription that ended leaves nothing for a consumer
+// to connect to.
 func TestClosingAPoolTakesItsSocketWithIt(t *testing.T) {
 	sample, stop := glSample(t)
 	defer stop()
@@ -149,8 +150,8 @@ func TestReopeningAPoolReplacesTheOneBeforeIt(t *testing.T) {
 
 // glSample decodes one test frame onto the GPU and hands it over with what ends the pipeline.
 //
-// The launch line is the GL chain's own, written out rather than built through resolve: what is
-// under test is the export and not the table, and a resolve would fall back on a machine missing
+// The launch line is the GL chain's own, written out rather than built through resolve: what
+// is under test is the export and not the table, and a resolve would fall back on a machine missing
 // an element instead of saying so.
 func glSample(t *testing.T) (*gst.Sample, func()) {
 	t.Helper()

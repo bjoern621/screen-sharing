@@ -5,17 +5,18 @@
 //
 //	<config>/screenshare/members/<group id>.json   {"memberSecret": "...", "displayName": "Björn"}
 //
-// The secret is issued by nobody. Membership is stated over the member id it derives under the group
-// key (internal/group), so no other member and no service can state this member's presence or take
-// the name it claimed. That is also why it is drawn once and kept: a second secret is a second
-// member, with the first one's connections still open at the relay.
+// The secret is issued by nobody.
+// Membership is stated over the member id it derives under the group key (internal/group),
+// so no other member and no service can state this member's presence or take the name it claimed.
+// Drawn once and kept: a second secret is a second member,
+// with the first one's connections still open at the relay.
 //
-// Nothing here reaches the network. Which groups this machine is in, and what it is known by in
-// each, is all this package knows, and stating any of it is the group service's side
-// (internal/groupclient).
+// Nothing here reaches the network.
+// Which groups this machine is in, and what it is known by in each, is all this package knows,
+// and stating any of it is the group service's side (internal/groupclient).
 //
-// The files belong to a user who can edit, move or delete them, so every failure here is an
-// Umgebungsfehler and leaves as an error.
+// The files belong to a user who can edit, move or delete them,
+// so every failure here is an Umgebungsfehler and leaves as an error.
 package member
 
 import (
@@ -37,8 +38,8 @@ const membersDirName = "members"
 
 // identityDirMode and identityFileMode keep both to their owner.
 //
-// The file carries a secret, and the directory carries which groups this machine is in, which is a
-// list of who this user shares a screen with.
+// The file carries a secret, and the directory carries which groups this machine is in,
+// a list of who this user shares a screen with.
 // settings.json is held the same way (internal/settings, store.go).
 const identityDirMode = 0o700
 const identityFileMode = 0o600
@@ -52,9 +53,9 @@ type Identity struct {
 
 // Load answers the identity held for a group, and false where this machine has not joined it.
 //
-// A file that will not read is an error and never a fresh identity: drawing a second secret over a
-// damaged file would leave this machine a second member of a group it is already in, under a name
-// the first one holds.
+// A file that will not read is an error and never a drawn identity:
+// a second secret drawn over a damaged file makes this machine a second member,
+// in a group it is already in, under a name the first one holds.
 func Load(groupID string) (Identity, bool, error) {
 	path, err := identityPath(groupID)
 	if err != nil {
@@ -73,8 +74,9 @@ func Load(groupID string) (Identity, bool, error) {
 	if err := json.Unmarshal(data, &held); err != nil {
 		return Identity{}, false, fmt.Errorf("the identity file %s is corrupt: %w", path, err)
 	}
-	// Read through the service's own parser, so a secret that would derive a member id nobody knows
-	// is caught here rather than at a relay refusing a connection.
+	// Read through the service's own parser,
+	// so a secret deriving a member id nobody knows is caught here
+	// rather than at a relay refusing a connection.
 	if _, err := group.ParseMemberSecret(held.Secret); err != nil {
 		return Identity{}, false, fmt.Errorf("the identity file %s holds no member secret: %w", path, err)
 	}
@@ -85,10 +87,10 @@ func Load(groupID string) (Identity, bool, error) {
 
 // Join draws a secret where none is held and states the display name.
 //
-// Idempotent: the state it names is that this machine is a member of this group under this name, so
-// a second call keeps the secret it already drew and writes the name it was given.
-// A name is claimed inside the group rather than here, and a claim another member holds is that
-// service's refusal (internal/groupclient).
+// Idempotent: the state it names is that this machine is a member of this group under this name,
+// so a second call keeps the secret it already drew and writes the name it was given.
+// A name is claimed inside the group rather than here,
+// and a claim another member holds is that service's refusal (internal/groupclient).
 func Join(groupID, displayName string) (Identity, error) {
 	path, err := identityPath(groupID)
 	if err != nil {
@@ -135,8 +137,8 @@ func Forget(groupID string) error {
 
 // identityPath is where one group's identity lives, with the directory created where it is absent.
 //
-// A group id is a base32 digest this app derived from the key it holds (internal/group), so one that
-// is not a single file name is a caller that made it up rather than a path to follow.
+// A group id is a base32 digest this app derived from the key it holds (internal/group),
+// so one that is not a single file name is a caller that made it up rather than a path to follow.
 func identityPath(groupID string) (string, error) {
 	assert.Assert(groupID != "", "an identity belongs to a group that names itself")
 	assert.Assert(filepath.Base(groupID) == groupID, "a group id is one file name", groupID)
@@ -155,13 +157,14 @@ func identityPath(groupID string) (string, error) {
 // writeIdentity writes one identity file and holds it at identityFileMode.
 //
 // Written beside the target and renamed onto it, as the settings store writes its own
-// (internal/settings, writeStore): a rename inside one directory replaces the file in a single step,
-// so a reader finds the whole old file or the whole new one rather than the head of one and the tail
-// of the other.
+// (internal/settings, writeStore):
+// a rename inside one directory replaces the file in a single step,
+// so a reader finds one whole file or the other,
+// never the head of one and the tail of the other.
 //
-// The mode is taken on the temporary file, before anything reads it under this name, and a file the
-// mode cannot be taken off is not renamed into place at all: that file is a secret every local user
-// can read.
+// The mode is taken on the temporary file, before anything reads it under this name,
+// and a file the mode cannot be taken off is not renamed into place at all,
+// that file being a secret every local user can read.
 func writeIdentity(path string, data []byte) error {
 	assert.Assert(path != "", "a written identity file is named")
 	assert.Assert(len(data) > 0, "a written identity carries bytes", path)

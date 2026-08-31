@@ -14,7 +14,7 @@ The first section is different: it fixes the words for the app's own moving part
 
 One name per concept, in tooltips, labels, log messages, comments, commit messages and docs.
 A concept with two names reads as two concepts, and a user who met "GStreamer pipeline" in one tooltip cannot tell it is the thing another tooltip calls the "portal backend".
-The **Not** column lists the synonyms this repository has used for the same thing and no longer accepts.
+The **Not** column lists the synonyms this repository refuses for the same thing.
 
 | Term | Means | Not |
 | --- | --- | --- |

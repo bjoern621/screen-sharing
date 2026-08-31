@@ -9,10 +9,10 @@ namespace ScreenShare.App.Features.Setup.CostRail.View;
 /// A figure against a limit, both as shares of one bar: a track, a fill, and a marker where the limit stands.
 ///
 /// Drawn rather than laid out.
-/// Two star columns sized by a converter would bind against <c>ColumnDefinition</c>, which is not an element and
-/// has no data context to bind through.
-/// Drawing also lets the fill run past the marker rather than stop at it, the state the bar exists to show: a
-/// predicted bitrate the line cannot carry.
+/// Two star columns sized by a converter would bind against <c>ColumnDefinition</c>, which is not an element
+/// and has no data context to bind through.
+/// Drawing also lets the fill run past the marker rather than stop at it, the state the bar exists to show:
+/// a predicted bitrate the line cannot carry.
 ///
 /// No size of its own.
 /// Nothing is measured here, so the height comes from the host and the width from the parent's arrange.
@@ -20,8 +20,8 @@ namespace ScreenShare.App.Features.Setup.CostRail.View;
 /// Lengths are device-independent pixels, so the marker is one DIP wide at any scale factor.
 ///
 /// No colour of its own either.
-/// Every brush comes in from the caller, leaving the design system the only place one is decided
-/// (avalonia/README.md, "Nothing outside Design/").
+/// Every brush comes in from the caller, leaving the design system the only place one is decided (avalonia/README.md,
+/// "Nothing outside Design/").
 /// </summary>
 public sealed class MeterBar : Control
 {
@@ -45,7 +45,8 @@ public sealed class MeterBar : Control
     public static readonly StyledProperty<IBrush?> LimitBrushProperty =
         AvaloniaProperty.Register<MeterBar, IBrush?>(nameof(LimitBrush));
 
-    /// <summary>Track thickness, below the control's height so the marker overhangs it. Capped at that height.</summary>
+    /// <summary>Track thickness, below the control's height so the marker overhangs it.
+    /// Capped at that height.</summary>
     public static readonly StyledProperty<double> TrackHeightProperty =
         AvaloniaProperty.Register<MeterBar, double>(nameof(TrackHeight), 5);
 

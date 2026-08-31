@@ -13,8 +13,8 @@ namespace ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 /// Two sparklines: what is going out, and what the far end is doing with it.
 /// The annotations carry the whole scale.
 /// With no axes and no ticks, the ceiling label and the window label are the only things saying what a height or
-/// a moment means, so both are derived from the reading the header figures come from rather than written into the
-/// markup.
+/// a moment means, so both are derived from the reading the header figures come from rather than written
+/// into the markup.
 /// </summary>
 public sealed class PlotsViewModel : Observable
 {
@@ -99,8 +99,8 @@ public sealed class PlotsViewModel : Observable
 
     /// <summary>
     /// Round trip to the worst-off viewer, one point per relay snapshot.
-    /// Empty while the relay times nobody on this path, a snapshot with no viewer on a leg it measures and not a
-    /// stream that is doing well.
+    /// Empty while the relay times nobody on this path, a snapshot with no viewer on a leg it measures and not
+    /// a stream that is doing well.
     /// </summary>
     public IReadOnlyList<Point> Rtt { get => _rtt; private set => Set(ref _rtt, value); }
 
@@ -119,7 +119,6 @@ public sealed class PlotsViewModel : Observable
     /// <summary>
     /// Height of the rule marking that ceiling, 0 at the top to 1 at the bottom, and <see cref="double.NaN"/>
     /// where the ceiling falls outside the drawn range and no rule is drawn.
-    /// Derived from the curve's own scale, a rule at a constant height marking the ceiling only by coincidence.
     /// </summary>
     public double CeilingFraction { get => _ceilingFraction; private set => Set(ref _ceilingFraction, value); }
 
@@ -186,8 +185,8 @@ public sealed class PlotsViewModel : Observable
         // Read off the constant the points are placed by, so the label and the axis cannot disagree.
         Window = HasEgress ? $"{PlotSeries.WindowSeconds:0} s" : "";
 
-        // An unbounded encode is drawn without a rule and without a label: a height marked on a plot reads as a
-        // bound something is holding, and a quality target free of the rate has none.
+        // An unbounded encode is drawn without a rule and without a label: a height marked on a plot reads
+        // as a bound something is holding, and a quality target free of the rate has none.
         Ceiling = reading.VbvCeilingMbps is { } ceiling ? $"vbv ceiling {Figure.Of(ceiling, "0")} Mb/s" : "";
         HasCeiling = HasEgress && Ceiling.Length > 0;
         CeilingFraction = PlotSeries.CeilingFraction(Samples, reading.VbvCeilingMbps);

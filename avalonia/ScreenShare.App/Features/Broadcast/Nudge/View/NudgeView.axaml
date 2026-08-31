@@ -18,8 +18,8 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" Classes="caption" Text="Live quality nudge" VerticalAlignment="Center" />
         <!--
-          Bound rather than spelled in: the caveat and the track's reason are one table, and a
-          sentence written here cannot be read beside the one it has to agree with.
+          Bound rather than spelled in: the caveat and the track's reason are one table,
+          and a sentence written here cannot be read beside the one it has to agree with.
         -->
         <TextBlock Grid.Column="1"
                    Classes="hint"
@@ -31,8 +31,8 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Classes="end" Text="Smoother" />
         <!--
-          Whole percent of the track, which is what the position counts in: a thumb resting between
-          two would re-read the ladder for a move nothing under it can tell apart.
+          Whole percent of the track, the unit the position counts in: a thumb resting between two
+          would re-read the ladder for a move nothing under it can tell apart.
         -->
         <Slider Grid.Column="1"
                 Minimum="0"

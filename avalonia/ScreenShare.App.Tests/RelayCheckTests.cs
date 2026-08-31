@@ -8,9 +8,7 @@ using Xunit;
 
 namespace ScreenShare.App.Tests;
 
-/// <summary>
-/// The relay check: what answers on each leg, drawn beside the settings that address them.
-/// </summary>
+/// <summary>Relay check: what answers on each leg, drawn beside the settings that address them.</summary>
 public sealed class RelayCheckTests
 {
     private static async Task<SetupViewModel> FlowAsync()
@@ -21,16 +19,15 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// The card belongs to the step holding the relay's address and ports, that being where a leg nothing
-    /// reaches is corrected.
+    /// Card belongs to the step holding the relay's address and ports,
+    /// that being where a leg nothing reaches is corrected.
     /// </summary>
     [Fact]
     public async Task TheCheckDrawsOnTheRelayStepAlone()
     {
         var flow = await FlowAsync();
 
-        // The keys are taken first: standing on a step renders the strip, which converges the collection being
-        // walked.
+        // Keys are taken first: standing on a step renders the strip, converging the collection being walked.
         foreach (var key in flow.Steps.Select(step => step.Key).ToList())
         {
             flow.CurrentStep = key;
@@ -39,8 +36,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// Nothing is dialled on a render: a check costs seconds against a listener that is not there, so it waits
-    /// for the press.
+    /// Nothing is dialled on a render:
+    /// a check costs seconds against a listener that is not there, so it waits for the press.
     /// </summary>
     [Fact]
     public async Task NothingIsDialledUntilTheButtonIsPressed()
@@ -66,8 +63,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// The three verdicts wear the three marks: a listener that answered, one that did not, and one nothing
-    /// dialled, which is a note and never a fault.
+    /// Three verdicts wear the three marks: a listener that answered, one that did not,
+    /// and one nothing dialled, which is a note and never a fault.
     /// </summary>
     [Fact]
     public async Task EachVerdictWearsItsOwnMark()
@@ -83,8 +80,7 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// A row carries the address it dialled and the listener's own words, which are what a reader takes into a
-    /// bug report.
+    /// A row carries the address it dialled and the listener's own words, what a reader takes into a bug report.
     /// </summary>
     [Fact]
     public async Task ARowCarriesTheAddressAndWhatAnswered()
@@ -102,8 +98,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// A leg nothing dialled says why in words rather than in the code the backend sent, and names no address:
-    /// there was none to dial.
+    /// A leg nothing dialled says why in words rather than in the code the backend sent,
+    /// and names no address, there being none to dial.
     /// </summary>
     [Fact]
     public async Task AnUndialledLegSaysWhyInWords()
@@ -119,8 +115,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// The summary counts what did not answer, and counts a leg nothing dialled nowhere: nothing was asked of
-    /// it, so it is neither well nor unwell.
+    /// Summary counts what did not answer, and counts a leg nothing dialled nowhere:
+    /// nothing was asked of it, so it is neither well nor unwell.
     /// </summary>
     [Fact]
     public void TheSummaryCountsOnlyWhatWasDialledAndDidNotAnswer()
@@ -134,8 +130,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// A relay that answers on nothing is rows and not a refusal, so the panel for the backend's own sentence
-    /// stays down (docs/ipc-api.md, "Errors").
+    /// A relay that answers on nothing is rows and not a refusal,
+    /// so the panel for the backend's own sentence stays down (<c>docs/ipc-api.md</c>, "Errors").
     /// </summary>
     [Fact]
     public async Task ARelayAnsweringNothingIsNoRefusal()

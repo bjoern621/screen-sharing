@@ -11,11 +11,11 @@ namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 /// Owns neither.
 /// The shell owns both and pushes them through <see cref="Show"/>, and the fields behind them are what
 /// <see cref="Apply"/> refills on every pass rather than a second copy that can drift
-/// (docs/development-principles.md, "State is written explicitly and read continuously").
+/// (<c>docs/development-principles.md</c>, "State is written explicitly and read continuously").
 /// The elapsed time is the encoder's, so no clock ticks here.
 ///
 /// Every segment is reachable at all times, sharing or not: what a destination has to say about a stream that has
-/// ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
+/// ended is what a publisher goes looking for once it has (<c>docs/design-language.md</c>, "Surfaces and shape").
 ///
 /// The reader's click is the one thing the strip owns, so <see cref="SelectedTab"/> is its only public setter.
 /// </summary>
@@ -83,8 +83,8 @@ public sealed class NavStripViewModel : Observable
                 return;
             }
 
-            // A list box clearing its selection is not a reader asking for anywhere, and Apply below puts the
-            // showing destination back.
+            // A list box clearing its selection is not a reader asking for anywhere,
+            // and Apply below puts the showing destination back.
 
             if (value is not null)
             {
@@ -109,8 +109,8 @@ public sealed class NavStripViewModel : Observable
 
     /// <summary>
     /// One render function.
-    /// Every output on every pass, off branches included, so the pill's text cannot outlive the state that
-    /// justified it.
+    /// Every output on every pass, off branches included, so the pill's text cannot outlive the state
+    /// that justified it.
     /// </summary>
     public void Apply()
     {

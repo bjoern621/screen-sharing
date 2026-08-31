@@ -6,15 +6,14 @@ namespace ScreenShare.App.Features.Viewer.Members.Model;
 /// <summary>
 /// One member of the group, as the card prints it.
 ///
-/// Three facts and no fourth.
-/// Who is watching what is nobody's business but the machine doing it, so the group states presence and
-/// publication and the card can carry nothing else.
+/// Three facts and no fourth: who is watching what is nobody's business but the machine doing it,
+/// so the group states presence and publication and the card carries nothing else.
 ///
 /// Record, so a pass over an unchanged answer compares equal and the bound list is left where it is.
 /// </summary>
 /// <param name="Name">
-/// What that member goes by, falling back to its identity where it goes by nothing: a member with no name is
-/// still a member, and the id is the string a bug report carries.
+/// What that member goes by, falling back to its identity where it goes by nothing:
+/// a member with no name is still a member, and the id is the string a bug report carries.
 /// </param>
 /// <param name="IsPublishing">The relay is carrying a stream from this member.</param>
 /// <param name="IsSelf">This machine's own row, which nothing else on it distinguishes.</param>

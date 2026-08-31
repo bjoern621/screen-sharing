@@ -20,13 +20,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// The relay closes a connection without stating a reason, so a stream that stopped reads as a
-// membership the group stopped honouring or as an ordinary drop only against the presence this
-// machine last stated.
+// The relay closes a connection without stating a reason,
+// so a stream that stopped reads as a lapsed membership or as an ordinary drop
+// only against the presence this machine last stated.
 // These tests are that reading, one arm at a time, and the statements that produce it.
 
-// The group these tests are in, derived from a key of zeroes: what a member holds is the id, and
-// nothing here asks what the key is worth.
+// The group these tests are in, derived from a key of zeroes: a member holds the id,
+// and nothing here asks what the key is worth.
 var (
 	aGroupKey = group.Key(make([]byte, group.KeyBytes)).String()
 	aGroupID  = group.Key(make([]byte, group.KeyBytes)).ID()
@@ -35,11 +35,11 @@ var (
 // aMemberID is the member the faked service answers this machine with.
 const aMemberID = "MFZWIZLTOQ2DGNBV"
 
-// isolateConfig points os.UserConfigDir at a fresh temp directory, so an identity a test draws lands
-// there rather than in the developer's own config directory.
+// isolateConfig points os.UserConfigDir at a fresh temp directory,
+// so an identity a test draws lands there rather than in the developer's own config directory.
 //
-// All three variables, os.UserConfigDir reading a different one per platform: XDG_CONFIG_HOME on
-// Linux, AppData on Windows, HOME on macOS.
+// All three variables, os.UserConfigDir reading a different one per platform:
+// XDG_CONFIG_HOME on Linux, AppData on Windows, HOME on macOS.
 func isolateConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -58,11 +58,11 @@ func isolateConfig(t *testing.T) {
 
 // fakeGroups answers as a group service would and records what was asked of it, in order.
 //
-// Presence, join and leave are one statement in one order, so two of them at the service at once is
-// the defect that order exists to prevent, and overlapped is where it shows.
+// Presence, join and leave are one statement in one order,
+// so two at the service at once is the defect that order prevents, and overlapped catches it.
 type fakeGroups struct {
-	// state answers a statement of presence, nil answering the lease of a group this machine is alone
-	// in.
+	// state answers a statement of presence.
+	// nil answers the lease of a group this machine is alone in.
 	// Set before the goroutines that reach it start.
 	state func() (groupclient.Membership, error)
 
@@ -122,7 +122,7 @@ func (f *fakeGroups) Forget() {
 	f.forgets++
 }
 
-// asked is the calls the service took, in the order it took them.
+// asked is the calls the service took, in order.
 func (f *fakeGroups) asked() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -146,8 +146,8 @@ func takenPresence(displayName string) groupclient.Membership {
 	}
 }
 
-// notAnswering is what a call to a service that is not there leaves: a transport failure, and
-// nothing the service stated (internal/groupclient).
+// notAnswering is what a call to a service that is not there leaves: a transport failure,
+// and nothing the service stated (internal/groupclient).
 func notAnswering() error {
 	return errors.New("the group service at 127.0.0.1 cannot be reached: connection refused")
 }
@@ -157,8 +157,8 @@ func nameTaken() error {
 	return &groupclient.Refusal{Status: 409, Reason: "that name is taken in this group"}
 }
 
-// inGroupApp is an app whose settings name a relay and a group, with groups answering for the
-// service and the identity directory pointed at a temp directory.
+// inGroupApp is an app whose settings name a relay and a group,
+// with groups answering for the service and the identity directory pointed at a temp directory.
 func inGroupApp(t *testing.T, groups groupService) *App {
 	t.Helper()
 	isolateConfig(t)
@@ -182,9 +182,9 @@ func joinIdentity(t *testing.T) {
 	}
 }
 
-// A member whose presence the group service took holds a lease the relay honours, so a stream that
-// stopped stopped for something this snapshot cannot speak for, and the child's own words are the
-// whole of what is known.
+// A member whose presence the group service took holds a lease the relay honours,
+// so a stream that stopped stopped for something this snapshot cannot speak for,
+// and the child's own words are the whole of what is known.
 func TestAHeldPresenceNamesNoCauseForAStoppedStream(t *testing.T) {
 	m := membership{Group: aGroupID, Joined: true, Taken: time.Now(), Lease: 20 * time.Second}
 
@@ -193,16 +193,17 @@ func TestAHeldPresenceNamesNoCauseForAStoppedStream(t *testing.T) {
 	}
 }
 
-// A machine in no group has no membership behind a stream that stopped, so there is nothing here to
-// say about it.
+// A machine in no group has no membership behind a stream that stopped,
+// so there is nothing here to say about it.
 func TestAMachineInNoGroupNamesNoCauseForAStoppedStream(t *testing.T) {
 	if failure := (membership{}).failure(); failure != nil {
 		t.Errorf("a machine in no group reads a stopped stream as %v, want the child's own words alone", failure.GetCode())
 	}
 }
 
-// A machine with a group key and no identity in that group trades a token as the group itself, which
-// the relay closes the moment any member states presence, and joining is what fixes it.
+// A machine with a group key and no identity in that group trades a token as the group itself,
+// which the relay closes the moment any member states presence.
+// Joining is what fixes it.
 func TestAGroupNeverJoinedReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	m := membership{Group: aGroupID}
 
@@ -211,8 +212,8 @@ func TestAGroupNeverJoinedReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	}
 }
 
-// A name another member holds leaves this machine without a member id the relay honours, which is
-// what turns a closed connection into a sentence a reader can act on.
+// A name another member holds leaves this machine without a member id the relay honours,
+// so a closed connection becomes a sentence a reader can act on.
 func TestARefusedNameReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	m := membership{
 		Group:   aGroupID,
@@ -225,8 +226,8 @@ func TestARefusedNameReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	}
 }
 
-// Presence the service took and stopped taking is a lease that ran out, which the relay answers by
-// closing what this machine holds.
+// Presence the service took and stopped taking is a lease that ran out,
+// which the relay answers by closing what this machine holds.
 func TestPresenceOlderThanItsLeaseReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	m := membership{Group: aGroupID, Joined: true, Taken: time.Now().Add(-time.Minute), Lease: 20 * time.Second}
 
@@ -247,8 +248,8 @@ func TestPresenceInsideItsLeaseHasNotLapsed(t *testing.T) {
 	}
 }
 
-// A service that answered nothing this app can act on is a different fact from a membership that
-// lapsed: the refusal travels whole, so the ground it carries reaches the reader with it.
+// A service that answered nothing this app can act on is a different fact from a lapsed membership:
+// the refusal travels whole, so the ground it carries reaches the reader with it.
 func TestAServiceThatRefusedReadsAStoppedStreamAsItsOwnRefusal(t *testing.T) {
 	m := membership{
 		Group:   aGroupID,
@@ -261,9 +262,10 @@ func TestAServiceThatRefusedReadsAStoppedStreamAsItsOwnRefusal(t *testing.T) {
 	}
 }
 
-// A refusal is something the service stated. A name clash is the one ground it carries a code for,
-// every other stated ground is the service saying no in words this app cannot name, and a service
-// that could not be reached refused nothing at all.
+// A refusal is something the service stated.
+// A name clash is the one ground it carries a code for,
+// every other stated ground is the service saying no in words this app cannot name,
+// and a service that could not be reached refused nothing at all.
 func TestOnlyARefusalTheServiceStatedIsOne(t *testing.T) {
 	if got := membershipRefusal(nameTaken()).GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_NAME_TAKEN {
 		t.Errorf("a 409 states %v, want the name being taken", got)
@@ -279,8 +281,9 @@ func TestOnlyARefusalTheServiceStatedIsOne(t *testing.T) {
 	}
 }
 
-// A pass that did not reach the service refused nothing, so the presence the service took last
-// stands with the lease that came with it: a 20 s lease survives nine passes that never landed.
+// A pass that did not reach the service refused nothing,
+// so the presence it took last stands with the lease that came with it:
+// a 20 s lease survives nine passes that never landed.
 func TestAPassThatDidNotReachTheServiceKeepsTheLeaseItGranted(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, notAnswering()
@@ -311,8 +314,8 @@ func TestAPassThatDidNotReachTheServiceKeepsTheLeaseItGranted(t *testing.T) {
 	}
 }
 
-// The lease is what membership lapses on, so presence older than the one it was granted lapses
-// whether or not the service is answering.
+// The lease is what membership lapses on,
+// so presence older than the lease it was granted lapses whether or not the service is answering.
 func TestALeaseNoPassRestatedLapses(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, notAnswering()
@@ -337,8 +340,8 @@ func TestALeaseNoPassRestatedLapses(t *testing.T) {
 	}
 }
 
-// A refusal this app made for want of a name is answered by a pass that read one, so it does not
-// survive a pass that could not reach the service.
+// A refusal this app made for want of a name is answered by a pass that read one,
+// so it does not survive a pass that could not reach the service.
 func TestAPassThatReadANameDropsTheRefusalForWantOfOne(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, notAnswering()
@@ -358,7 +361,7 @@ func TestAPassThatReadANameDropsTheRefusalForWantOfOne(t *testing.T) {
 	}
 }
 
-// A refusal the service stated is held as one, which is what a stopped stream is read against.
+// A refusal the service stated is held as one, and a stopped stream is read against it.
 func TestARefusalTheServiceStatedIsLanded(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, nameTaken()
@@ -377,8 +380,8 @@ func TestARefusalTheServiceStatedIsLanded(t *testing.T) {
 	}
 }
 
-// The pass reads the identity file, so a group key with no identity beside it lands the fact that
-// this machine is in the group's paths and not in the group.
+// The pass reads the identity file, so a group key with no identity beside it lands the fact
+// that this machine is in the group's paths and not in the group.
 // Nothing is stated at the service: there is no member to state.
 func TestAPassOverAGroupNeverJoinedLandsThatItIsNotIn(t *testing.T) {
 	groups := &fakeGroups{}
@@ -401,10 +404,9 @@ func TestAPassOverAGroupNeverJoinedLandsThatItIsNotIn(t *testing.T) {
 	}
 }
 
-// A tile that is not live says why where the reason is known, and says nothing while a decode is
-// merely opening.
-// The relay snapshot is the whole source: a stream the relay stopped carrying is one no decode is
-// going to receive.
+// A tile that is not live says why where the reason is known,
+// and says nothing while a decode is merely opening.
+// The relay snapshot is the whole source: a stream the relay stopped carrying reaches no decode.
 func TestATileSaysTheStreamLeftTheRelay(t *testing.T) {
 	a := &App{}
 	a.relayLast.Store(&relay.Status{Reachable: true, Paths: []relay.Path{{Name: "alice"}}})
@@ -420,8 +422,8 @@ func TestATileSaysTheStreamLeftTheRelay(t *testing.T) {
 	}
 }
 
-// A snapshot nothing has answered says nothing about any stream, which reads differently from one
-// that answered and did not carry it.
+// A snapshot nothing has answered says nothing about any stream,
+// which reads differently from one that answered and did not carry it.
 func TestATileSaysNothingWhileTheRelayHasNotAnswered(t *testing.T) {
 	a := &App{}
 
@@ -430,8 +432,8 @@ func TestATileSaysNothingWhileTheRelayHasNotAnswered(t *testing.T) {
 	}
 }
 
-// A machine in no group is already what leaving names, so nothing is released and nothing fails, on
-// the first call and on the second.
+// A machine in no group is already what leaving names,
+// so nothing is released and nothing fails, on the first call and on the second.
 func TestLeavingAGroupThisMachineIsNotInSucceeds(t *testing.T) {
 	a := &App{events: events.New()}
 
@@ -445,8 +447,8 @@ func TestLeavingAGroupThisMachineIsNotInSucceeds(t *testing.T) {
 	}
 }
 
-// A group is joined by its group key, so a machine with none has nowhere to draw an identity and states no
-// presence rather than stating it nowhere.
+// A group is joined by its group key, so a machine with none has nowhere to draw an identity
+// and states no presence rather than stating it nowhere.
 func TestJoiningWithNoGroupStatesNoPresence(t *testing.T) {
 	a := &App{events: events.New()}
 
@@ -459,8 +461,8 @@ func TestJoiningWithNoGroupStatesNoPresence(t *testing.T) {
 }
 
 // The pass that polls the relay states presence too, and a machine in no group has none to state.
-// What it lands is the empty group rather than whatever was there before, so a group key taken out of
-// the settings empties the list a shell draws.
+// What it lands is the empty group rather than what was there before,
+// so a group key taken out of the settings empties the list a shell draws.
 func TestAPassOverNoGroupStatesNothing(t *testing.T) {
 	a := &App{events: events.New()}
 	a.setMembership(membership{Group: aGroupID, Joined: true, Members: []wire.Member{{MemberID: aMemberID}}})
@@ -474,8 +476,9 @@ func TestAPassOverNoGroupStatesNothing(t *testing.T) {
 	}
 }
 
-// Membership outranks the relay snapshot: a machine the group stopped honouring loses every stream
-// at once, and "the stream left the relay" would send the reader after the publisher instead.
+// Membership outranks the relay snapshot:
+// a machine the group stopped honouring loses every stream at once,
+// and "the stream left the relay" would send the reader after the publisher instead.
 func TestATileSaysMembershipLapsedBeforeItSaysTheStreamLeft(t *testing.T) {
 	a := &App{}
 	a.relayLast.Store(&relay.Status{Reachable: true, Paths: []relay.Path{}})
@@ -491,8 +494,8 @@ func TestATileSaysMembershipLapsedBeforeItSaysTheStreamLeft(t *testing.T) {
 }
 
 // Presence, join and leave are one statement in one order.
-// A pass in flight when a leave arrives lands before the release, so the machine that left is not
-// stated back into the group by the answer it was already waiting for.
+// A pass in flight when a leave arrives lands before the release,
+// so the machine that left is not stated back into the group by the answer it was waiting for.
 func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	entered := make(chan struct{})
 	proceed := make(chan struct{})
@@ -516,8 +519,8 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	left := make(chan error, 1)
 	go func() { left <- a.LeaveGroup() }()
 
-	// The window the leave has to overtake the pass in flight, which it takes where nothing holds the
-	// two of them in one order.
+	// The window the leave has to overtake the pass in flight,
+	// which it takes where nothing holds the two in one order.
 	time.Sleep(100 * time.Millisecond)
 	close(proceed)
 
@@ -540,8 +543,8 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	}
 }
 
-// The identity file states the name the group took, so a name another member holds does not land in
-// it: the machine goes on stating presence under the name it holds.
+// The identity file states the name the group took, so a name another member holds does not land
+// in it: the machine goes on stating presence under the name it holds.
 func TestAJoinRefusedForItsNameStoresNothing(t *testing.T) {
 	groups := &fakeGroups{}
 	a := inGroupApp(t, groups)
@@ -566,8 +569,8 @@ func TestAJoinRefusedForItsNameStoresNothing(t *testing.T) {
 	}
 }
 
-// A name the group took is what the identity file states, so the next pass claims the name this
-// machine is known by rather than the one it was known by before.
+// A name the group took is what the identity file states,
+// so the next pass claims the name this machine is known by rather than the one it dropped.
 func TestAJoinUnderANewNameStoresTheNameTheGroupTook(t *testing.T) {
 	a := inGroupApp(t, &fakeGroups{})
 
@@ -589,8 +592,8 @@ func TestAJoinUnderANewNameStoresTheNameTheGroupTook(t *testing.T) {
 }
 
 // A second join over unchanged settings changes nothing.
-// The relay token names the member id this machine already holds, so dropping it would spend a round
-// trip on a credential that was good.
+// The relay token names the member id this machine already holds,
+// so dropping it would spend a round trip on a credential that is good.
 func TestASecondJoinKeepsTheRelayToken(t *testing.T) {
 	groups := &fakeGroups{}
 	a := inGroupApp(t, groups)
@@ -623,8 +626,8 @@ func TestAFirstJoinDropsTheTokenMintedWithoutAMember(t *testing.T) {
 	}
 }
 
-// An identity drawn by a join the service refused is dropped with it, so nothing is left stating
-// presence under a name this machine never claimed.
+// An identity drawn by a join the service refused is dropped with it,
+// so nothing is left stating presence under a name this machine never claimed.
 func TestAJoinRefusedDrawsNoIdentity(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, nameTaken()

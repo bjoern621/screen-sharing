@@ -13,12 +13,12 @@ public sealed class ContractViolationException(string message) : Exception(messa
 /// C# counterpart of <c>bjoernblessin.de/go-utils/util/assert</c>, which the Go modules state their contracts
 /// with.
 ///
-/// Not <see cref="System.Diagnostics.Debug.Assert(bool)"/>: that is compiled out of a Release build, and a
-/// contract holding in Debug alone is no contract.
+/// Not <see cref="System.Diagnostics.Debug.Assert(bool)"/>: that is compiled out of a Release build,
+/// and a contract holding in Debug alone is no contract.
 /// These run and throw in every build.
 ///
 /// A message is a present-tense sentence naming the invariant that holds, never the failure that occurred:
-/// lowercase, no trailing period, offending values in the trailing arguments (docs/development-principles.md).
+/// lowercase, no trailing period, offending values in the trailing arguments (<c>docs/development-principles.md</c>).
 /// </summary>
 public static class Assert
 {
@@ -52,8 +52,8 @@ public static class Assert
         => throw new ContractViolationException(Sentence(what, values));
 
     /// <summary>
-    /// <see cref="Never(string, object?[])"/> in expression position, for the default arm of a switch that
-    /// has to produce a value.
+    /// <see cref="Never(string, object?[])"/> in expression position,
+    /// for the default arm of a switch that has to produce a value.
     /// Produces none.
     /// </summary>
     [DoesNotReturn]

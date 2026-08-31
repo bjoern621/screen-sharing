@@ -9,14 +9,14 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// HLS is a watch-only leg: the relay cuts an ingested stream into segments and serves them with a
-// playlist over plain HTTP, and ingests no HLS itself.
+// HLS is a watch-only leg: the relay cuts an ingested stream into segments and serves them
+// with a playlist over plain HTTP, and ingests no HLS itself.
 // This transport therefore declares no publish form, and the publish dropdown never offers it.
 //
 // One HTTP port is what it buys, which proxies and firewalls pass and every browser plays.
-// Delay is what it costs.
-// Nothing can start before a segment exists, and the relay's low-latency variant cuts the wait to
-// part of a segment instead of removing it, leaving HLS an order of magnitude behind SRT and RTSP.
+// Delay is what it costs: nothing starts before a segment exists, and the relay's low-latency
+// variant cuts the wait to part of a segment instead of removing it, leaving HLS an order
+// of magnitude behind SRT and RTSP.
 type HLS struct{}
 
 func init() {
@@ -25,23 +25,23 @@ func init() {
 
 func (HLS) Name() string { return "hls" }
 
-// hlsPlayback is the relay's own set, the segment formats its HLS muxer cuts: H.264 and H.265 into
-// MPEG-TS, AV1 and VP9 into fMP4, with Opus and AAC beside them.
+// hlsPlayback is the relay's own set, the segment formats its HLS muxer cuts: H.264 and H.265
+// into MPEG-TS, AV1 and VP9 into fMP4, with Opus and AAC beside them.
 // VP8 has no segment form there, so a VP8 stream is the one the playlist never carries.
 //
 // One value for the player and the page, and a publish entry for neither: the relay serves HLS and
 // ingests none.
 //
 // What a browser decodes out of a segment is that browser's affair and no fact this table can hold.
-// H.264 plays in all of them and H.265, AV1 and VP9 depend on the build and the machine, so a
-// narrower set here would refuse the page for a stream that would have played.
+// H.264 plays in all of them and H.265, AV1 and VP9 depend on the build and the machine, so
+// a narrower set here would refuse the page for a stream that would have played.
 var hlsPlayback = Carriage{
 	Video: []string{"h264", "hevc", "av1", "vp9"},
 	Audio: []string{"opus", "aac"},
 }
 
-// hlsPipeline is what a receiving pipeline reads back off those same segments: the relay's video set
-// with no audio beside it.
+// hlsPipeline is what a receiving pipeline reads back off those same segments: the relay's video
+// set, no audio.
 // The entry point narrows it rather than the decoder, a tile opening the video rendition alone
 // (hlsplaylist.go).
 var hlsPipeline = Carriage{
@@ -64,8 +64,9 @@ func (HLS) Formats() Formats { return hlsFormats }
 func (HLS) WatchURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a watch URL names the stream it opens")
 
-	// No credential in the address. A player opens this URL and the relay's HTTP servers take a token
-	// in a header (credential.go), which the player is handed beside the URL (internal/watch).
+	// No credential in the address.
+	// A player opens this URL and the relay's HTTP servers take a token in a header (credential.go),
+	// handed to the player beside the URL (internal/watch).
 	return HLS{}.ListenerURL(s) + "/" + streamName + "/index.m3u8"
 }
 

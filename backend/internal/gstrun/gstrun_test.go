@@ -14,8 +14,8 @@ import (
 
 // A pipeline that ends on its own runs to its end and reports nothing.
 //
-// videotestsrc rather than a capture backend: the runner is what is under test, and a run needing a
-// screen, a portal consent or a GPU would cover the machine instead.
+// videotestsrc rather than a capture backend: the runner is what is under test, and a run needing
+// a screen, a portal consent or a GPU would cover the machine instead.
 func TestARunPlaysAPipelineToItsEnd(t *testing.T) {
 	var out bytes.Buffer
 
@@ -24,8 +24,8 @@ func TestARunPlaysAPipelineToItsEnd(t *testing.T) {
 	}
 }
 
-// The capture's negotiated caps reach the caller: the report a launcher could not make, and the
-// reason this package exists.
+// The capture's negotiated caps reach the caller: the report a launcher could not make, and
+// the reason this package exists.
 //
 // The format is pinned so the assertion is about the reporting rather than about what videotestsrc
 // happens to negotiate, and an HDR verdict reads the transfer characteristic off the same line
@@ -51,13 +51,12 @@ func TestARunReportsWhatTheCaptureNegotiated(t *testing.T) {
 	}
 }
 
-// A failing element's own wording comes back, which is what the supervisor puts in front of a
-// reader.
+// A failing element's own wording comes back, what the supervisor puts in front of a reader.
 func TestARunReportsWhatTheElementSaid(t *testing.T) {
 	var out bytes.Buffer
 
-	// A file that is not there: filesrc opens it on the way to PLAYING rather than at parse,
-	// so this run starts and then fails, which is the path under test.
+	// A file that is not there: filesrc opens it on the way to PLAYING rather than at parse, so this
+	// run starts and then fails, the path under test.
 	err := Run(t.Context(), "filesrc location=/nonexistent/screenshare-test ! fakesink", &out)
 	if err == nil {
 		t.Fatal("a pipeline whose source cannot open reported no error")
@@ -102,12 +101,12 @@ func capsLine(output string) string {
 	return ""
 }
 
-// A value reaches a pipeline that is already playing: the whole point of the control socket,
-// and the one thing a launcher could not be asked.
+// A value reaches a pipeline that is already playing: the point of the control socket, and the one
+// thing a launcher cannot be asked.
 //
-// The bitrate is the write under test because it is what a live stream changes.
-// An encoder takes a new one while it runs, where relaunching to reach it costs every viewer a
-// reconnect.
+// The bitrate is the write under test, being what a live stream changes.
+// An encoder takes another one while it runs, where relaunching to reach it costs every viewer
+// a reconnect.
 func TestALivePipelineTakesAPropertyWrite(t *testing.T) {
 	var out lockedBuffer
 	socket := filepath.Join(t.TempDir(), "control")
@@ -133,8 +132,8 @@ func TestALivePipelineTakesAPropertyWrite(t *testing.T) {
 		t.Fatalf("writing the live state: %v", err)
 	}
 
-	// The child counts what it applied, which is how a parent tells a write that landed from one
-	// naming an element the pipeline does not carry.
+	// The child counts what it applied, so a parent tells a write that landed from one naming
+	// an element the pipeline does not carry.
 	waitFor(t, &out, AppliedPrefix+"1")
 
 	cancel()

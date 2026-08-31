@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-// The family is a column and never a reading of the codec's name, so a name ending in a family's
-// spelling belongs to whatever family its row declares, and a name outside the table has none.
+// The family is a column and never a reading of the codec's name,
+// so a name ending in a family's spelling belongs to whatever family its row declares,
+// and a name outside the table has none.
 func TestFamilyComesFromTheTable(t *testing.T) {
 	cases := map[string]string{
 		"hevc_nvenc": FamilyNvenc,
@@ -30,8 +31,8 @@ func TestFamilyComesFromTheTable(t *testing.T) {
 	}
 }
 
-// A family outside the set reaches no family-wide mapping in either builder, and the row would run
-// on whatever an unknown family falls through to.
+// A family outside the set reaches no family-wide mapping in either builder,
+// and the row would run on whatever an unknown family falls through to.
 func TestEveryRowDeclaresAKnownFamily(t *testing.T) {
 	for _, c := range Codecs {
 		if !slices.Contains(Families, c.Family) {
@@ -41,16 +42,16 @@ func TestEveryRowDeclaresAKnownFamily(t *testing.T) {
 }
 
 // gappableValues is the value space of every option a gap may name.
-// Chroma and tune have no entry: their values are per codec, so a gap on either is held against the
-// row's own Chromas or Tune ladder.
+// Chroma and tune have no entry: their values are per codec,
+// so a gap on either is held against the row's own Chromas or Tune ladder.
 var gappableValues = map[string][]string{
 	OptionMode:       Modes,
 	OptionColorRange: {"pc", "tv"},
 }
 
-// A gap binds by matching the value a lookup is given, so one naming an engine, an option or a value
-// outside the set matches nothing, and the capability it was written to withhold is offered as if
-// the encoder had it.
+// A gap binds by matching the value a lookup is given,
+// so one naming an engine, an option or a value outside the set matches nothing,
+// and the capability it was written to withhold is offered as if the encoder had it.
 func TestEveryGapNamesAKnownOptionAndValue(t *testing.T) {
 	for _, c := range Codecs {
 		for _, g := range c.Gaps {
@@ -71,8 +72,8 @@ func TestEveryGapNamesAKnownOptionAndValue(t *testing.T) {
 				continue
 			}
 			// A chroma or tune gap withholds a value the row itself offers.
-			// One naming a format the row does not list, or a step its ladder does not carry, states a
-			// reason for something nobody was offered.
+			// One naming a format the row does not list, or a step its ladder does not carry,
+			// states a reason for something nobody was offered.
 			values, ok := gappableValues[g.Option]
 			if !ok {
 				values = perCodecValues(c, g.Option)
@@ -84,10 +85,10 @@ func TestEveryGapNamesAKnownOptionAndValue(t *testing.T) {
 	}
 }
 
-// perCodecValues is the value space of an option gappableValues cannot hold, which is one whose
-// values the row itself declares.
-// An unknown option fails the caller rather than answering an empty set, which would pass every gap
-// naming it.
+// perCodecValues is the value space of an option gappableValues cannot hold,
+// one whose values the row itself declares.
+// An unknown option fails the caller rather than answering an empty set,
+// which would pass every gap naming it.
 func perCodecValues(c Codec, option string) []string {
 	switch option {
 	case OptionChroma:
@@ -113,8 +114,8 @@ func TestEveryOptionStatesItsRefusal(t *testing.T) {
 	}
 }
 
-// A mode outside the table matches no gap and no quantizer scale, and the builders' rate-control
-// switches would run it as CBR.
+// A mode outside the table matches no gap and no quantizer scale,
+// and the builders' rate-control switches would run it as CBR.
 func TestValidateRejectsAnUnknownMode(t *testing.T) {
 	if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", "constant-effort", "pc"), 19, 20, 0, Device{}); err == nil {
 		t.Error("Validate must reject a rate-control mode the table does not carry")
@@ -168,8 +169,9 @@ func TestSupportsChroma(t *testing.T) {
 		{"hevc_vaapi", "ffmpeg", "gbrp", false},   // no VAAPI encoder codes RGB
 		{"h264_vaapi", "ffmpeg", "p010le", false}, // no VAAPI driver encodes High 10
 		{"nope", "ffmpeg", "yuv420p", false},      // an unknown codec supports nothing
-		// Planar RGB is the ffmpeg engine's on every RGB-coding row but hevc_nvenc: x265enc,
-		// vp9enc and av1enc negotiate YUV alone, where the nvcodec HEVC elements take a GBR sink format.
+		// Planar RGB is the ffmpeg engine's on every RGB-coding row but hevc_nvenc:
+		// x265enc, vp9enc and av1enc negotiate YUV alone,
+		// where the nvcodec HEVC elements take a GBR sink format.
 		{"hevc_nvenc", "gstreamer", "gbrp", true},
 		{"libx265", "gstreamer", "gbrp", false},
 		{"libvpx-vp9", "gstreamer", "gbrp", false},
@@ -181,8 +183,8 @@ func TestSupportsChroma(t *testing.T) {
 		{"libaom-av1", "gstreamer", "p010le", false},
 		{"libsvtav1", "gstreamer", "p010le", true},
 		{"librav1e", "gstreamer", "p010le", true},
-		// The qsv elements take the same semi-planar surfaces the encoders read, so QSV's 10-bit crosses
-		// both engines.
+		// The qsv elements take the same semi-planar surfaces the encoders read,
+		// so QSV's 10-bit crosses both engines.
 		// Neither 4:4:4 nor RGB is on any QSV row.
 		{"hevc_qsv", "gstreamer", "p010le", true},
 		{"av1_qsv", "ffmpeg", "p010le", true},
@@ -197,8 +199,8 @@ func TestSupportsChroma(t *testing.T) {
 	}
 }
 
-// A codec's chromas on one engine are its table order minus that engine's gaps, so a caller that
-// needs a format the encoder takes reads the first entry.
+// A codec's chromas on one engine are its table order minus that engine's gaps,
+// so a caller that needs a format the encoder takes reads the first entry.
 func TestEngineChromas(t *testing.T) {
 	cases := []struct {
 		codec, engine string
@@ -222,8 +224,9 @@ func TestEngineChromas(t *testing.T) {
 	}
 }
 
-// One lookup serves every option, so it is keyed by both: a pixel-format question must not be
-// answered by a rate-control gap, however alike the two values are spelled.
+// One lookup serves every option, so it is keyed by both:
+// a pixel-format question must not be answered by a rate-control gap,
+// however alike the two values are spelled.
 func TestGapsDoNotCrossOptions(t *testing.T) {
 	aom, _ := Get("libaom-av1")
 	if _, gap := aom.OptionGap("gstreamer", OptionMode, "p010le"); gap {
@@ -233,8 +236,8 @@ func TestGapsDoNotCrossOptions(t *testing.T) {
 		t.Error("a mode gap must not answer a pixel-format lookup")
 	}
 	// A gap naming no option takes the codec off that engine.
-	// No row needs one, since both builders map every implemented codec, so the shape is held against a
-	// value rather than against the table.
+	// No row needs one, both builders mapping every implemented codec,
+	// so the shape is held against a value rather than against the table.
 	oneEngine := Codec{
 		Name: "hypothetical",
 		Gaps: []Gap{{Engine: "gstreamer", Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB}},
@@ -264,8 +267,9 @@ func TestValidate(t *testing.T) {
 		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", "", 19, true},
 		{"unimplemented family", "ffmpeg", "hevc_v4l2m2m", "yuv420p", "cbr", "", 19, true},
 		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", "", 19, true},
-		// Planar RGB reaches every ffmpeg encoder and one GStreamer element, so a software row passes on
-		// one engine and fails on the other while the nvcodec HEVC row passes on both.
+		// Planar RGB reaches every ffmpeg encoder and one GStreamer element,
+		// so a software row passes on one engine and fails on the other,
+		// while the nvcodec HEVC row passes on both.
 		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", "", 19, false},
 		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "crf", "", 19, false},
 		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "crf", "", 19, true},
@@ -282,24 +286,25 @@ func TestValidate(t *testing.T) {
 		{"negative quantizer", "ffmpeg", "libx264", "yuv420p", "crf", "", -1, true},
 		// rav1e's quantizer counts to 255, the widest scale in the table.
 		{"rav1e quantizer at 200", "ffmpeg", "librav1e", "yuv420p", "crf", "", 200, false},
-		// The quantizer reaches the encoder in crf alone, so a stale value off another codec's scale must
-		// not block a bitrate mode.
+		// The quantizer reaches the encoder in crf alone,
+		// so a stale value off another codec's scale must not block a bitrate mode.
 		{"out-of-scale quantizer outside crf", "ffmpeg", "libx264", "yuv420p", "cbr", "", 60, false},
-		// VP8 codes nothing bit-exact on either engine; VP9's lossless is the ffmpeg engine's.
+		// VP8 codes nothing bit-exact on either engine.
+		// VP9's lossless is the ffmpeg engine's.
 		{"vp8 lossless", "ffmpeg", "libvpx", "yuv420p", "lossless", "", 19, true},
 		{"vp9 lossless over ffmpeg", "ffmpeg", "libvpx-vp9", "yuv444p", "lossless", "", 19, false},
 		{"vp9 lossless over gstreamer", "gstreamer", "libvpx-vp9", "yuv444p", "lossless", "", 19, true},
 		{"av1 lossless", "gstreamer", "libsvtav1", "yuv420p", "lossless", "", 19, true},
-		// No VAAPI encoder codes bit-exact, on either engine, while its bitrate and constant-quality
-		// modes are the drivers' own.
+		// No VAAPI encoder codes bit-exact, on either engine,
+		// while its bitrate and constant-quality modes are the drivers' own.
 		{"vaapi lossless over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "lossless", "", 19, true},
 		{"vaapi lossless over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "lossless", "", 19, true},
 		{"vaapi cbr", "ffmpeg", "h264_vaapi", "yuv420p", "cbr", "", 19, false},
 		// The VAAPI AV1 quantizer is a 0-255 index where its H.26x rows stop at 51.
 		{"vaapi av1 quantizer at 200", "ffmpeg", "av1_vaapi", "yuv420p", "crf", "", 200, false},
 		{"vaapi h264 quantizer at 200", "ffmpeg", "h264_vaapi", "yuv420p", "crf", "", 200, true},
-		// The va elements signal no colour description, so a full-range VAAPI stream reads as limited at
-		// every viewer.
+		// The va elements signal no colour description,
+		// so a full-range VAAPI stream reads as limited at every viewer.
 		// The same hardware reaches full range through the ffmpeg engine, which tags the frames.
 		{"vaapi full range over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "cbr", "pc", 19, true},
 		{"vaapi limited range over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "cbr", "tv", 19, false},
@@ -351,8 +356,8 @@ func TestValidateBitrateCeiling(t *testing.T) {
 	}
 }
 
-// Both numeric limits are read per engine, and a missing entry reads as zero, which both lookups
-// spell "no bound declared".
+// Both numeric limits are read per engine, and a missing entry reads as zero,
+// which both lookups spell "no bound declared".
 // A row naming one engine and not the other therefore validates unbounded on the engine it forgot:
 // a quantizer off the encoder's scale and a bitrate above its ceiling both reach the command,
 // and the refusal that should have named the value never fires.
@@ -384,10 +389,10 @@ func TestNumericLimitsCoverEveryEngineOrNone(t *testing.T) {
 	}
 }
 
-// A relay path reports its track's format and never the encoder that produced it, so the watch side
-// reads formats.
-// A format no implemented row produces must not answer, which is what keeps a stale relay snapshot
-// from narrowing a viewer's choice to nothing.
+// A relay path reports its track's format and never the encoder that produced it,
+// so the watch side reads formats.
+// A format no implemented row produces must not answer,
+// which is what keeps a stale relay snapshot from narrowing a viewer's choice to nothing.
 func TestHasFormat(t *testing.T) {
 	for _, format := range Formats() {
 		if !HasFormat(format) {
@@ -402,10 +407,10 @@ func TestHasFormat(t *testing.T) {
 	}
 }
 
-// The two picker axes address one row between them, so a format and an encoder name at most one
-// encode.
-// Two rows on one pair would leave the derivation picking whichever came first, and the settings
-// naming an encode nobody can address the other half of.
+// The two picker axes address one row between them,
+// so a format and an encoder name at most one encode.
+// Two rows on one pair would leave the derivation picking whichever came first,
+// and the settings naming an encode nobody can address the other half of.
 func TestFormatAndEncoderAddressOneRow(t *testing.T) {
 	seen := map[string]string{}
 	for _, c := range Codecs {
@@ -417,8 +422,8 @@ func TestFormatAndEncoderAddressOneRow(t *testing.T) {
 	}
 }
 
-// Every row is reachable through the pair the settings carry, or it is an encode the form offers and
-// no draft can name.
+// Every row is reachable through the pair the settings carry,
+// or it is an encode the form offers and no draft can name.
 func TestRowAnswersItsOwnPair(t *testing.T) {
 	for _, c := range Codecs {
 		row, ok := Row(c.Format, c.Encoder())

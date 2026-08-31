@@ -10,13 +10,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The device half of the GStreamer publish engine: where a run's frames reach the encoder,
-// and what the family's elements read, convert and encode them with once they are there.
+// The device half of the GStreamer publish engine: where a run's frames reach the encoder, and what
+// the family's elements read, convert and encode them with once they are there.
 //
-// gpupath.Paths declares which capture backend and encoder family have a device path at all,
-// and what it does to the colour.
-// The rows here are that table's engine half: the caps feature, the converter,
-// the layouts the family's device elements negotiate, and the element encoding from them.
+// gpupath.Paths declares which capture backend and encoder family have a device path at all, and
+// what it does to the colour.
+// The rows here are that table's engine half: the caps feature, the converter, the layouts
+// the family's device elements negotiate, and the element encoding from them.
 // The two halves are checked against each other, a pair with no half here being one no pipeline
 // reaches.
 
@@ -28,30 +28,30 @@ const gstSystemConvert = "videoconvert"
 //
 // Ahead and not after: the captured frames are RGB and the conversion produces the encoder's
 // subsampled layout, so scaling last would resample chroma already thrown away.
-// The device path needs no counterpart, vapostproc, d3d11convert and qsvvpp resizing as part of the
-// negotiation, so pinning the size on the encoder input is the whole of what asks them to.
+// The device path needs no counterpart, vapostproc, d3d11convert and qsvvpp resizing as part
+// of the negotiation, so pinning the size on the encoder input is the whole of what asks them to.
 const gstSystemScale = "videoscale"
 
 // gstGpuMemory is how one encoder family's elements read frames on the GPU path: the caps feature
-// its surfaces carry, and the element converting captured frames into them without leaving the
-// device.
+// its surfaces carry, and the element converting captured frames into them without leaving
+// the device.
 type gstGpuMemory struct {
 	feature string
 	convert string
 	// formats maps a settings chroma to the raw format the family's device elements negotiate,
 	// in the vocabulary gstFamilyChromaFormats uses for system memory.
-	// Its own mapping because a plugin's device elements are not its system ones,
-	// and stated on every row, so which layout a run pins follows from where its frames are rather
-	// than from a fallback that happens to hold.
+	// Its own mapping, a plugin's device elements not being its system ones, and stated on every row,
+	// so which layout a run pins follows from where its frames are rather than from a fallback
+	// that happens to hold.
 	formats map[string]string
 	// encoders maps a codec to the element encoding it from these surfaces, for a plugin shipping one
 	// element per memory kind.
-	// Empty for a family whose single element reads frames wherever they live,
-	// gstCodecs naming that element for both paths.
+	// Empty for a family whose single element reads frames wherever they live, gstCodecs naming
+	// that element for both paths.
 	encoders map[string]string
 	// upload moves system frames into this memory without converting them.
-	// No publish needs it, every backend with a row capturing on the device already;
-	// the encode probe does, generating its frames in system memory and having to reach the run's
+	// No publish needs it, every backend with a row capturing on the device already.
+	// The encode probe does, generating its frames in system memory and having to reach the run's
 	// encoder the way the run does.
 	// Empty where the converter takes system frames on its own sink pad.
 	upload string
@@ -59,20 +59,20 @@ type gstGpuMemory struct {
 
 // gstGpuMemories is the GPU path per encoder family, keyed as capabilities.Codecs names the family,
 // and the engine's half of the pairs gpupath.Paths declares.
-// A family with a row here and none there has no pipeline reaching it;
-// one with a row there and none here is a half-declared pair, which the builder asserts on.
+// A family with a row here and none there has no pipeline reaching it.
+// One with a row there and none here is a half-declared pair, which the builder asserts on.
 //
 // The va elements negotiate VASurface caps and take DMABuf on their sink pads.
 // vapostproc is the VA post-processor: it imports the portal's dmabuf, converts to the encoder's
 // semi-planar layout and applies the quantization range, all on the device.
-// One element per codec encodes out of either memory, so the row names none,
-// and vapostproc takes system frames on its sink pad, so nothing uploads into it.
+// One element per codec encodes out of either memory, so the row names none, and vapostproc takes
+// system frames on its sink pad, so nothing uploads into it.
 //
-// The nvcodec family reaches the device through Direct3D 11, which is what the Windows capture
-// backend hands out.
-// d3d11convert is the Direct3D post-processor: it takes the layout and the colorimetry off its
-// output caps and states them again downstream, so the colour contract holds there as it does on
-// vapostproc.
+// The nvcodec family reaches the device through Direct3D 11, what the Windows capture backend hands
+// out.
+// d3d11convert is the Direct3D post-processor: it takes the layout and the colorimetry off
+// its output caps and states them again downstream, so the colour contract holds there as it does
+// on vapostproc.
 // The auto-GPU elements read the result: nvh264enc and its siblings negotiate CUDA and D3D12 memory
 // and refuse D3D11, where the nvautogpu ones take D3D11, CUDA, GL and system memory alike.
 // They also take their adapter off the frames they are handed rather than opening a device of their
@@ -110,8 +110,8 @@ type gstFrameMemory struct {
 	// empty for system memory.
 	feature string
 	// convert turns captured frames into the encoder input, one element per entry.
-	// A chain rather than an element because a scaled run on the CPU needs two of them,
-	// and where the second one sits is this file's fact rather than the placing backend's.
+	// A chain rather than an element, a scaled run on the CPU needing two of them, and where
+	// the second one sits is this file's fact rather than the placing backend's.
 	convert []string
 	// upload is what a source of system frames needs ahead of convert, empty where the converter
 	// takes them itself (gstGpuMemory.upload).
@@ -159,8 +159,8 @@ func gstMemory(s settings.Settings) (gstFrameMemory, error) {
 // elements negotiate for frames arriving in this memory, and false for a family this engine has no
 // mapping for.
 //
-// The memory picks the mapping and exactly one applies, a family's device elements not being its
-// system ones.
+// The memory picks the mapping and exactly one applies, a family's device elements not being
+// its system ones.
 // Read as a fallback chain instead, both would apply on the device path and the layout a run codes
 // at would follow the order the two lookups are written in rather than where its frames are.
 func gstRawFormats(family, memory string) (map[string]string, bool) {
@@ -179,8 +179,7 @@ func gstRawFormats(family, memory string) (map[string]string, bool) {
 //
 // The nvcodec plugin needs it, shipping one encoder element per memory kind: which element a run
 // launches follows from where its frames are and not from the codec alone.
-// The rest of the encode is the shared base class's, which is why this answers with a name and
-// nothing more.
+// The rest of the encode is the shared base class's, so this answers with a name and nothing more.
 func gstDeviceEncoderElement(family, codec, memory string) (string, bool) {
 	if !gpupath.OnDevice(memory) {
 		return "", false

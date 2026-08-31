@@ -270,15 +270,15 @@ The minor version is informational: a lower minor works, a higher one may find a
 
 ## Fields the contract leads
 
-Defining the API first lets the contract name something the backend does not do yet.
+Defining the API first lets the contract name something the backend does not do.
 A control the shell invented is a lie on screen.
 A control the contract declares and the backend disables is a fact.
 A control the backend later implements needs no shell edit.
 
 `PublishSettings.output_resolution` is the case worth keeping.
-Declared before anything could honour it: both shells drew it, the Go pipeline had no scaling stage, and `ResolveForm` answered with the field disabled and that as its reason.
-The scaling stage landed (a `scale` filter on the ffmpeg software path, the size on the device conversion's own filter where frames never leave the GPU, `videoscale` plus a size on the encoder input caps for GStreamer), and the field became ordinary with nothing above the backend changed.
-One case survives as a greying: a pair whose device path carries no conversion at all, the encoder reading captured surfaces directly, has nothing that can resize, so the scaled entries grey with the frame memory named as the way across.
+A field the Go pipeline cannot honour is drawn by every shell all the same, `ResolveForm` answering it disabled with that as its reason, so the stage behind it lands with no shell edit.
+Scaling is a `scale` filter on the ffmpeg software path, the size on the device conversion's own filter where frames never leave the GPU, and `videoscale` plus a size on the encoder input caps for GStreamer.
+One pair stays greyed: a device path with no conversion at all, the encoder reading captured surfaces directly, has nothing that can resize, so the scaled entries grey with the frame memory named as the way across.
 
 ## What each side owes
 

@@ -26,30 +26,28 @@ import (
 // The control contract's place in this process: the adapter the service reads and acts through, and
 // the start and stop that fit it into the process lifecycle.
 //
-// The adapter exists because the contract's shapes and the app's are not one, and neither is wrong:
-// the contract names a decode with a wire.StreamRef where the app takes a stream and a leg, and
-// nests the publish state where the app holds it flat.
-// Reconciling them here keeps the app free of the contract's shapes and the contract free of the
-// app's, in one file rather than spread over the methods that would carry it.
+// The adapter reconciles two shapes: the contract names a decode with a wire.StreamRef where the app
+// takes a stream and a leg, and nests the publish state where the app holds it flat.
+// Reconciling them in one file keeps the app free of the contract's shapes,
+// and the contract free of the app's.
 //
 // Nothing here decides anything.
-// Every method reads through or forwards, because a decision made in an adapter is a decision the
-// surface it adapts does not have.
+// Every method reads through or forwards: a decision made in an adapter is one the surface it adapts
+// does not have.
 
 // controlBackend serves the control contract off one app.
 //
-// It holds the app and nothing else.
-// Every answer is read through on the call that asks for it, which is what keeps the picture a
-// shell draws and the state this process holds from drifting apart.
+// Every answer is read through on the call that asks for it,
+// so the picture a shell draws and the state this process holds cannot drift apart.
 //
-// The adapter methods below state no preconditions of their own, which is the shape rather than an
-// omission: each forwards, so the contract belongs to what it forwards to, and asserting the same
-// thing twice would put a second answer beside it.
+// The adapter methods below state no preconditions of their own:
+// each forwards, so the contract belongs to what it forwards to,
+// and asserting the same thing twice would put a second answer beside it.
 // The one condition they all rest on is the app they hold, set where the adapter is built.
 type controlBackend struct{ app *App }
 
-// Checked at the type rather than at the one call site, so a method that drifts out of shape fails
-// at compile time instead of inside a lifecycle hook.
+// Checked at the type rather than at the one call site,
+// so a method drifting out of shape fails at compile time instead of inside a lifecycle hook.
 var _ control.Backend = controlBackend{}
 
 // --- Reads ---
@@ -77,24 +75,23 @@ func (b controlBackend) PublishState() wire.PublishSnapshot {
 func (b controlBackend) RelayStatus() relay.Status { return b.app.lastRelayStatus() }
 
 // Watching carries the open viewers into the contract's shape through the conversion the viewer
-// state event already uses.
-// A second conversion would be a second answer to "which viewers are open", and the read and the
-// event would drift apart on it.
+// state event uses.
+// A second conversion would be a second answer to "which viewers are open",
+// and the read and the event would drift apart on it.
 func (b controlBackend) Watching() []wire.StreamRef { return b.app.watchRefs() }
 
 func (b controlBackend) TestStreamState() (int, []wire.TestStreamSlot) {
 	return b.app.TestStreamState()
 }
 
-// MembersState carries the presence loop's last reading, which is the one place a shell learns the
-// group from: the read and the event are the same snapshot.
+// MembersState carries the presence loop's last reading, the one place a shell learns the group
+// from: the read and the event are the same snapshot.
 func (b controlBackend) MembersState() wire.MembersSnapshot { return b.app.MembersState() }
 
-// MaxTestStreams is the bound StartTestStreams enforces, read rather than discovered by asking for
-// too much.
-// The contract refuses an over-large request above the call, with the code it names for a bounded
-// resource, and a bound only an error could reveal would leave a saturated machine and a missing
-// binary indistinguishable.
+// MaxTestStreams is the bound StartTestStreams enforces,
+// read rather than discovered by asking for too much.
+// A bound only an error could reveal would leave a saturated machine and a missing binary
+// indistinguishable.
 func (b controlBackend) MaxTestStreams() int { return maxTestStreams }
 
 // --- Measurements ---
@@ -203,28 +200,26 @@ func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder
 // publishSnapshot carries the publish state from this package's flat shape to the contract's nested
 // one.
 //
-// It lives here rather than in wire because the shape it starts from is this package's: a
-// conversion package that knew PublishState would make the contract depend on the surface it is
-// meant to be independent of.
+// Here rather than in wire: a conversion package that knew PublishState would make the contract
+// depend on the surface it is meant to be independent of.
 //
-// Past this function the flat form's booleans can no longer state something the rules forbid.
+// Past this function the flat form's booleans cannot state what the rules forbid.
 // "A running stream has settings", "an attempt belongs to a retry" and "a retry belongs to a stream
-// the user has not stopped" are all nil pointers on the far side rather than invariants somebody
-// has to assert, and the producer states them as a postcondition where the flat state is built
-// (GetPublishState), which is the one place that still can.
+// the user has not stopped" are nil pointers on the far side rather than invariants somebody asserts,
+// and GetPublishState states them as a postcondition where the flat state is built.
 //
-// A flat state that is publishing with no settings is that postcondition already broken, and it
-// converts to an idle snapshot rather than to a live one with nothing in it: the contract holds a
-// live stream to carrying what it was built from, and a shell drawing a stream configured entirely
-// wrong is worse than one drawing none.
+// A flat state that is publishing with no settings is that postcondition broken,
+// and it converts to an idle snapshot rather than to a live one with nothing in it:
+// the contract holds a live stream to carrying what it was built from,
+// and a shell drawing a stream configured entirely wrong is worse than one drawing none.
 func publishSnapshot(state PublishState) wire.PublishSnapshot {
 	if !state.Publishing || state.Settings == nil {
 		return wire.PublishSnapshot{}
 	}
 
 	live := &wire.LiveSnapshot{Settings: *state.Settings, Pending: state.Pending, Preview: state.Preview}
-	// Read off the settings the pipeline was built from, so the figure crossing is the one this
-	// encoder is holding rather than one a later edit put in the form.
+	// Read off the settings the pipeline was built from, so the figure crossing is the one the encoder
+	// holds rather than one a later edit put in the form.
 	if ceiling, bounded := publish.RateCeilingMbps(*state.Settings); bounded {
 		live.RateCeilingMbps = &ceiling
 	}
@@ -241,13 +236,12 @@ func publishSnapshot(state PublishState) wire.PublishSnapshot {
 
 // startControl serves the control contract on this platform's local socket.
 //
-// Idempotent, stated by the sync.Once, the way Service.Stop states it at the other end of the
-// lifecycle.
+// Idempotent through the sync.Once, the way Service.Stop is at the other end of the lifecycle.
 // One process can hold the socket's name, so a second call while a service is opening or serving
 // does nothing rather than failing to take a name this process already holds.
 //
-// Nothing about it is waited for: the listen and the serve both run on a goroutine of their own, so
-// the caller reaches the rest of the boot at its own speed.
+// Nothing is waited for: listen and serve both run on a goroutine of their own, so the caller reaches
+// the rest of the boot at its own speed.
 func (a *App) startControl() {
 	a.controlOnce.Do(func() { go a.serveControl() })
 }
@@ -255,15 +249,14 @@ func (a *App) startControl() {
 // serveControl opens the endpoint and keeps the service it produced.
 //
 // An endpoint another backend holds ends this process, through fail.
-// The endpoint is the whole discovery mechanism, so nothing would ever reach this backend: it would
-// go on running the boot work, the relay poll and the synthetic set, against the same relay as the
-// backend the shells are talking to, and it is this one's log a reader opens first.
-// The shell survives the exit: it starts a backend only after a connect failed, and the endpoint it
-// then waits for is served by the instance that was there first (Backend/BackendProcess.cs).
+// The endpoint is the whole discovery mechanism, so nothing would reach this backend:
+// it would go on running the boot work, the relay poll and the synthetic set against the same relay
+// as the backend the shells are talking to, and it is this one's log a reader opens first.
+// The shell survives the exit: it starts a backend only after a connect failed,
+// and waits on the endpoint the instance that was there first serves (Backend/BackendProcess.cs).
 //
 // Every other reason the endpoint will not open is an Umgebungsfehler that leaves this process
-// running, on serve.go's reasoning: a backend keeps capturing and publishing with no shell
-// attached.
+// running, on serve.go's reasoning: a backend keeps capturing and publishing with no shell attached.
 func (a *App) serveControl() {
 	assert.IsNotNil(a.events, "a served contract announces through a broker")
 	assert.Assert(a.version != "", "a served contract names the build behind it")
@@ -287,8 +280,8 @@ func (a *App) serveControl() {
 	a.controlMu.Unlock()
 
 	if stopped {
-		// The shutdown ran while the socket was still opening and found nothing to stop, so what it
-		// would have stopped is stopped here rather than left serving a process on its way out.
+		// The shutdown ran while the socket was still opening and found nothing to stop,
+		// so it is stopped here rather than left serving a process on its way out.
 		service.Stop()
 	}
 }
@@ -298,8 +291,8 @@ func (a *App) serveControl() {
 // Idempotent on every path into it.
 // The handle is taken out before it is stopped, so a second call finds none.
 // Service.Stop is a sync.Once of its own, so a handle stopped elsewhere is not stopped twice.
-// The flag covers the shutdown that runs while the socket is still opening, where there is nothing
-// to stop yet and something to stop a moment later (serveControl).
+// The flag covers the shutdown that runs while the socket is still opening, with nothing to stop yet
+// and something to stop a moment later (serveControl).
 func (a *App) stopControl() {
 	a.controlMu.Lock()
 	service := a.control

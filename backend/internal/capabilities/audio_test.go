@@ -9,8 +9,9 @@ import (
 
 // An engine either codes an audio codec or states why it cannot, never both and never neither.
 // Neither is what ValidateAudio asserts on: a refusal with no gap has no missing element to name.
-// Both is a row that puts the codec out of reach on an engine and hands that engine's builder an
-// element anyway, which codes a track with an element the running engine does not have.
+// Both is a row that puts the codec out of reach on an engine,
+// and hands that engine's builder an element anyway,
+// which codes a track with an element the running engine does not have.
 func TestEveryAudioCodecStatesAnEncoderOrAGapPerEngine(t *testing.T) {
 	for _, a := range AudioCodecs {
 		for _, engine := range Engines {
@@ -24,8 +25,9 @@ func TestEveryAudioCodecStatesAnEncoderOrAGapPerEngine(t *testing.T) {
 	}
 }
 
-// An entry naming an engine no lookup is made with is never found, so the codec reads as uncoded on
-// the engine that does code it and the refusal that follows asserts on a gap that is not there.
+// An entry naming an engine no lookup is made with is never found,
+// so the codec reads as uncoded on the engine that does code it,
+// and the refusal that follows asserts on a gap that is not there.
 func TestEveryAudioEncoderNamesAKnownEngine(t *testing.T) {
 	for _, a := range AudioCodecs {
 		for _, e := range a.Encoders {
@@ -39,10 +41,10 @@ func TestEveryAudioEncoderNamesAKnownEngine(t *testing.T) {
 	}
 }
 
-// A GStreamer muxer pad negotiates framed caps and an encoder's output does not carry them, so
-// every entry on that engine states the parser the audio branch puts between the two.
-// The ffmpeg muxers take the encoder's packets directly, so a parser named there is an element name
-// no builder reads.
+// A GStreamer muxer pad negotiates framed caps and an encoder's output does not carry them,
+// so every entry on that engine states the parser the audio branch puts between the two.
+// The ffmpeg muxers take the encoder's packets directly,
+// so a parser named there is an element name no builder reads.
 func TestParsersFollowTheEngine(t *testing.T) {
 	for _, a := range AudioCodecs {
 		if enc, ok := a.EncoderOn(EngineGst); ok && enc.Parser == "" {
@@ -56,8 +58,8 @@ func TestParsersFollowTheEngine(t *testing.T) {
 	}
 }
 
-// The rate and the bitrate ride into both builders' commands verbatim, so a row leaving one out
-// sends "-ar 0" and "rate=0".
+// The rate and the bitrate ride into both builders' commands verbatim,
+// so a row leaving one out sends "-ar 0" and "rate=0".
 func TestEveryAudioCodecStatesARateAndABitrate(t *testing.T) {
 	for _, a := range AudioCodecs {
 		if a.Name == "" || a.Format == "" {
@@ -88,8 +90,8 @@ func TestAudioNoneIsNotARow(t *testing.T) {
 	}
 }
 
-// ValidateAudio answers for the engine that is running: an unknown codec is refused, and a codec
-// the table carries passes on every engine that codes it.
+// ValidateAudio answers for the engine that is running:
+// an unknown codec is refused, and a codec the table carries passes on every engine that codes it.
 func TestValidateAudio(t *testing.T) {
 	for _, engine := range Engines {
 		if err := ValidateAudio(engine, "mp3"); err == nil {
@@ -106,8 +108,8 @@ func TestValidateAudio(t *testing.T) {
 	}
 }
 
-// A refusal points at the codecs that would have worked on the engine that is running and the leg
-// it publishes over, so the roster is narrowed by both.
+// A refusal points at the codecs that would have worked on the engine that is running,
+// and the leg it publishes over, so the roster is narrowed by both.
 // A codec the engine cannot code and one the carriage does not hold are equally useless as advice.
 func TestAudioNamesForNarrowsByEngineAndCarriage(t *testing.T) {
 	if got := AudioNamesFor(EngineFfmpeg, []string{"opus"}); !slices.Equal(got, []string{"opus"}) {
@@ -130,8 +132,8 @@ func TestAudioNamesForNarrowsByEngineAndCarriage(t *testing.T) {
 	}
 }
 
-// A gap's reason is what a surface reads out, so an unset one leaves a sentence naming no missing
-// element.
+// A gap's reason is what a surface reads out,
+// so an unset one leaves a sentence naming no missing element.
 func TestEveryAudioGapStatesAReasonAndAKnownEngine(t *testing.T) {
 	for _, a := range AudioCodecs {
 		for _, g := range a.Gaps {
@@ -141,8 +143,9 @@ func TestEveryAudioGapStatesAReasonAndAKnownEngine(t *testing.T) {
 			if g.Reason == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 				t.Errorf("audio codec %s has a gap on engine %q with no reason", a.Name, g.Engine)
 			}
-			// Every gappable option is a video one and EngineGap matches on the engine alone, so a gap
-			// naming an option takes the codec off that engine while reading as if it withheld one value.
+			// Every gappable option is a video one and EngineGap matches on the engine alone,
+			// so a gap naming an option takes the codec off that engine,
+			// while reading as if it withheld one value.
 			if g.Option != "" || g.Value != "" {
 				t.Errorf("audio codec %s has a gap on option %q value %q, which binds engine-wide anyway",
 					a.Name, g.Option, g.Value)

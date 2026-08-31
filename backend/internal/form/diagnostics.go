@@ -30,20 +30,19 @@ var warningAnchors = []string{
 	KeyOutputResolution,
 }
 
-// diagnostics is everything worth saying about one draft, ranked, and derived on every resolve
-// rather than held.
+// diagnostics is everything worth saying about one draft, ranked,
+// and derived on every resolve rather than held.
 //
 // The rank is the backend's judgement and not a shell's.
 // An error means the settings cannot be published as they stand, and turns Form.publishable false;
 // a warning means the stream runs and something about it is likely to disappoint;
 // an info is worth knowing.
-// Within a rank the order is the gathering order below,
-// which runs from what refuses the publish outward to what only describes it.
+// Within a rank the order is the gathering order below, which runs from what refuses the publish
+// outward to what only describes it.
 //
 // No refusal is restated here.
-// publish.Command runs every check a publish is refused for,
-// on whichever engine owns the selected capture backend,
-// so its failure is the one authority on whether these settings can run.
+// publish.Command runs every check a publish is refused for, on whichever engine owns the selected
+// capture backend, so its failure is the one authority on whether these settings can run.
 // A second evaluation here would enable the start button on settings the publish refuses,
 // the first time an engine gained a check this package did not know about.
 func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
@@ -52,8 +51,8 @@ func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*sc
 	// The refusal itself is prose and rides on Summary.command_error;
 	// the diagnostic states only that there is one.
 	// It is an operational failure rather than a fact about the domain,
-	// and the same text crosses as a gRPC status once the publish is attempted
-	// (docs/ipc-api.md, "Errors").
+	// and the same text crosses as a gRPC status once
+	// the publish is attempted (docs/ipc-api.md, "Errors").
 	if _, reason := formCommand(s); reason != "" {
 		out = append(out, diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, "", say(publishRefused)))
 	}
@@ -89,22 +88,22 @@ func diagnosticFor(severity screensharev1.Severity, fieldKey string, t *screensh
 // so a row holds the anchor alone.
 //
 // A mode absent from the table has no burst above its prediction,
-// which is what estimateSpread answers for it.
+// the answer estimateSpread gives for it.
 var warningPeaks = map[string]string{
 	capabilities.ModeCrf:      KeyCq,
 	capabilities.ModeLossless: KeyMode,
 	capabilities.ModeVbr:      KeyMaxrateM,
 }
 
-// diagnosticsAboutTheAudience says who will be able to watch, where that is more than the people
-// the user handed a key to.
+// diagnosticsAboutTheAudience says who will be able to watch,
+// where that is more than the people the user handed a key to.
 //
-// A warning and never a refusal: publishing without a group is a choice this app carries out, and
-// the stream is authenticated and encrypted either way (docs/network-architecture.md).
+// A warning and never a refusal: publishing without a group is a choice this app carries out,
+// and the stream is authenticated and encrypted either way (docs/network-architecture.md).
 // What it is not is private, and that is the one thing nothing else on the screen says.
 //
-// Only on a relay somebody named, an unnamed one having no service to draw a group from and no
-// prefix to publish under either.
+// Only on a relay somebody named, an unnamed one having no service to draw a group
+// from and no prefix to publish under either.
 func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
 	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.GroupKey != "" {
 		return nil
@@ -116,9 +115,8 @@ func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnosti
 
 // diagnosticsAboutTheLine holds the prediction against the uplink the user stated, both Mbit/s.
 //
-// Neither end of this failure announces itself:
-// a stream the line cannot carry is not encoded smaller, the send queue grows,
-// the transport drops what it cannot ship,
+// Neither end of this failure announces itself: a stream the line cannot carry is not encoded
+// smaller, the send queue grows, the transport drops what it cannot ship,
 // and the viewer sees a stall rather than a lower quality.
 func diagnosticsAboutTheLine(s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
 	if s.Publish.UplinkMbps <= 0 {
@@ -167,8 +165,8 @@ func diagnosticsAboutTheCapture(d Deps, s settings.Settings) []*screensharev1.Di
 			say(fpsAboveRefresh, argFps(s.Publish.Fps), argRefreshHz(m.RefreshHz))))
 	}
 
-	// An engine whose own tooling is missing was never probed,
-	// so no codec on it carries a verdict and nothing greys for being absent from this machine.
+	// An engine whose own tooling is missing was never probed, so no codec on it carries a verdict
+	// and nothing greys for being absent from this machine.
 	// The form then looks unrestricted and the failure moves from a greyed option to the launch.
 	if engine, err := publish.EngineFor(s.Publish.Capture); err == nil {
 		if _, unprobed := d.Encoders.Unprobed[engine]; unprobed {
@@ -182,8 +180,8 @@ func diagnosticsAboutTheCapture(d Deps, s settings.Settings) []*screensharev1.Di
 
 // diagnosticsAboutTheViewer says what the pixel format costs the people watching.
 //
-// Which families decode a codec and chroma pair is capabilities.Decoders' answer, read rather than
-// restated, and the statement carries the pair it was read for.
+// Which families decode a codec and chroma pair is capabilities.Decoders' answer,
+// read rather than restated, and the statement carries the pair it was read for.
 //
 // It is a cost and never an error.
 // Every format has a software decoder, so no stream is undecodable,
@@ -197,8 +195,8 @@ func diagnosticsAboutTheViewer(s settings.Settings) []*screensharev1.Diagnostic 
 	}
 	format := decode.Software.Format
 
-	// The families that miss this pair differ in vendor and not in substance,
-	// so one is named and the rest counted.
+	// The families that miss this pair differ in vendor
+	// and not in substance, so one is named and the rest counted.
 	// Listing all of them would be longer than the verdict they agree on.
 	limited, others := "", 0
 	if len(decode.Missing) > 0 {

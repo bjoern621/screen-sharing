@@ -13,9 +13,8 @@ import (
 )
 
 // Groups is the membership one scrape reads.
-//
-// An interface rather than the registry, which is what lets a scrape be tested without a relay
-// behind it, the same seam the registry itself takes its relay through.
+// An interface rather than the registry, so a scrape is tested without a relay behind it,
+// the same seam the registry itself takes its relay through.
 type Groups interface {
 	Read() []membership.Reading
 	Tallies() membership.Tallies
@@ -40,14 +39,13 @@ func NewExporter(groups Groups, tokens Tokens) *Exporter {
 }
 
 // Handler answers one scrape.
-//
-// A read of both owners and nothing else, so a scrape that never comes costs nothing and one that
-// comes twice reads the same registry twice.
+// A read of both owners and nothing else,
+// so a scrape that never comes costs nothing and one that comes twice reads the same registry twice.
 func (e *Exporter) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		// A failed write is the scrape going away mid-answer, which is the collector's business and
-		// not a condition this process acts on.
+		// A failed write is the scrape going away mid-answer,
+		// the collector's business and not a condition this process acts on.
 		if err := Render(w, e.Families()); err != nil {
 			logger.Warnf("a scrape stopped reading part way through: %v", err)
 		}
@@ -55,9 +53,8 @@ func (e *Exporter) Handler() http.Handler {
 }
 
 // Families is everything one scrape carries, derived when it is asked for.
-//
-// Every family is declared whether or not anything holds a sample of it, so a consumer can tell a
-// metric nothing holds from one this build does not export.
+// Every family is declared whether or not anything holds a sample of it,
+// so a consumer can tell a metric nothing holds from one this build does not export.
 func (e *Exporter) Families() []Family {
 	read := e.groups.Read()
 	held := e.groups.Tallies()
@@ -80,7 +77,7 @@ func (e *Exporter) Families() []Family {
 		Type: Gauge,
 	}
 	// One series per member, which is what answers who is here.
-	// The name is the one the member claimed and the id it is known by at the relay is not carried:
+	// The name is the one the member claimed, and the relay's id for them is not carried:
 	// a scrape says who, and an id a keyed digest derives says nothing a reader of this can use.
 	live := Family{
 		Name: "groupd_member_live",
@@ -147,9 +144,8 @@ func counter(name, help string, count int64) Family {
 }
 
 // keyed is a family carrying one reading per key, in one order.
-//
-// Sorted rather than ranged over: a map is read in no order, and a scrape whose lines move between
-// reads is one nobody can diff.
+// Sorted rather than ranged over: a map is read in no order,
+// and a scrape whose lines move between reads is one nobody can diff.
 func keyed(name, help, label string, counts map[string]int64) Family {
 	family := Family{Name: name, Help: help, Type: Counter}
 	for _, key := range slices.Sorted(maps.Keys(counts)) {

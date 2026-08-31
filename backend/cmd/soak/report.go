@@ -14,8 +14,8 @@ import (
 
 // One thing the probe found, as the line a triage pass reads.
 //
-// Kind is what failed, and the signature is what makes two runs of the same defect one entry: a
-// soak reporting the same greying ten thousand times reports nothing.
+// Kind is what failed, and the signature is what makes two runs of the same defect one entry:
+// a soak reporting the same greying ten thousand times reports nothing.
 type finding struct {
 	At        string            `json:"at"`
 	Kind      string            `json:"kind"`
@@ -69,8 +69,8 @@ func (r *reporter) pass() {
 	r.mu.Unlock()
 }
 
-// report writes a finding, unless this signature has already been written enough times to make the
-// point.
+// report writes a finding,
+// unless this signature has already been written enough times to make the point.
 func (r *reporter) report(kind, signature, detail string, fields map[string]string, settings proto.Message) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

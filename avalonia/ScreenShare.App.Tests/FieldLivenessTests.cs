@@ -7,9 +7,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// What a control costs to change while people are watching.
-/// Liveness moves with the engine, the codec and the rate-control mode, so the backend answers it per control
-/// and the shell repeats that answer (docs/ipc-api.md, "The rule").
-/// A list of live keys held here would promise a reconnect-free edit after the backend stopped delivering one.
+/// Liveness moves with the engine, the codec and the rate-control mode,
+/// so the backend answers it per control and the shell repeats that answer (<c>docs/ipc-api.md</c>, "The rule").
+/// A list of live keys held here promises a reconnect-free edit the backend does not deliver.
 /// </summary>
 public sealed class FieldLivenessTests
 {
@@ -45,7 +45,7 @@ public sealed class FieldLivenessTests
         Assert.False(Rendered(false).AppliesLive);
     }
 
-    /// <summary>A mode that sends the encoder no rate takes liveness off a control that had it.</summary>
+    /// <summary>A mode that sends the encoder no rate takes liveness off a control carrying it.</summary>
     [Fact]
     public void ASecondPassTakesTheFlagBack()
     {

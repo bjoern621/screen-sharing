@@ -7,8 +7,8 @@ namespace ScreenShare.App.Features.Setup.Model;
 public sealed record SetupStepRow
 {
     /// <summary>
-    /// Resolved form's group this step draws, or <see cref="SetupSteps.ShareKey"/> on the terminal step, which
-    /// draws none.
+    /// Resolved form's group this step draws, or <see cref="SetupSteps.ShareKey"/> on the terminal step,
+    /// which draws none.
     /// </summary>
     public required string Key { get; init; }
 
@@ -24,21 +24,21 @@ public sealed record SetupStepRow
 /// <summary>
 /// Steps of one publish setup, derived from the form the backend answered with.
 ///
-/// <b>The list is not written down here.</b> Which steps exist is which groups the form carries, so a group added
-/// to the contract is a step that appears with nothing here to edit, and one renamed leaves no hole
-/// (docs/ipc-api.md, "The rule").
+/// <b>The list is not written down here.</b>
+/// Which steps exist is which groups the form carries,
+/// so a group added to the contract is a step that appears with nothing here to edit, and one renamed leaves no hole
+/// (<c>docs/ipc-api.md</c>, "The rule").
 ///
 /// What the shell owns is placement: the order is the form's, one group is drawn by a layout of its own
-/// (<see cref="QualityLayout"/>), one by another destination entirely
-/// (<see cref="Fields.Model.GroupPlacement"/>, applied by the caller), and the terminal step is appended,
-/// committing not being a group of settings.
+/// (<see cref="QualityLayout"/>), one by another destination entirely (<see cref="Fields.Model.GroupPlacement"/>,
+/// applied by the caller), and the terminal step is appended, committing not being a group of settings.
 /// </summary>
 public static class SetupSteps
 {
     /// <summary>
     /// Terminal step's key, not a group key and never colliding with one.
-    /// <see cref="For"/> asserts it: a backend growing a group under this name would otherwise produce two steps
-    /// claiming one identity.
+    /// <see cref="For"/> asserts it:
+    /// a backend growing a group under this name would otherwise produce two steps claiming one identity.
     /// </summary>
     public const string ShareKey = "share";
 
@@ -47,8 +47,8 @@ public static class SetupSteps
     /// <summary>
     /// Steps for one resolved form: a step per group in the form's order, then the terminal one.
     /// Empty for a form that has not arrived.
-    /// A strip naming steps nothing has described would be the shell asserting a shape it was not told, and the
-    /// sentence saying why there is no form is already above the column.
+    /// A strip naming steps nothing has described would be the shell asserting a shape it was not told,
+    /// and the sentence saying why there is no form is already above the column.
     /// </summary>
     public static IReadOnlyList<SetupStepRow> For(IReadOnlyList<FieldGroup> groups)
     {
@@ -67,8 +67,8 @@ public static class SetupSteps
             {
                 Key = group.Key,
                 Number = rows.Count + 1,
-                // The backend names the group and this side names the step: the chip has a width the contract
-                // cannot see.
+                // The backend names the group and this side names the step:
+                // the chip has a width the contract cannot see.
                 Label = Copy.Fields.Group(group.Key).Title,
             });
         }

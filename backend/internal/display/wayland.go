@@ -12,12 +12,11 @@ import (
 )
 
 // listWayland enumerates monitors under a Wayland session.
-// The protocols the query tools speak are per-family extensions rather than one interface spanning
-// the compositors, so each family needs a probe of its own and the first that reports a monitor
-// wins.
+// The protocols the query tools speak are per-family extensions rather than one interface,
+// so each family needs a probe of its own and the first that reports a monitor wins.
 //
-// A compositor no probe covers, GNOME and KDE among them, answers nil and leaves the caller its X11
-// (XWayland) fallback or the placeholder.
+// A compositor no probe covers, GNOME and KDE among them, answers nil,
+// leaving the caller its X11 (XWayland) fallback or the placeholder.
 func listWayland() []Monitor {
 	for _, enumerate := range []func() []Monitor{listHyprland, listWlrRandr} {
 		if monitors := enumerate(); len(monitors) > 0 {
@@ -51,8 +50,8 @@ func listHyprland() []Monitor {
 	for i, r := range raw {
 		monitors[i] = Monitor{
 			Index: i,
-			// Hyprland's width and height are the mode's pixel count, not the fractionally scaled logical
-			// size, which is the number crop-based capture needs.
+			// Mode's pixel count, not the fractionally scaled logical size.
+			// Crop-based capture needs the pixel count.
 			Width:   r.Width,
 			Height:  r.Height,
 			OffsetX: r.X,
@@ -73,9 +72,10 @@ var wlrModeRe = regexp.MustCompile(`(\d+)x(\d+) px,\s*([\d.]+) Hz(?:\s*\(([^)]*)
 
 // wlrModeHasFlag reports whether flags, the list a mode line ends with, carries name.
 //
-// Split rather than matched whole: wlr-randr prints one parenthesised group per mode and puts both
-// flags in it, so a mode that is preferred and active reads "(preferred, current)" and a pattern
-// looking for "(current)" misses the active mode of every output sitting on its preferred one.
+// Split rather than matched whole:
+// wlr-randr puts both flags in one parenthesised group per mode,
+// so a preferred and active mode reads "(preferred, current)",
+// and a pattern looking for "(current)" misses it.
 func wlrModeHasFlag(flags, name string) bool {
 	for _, flag := range strings.Split(flags, ",") {
 		if strings.TrimSpace(flag) == name {
@@ -86,18 +86,20 @@ func wlrModeHasFlag(flags, name string) bool {
 }
 
 // wlrPositionRe matches a wlr-randr position line: "Position: -1920,0".
-// An output left of or above the layout origin sits at a negative coordinate, and a pattern
-// refusing the sign leaves that output at 0,0 for crop-based capture to grab the wrong rectangle.
+// An output left of or above the layout origin sits at a negative coordinate,
+// and a pattern refusing the sign leaves it at 0,0,
+// so crop-based capture grabs the wrong rectangle.
 var wlrPositionRe = regexp.MustCompile(`Position:\s*(-?\d+),(-?\d+)`)
 
 // listWlrRandr parses "wlr-randr", which covers the wlroots compositors, Sway among them.
-// An output header starts at column 0 and that output's mode, refresh rate and position follow on
-// indented lines.
-// Only an output with an active mode is kept, and the survivors are renumbered so Index runs
-// contiguously from zero.
+// An output header starts at column 0,
+// and that output's mode, refresh rate and position follow on indented lines.
+// Only an output with an active mode is kept,
+// and the survivors are renumbered so Index runs contiguously from zero.
 //
-// The listing is nil where wlr-randr is not installed and where the compositor implements none of
-// the output-management protocol it queries, both of them the same absence to a caller.
+// nil where wlr-randr is not installed,
+// and where the compositor implements none of the output-management protocol it queries,
+// both of them the same absence to a caller.
 func listWlrRandr() []Monitor {
 	out, err := exec.Command("wlr-randr").Output()
 	if err != nil {

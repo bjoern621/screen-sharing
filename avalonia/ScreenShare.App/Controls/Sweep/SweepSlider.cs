@@ -10,20 +10,20 @@ namespace ScreenShare.App.Controls;
 /// <summary>
 /// Slider that says when the reader has its thumb.
 ///
-/// A sweep writes a value per pointer move, and each of them is a configuration passed through on the way to
-/// the one the reader stops on.
-/// Whoever holds the draft reads <see cref="Sweeping"/> to take the values and ask about the last of them
-/// (<c>Backend/FormSession.cs</c>, <c>docs/settings-editing.md</c>).
+/// A sweep writes a value per pointer move,
+/// and each of them is a configuration passed through on the way to the one the reader stops on.
+/// Whoever holds the draft reads <see cref="Sweeping"/> to take the values
+/// and ask about the last of them (<c>Backend/FormSession.cs</c>, <c>docs/settings-editing.md</c>).
 ///
-/// The look is the plain slider's: this adds a reading and no chrome, so it takes the theme keyed on
-/// <see cref="Slider"/> rather than carrying one of its own.
+/// The look is the plain slider's: this adds a reading and no chrome,
+/// so it takes the theme keyed on <see cref="Slider"/> rather than carrying one of its own.
 /// </summary>
 public sealed class SweepSlider : Slider
 {
     /// <summary>
     /// True from taking the thumb to letting it go.
-    /// Bound onto a view model rather than read off this control, the gesture being the view's to know and the
-    /// draft somebody else's to hold.
+    /// Bound onto a view model rather than read off this control, the gesture being the view's to know
+    /// and the draft somebody else's to hold.
     /// </summary>
     public static readonly DirectProperty<SweepSlider, bool> SweepingProperty =
         AvaloniaProperty.RegisterDirect<SweepSlider, bool>(

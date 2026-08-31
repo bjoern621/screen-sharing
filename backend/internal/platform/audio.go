@@ -13,46 +13,50 @@ import (
 // The second-track capture sources, and what each platform serves them with.
 //
 // Which sources exist is the platform's answer.
-// What the track is coded in is the publish engine's and the publish leg's, and lives beside the
-// audio codec table, which is why the two are separate settings against separate tables
+// What the track is coded in is the publish engine's and the publish leg's,
+// and lives beside the audio codec table,
+// so the two are separate settings against separate tables
 // (docs/ipc-api.md, Catalog.audio_sources).
 //
 // What each platform serves is read off the two publish engines rather than invented here.
 // On a PulseAudio or PipeWire session both open desktop audio as the monitor of the default sink,
 // ffmpeg through "-f pulse -i" (ffmpeg/args.go) and GStreamer through "pulsesrc device="
 // (publish/gstpipeline.go), both passing AudioMonitorDevice.
-// On Windows the GStreamer engine opens the default render device's loopback and ffmpeg has no
-// WASAPI input at all, which is an engine's answer rather than a platform's and is stated where the
-// capture backends are (publish.AudioAvailable).
+// On Windows the GStreamer engine opens the default render device's loopback,
+// and ffmpeg has no WASAPI input at all,
+// an engine's answer rather than a platform's,
+// stated where the capture backends are (publish.AudioAvailable).
 // macOS serves none: reading what it plays means a CoreAudio process tap or ScreenCaptureKit audio,
 // and neither engine has an element for either.
 //
 // Nothing here touches the machine.
 // A source is declared rather than enumerated,
 // so a lookup is a table read and a form may resolve on every keystroke.
-// An enumeration is cached for the process lifetime and read back separately, the way
-// control.Backend.Encoders and CachedEncoders divide the probing read from the resolving one.
+// An enumeration is cached for the process lifetime and read back separately,
+// the way control.Backend.Encoders and CachedEncoders divide the probing read from the resolving one.
 const (
 	// AudioSourceNone captures no second track.
 	AudioSourceNone = "none"
-	// AudioSourceDesktop is everything the machine plays: the monitor of the default output on a
-	// PulseAudio or PipeWire session, and the loopback of the default render device on Windows.
+	// AudioSourceDesktop is everything the machine plays:
+	// the monitor of the default output on a PulseAudio or PipeWire session,
+	// and the loopback of the default render device on Windows.
 	AudioSourceDesktop = "desktop"
-	// AudioSourceApplication is one running program's own output, for a stream carrying the game and
-	// not the call about it.
+	// AudioSourceApplication is one running program's own output,
+	// for a stream carrying the game and not the call about it.
 	//
-	// PipeWire-native: a program playing sound is a node, and recording it is taking that node's
-	// output.
+	// PipeWire-native: a program playing sound is a node,
+	// and recording it is taking that node's output.
 	// Windows needs WASAPI process loopback and macOS a ScreenCaptureKit or CoreAudio tap,
-	// and neither is written, so the kind is declared and greyed there rather than left off the list
+	// and this app opens neither,
+	// so the kind is declared and greyed there rather than left off the list
 	// (docs/field-availability.md).
 	AudioSourceApplication = "application"
-	// AudioMonitorDevice is the handle AudioSourceDesktop opens by: the libpulse magic name for the
-	// monitor of the default sink.
+	// AudioMonitorDevice is the handle AudioSourceDesktop opens by:
+	// the libpulse magic name for the monitor of the default sink.
 	// PipeWire's Pulse server implements the same name, so one string reaches both servers.
 	//
-	// One constant rather than one spelling per engine, because two spellings of one server's name are
-	// two things able to disagree about which device a stream records.
+	// One constant rather than one spelling per engine,
+	// two spellings of one server's name being two things able to disagree about the device recorded.
 	// The engines differ in how they pass it, "-f pulse -i" against "pulsesrc device=",
 	// and not in what they pass.
 	AudioMonitorDevice = "@DEFAULT_MONITOR@"
@@ -62,8 +66,7 @@ const (
 // empty for a kind with no default to open.
 //
 // An entry naming a device of its own takes that instead.
-// Both engines read this, so they differ in how they pass a device and never in which device that
-// is.
+// Both engines read this, so they differ in how they pass a device and never in which one.
 func AudioSourceDevice(id string) string {
 	switch id {
 	case AudioSourceDesktop:
@@ -86,30 +89,32 @@ type AudioDevice struct {
 	// Empty is the kind's own default, which every served kind has and no enumeration reports.
 	ID string `json:"id"`
 	// Name is what the machine calls it, for a surface that would otherwise show a handle.
-	// A description and never an identity: two devices may answer to one name, and the handle is what
-	// separates them.
+	// A description and never an identity:
+	// two devices may answer to one name, and the handle is what separates them.
 	Name string `json:"name"`
 }
 
-// AudioSource is one capture source as one platform answers for it: what the setting holds, whether
-// a session of that platform serves it, and what serves it.
+// AudioSource is one capture source as one platform answers for it:
+// what the setting holds, whether a session of that platform serves it, and what serves it.
 //
 // A resolved row rather than the declaration behind it, which is audioSourceNeeds.
 type AudioSource struct {
-	// ID is the value settings.Settings.Audio holds, the string crossing the wire as
-	// Catalog.audio_sources, and the key a form's face table names its label by.
-	// One identifier on purpose: a face is matched against a value some domain table produced
-	// (form/options.go), so a second one would be another pair of spellings able to disagree.
+	// ID is the value settings.Settings.Audio holds,
+	// the string crossing the wire as Catalog.audio_sources,
+	// and the key a form's face table names its label by.
+	// One identifier: a face is matched against a value some domain table produced (form/options.go),
+	// so a second one would be another pair of spellings able to disagree.
 	ID string `json:"id"`
 	// Available reports whether a session of the platform this row was resolved for serves the source.
 	Available bool `json:"available"`
 	// Reason states what that platform is missing, and is nil exactly where Available is true.
-	// A statement rather than a sentence: the source and the operating system are the whole of what it
-	// is about, so a surface holding both writes it at its own length
+	// A statement rather than a sentence:
+	// the source and the operating system are the whole of what it is about,
+	// so a surface holding both writes it at its own length
 	// (api/proto/screenshare/v1/text.proto, docs/field-availability.md).
 	Reason *screensharev1.Text `json:"reason"`
 	// Server states what serves the source here, nil on a platform that serves it with nothing.
-	// It is the note a form puts beside the entry, and it names the same two identifiers Reason does.
+	// The note a form puts beside the entry, naming the same two identifiers Reason does.
 	Server *screensharev1.Text `json:"server"`
 }
 
@@ -120,20 +125,20 @@ type audioSourceNeed struct {
 	// platforms are the operating systems serving this source, as Info spells them.
 	//
 	// A row naming none is a declared kind nothing opens anywhere.
-	// The absent source names every platform rather than none, which keeps "asks nothing of the
-	// machine" apart from "nothing here serves it".
+	// The absent source names every platform rather than none,
+	// which keeps "asks nothing of the machine" apart from "nothing here serves it".
 	platforms []string
 }
 
-// audioSourceNeeds is the table, in the order a form presents it, the absent source first: that is
-// the order a reader meets the choice in and the value a stream defaults to.
+// audioSourceNeeds is the table, in the order a form presents it, the absent source first:
+// the order a reader meets the choice in, and the value a stream defaults to.
 //
-// A slice and not a map, because the order is part of the answer.
+// A slice and not a map, the order being part of the answer.
 var audioSourceNeeds = []audioSourceNeed{
 	{id: AudioSourceNone, platforms: audioPlatforms},
 	{id: AudioSourceDesktop, platforms: []string{"linux", "windows"}},
-	// Which engine can open a program's own output is a second question, answered where the capture
-	// backends are (publish.AudioAvailable).
+	// Which engine can open a program's own output is a second question,
+	// answered where the capture backends are (publish.AudioAvailable).
 	{id: AudioSourceApplication, platforms: []string{"linux"}},
 }
 
@@ -160,27 +165,30 @@ func init() {
 
 // audioPlatforms are the operating systems this table answers for.
 //
-// Stated rather than derived from the rows, which is the opposite conclusion to
-// publish.gatedOperatingSystems because the two tables gate on opposite things.
-// A capture backend names the platform it runs on, so an unnamed operating system restricts no
-// backend.
-// A source names the platform that serves it, so an operating system outside this set would lose
-// every source with no sentence to show for it, and is left every one instead.
+// Stated rather than derived from the rows,
+// the opposite conclusion to publish.gatedOperatingSystems,
+// the two tables gating on opposite things.
+// A capture backend names the platform it runs on,
+// so an unnamed operating system restricts no backend.
+// A source names the platform that serves it,
+// so an operating system outside this set would lose every source with no sentence to show for it,
+// and is left every one instead.
 var audioPlatforms = []string{"windows", "linux", "darwin"}
 
-// AudioSources answers this platform's second-track capture sources: every declared source, in the
-// order a form presents them, each carrying whether a session of this operating system serves it,
+// AudioSources answers this platform's second-track capture sources:
+// every declared source, in the order a form presents them,
+// each carrying whether a session of this operating system serves it,
 // why not where it does not, and what serves it where it does.
 //
-// Every entry is returned rather than only the served ones, because the two consumers want opposite
-// halves of one answer.
-// A form offers all of them and greys what this machine cannot serve, since a greyed entry with a
-// reason teaches what a control quietly one item shorter does not
+// Every entry is returned rather than only the served ones,
+// the two consumers wanting opposite halves of one answer.
+// A form offers all of them and greys what this machine cannot serve,
+// a greyed entry with a reason teaching what a control quietly one item shorter does not
 // (docs/field-availability.md, "The rule").
 // A catalog reads the same rows and keeps the available ones.
 //
-// A pure table read: the same Info yields the same ordered list on every call, and nothing outside
-// this file is touched, so it can sit on a resolve path.
+// A pure table read: the same Info yields the same ordered list on every call,
+// and nothing outside this file is touched, so it can sit on a resolve path.
 func AudioSources(info Info) []AudioSource {
 	out := make([]AudioSource, 0, len(audioSourceNeeds))
 	for _, n := range audioSourceNeeds {
@@ -203,11 +211,9 @@ func AudioSources(info Info) []AudioSource {
 	return out
 }
 
-// AudioSourceIDs is the same list as bare values, in the same order: what a stream's Audio setting
-// may hold and what crosses the wire.
-//
-// It exists so an option builder and a catalog do not each walk the rows and eventually disagree
-// about the order.
+// AudioSourceIDs is the same list as bare values, in the same order:
+// what a stream's Audio setting may hold and what crosses the wire.
+// One walk of the rows, so an option builder and a catalog cannot disagree about the order.
 func AudioSourceIDs(info Info) []string {
 	sources := AudioSources(info)
 	out := make([]string, 0, len(sources))
@@ -239,10 +245,10 @@ func audioAvailable(n audioSourceNeed, info Info) (bool, *screensharev1.Text) {
 	}
 	if len(n.platforms) > 0 && !slices.Contains(audioPlatforms, info.OS) {
 		// An operating system the table never named.
-		// A source this app opens somewhere stays offered on it, rather than being taken away under a
-		// statement written about somebody else's machine.
-		// A row naming no platform is not covered: nothing opens it anywhere, so an unknown machine is
-		// not one it might work on.
+		// A source this app opens somewhere stays offered on it,
+		// rather than being taken away under a statement written about somebody else's machine.
+		// A row naming no platform is not covered:
+		// nothing opens it anywhere, so an unknown machine is not one it might work on.
 		return true, nil
 	}
 	return false, text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED,
@@ -253,9 +259,9 @@ func audioAvailable(n audioSourceNeed, info Info) (bool, *screensharev1.Text) {
 // audioServer states what serves one declared row on one platform,
 // nil where that platform serves it with nothing.
 //
-// The mechanism differs per operating system, a monitor source on one and a loopback device on
-// another, so the statement names the source and the platform and leaves the surface to say which
-// mechanism that is.
+// The mechanism differs per operating system, a monitor source on one and a loopback on another,
+// so the statement names the source and the platform,
+// and leaves the surface to say which mechanism that is.
 // A sentence written here would describe one machine to users of the other two.
 func audioServer(n audioSourceNeed, info Info) *screensharev1.Text {
 	if n.id == AudioSourceNone || !slices.Contains(n.platforms, info.OS) {

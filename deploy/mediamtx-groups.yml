@@ -1,43 +1,52 @@
 # The relay: who may publish, who may read, and on which listener.
 #
-# Every relay this repository runs reads this file, a deployment on the internet behind
-# deploy/Caddyfile and a relay on a development machine alike (scripts/relay.sh). What differs
-# between the two is a path rather than a policy, and a path is handed to MediaMTX through its own
-# environment: MTX_RTSPSERVERCERT and its siblings for the certificate, MTX_PATHDEFAULTS_RUNONREAD
-# for the read hook. A second copy of this file would be a second set of permissions to keep in
-# step with the tokens.
+# Every relay this repository runs reads this file,
+# a deployment on the internet behind deploy/Caddyfile
+# and a relay on a development machine alike (scripts/relay.sh).
+# What differs between the two is a path rather than a policy,
+# and a path is handed to MediaMTX through its own environment:
+# MTX_RTSPSERVERCERT and its siblings for the certificate,
+# MTX_PATHDEFAULTS_RUNONREAD for the read hook.
+# A second copy of this file would be a second set of permissions to keep in step with the tokens.
 #
-# What enforces a prefix is here and not in the app. The app puts its streams under the prefix
-# its key derives, or under the public one where it holds no key (backend/internal/group), and
-# the relay refuses anything else: a client that skipped the prefix is refused by the machine
-# serving the stream rather than by a convention it could ignore.
+# What enforces a prefix is here and not in the app.
+# The app puts its streams under the prefix its key derives,
+# or under the public one where it holds no key (backend/internal/group),
+# and the relay refuses anything else:
+# a client that skipped the prefix is refused by the machine serving the stream
+# rather than by a convention it could ignore.
 #
-# Publishing without a group is still publishing with a token. A caller holding no key trades
-# for one granting the public prefix, so every connection here is authenticated and encrypted
-# whoever opened it, and what "public" drops is who may watch and nothing else.
+# Publishing without a group is still publishing with a token.
+# A caller holding no key trades for one granting the public prefix,
+# so every connection here is authenticated and encrypted whoever opened it,
+# and what "public" drops is who may watch and nothing else.
 
 logLevel: info
 
-# per-reader outgoing queue (packets). Default 512 chokes on lossless keyframe
-# bursts (one frame can be several MB); 16384 ~= 24MB headroom per reader.
+# Per-reader outgoing queue, in packets.
+# Default 512 chokes on lossless keyframe bursts, one frame running to several MB.
+# 16384 ~= 24 MB headroom per reader.
 writeQueueSize: 16384
 
 # --- Who may do what -------------------------------------------------------------
 #
-# Every connection carries a JWT and the relay checks it against the key the group service
-# publishes. The key is fetched once and every connection verified locally, which is what
-# keeps the service out of the path of a stream: a relay that called it per connection would
-# make an unreachable service an unwatchable stream.
+# Every connection carries a JWT,
+# and the relay checks it against the key the group service publishes.
+# The key is fetched once and every connection verified locally,
+# which keeps the service out of the path of a stream:
+# a relay that called it per connection would make an unreachable service an unwatchable stream.
 #
-# The permissions ride in the token rather than being listed here, because they are per group
-# and there is no list of groups: a token grants a path expression anchored at the prefix its
-# key derived, so a member reaches their own group's streams and no others
+# The permissions ride in the token rather than standing here,
+# being per group where there is no list of groups:
+# a token grants a path expression anchored at the prefix its key derived,
+# so a member reaches their own group's streams and no others
 # (backend/internal/token, GroupPermissions).
 #
-# Every address here is loopback, which is the shape of a host running the relay, the group
-# service and the proxy together. A deployment that splits them across machines overrides the
-# addresses through MediaMTX's own environment variables (MTX_AUTHJWTJWKS and friends), so
-# this file states one topology rather than carrying both.
+# Every address here is loopback,
+# the shape of a host running the relay, the group service and the proxy together.
+# A deployment that splits them across machines overrides the addresses
+# through MediaMTX's own environment variables (MTX_AUTHJWTJWKS and friends),
+# so this file states one topology rather than carrying both.
 authMethod: jwt
 authJWTJWKS: http://127.0.0.1:9443/jwks.json
 authJWTClaimKey: mediamtx_permissions
@@ -50,28 +59,30 @@ authJWTClaimKey: mediamtx_permissions
 # Read alone, so publishing under the prefix still names a token.
 #
 # The expression is anchored and a group prefix is base32, so no group is reachable through it.
-# An exclusion names an action and a path and no protocol, so an RTSP or RTMP reader of a public
-# stream is unauthenticated on the same terms, and SRT keeps the public path entry's passphrase.
+# An exclusion names an action and a path and no protocol,
+# so an RTSP or RTMP reader of a public stream is unauthenticated on the same terms,
+# and SRT keeps the public path entry's passphrase.
 authJWTExclude:
   - action: read
     path: ~^public/
 
   # The scrape, which carries counters and no stream.
-  # A collector holds no group key, and a token it could hold expires between scrapes, so what
-  # decides who reads the counters is the network rather than a credential: the listener binds
-  # an address the deployment chooses and the deployment names who may reach it.
-  # An exclusion names an action, and this one names no path because the metrics action has
-  # none: what it grants is the one endpoint below and nothing on a stream.
+  # A collector holds no group key, and a token it could hold expires between scrapes,
+  # so the network decides who reads the counters rather than a credential:
+  # the listener binds an address the deployment chooses,
+  # and the deployment names who may reach it.
+  # An exclusion names an action, and this one names no path because the metrics action has none:
+  # it grants the one endpoint below and nothing on a stream.
   - action: metrics
 
-# The API and the playback endpoints are not for members. A token this service issues grants
-# publishing and reading and nothing else, so both are refused for everyone until an operator's
-# own token grants them.
+# The API and the playback endpoints are not for members.
+# A token this service issues grants publishing and reading and nothing else,
+# so both are refused for everyone until an operator's own token grants them.
 
 # --- SRT -------------------------------------------------------------------------
 #
-# SRT is UDP and has no TLS, so it is the one leg the reverse proxy cannot wrap. What it takes
-# instead is a passphrase per path prefix, checked at the handshake.
+# SRT is UDP and has no TLS, so it is the one leg the reverse proxy cannot wrap.
+# What it takes instead is a passphrase per path prefix, checked at the handshake.
 #
 # No group's value stands in this file.
 # The group service derives each group's passphrase from its group key
@@ -89,31 +100,35 @@ srt: yes
 srtAddress: :8890
 
 pathDefaults:
-  # A read announces itself to the group service, which closes it where no live member of that
-  # group holds it. A token cannot do that job: it is checked at the handshake and not again, so a
-  # member whose presence lapsed opens a connection with the one they still hold.
+  # A read announces itself to the group service,
+  # which closes it where no live member of that group holds it.
+  # A token cannot do that job: it is checked at the handshake and not again,
+  # so a member whose presence lapsed opens a connection with the one they still hold.
   # The hook is a no-op for a group nobody has stated presence at.
   #
-  # The path is the deployment's to provide, the way the certificate paths below are: the script is
-  # deploy/reconcile-on-read.sh in this repository, a host places it here, and a development relay
-  # points MTX_PATHDEFAULTS_RUNONREAD at the copy in its own checkout.
+  # The path is the deployment's to provide, the way the certificate paths below are:
+  # the script is deploy/reconcile-on-read.sh in this repository, a host places it here,
+  # and a development relay points MTX_PATHDEFAULTS_RUNONREAD at the copy in its own checkout.
   runOnRead: /etc/mediamtx/reconcile-on-read.sh
 
 # --- The listeners the proxy fronts ----------------------------------------------
 #
-# HLS and WebRTC bind loopback. TLS, the certificate and its renewal live in the reverse proxy
-# in front of them (deploy/Caddyfile), which is where ACME is.
+# HLS and WebRTC bind loopback.
+# TLS, the certificate and its renewal live in the reverse proxy in front of them
+# (deploy/Caddyfile), which is where ACME is.
 #
-# RTSP and RTMP are not HTTP, so no proxy can carry them and each terminates TLS itself, on a
-# listener of its own. The certificate is the proxy's, handed over by the deployment: the paths
-# below are placeholders and every relay overrides them from the environment, the way the SRT
-# passphrase above is set. A host names the certificate it already has
-# (modules/mediamtx-relay.nix in the nixos-config repository), and a development machine names the
-# self-signed pair scripts/relay.sh draws for it.
+# RTSP and RTMP are not HTTP, so no proxy can carry them
+# and each terminates TLS itself, on a listener of its own.
+# The certificate is the proxy's, handed over by the deployment:
+# the paths below are placeholders and every relay overrides them from the environment,
+# the way the SRT passphrase above is set.
+# A host names the certificate it already has
+# (modules/mediamtx-relay.nix in the nixos-config repository),
+# and a development machine names the self-signed pair scripts/relay.sh draws for it.
 #
-# `strict` on both, so the cleartext listener is not merely unexposed but absent: a relay that
-# still bound 8554 would carry a stream in the clear for anyone who reached it, and a firewall
-# is the wrong place for that decision to live.
+# `strict` on both, so the cleartext listener is absent rather than merely unexposed:
+# a relay bound to 8554 would carry a stream in the clear for anyone who reached it,
+# and a firewall is the wrong place for that decision to live.
 rtsp: yes
 rtspEncryption: strict
 rtspsAddress: :8322
@@ -137,43 +152,47 @@ webrtcLocalUDPAddress: :8189
 api: yes
 apiAddress: 127.0.0.1:9997
 
-# What the relay counts: bytes and connections per path and per listener, which is the half of a
-# deployment's readings the group service cannot answer.
+# What the relay counts: bytes and connections per path and per listener,
+# the half of a deployment's readings the group service cannot answer.
 #
-# Not loopback, where the API above is. A collector scrapes from somewhere else, so this binds
-# every address the relay has and what keeps it private is the deployment: the pod publishes no
-# host port for it and its NetworkPolicy names the one namespace that may reach it.
+# Not loopback, where the API above is.
+# A collector scrapes from somewhere else, so this binds every address the relay has,
+# and the deployment is what keeps it private:
+# the pod publishes no host port for it,
+# and its NetworkPolicy names the one namespace that may reach it.
 metrics: yes
 metricsAddress: :9998
 
 # --- Media over QUIC, which no proxy can front either --------------------------------
 #
-# Named here whichever way it is set, because MediaMTX starts it by default: a file that leaves
-# the key out exposes a listener on 8892 and 8893 under a certificate the relay drew for itself,
-# and that is a decision, not an omission.
+# Named here whichever way it is set, because MediaMTX starts it by default:
+# a file leaving the key out exposes a listener on 8892 and 8893
+# under a certificate the relay drew for itself, which is a decision rather than an omission.
 #
-# It is a watch leg and a browser's alone. The page the relay serves subscribes over WebTransport,
-# which is HTTP/3 over UDP: Caddy terminates HTTP/1.1 and HTTP/2 on 443 and carries no CONNECT of
-# that kind, so this listener is exposed directly and holds a certificate of its own, the shape
-# RTSPS and RTMPS have.
+# A watch leg and a browser's alone.
+# The page the relay serves subscribes over WebTransport, which is HTTP/3 over UDP:
+# Caddy terminates HTTP/1.1 and HTTP/2 on 443 and carries no CONNECT of that kind,
+# so this listener is exposed directly and holds a certificate of its own,
+# the shape RTSPS and RTMPS have.
 #
 # Two certificates, and only one of them is named here.
 #
-# The pair below serves the page over TCP, ordinary TLS a browser validates like any other site, so
-# a deployment with a real name wants its ACME certificate here and gets an interstitial otherwise.
-# It is overridden per deployment rather than written in: this file is shared with every other
-# relay built from this repository, and MTX_MOQSERVERCERT and MTX_MOQSERVERKEY are where a host
-# points it at the certificate it already has (modules/mediamtx-relay.nix in nixos-config).
+# The pair below serves the page over TCP, ordinary TLS a browser validates like any other site,
+# so a deployment with a real name wants its ACME certificate here and gets an interstitial otherwise.
+# Overridden per deployment rather than written in:
+# this file is shared with every other relay built from this repository,
+# and MTX_MOQSERVERCERT and MTX_MOQSERVERKEY are where a host points it
+# at the certificate it already has (modules/mediamtx-relay.nix in nixos-config).
 #
 # The WebTransport session over UDP carries a certificate MediaMTX generates in memory and rotates,
-# ECDSA P-256 with a fortnight's validity, which the page pins by SHA-256 off /fingerprint. Nothing
-# configures it and nothing should: those two properties are what the pinning rules demand
-# (docs/network-architecture.md).
+# ECDSA P-256 with a fortnight's validity, which the page pins by SHA-256 off /fingerprint.
+# Nothing configures it and nothing should:
+# those two properties are what the pinning rules demand (docs/network-architecture.md).
 #
-# The names stay relative so a deployment that overrides neither still starts: MediaMTX draws the
-# pair on first start where it may write, which is the unit's state directory. An absolute path to
-# a file nothing creates is a listener that fails to come up, and MediaMTX exits on that rather
-# than serving the other legs without it.
+# The names stay relative so a deployment that overrides neither still starts:
+# MediaMTX draws the pair on first start where it may write, the unit's state directory.
+# An absolute path to a file nothing creates is a listener that fails to come up,
+# and MediaMTX exits on that rather than serving the other legs without it.
 moq: yes
 moqHTTP2Address: :8892
 moqHTTP3Address: :8892
@@ -183,16 +202,18 @@ moqServerKey: auto.key
 
 # --- Which paths exist -----------------------------------------------------------
 #
-# Any of them, created when something publishes one. A relay with no entry here configures no
-# path at all and refuses every publisher with "path is not configured", whatever its token
-# grants.
+# Any of them, created when something publishes one.
+# A relay with no entry here configures no path at all
+# and refuses every publisher with "path is not configured", whatever its token grants.
 #
-# A catch-all rather than a list, because there is nothing to list: a path is a group's prefix
-# and a stream's name, the prefix is the digest of a key this relay never sees, and a group is
-# made by drawing that key rather than by an operator writing it down here.
+# A catch-all rather than a list, because there is nothing to list:
+# a path is a group's prefix and a stream's name,
+# the prefix is the digest of a key this relay never sees,
+# and a group is made by drawing that key rather than by an operator writing it down here.
 #
-# It opens nothing. What a caller may publish or read is the path expression in its token, and
-# a request the entry admits is still refused by the permission check above
+# It opens nothing.
+# What a caller may publish or read is the path expression in its token,
+# and a request the entry admits is still refused by the permission check above
 # (backend/internal/token, GroupPermissions).
 #
 # The public entry keys SRT under the one prefix no group key derives.

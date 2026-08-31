@@ -11,12 +11,12 @@ import (
 
 // The pointer position, held between the child that reads it and the shells that draw it.
 //
-// The child reports faster than any frame rate and a shell reads on a cadence of its own, so one
-// position is held and nothing is queued: a queue would deliver where the mouse was.
+// The child reports faster than any frame rate and a shell reads on a cadence of its own,
+// so one position is held and nothing is queued: a queue would deliver where the mouse was.
 //
 // The conversion into the captured picture's pixels happens here, the one place holding both halves:
-// the reading in the display server's coordinates, and which screen the publish reads and at what
-// scale.
+// the reading in the display server's coordinates,
+// and which screen the publish reads at what scale.
 // A viewer holds neither, so a position crossing as the desktop's would be one nothing could place.
 
 // pointerState is the newest position and whether one has been read.
@@ -24,8 +24,8 @@ type pointerState struct {
 	mu sync.Mutex
 	// at is in the display server's own pixels.
 	at pointer.Position
-	// held is false until the first reading, so a shell subscribing before it is told nothing rather
-	// than told the origin.
+	// held is false until the first reading,
+	// so a shell subscribing before it is told nothing rather than the origin.
 	held bool
 }
 
@@ -35,8 +35,9 @@ func (p *pointerState) take(at pointer.Position) {
 	p.mu.Unlock()
 }
 
-// clear forgets the reading, which is what a publish ending means: the position belonged to that
-// capture, and holding it would draw a pointer over a stopped stream.
+// clear forgets the reading, which a publish ending means:
+// the position belonged to that capture,
+// and holding it would draw a pointer over a stopped stream.
 func (p *pointerState) clear() {
 	p.mu.Lock()
 	p.at, p.held = pointer.Position{}, false
@@ -51,10 +52,11 @@ func (p *pointerState) read() (pointer.Position, bool) {
 
 // Pointer is where the publishing machine's pointer is, in the pixels the stream carries.
 //
-// False wherever there is nothing honest to say: no publish in force, a cursor mode that draws the
-// pointer into the frames or leaves it out, or a child that has reported no position.
-// A shell draws nothing on false rather than guessing, which is what separates "not there" from
-// "not being sent".
+// False wherever there is nothing honest to say: no publish in force,
+// a cursor mode that draws the pointer into the frames or leaves it out,
+// or a child that has reported no position.
+// A shell draws nothing on false rather than guessing,
+// which separates "not there" from "not being sent".
 func (a *App) Pointer() (pointer.Position, bool) {
 	at, held := a.pointerAt.read()
 	if !held {
@@ -72,28 +74,29 @@ func (a *App) Pointer() (pointer.Position, bool) {
 	return a.pointerInPicture(*live, monitor, known, at), true
 }
 
-// pointerInPicture turns a position in the display server's pixels into one in the picture the
-// stream carries.
+// pointerInPicture turns a display server position into one in the picture the stream carries.
 //
 // Two steps, both off the publisher's own facts.
-// The captured screen's origin comes off first, because a desktop composes its outputs onto one
-// coordinate space and a capture reads one of them.
-// The settings' scale goes on second, because the stream carries the scaled picture and a viewer's
-// pixels are its pixels.
+// The captured screen's origin comes off first,
+// a desktop composing its outputs onto one coordinate space and a capture reading one output.
+// The settings' scale goes on second, the stream carrying the scaled picture,
+// so a viewer's pixels are its pixels.
 //
-// monitor is the rectangle the running pipeline was built to crop, taken at launch rather than read
-// here: the child's crop is fixed in its argv, so an origin read fresh would place the pointer
-// against a layout the frames do not carry.
+// monitor is the rectangle the running pipeline was built to crop,
+// taken at launch rather than read here:
+// the child's crop is fixed in its argv,
+// so an origin read fresh would place the pointer against a layout the frames do not carry.
 // It also keeps a 250 Hz stream (pointer.Interval) off one monitor-enumerating subprocess per tick.
 //
-// known false leaves the position untouched, the answer the bitrate prediction gives for an unpriced
-// monitor: inventing an origin would place the pointer somewhere nothing measured.
+// known false leaves the position untouched,
+// the answer the bitrate prediction gives for an unpriced monitor:
+// inventing an origin would place the pointer somewhere nothing measured.
 func (a *App) pointerInPicture(s settings.Settings, monitor display.Monitor, known bool, at pointer.Position) pointer.Position {
 	if known {
 		at.X -= monitor.OffsetX
 		at.Y -= monitor.OffsetY
-		// Outside the captured screen is outside the picture, whatever the display server reports for
-		// its own root: a pointer on another monitor is not over this capture.
+		// Outside the captured screen is outside the picture,
+		// whatever the display server reports for its own root.
 		if at.X < 0 || at.Y < 0 || at.X >= monitor.Width || at.Y >= monitor.Height {
 			at.Visible = false
 		}

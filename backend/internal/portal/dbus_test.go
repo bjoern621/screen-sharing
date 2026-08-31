@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// A token repeated across two Opens puts both of them on one Request object path, so the counter is
-// exercised from several goroutines at once.
-// The race detector is what catches the unguarded increment; the uniqueness check catches the lost
-// update it produces.
+// A token repeated across two Opens puts both of them on one Request object path,
+// so the counter is exercised from several goroutines at once.
+// The race detector catches the unguarded increment.
+// The uniqueness check catches the lost update it produces.
 func TestConcurrentTokensAreDistinct(t *testing.T) {
 	const callers = 64
 

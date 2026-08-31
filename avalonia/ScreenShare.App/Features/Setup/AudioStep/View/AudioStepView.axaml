@@ -9,8 +9,8 @@
 
   <!--
     The audio group as the list it is: one row per entry under one set of column heads.
-    Each control's name and paragraph are drawn once, on the head, rather than once per entry, and a
-    kind's paragraph is read in the dropdown that offers it (Features/Fields/View/SelectEntry.axaml).
+    Each control's name and paragraph are drawn once, on the head, rather than once per entry,
+    and a kind's paragraph is read in the dropdown that offers it (Features/Fields/View/SelectEntry.axaml).
 
     Which controls a row holds, which are greyed and why still arrive on the resolved form
     (docs/ipc-api.md, "The rule").
@@ -18,8 +18,8 @@
 
   <UserControl.Styles>
     <!--
-      Closed dropdown's two columns, and their disabled treatment, stated by the caller: a ControlTheme
-      carries no descendant selector, so the only rule reaching this text is in the file that writes it.
+      Closed dropdown's two columns, and their disabled treatment, stated by the caller:
+      a ControlTheme carries no descendant selector, so the only rule reaching this text is in the file writing it.
     -->
     <Style Selector="TextBlock.facevalue">
       <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
@@ -46,10 +46,10 @@
                  Text="{Binding Help}" />
 
       <!--
-        The heads carry what the generic renderer repeats per entry: the control's name, and its
-        paragraph as the tip.
-        The two trailing columns are fixed at what they hold, a switch and an icon button, so a head
-        stands over the control it names on every row rather than over a column sized per row.
+        The heads carry what the generic renderer repeats per entry: the control's name,
+        and its paragraph as the tip.
+        The two trailing columns are fixed at what they hold, a switch and an icon button,
+        so a head stands over the control it names on every row rather than over a column sized per row.
       -->
       <Grid ColumnDefinitions="*,*,1.4*,44,28" Margin="10,0,10,6" IsVisible="{Binding HasRows}">
         <TextBlock Grid.Column="0"
@@ -100,8 +100,9 @@
                                   ContentTemplate="{StaticResource AudioSelect}" />
 
                   <!--
-                    The thumb stops where the form does and nowhere between, as every other slider does
-                    (Features/Fields/View/FieldGroupView.axaml): the setting under it is a whole figure.
+                    The thumb stops where the form does and nowhere between,
+                    as every other slider does (Features/Fields/View/FieldGroupView.axaml):
+                    the setting under it is a whole figure.
                   -->
                   <Grid Grid.Column="2"
                         ColumnDefinitions="*,Auto"
@@ -134,8 +135,8 @@
                                 IsChecked="{Binding Mute.Flag, Mode=TwoWay}" />
 
                   <!--
-                    Writes the absent kind through the source control's own entry, which is the write the
-                    dropdown beside it makes and what takes an entry off the list.
+                    Writes the absent kind through the source control's own entry,
+                    which is the write the dropdown beside it makes and what takes an entry off the list.
                   -->
                   <Button Grid.Column="4"
                           Theme="{StaticResource IconButton}"
@@ -176,8 +177,9 @@
                  Text="{Binding EmptyLine}" />
 
       <!--
-        The form's own row past the end of the list. Picking a kind on it writes the entry, so the face
-        says that rather than naming the absent kind the row holds (Copy/Cards.cs).
+        The form's own row past the end of the list.
+        Picking a kind on it writes the entry,
+        so the face says that rather than naming the absent kind the row holds (Copy/Cards.cs).
       -->
       <Button Theme="{StaticResource OutlineButton}"
               HorizontalAlignment="Left"
@@ -199,8 +201,8 @@
 
       <!--
         Everything the group holds that belongs to no entry, drawn under the list in the form's order.
-        Every control kind the contract carries is here, so a field the backend adds to this group is
-        drawn without an edit to this file.
+        Every control kind the contract carries is here,
+        so a field the backend adds to this group is drawn without an edit to this file.
       -->
       <ItemsControl ItemsSource="{Binding UnderList}" Margin="0,18,0,0">
         <ItemsControl.ItemTemplate>

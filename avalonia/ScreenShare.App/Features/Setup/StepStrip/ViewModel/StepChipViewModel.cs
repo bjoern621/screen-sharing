@@ -21,8 +21,8 @@ public enum StepChipState
 /// <summary>
 /// One chip of the strip.
 /// A record, so an unchanged pass produces rows that compare equal and the bound collection is left alone.
-/// <see cref="Select"/> is the owner's own command instance for that step, which makes two passes over one step
-/// equal rather than merely equivalent.
+/// <see cref="Select"/> is the owner's own command instance for that step,
+/// which makes two passes over one step equal rather than merely equivalent.
 /// </summary>
 public sealed record StepChipViewModel
 {
@@ -33,8 +33,7 @@ public sealed record StepChipViewModel
 
     /// <summary>
     /// Step number.
-    /// Replaced by a tick once the step is walked, and an icon is not a character, so the two cannot be one
-    /// string.
+    /// Replaced by a tick once the step is walked, and an icon is not a character, so the two cannot be one string.
     /// <see cref="IsDone"/> says which of them the badge shows.
     /// </summary>
     public required string Badge { get; init; }
@@ -66,7 +65,6 @@ public sealed record StepChipViewModel
 /// Builds the strip from one set of steps and the step being stood on.
 /// Pure and total, so a render pass calls it unconditionally and the reconcile decides whether anything moved.
 /// </summary>
-
 public static class StepChips
 {
     public static IReadOnlyList<StepChipViewModel> For(
@@ -107,8 +105,8 @@ public static class StepChips
     }
 
     /// <summary>
-    /// Current wins over terminal: the last step reads open-ended only until the reader stands on it, a lit chip
-    /// that also looked unreachable reading as a dead end.
+    /// Current wins over terminal: the last step reads open-ended only until the reader stands on it,
+    /// a lit chip that also looked unreachable reading as a dead end.
     /// </summary>
     private static StepChipState StateOf(SetupStepRow row, int index, int currentIndex)
     {

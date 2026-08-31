@@ -61,10 +61,11 @@ func (w *watcher) read() ([]*v1.PublishStats, []string, int32) {
 
 // runPublish puts real streams on the air and holds what they report against what was asked for.
 //
-// The capture stays where the run put it: a backend told to capture through the portal pops a
-// consent picker on somebody's screen, which is not a thing a probe may do.
-// An encoder named here is held the same way, which is how a run answers for one of them rather than
-// for whichever ones the walk happened to reach.
+// The capture stays where the run put it:
+// a backend told to capture through the portal pops a consent picker on somebody's screen,
+// which is not a thing a probe may do.
+// An encoder named here is held the same way,
+// which is how a run answers for one of them rather than for whichever ones the walk reached.
 func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Time, hold time.Duration, capture, codec string) error {
 	families, err := run.families(ctx)
 	if err != nil {
@@ -84,12 +85,12 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 	}
 	settings = form.GetSettings()
 
-	// The capture decides the engine, and the two instrument what they run differently, so a run
-	// that never left one of them would report half the product.
+	// The capture decides the engine, and the two instrument what they run differently,
+	// so a run that never left one of them would report half the product.
 	//
-	// A named encoder is pinned as the two fields that address it, both of them: pinning the encoder
-	// alone would let the walk change the format under it and report a different encode under the name
-	// the run was given.
+	// A named encoder is pinned as the two fields that address it, both of them:
+	// pinning the encoder alone would let the walk change the format under it
+	// and report a different encode under the name the run was given.
 	pinned := map[string]string{"publish.capture": capture}
 	if codec != "" {
 		format, encoder, ok := run.codecPair(codec)
@@ -145,8 +146,8 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 			form, settings = next, next.GetSettings()
 		}
 		// A move elsewhere can leave a pinned value with no legal form, and the resolve then walks it.
-		// Back to the draft the run opened with, so what the run answers for stays what it was told to
-		// answer for.
+		// Back to the draft the run opened with,
+		// so what the run answers for stays what it was told to answer for.
 		if drifted(settings, pinned) {
 			settings = proto.Clone(baseline).(*v1.Settings)
 			if form, err = run.resolve(ctx, settings); err != nil {
@@ -163,9 +164,9 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 		if err != nil {
 			return err
 		}
-		// A start persists the draft it was given, so a stream that died leaves the settings it died
-		// on as the ones the next walk moves from. Back to the draft the run opened with instead of
-		// spending the rest of it in one dead corner.
+		// A start persists the draft it was given,
+		// so a stream that died leaves the settings it died on as the ones the next walk moves from.
+		// Back to the draft the run opened with instead of spending the rest of it in one dead corner.
 		if !ok {
 			settings = proto.Clone(baseline).(*v1.Settings)
 			form, err = run.resolve(ctx, settings)
@@ -219,8 +220,9 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 		if !s.alive() {
 			return false, fmt.Errorf("the backend is gone after starting %s", codec)
 		}
-		// A stream that died is retried for as long as its budget lasts, and every start made while it
-		// waits is refused. Stopping here is what keeps one failure from being the rest of the run.
+		// A stream that died is retried for as long as its budget lasts,
+		// and every start made while it waits is refused.
+		// Stopping here is what keeps one failure from being the rest of the run.
 		_ = withTimeout(ctx, 20*time.Second, func(call context.Context) error {
 			_, err := s.control.StopPublish(call, &v1.StopPublishRequest{})
 			return err
@@ -238,12 +240,12 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 			fmt.Sprintf("starting the running stream again answered %s", err), fields, settings)
 	}
 
-	// A different pipeline over a running one is refused: that stream is one the user asked for and
-	// has not stopped.
+	// A different pipeline over a running one is refused:
+	// that stream is one the user asked for and has not stopped.
 	//
-	// What counts as different is the command the form renders, not the field that was moved: a
-	// bitrate never reaches a lossless encoder, so a draft carrying another one builds the pipeline
-	// already running and is the state that holds.
+	// What counts as different is the command the form renders, not the field that was moved:
+	// a bitrate never reaches a lossless encoder,
+	// so a draft carrying another one builds the pipeline already running and is the state that holds.
 	other := proto.Clone(settings).(*v1.Settings)
 	if err := setNumber(other, "publish.fps", int64(target)+7); err == nil {
 		running, err1 := s.resolve(ctx, settings)
@@ -274,8 +276,9 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 	delta := diff(before, sampleTree(s.backendPid))
 	delta.PipelineNs = engines.stop()
 
-	// Read while the stream still runs: the viewer count, the round trip and the loss are looked up
-	// by path, and a stopped stream has none.
+	// Read while the stream still runs:
+	// the viewer count, the round trip and the loss are looked up by path,
+	// and a stopped stream has none.
 	s.checkRelayView(ctx, readField(settings, "publish.name"), fields, settings)
 
 	stats, exits, attempts := events.read()
@@ -311,8 +314,9 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 		s.report.report("publish.child_leaked", "publish/child-leak/"+codec,
 			fmt.Sprintf("%d pipeline processes are still running after the stop", leaked), fields, settings)
 	}
-	// The backend's own, taken with the stream stopped: a tree figure would be whatever child
-	// happened to be up, and what a cycle is asked about is what the parent did not give back.
+	// The backend's own, taken with the stream stopped:
+	// a tree figure would be whatever child happened to be up,
+	// and what a cycle is asked about is what the parent did not give back.
 	after := sampleTree(s.backendPid)
 	if grown := after.RootRSSKiB - base.RootRSSKiB; grown > 200*1024 {
 		fields["rss_mib"] = fmt.Sprint(after.RootRSSKiB / 1024)
@@ -326,9 +330,9 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 
 // checkEncoderReached holds the command a hardware stream runs to the silicon its settings named.
 //
-// The engine reading says the GPU was reached, and this says nothing else was: a pipeline naming a
-// CPU encoder is a stream coding on cores while the settings, the greying and the estimate beside
-// them all still read hardware.
+// The engine reading says the GPU was reached, and this says nothing else was:
+// a pipeline naming a CPU encoder is a stream coding on cores
+// while the settings, the greying and the estimate beside them all read hardware.
 func (s *session) checkEncoderReached(ctx context.Context, settings *v1.Settings, family string, fields map[string]string) {
 	if family == "" || family == "software" {
 		return
@@ -354,11 +358,12 @@ func (s *session) checkEncoderReached(ctx context.Context, settings *v1.Settings
 	s.report.pass()
 }
 
-// softwareEncoders is every token a rendered command names a CPU encoder by: the encoder names the
-// ffmpeg engine uses, off the catalog, and the element each maps to on the GStreamer engine.
+// softwareEncoders is every token a rendered command names a CPU encoder by:
+// the encoder names the ffmpeg engine uses, off the catalog,
+// and the element each maps to on the GStreamer engine.
 //
-// Read out of the tables the builders read rather than listed here, so a codec joining the domain
-// joins this check with it.
+// Read out of the tables the builders read rather than listed here,
+// so a codec joining the domain joins this check with it.
 func (s *session) softwareEncoders(ctx context.Context) (map[string]bool, error) {
 	catalog, err := s.fetchCatalog(ctx)
 	if err != nil {
@@ -439,8 +444,8 @@ func (s *session) checkStream(stats []*v1.PublishStats, exits []string, attempts
 		s.report.report("publish.dropping", "publish/drops/"+fields["codec"],
 			fmt.Sprintf("%d of %d frames were dropped", last.GetDroppedFrames(), last.GetFrameCount()), fields, settings)
 	}
-	// A rate the screen can show: frames left the encoder, so the bytes they cost were measured by
-	// something.
+	// A rate the screen can show: frames left the encoder,
+	// so the bytes they cost were measured by something.
 	if last.GetFrameCount() > 0 && !carries(stats, func(s *v1.PublishStats) bool { return s.InstMbps != nil || s.AvgMbps != nil }) {
 		s.report.report("publish.no_bitrate_reported", "publish/no-bitrate/"+fields["transport"]+"/"+fields["codec"],
 			fmt.Sprintf("%d frames were encoded over %d samples and no sample carried a bitrate",

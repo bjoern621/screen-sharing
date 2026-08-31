@@ -12,10 +12,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on, so there is no attempt at
-// which it stops being wanted.
-// What the ladder buys is a relay that is down for an hour being asked at the last delay rather than
-// as fast as a child dies.
+// TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on,
+// so there is no attempt at which it stops being wanted.
+// What the ladder buys is a relay down for an hour being asked at the last delay,
+// rather than as fast as a child dies.
 func TestTheLadderIsWalkedOnceAndThenHeld(t *testing.T) {
 	for attempts := range len(testStreamBackoff) {
 		if wait := testStreamWait(attempts); wait != testStreamBackoff[attempts] {
@@ -31,8 +31,8 @@ func TestTheLadderIsWalkedOnceAndThenHeld(t *testing.T) {
 	}
 }
 
-// TestTheTestStreamBackoffGrows: the usual reason a synthetic publisher dies is the relay not being
-// up yet, which takes seconds.
+// TestTheTestStreamBackoffGrows: a synthetic publisher usually dies on a relay that is not up,
+// which takes seconds to come back.
 // A flat retry would spend the whole outage relaunching into the same refusal.
 func TestTheTestStreamBackoffGrows(t *testing.T) {
 	for i := 1; i < len(testStreamBackoff); i++ {
@@ -42,8 +42,8 @@ func TestTheTestStreamBackoffGrows(t *testing.T) {
 	}
 }
 
-// TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount: the roster is meant to carry streams on
-// a machine publishing nothing, and the cost of that is an encoder per slot.
+// TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount: the roster carries streams
+// on a machine publishing nothing, at an encoder per slot.
 // The environment is where a run says it wants another number of them, or none.
 func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
 	t.Setenv(EnvTestStreams, "")
@@ -62,9 +62,9 @@ func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
 	}
 }
 
-// TestACountOutsideTheBoundTakesTheDefault: this is a development knob, so a typo in it leaves the
-// app running the set it would have run anyway rather than refusing to start or saturating the
-// machine with encoders it did not mean to ask for.
+// TestACountOutsideTheBoundTakesTheDefault: a development knob,
+// so a typo in it leaves the app running the set it would have run anyway,
+// rather than refusing to start or saturating the machine with encoders nobody asked for.
 func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 	for _, set := range []string{"three", "-1", strconv.Itoa(maxTestStreams + 1)} {
 		t.Setenv(EnvTestStreams, set)
@@ -74,10 +74,10 @@ func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 	}
 }
 
-// TestASlotWaitingOutARelaunchSaysSo: the count says how many publishers are up and nothing about
-// which, so a slot that died is visible on the rows alone.
-// A waiting slot is one the set still holds, and what it holds instead of a publisher is why the last
-// one stopped.
+// TestASlotWaitingOutARelaunchSaysSo: the count says how many publishers are up and nothing
+// about which, so a slot that died is visible on the rows alone.
+// A waiting slot is one the set still holds,
+// and what it holds instead of a publisher is why the last one stopped.
 func TestASlotWaitingOutARelaunchSaysSo(t *testing.T) {
 	a := &App{testStreams: map[int]*testStream{
 		0: {
@@ -114,16 +114,16 @@ func TestASlotWaitingOutARelaunchSaysSo(t *testing.T) {
 			slot.Message, slot.LogPath)
 	}
 
-	// The contract asserts what a slot carries, so a row that broke it panics here rather than on the
-	// shell that read it.
+	// The contract asserts what a slot carries, so a broken row panics here rather than at the shell
+	// reading it.
 	wire.TestStreamState(running, slots...)
 }
 
-// TestASlotNamesTheStreamItPublishes: the slot is the stream's identity, so a relaunch has to come
-// back on the row the roster already shows rather than beside it.
+// TestASlotNamesTheStreamItPublishes: the slot is the stream's identity,
+// so a relaunch comes back on the row the roster already shows rather than beside it.
 //
-// The slot number leads and the surface's own label follows it where it has one: two slots arriving
-// at one name would be one row of the roster and two publishers pushing to it.
+// The slot number leads and the surface's own label follows it where it has one:
+// two slots arriving at one name would be one roster row and two publishers pushing to it.
 func TestASlotNamesTheStreamItPublishes(t *testing.T) {
 	seen := map[string]bool{}
 	for slot := range maxTestStreams {

@@ -48,8 +48,8 @@ func TestWebRTCGstSink(t *testing.T) {
 	}
 	sink := WebRTC{}.GstSink(s)
 
-	// The endpoint is the signaller's property and not the element's, and the audio branch attaches by
-	// the mux name, so both spellings are pinned.
+	// The endpoint is the signaller's property and not the element's, and the audio branch attaches
+	// by the mux name, so both spellings are pinned.
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
@@ -87,8 +87,8 @@ func TestWebRTCGstSource(t *testing.T) {
 }
 
 // WHEP is a signalling exchange rather than a URL a viewer program opens, so the capability helpers
-// have to split the two watch questions: WebRTC publishes on both engines and is watched by a
-// receiving pipeline and a browser, never by a player.
+// have to split the two watch questions: WebRTC publishes on both engines and is watched
+// by a receiving pipeline and a browser, never by a player.
 func TestWebRTCCapabilities(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
@@ -131,9 +131,9 @@ func TestWebRTCCapabilities(t *testing.T) {
 		}
 	}
 
-	// A browser opens the leg no player can, from the page the relay serves: the exchange runs in the
-	// page's own RTCPeerConnection, so the address is the path rather than the whep endpoint a
-	// receiving pipeline posts to.
+	// A browser opens the leg no player can, from the page the relay serves: the exchange runs
+	// in the page's own RTCPeerConnection, so the address is the path rather than the whep endpoint
+	// a receiving pipeline posts to.
 	page, ok := BrowserURL("webrtc", s, "bob")
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
@@ -148,8 +148,8 @@ func TestWebRTCCapabilities(t *testing.T) {
 
 // The port carries the page on a LAN relay and is gone behind the proxy, one name on 443 answering
 // every HTTP listener there.
-// What tells the page from the HLS one instead is the prefix the proxy strips again, and the
-// address without it is the HLS page (deploy/Caddyfile).
+// What tells the page from the HLS one instead is the prefix the proxy strips again, and
+// the address without it is the HLS page (deploy/Caddyfile).
 func TestWebRTCPageTakesAPrefixBehindTheProxy(t *testing.T) {
 	s := settings.Settings{Relay: settings.Relay{Host: "relay.example.com", WebrtcPort: 8889, HlsPort: 8888}}
 
@@ -162,8 +162,8 @@ func TestWebRTCPageTakesAPrefixBehindTheProxy(t *testing.T) {
 	}
 }
 
-// The two engines negotiate different video sets over one WHIP endpoint: ffmpeg's whip muxer has a
-// single H.264 payloader, whipclientsink payloads whatever webrtcbin offers.
+// The two engines negotiate different video sets over one WHIP endpoint: ffmpeg's whip muxer has
+// a single H.264 payloader, whipclientsink payloads whatever webrtcbin offers.
 // One list for both would have to be the narrower of them, refusing the GStreamer engine two
 // formats it serializes correctly, and the narrowing shows up only where it costs a publish.
 func TestWebRTCPublishCarriagesDifferPerEngine(t *testing.T) {

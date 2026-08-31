@@ -5,8 +5,8 @@
              x:DataType="vm:ReviewStepViewModel">
 
   <!--
-    Terminal step's own column, and only that: the checks, the presets and the commit stand in the rail every
-    step draws (Setup/View/SetupView.axaml).
+    Terminal step's own column, and only that:
+    the checks, the presets and the commit stand in the rail every step draws (Setup/View/SetupView.axaml).
   -->
 
   <Border Classes="card" Padding="16,14" VerticalAlignment="Top">

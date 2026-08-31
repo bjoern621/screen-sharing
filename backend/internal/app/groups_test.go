@@ -6,9 +6,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 )
 
-// The prefix every path of one group carries is drawn nowhere: a member's list is a list under one
-// prefix, so repeating it on each row spends the width the stream's own name needs.
-// The whole path stays on Name, which is what a viewer is opened with.
+// The prefix every path of one group carries is drawn nowhere: one prefix over the whole list,
+// so repeating it per row spends the width the stream's own name needs.
+// The whole path stays on Name, what a viewer is opened with.
 func TestAnOwnNameIsThePathInsideThisMachinesPrefix(t *testing.T) {
 	const prefix = "MFZWIZLTOQ2DGNBVGY3TQOJQGE/"
 
@@ -25,8 +25,8 @@ func TestAnOwnNameIsThePathInsideThisMachinesPrefix(t *testing.T) {
 	}
 }
 
-// A relay that authenticates nobody carries bare names, so there is nothing to take off and the
-// whole name is the stream's own.
+// A relay that authenticates nobody carries bare names, so there is nothing to take off
+// and the whole name is the stream's own.
 func TestWithNoPrefixEveryNameIsAlreadyItsOwn(t *testing.T) {
 	status := ownNames(relay.Status{Reachable: true, Paths: []relay.Path{{Name: "desk"}}}, "")
 

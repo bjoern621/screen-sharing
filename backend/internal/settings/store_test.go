@@ -35,8 +35,9 @@ func TestASavedStoreIsReadableByItsOwnerAlone(t *testing.T) {
 	}
 }
 
-// A store an earlier build wrote is world-readable, and os.WriteFile leaves an existing file's mode
-// alone, so the next write is what has to take it down.
+// A store an earlier build wrote is world-readable,
+// and os.WriteFile leaves an existing file's mode alone,
+// so the next write is what has to take it down.
 func TestAWiderStoreFileIsTightenedByTheNextWrite(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows carries no owner-group-other mode")

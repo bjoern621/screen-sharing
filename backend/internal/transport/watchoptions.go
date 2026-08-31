@@ -25,8 +25,8 @@ const minWatchLatencyMs = 1
 // WatchOption is one knob of a transport's watch leg: the key a change names it by, how to present
 // it, and its value in the settings it was read from.
 //
-// Values travel as text, so one shape carries every kind and the transport declaring the key is the
-// only place that parses it.
+// Values travel as text, so one shape carries every kind and the transport declaring the key
+// is the only place that parses it.
 // A viewer offering the knobs therefore names no transport and keeps no table of its own.
 type WatchOption struct {
 	Key     string   `json:"key"`
@@ -79,8 +79,8 @@ func SetWatchOption(name string, s *settings.Settings, key, value string) error 
 	return w.SetWatchOption(s, key, value)
 }
 
-// watchKnob is one declared knob: what a viewer shows, where the value is read, and where an
-// accepted one is written.
+// watchKnob is one declared knob: what a viewer shows, where the value is read, and where
+// an accepted one is written.
 // A transport declares its knobs once and serves both WatchTunable methods off that list.
 type watchKnob struct {
 	option WatchOption
@@ -88,8 +88,8 @@ type watchKnob struct {
 	write  func(s *settings.Settings, value string) error
 }
 
-// intKnob refuses a value below min rather than clamping it, so a viewer is told instead of shown a
-// number it did not ask for.
+// intKnob refuses a value below min rather than clamping it, so a viewer is told instead of shown
+// a number it did not ask for.
 func intKnob(key, label, tip string, min int, field func(*settings.Settings) *int) watchKnob {
 	assert.Assert(key != "", "a knob is declared under a key", label)
 	assert.IsNotNil(field, "a knob names the settings field it reads and writes", key)

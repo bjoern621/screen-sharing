@@ -41,7 +41,8 @@ sh scripts/relay-api-token.sh <relay host> 2h
 ```
 
 The task forwards both loopback ports off the deployment `Production` names, and `task relay:tunnel RELAY_HOST=<relay host>` names another.
-Opening an open tunnel is a no-op. `task relay:tunnel:stop` closes it.
+Opening an open tunnel is a no-op.
+`task relay:tunnel:stop` closes it.
 A stale tunnel keeps listening while forwarding nothing, so a request that hangs rather than refuses is one to restart it for.
 
 The printed token goes in `relayApiToken` and grants the API alone.

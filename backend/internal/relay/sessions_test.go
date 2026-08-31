@@ -11,8 +11,8 @@ import (
 )
 
 // Enforcement reads the relay's own connection lists and closes what it finds there, so these hold
-// what it may believe: every list that has a kick is swept, a listener that is off is not a failure,
-// and a list that refuses is named rather than passed over.
+// what it may believe: every list that has a kick is swept, a listener that is off is not
+// a failure, and a list that refuses is named rather than passed over.
 
 const srtConnsWithTwo = `{"itemCount":2,"pageCount":1,"items":[
 	{"id":"srt-1","path":"abc/desk","user":"alice","state":"read","remoteAddr":"10.0.0.1:5000"},
@@ -56,9 +56,9 @@ func TestSessionsGathersEveryListThatTakesAKick(t *testing.T) {
 	}
 }
 
-// A relay serving no MoQ answers 404 for moqsessions, which is a fact about that deployment.
-// Reporting it as a list that could not be read would leave every sweep carrying failures nobody can
-// act on.
+// A relay serving no MoQ answers 404 for moqsessions, a fact about that deployment.
+// Reporting it as a list that could not be read would leave every sweep carrying failures nobody
+// can act on.
 func TestAListenerThatIsOffIsNotAnUnreadList(t *testing.T) {
 	host, port := relayServing(t, map[string]string{"/v3/srtconns/list": srtConnsWithTwo})
 
@@ -100,7 +100,8 @@ func TestAListThatRefusesIsNamed(t *testing.T) {
 	}
 }
 
-// The relay pages its lists, and a sweep that reads the first page alone kicks nobody on the second.
+// The relay pages its lists, and a sweep that reads the first page alone kicks nobody
+// on the second.
 func TestSessionsReadsEveryPage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v3/srtconns/list" {
@@ -149,8 +150,8 @@ func TestKickPostsToTheListTheConnectionCameFrom(t *testing.T) {
 	}
 }
 
-// A connection the relay would not close is a member still watching, so the refusal carries the
-// relay's own words rather than becoming a silent success.
+// A connection the relay would not close is a member still watching, so the refusal carries
+// the relay's own words rather than becoming a silent success.
 func TestAKickTheRelayRefusesIsAnError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -187,8 +188,8 @@ func TestAKickEscapesTheIDItWasGiven(t *testing.T) {
 	}
 }
 
-// The sweep reads the relay's answer, so a listing this app cannot parse is the relay's word and not
-// a contract this side may assert on.
+// The sweep reads the relay's answer, so a listing this app cannot parse is the relay's word and
+// not a contract this side may assert on.
 func TestAListingThatDoesNotParseIsNamed(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v3/srtconns/list" {
@@ -209,8 +210,7 @@ func TestAListingThatDoesNotParseIsNamed(t *testing.T) {
 	}
 }
 
-// Every list enforcement sweeps has a kick beside it, which is what makes a found connection one it
-// can act on.
+// Every list enforcement sweeps has a kick beside it, so a found connection is one it can act on.
 func TestEverySweptListTakesAKick(t *testing.T) {
 	swept := map[string]bool{}
 	for _, segment := range kickableLists() {

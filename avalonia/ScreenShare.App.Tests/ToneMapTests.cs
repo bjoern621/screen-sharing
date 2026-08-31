@@ -6,11 +6,11 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// A stream carrying more range than the display shows draws at the wrong brightness, which a reader blames
-/// on the stream or the screen, so the tile states the curve and what it is doing about it in both
-/// directions.
-/// What it states is what the decode was built with: tone mapping is an element in the pipeline, so the tick
-/// comes back through the decode's own state rather than off the request.
+/// A stream carrying more range than the display shows draws at the wrong brightness,
+/// which a reader blames on the stream or the screen,
+/// so the tile states the curve and what it is doing about it in both directions.
+/// It states what the decode was built with: tone mapping is an element in the pipeline,
+/// so the tick comes back through the decode's own state rather than off the request.
 /// </summary>
 public sealed class ToneMapTests
 {
@@ -39,10 +39,7 @@ public sealed class ToneMapTests
         Assert.Contains("as it arrives", tile.ColourNote);
     }
 
-    /// <summary>
-    /// Two tiles of one stream are told apart by the badge, so a converting tile that fell silent would
-    /// leave them alike.
-    /// </summary>
+    /// <summary>Two tiles of one stream are told apart by the badge, so a silent converting tile leaves them alike.</summary>
     [Fact]
     public void ATileThatIsRollingTheRangeDownSaysThatToo()
     {
@@ -56,8 +53,7 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// A badge over every tile is noise, and a control that converts nothing costs a press to learn it does
-    /// nothing.
+    /// A badge over every tile is noise, and a control that converts nothing costs a press to learn as much.
     /// </summary>
     [Fact]
     public void AStandardRangeStreamCarriesNoBadgeAndNoChoice()
@@ -73,10 +69,7 @@ public sealed class ToneMapTests
         Assert.Contains("range this display shows", tile.ToneMapNote);
     }
 
-    /// <summary>
-    /// The missing element is a thing to go and install, and every refused option in this app names its
-    /// reason.
-    /// </summary>
+    /// <summary>Missing element is a thing to install, and every refused option in this app names its reason.</summary>
     [Fact]
     public void AMachineThatCannotRollTheRangeDownNamesWhatIsMissing()
     {
@@ -89,10 +82,7 @@ public sealed class ToneMapTests
         Assert.Contains("vapostproc", tile.ToneMapNote);
     }
 
-    /// <summary>
-    /// Nothing is installable here, so naming an element would send the reader after a package that cannot
-    /// help.
-    /// </summary>
+    /// <summary>Nothing is installable here, so naming an element sends the reader after a package that cannot help.</summary>
     [Fact]
     public void APlatformWithNoRouteSaysThatRatherThanNamingAnElement()
     {
@@ -104,10 +94,7 @@ public sealed class ToneMapTests
         Assert.Contains("platform", tile.ToneMapNote);
     }
 
-    /// <summary>
-    /// The call names the state the decode should be in, so the backend rebuilds one decode rather than
-    /// opening a second.
-    /// </summary>
+    /// <summary>Call names the state the decode should be in, so the backend rebuilds one rather than opening a second.</summary>
     [Fact]
     public async Task TheControlAsksForTheOtherAnswerOnTheSameDecode()
     {
@@ -124,9 +111,9 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The press is sent, the decode is built without the rung, and the tile goes on saying so.
-    /// Read off the request instead, a viewer would show a conversion that never happened and ask for it
-    /// again on every pass.
+    /// Press is sent, the decode is built without the rung, and the tile goes on saying so.
+    /// Read off the request instead, a viewer shows a conversion that never happened
+    /// and asks for it again on every pass.
     /// </summary>
     [Fact]
     public async Task AskingForAConversionThisMachineCannotMakeLeavesTheTileSayingSo()
@@ -145,8 +132,7 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The preview belongs to the publish and carries neither half of the stream and leg pair a decode is
-    /// keyed by.
+    /// Preview belongs to the publish and carries neither half of the stream and leg pair a decode is keyed by.
     /// </summary>
     [Fact]
     public void ThePublishPreviewIsOfferedNoChoice()

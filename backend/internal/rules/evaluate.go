@@ -10,11 +10,11 @@ import (
 
 // Verdicts is what every rule said about one configuration.
 //
-// A caller asks about the control it is drawing rather than walking the answers, so nothing outside
-// this package holds a copy of which rule bound.
-// Each answer carries every reason that produced it, unordered: a control two facts block is
-// blocked by two facts, and picking one to show is a judgement about a screen
-// (docs/field-availability.md).
+// A caller asks about the control it is drawing rather than walking the answers,
+// so nothing outside this package holds a copy of which rule bound.
+// Each answer carries every reason that produced it, unordered:
+// a control two facts block is blocked by two facts, and picking one to show is a judgement
+// about a screen (docs/field-availability.md).
 type Verdicts struct {
 	hidden     map[string]bool
 	live       map[string]bool
@@ -33,31 +33,31 @@ type band struct {
 
 // Evaluate answers the registry for one configuration.
 //
-// Reading the registry closes it: a package registering afterwards would change what is legal under
-// a form that has already been answered.
+// Reading the registry closes it: a package registering afterwards would change what is legal
+// under a form that has already been answered.
 func Evaluate(f Facts) Verdicts {
 	evaluated = true
 	return EvaluateRules(f, registered)
 }
 
 // EvaluateRules answers one rule set for one configuration and leaves the registry alone.
-// Evaluate delegates to it, and a caller reporting on a subset of the rules asks it directly, so
-// neither holds a second copy of how a rule binds.
+// Evaluate delegates to it, and a caller reporting on a subset asks it directly,
+// so neither holds a second copy of how a rule binds.
 func EvaluateRules(f Facts, rs []Rule) Verdicts {
 	assert.IsNotNil(f, "an evaluation carries the facts to match against")
 
-	// The maps arrive as a bound rule needs them, every reader answering off a nil map as off an empty
-	// one.
-	// A preset search evaluates the whole registry per candidate and most verdicts stay empty, so
-	// seven maps built up front are seven allocations a hundred times over per resolve.
+	// The maps arrive as a bound rule needs them,
+	// every reader answering off a nil map as off an empty one.
+	// A preset search evaluates the whole registry per candidate and most verdicts stay empty,
+	// so maps built up front are allocations a hundred times over per resolve.
 	var v Verdicts
 
 	for _, r := range rs {
 		if !r.binds(f) {
 			continue
 		}
-		// Live takes nothing off the screen, so there is no statement to build: it grants the control a
-		// property rather than replacing it with a sentence.
+		// Live takes nothing off the screen, granting the control a property rather than replacing
+		// it with a sentence, so there is no statement to build.
 		if r.Verdict == Live {
 			v.live = put(v.live, r.Field, true)
 			continue
@@ -106,8 +106,8 @@ func put[V any](under map[string]V, field string, value V) map[string]V {
 // binds reports whether every fact this rule names reads what it asks for.
 //
 // An axis the rule names and the facts do not carry asserts rather than counting as no match.
-// A rule that quietly binds nothing renders as a combination the app allows, which no reader can
-// tell from one nobody constrained.
+// A rule that quietly binds nothing renders as a combination the app allows,
+// which no reader can tell from one nobody constrained.
 func (r Rule) binds(f Facts) bool {
 	for name, m := range r.When {
 		value, ok := f[name]
@@ -125,10 +125,10 @@ func (r Rule) binds(f Facts) bool {
 
 // state is the rule's fact with the identifiers it is about attached.
 //
-// The arguments are the axes the rule matched on carrying what they read, then the control and the
-// value the verdict lands on.
-// That is what lets a row state a code alone: a statement naming a codec, an engine and a pixel
-// format gets all three without the row spelling any of them a second time.
+// The arguments are the axes the rule matched on carrying what they read, then the control
+// and the value the verdict lands on.
+// So a row states a code alone: a statement naming a codec, an engine
+// and a pixel format gets all three without the row spelling any of them a second time.
 //
 // Attached in vocabulary order rather than map order, so one rule against one set of facts yields
 // one statement every time.
@@ -146,13 +146,14 @@ func (r Rule) state(f Facts) *screensharev1.Text {
 		args = append(args, text.ID(axis.Arg, value.Text()))
 	}
 
-	// What the row knows and the facts do not, ahead of the control, so a statement reads subject
-	// first and target last however many figures ride between.
+	// What the row knows and the facts do not, ahead of the control,
+	// so a statement reads subject first and target last however many figures ride between.
 	args = append(args, r.Args...)
 
 	args = append(args, text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_OPTION, r.Field))
-	// The value rides along only where the verdict took exactly one: a refusal of three entries has no
-	// single value to name, and which entries went is the control's own business.
+	// The value rides along only where the verdict took exactly one:
+	// a refusal of several entries has no single value to name, and which entries went
+	// is the control's own business.
 	if listed := r.Values.listed(); len(listed) == 1 {
 		args = append(args, text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_VALUE, listed[0]))
 	}
@@ -164,8 +165,8 @@ func (v Verdicts) Visible(field string) bool {
 }
 
 // Live reports whether a change to this control reaches the pipeline already carrying the stream.
-// False for every control nothing declared live, which costs a reconnect and is the safe way round
-// to be wrong.
+// False for every control nothing declared live, which costs a reconnect
+// and is the safe way round to be wrong.
 func (v Verdicts) Live(field string) bool {
 	return v.live[field]
 }
@@ -202,9 +203,9 @@ func (v Verdicts) ValueNotes(field, value string) []*screensharev1.Text {
 
 // NumberAllowed reports whether a numeric control accepts this reading.
 //
-// The same fact Bounds states, asked about one number rather than about the ends, which is what a
-// validator wants: the form narrows a control and a publish refuses a value, and both come off one
-// evaluation or the slider offers what the encoder rejects.
+// The fact Bounds states, asked about one number rather than about the ends,
+// the question a validator asks: the form narrows a control and a publish refuses a value,
+// and both come off one evaluation or the slider offers what the encoder rejects.
 func (v Verdicts) NumberAllowed(field string, n int) bool {
 	return len(v.NumberReasons(field, n)) == 0
 }
@@ -220,8 +221,8 @@ func (v Verdicts) NumberReasons(field string, n int) []*screensharev1.Text {
 	return out
 }
 
-// Bounds narrows the ends a numeric control is offered between by every band refused on it, so the
-// range a form offers and the range a publish accepts are one answer.
+// Bounds narrows the ends a numeric control is offered between by every band refused on it,
+// so the range a form offers and the range a publish accepts are one answer.
 //
 // A control with no band is offered what it was given.
 func (v Verdicts) Bounds(field string, low, high int) (int, int) {
@@ -233,8 +234,8 @@ func (v Verdicts) Bounds(field string, low, high int) (int, int) {
 	return low, high
 }
 
-// BoundReasons is why a control is offered less than the range it was given, empty where nothing
-// narrowed it.
+// BoundReasons is why a control is offered less than the range it was given,
+// empty where nothing narrowed it.
 func (v Verdicts) BoundReasons(field string) []*screensharev1.Text {
 	out := make([]*screensharev1.Text, 0, len(v.bands[field]))
 	for _, b := range v.bands[field] {
@@ -243,8 +244,8 @@ func (v Verdicts) BoundReasons(field string) []*screensharev1.Text {
 	return out
 }
 
-// appendUnder files one reason under every value it was stated about, creating the inner map so no
-// caller has to.
+// appendUnder files one reason under every value it was stated about,
+// creating the inner map so no caller has to.
 func appendUnder(
 	under map[string][]*screensharev1.Text, values []string, reason *screensharev1.Text,
 ) map[string][]*screensharev1.Text {

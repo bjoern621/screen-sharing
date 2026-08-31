@@ -16,14 +16,14 @@ import (
 // address it without knowing which element the codec resolved to.
 const gstEncoderName = "enc"
 
-// gstLiveBitrate is the property each codec's encoder element takes a rate in, and the unit that
-// element counts in.
-// Property name and unit vary independently across the elements, which is why it is a table:
-// "bitrate" or "target-bitrate", kbit or bits per second.
+// gstLiveBitrate is the property each codec's encoder element takes a rate in, and the unit
+// that element counts in.
+// Property name and unit vary independently across the elements, hence a table: "bitrate" or
+// "target-bitrate", kbit or bits per second.
 // TestTheLivePropertiesAreWhatTheBuildersSpend holds every row to what that codec's mapping writes.
 //
-// A codec absent here takes no rate while it runs, and the row is the whole of the claim that the
-// bitrate is not live for it.
+// A codec absent here takes no rate while it runs, and the row is the whole of the claim
+// that the bitrate is not live for it.
 var gstLiveBitrate = map[string]gstBitrateProperty{
 	"libx264":    {name: "bitrate", perSecond: false},
 	"libx265":    {name: "bitrate", perSecond: false},

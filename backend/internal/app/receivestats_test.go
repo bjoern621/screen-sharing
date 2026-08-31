@@ -11,8 +11,8 @@ import (
 // Everything else is a field moving from one struct to another, which the compiler checks.
 
 // TestFirstSampleHasNoRates holds the difference between absent and zero.
-// A decode on its first tick has one reading, and one reading is not a rate: a zero here would say
-// the stream is carrying nothing.
+// A decode on its first tick has one reading, and one reading is not a rate:
+// a zero here would say the stream is carrying nothing.
 func TestFirstSampleHasNoRates(t *testing.T) {
 	ref := StreamRef{Name: "desk", Transport: "srt"}
 	now := receive.Stats{Uptime: 3 * time.Second, VideoBytes: 900_000, VideoFrames: 90}
@@ -28,7 +28,7 @@ func TestFirstSampleHasNoRates(t *testing.T) {
 }
 
 // TestRatesAreTakenOverThePipelinesOwnInterval is why the samples carry an uptime.
-// A tick the scheduler held back divides a real delta by the interval that really passed.
+// A tick the scheduler held back divides a real delta by the interval that passed.
 func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{
@@ -57,9 +57,9 @@ func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 	}
 }
 
-// TestARebuiltPipelineReportsNoRate covers the decode rebuilt under the same ref, which is what
-// turning tone mapping on does: the uptime and every counter restart, and the reading before it
-// describes a pipeline that no longer exists.
+// TestARebuiltPipelineReportsNoRate covers the decode rebuilt under the same ref,
+// which is what turning tone mapping on does: the uptime and every counter restart,
+// and the reading before it describes a pipeline that is gone.
 func TestARebuiltPipelineReportsNoRate(t *testing.T) {
 	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 90 * time.Second, VideoBytes: 50_000_000, VideoFrames: 5400}
@@ -72,9 +72,8 @@ func TestARebuiltPipelineReportsNoRate(t *testing.T) {
 	}
 }
 
-// TestAStalledCounterReportsZero separates a rate that is not measured from one measured at nothing.
-// A pipeline whose bytes stopped moving is receiving nothing, and a reader has to be able to see
-// that.
+// TestAStalledCounterReportsZero separates an unmeasured rate from one measured at nothing.
+// A pipeline whose bytes stopped moving is receiving nothing, and a reader has to see that.
 func TestAStalledCounterReportsZero(t *testing.T) {
 	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 10 * time.Second, VideoBytes: 1_000_000, VideoFrames: 600}
@@ -90,10 +89,9 @@ func TestAStalledCounterReportsZero(t *testing.T) {
 	}
 }
 
-// TestUnnegotiatedFiguresStayAbsent covers the figures a pipeline answers no query for while it is
-// opening.
-// Each carries presence, so a shell prints "unknown" rather than a latency window of zero or a
-// stream positioned at its first frame.
+// TestUnnegotiatedFiguresStayAbsent covers the figures an opening pipeline answers no query for.
+// Each carries presence, so a shell prints "unknown" rather than a latency window of zero,
+// or a stream positioned at its first frame.
 func TestUnnegotiatedFiguresStayAbsent(t *testing.T) {
 	ref := StreamRef{Name: "desk", Transport: "srt"}
 

@@ -1,5 +1,4 @@
-// Package netspeed measures uplink capacity, which is the figure a bitrate warning is judged
-// against.
+// Package netspeed measures uplink capacity, the figure a bitrate warning is judged against.
 package netspeed
 
 import (
@@ -17,24 +16,24 @@ import (
 )
 
 const (
-	// uploadURL swallows any POST body and echoes nothing back, so a one-directional probe needs
-	// neither an account nor a key.
+	// uploadURL swallows any POST body and echoes nothing back, so an upload probe needs no account or
+	// key.
 	uploadURL = "https://speed.cloudflare.com/__up"
 
 	// payloadBytes trades accuracy against duration.
 	// 20 MiB leaves TCP slow-start on a home line and still takes a few seconds on a slow uplink.
 	payloadBytes = 20 << 20
 
-	// measureTimeout bounds the whole probe, so an absent or stalled network fails instead of pinning
-	// a loading state open.
+	// measureTimeout bounds the whole probe, so a stalled network fails instead of pinning a loading
+	// state open.
 	measureTimeout = 30 * time.Second
 )
 
-// MeasureUplink uploads payloadBytes to a public endpoint and answers the throughput in Mbit/s.
+// MeasureUplink uploads payloadBytes to a public endpoint and answers throughput in Mbit/s.
 //
-// Every failure is an Umgebungsfehler and leaves as an error: no network, a blocked endpoint,
-// a rejected upload, a timeout.
-// A probe that cannot be timed refuses rather than answering with a guess.
+// Every failure is an Umgebungsfehler carried as an error: no network, blocked endpoint, rejected
+// upload, timeout.
+// A probe that cannot be timed refuses rather than guessing.
 func MeasureUplink(ctx context.Context) (float64, error) {
 	assert.IsNotNil(ctx, "a probe runs under a context, since its whole bound is a deadline")
 
@@ -43,11 +42,11 @@ func MeasureUplink(ctx context.Context) (float64, error) {
 
 	payload := make([]byte, payloadBytes)
 
-	// The clock covers the body transfer alone.
-	// DNS, the TCP and TLS handshakes and the response are round trips of their own, they outweigh the
-	// transfer on a fast line, and counting them as upload time halves the measured capacity.
-	// The transport writes the body on its own goroutine, so both instants are offsets from one base,
-	// which also keeps the interval between them on the monotonic clock.
+	// Clock covers the body transfer alone.
+	// DNS, the handshakes and the response are round trips of their own and outweigh the transfer
+	// on a fast line, so counting them as upload time halves the measured capacity.
+	// Transport writes the body on its own goroutine, so both instants are offsets from one base,
+	// keeping the interval on the monotonic clock.
 	base := time.Now()
 	var bodyStart, bodyEnd atomic.Int64
 	trace := &httptrace.ClientTrace{
@@ -70,8 +69,8 @@ func MeasureUplink(ctx context.Context) (float64, error) {
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body) // drained so the connection stays reusable
 
-	// A refused body is answered before all of it arrives, so what was timed is the rejection rather
-	// than the payload.
+	// Refusal answers before the whole body arrives, so what was timed is the rejection, not
+	// the payload.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Warnf("uplink probe rejected: %s", resp.Status)
 		return 0, fmt.Errorf("upload rejected: %s", resp.Status)

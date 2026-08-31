@@ -14,15 +14,16 @@ import (
 )
 
 // probeTimeout bounds one leg.
-// A port with nothing behind it drops the packets rather than refusing them, so this is what a
-// closed listener costs, and every leg is dialled at once so a whole check costs it once.
+// A port with nothing behind it drops packets rather than refusing them, so a closed listener costs
+// the whole timeout.
+// Legs are dialled at once, so a check pays it once.
 const probeTimeout = 5 * time.Second
 
-// probes is one entry per URL scheme, since what a listener answers follows the protocol its
-// address names and not the leg that carries it.
+// probes is one entry per URL scheme, since what a listener answers follows the protocol
+// its address names, not the leg carrying it.
 //
-// A scheme with no entry here is a transport addressing its listener in a protocol nothing can
-// speak to, which run asserts rather than reports.
+// A scheme with no entry is a transport addressing its listener in a protocol nothing speaks,
+// which run asserts rather than reports.
 var probes = map[string]func(context.Context, target) (string, error){
 	"http":  probeHTTP,
 	"https": probeHTTP,
@@ -33,7 +34,7 @@ var probes = map[string]func(context.Context, target) (string, error){
 
 // probeHTTP fetches the address and answers the status line.
 //
-// Any status counts as the listener answering, including a refusal: what is asked here is whether
+// Any status counts as the listener answering, refusals included: the question is whether
 // the server is there, and a relay serving no such path answers 404 over a listener that is up.
 func probeHTTP(ctx context.Context, t target) (string, error) {
 	assert.Assert(t.url != "", "an HTTP probe names what it fetches")
@@ -53,10 +54,10 @@ func probeHTTP(ctx context.Context, t target) (string, error) {
 	return response.Status, nil
 }
 
-// probeTLS opens the connection and completes the handshake, which is as far as a check goes on a
-// leg whose next move is a publish.
-// What comes back is the certificate the listener presented, that being the other thing a reader
-// asks about a leg that terminates TLS itself.
+// probeTLS opens the connection and completes the handshake, as far as a check goes on a leg whose
+// next move is a publish.
+// Answers the certificate the listener presented, the other thing a reader asks about a leg
+// that terminates TLS itself.
 func probeTLS(ctx context.Context, t target) (string, error) {
 	c, err := dialTLS(ctx, t)
 	if err != nil {
@@ -67,11 +68,11 @@ func probeTLS(ctx context.Context, t target) (string, error) {
 	return certificateOf(c), nil
 }
 
-// probeRTSP asks the listener for its options, the one request an RTSP server answers before a
-// session exists, and answers the status line it replied with.
+// probeRTSP asks the listener for its options, the one request an RTSP server answers before
+// a session exists, and answers the status line it replied with.
 //
-// A listener answering something else is not this leg, and saying so beats calling the port open:
-// what a publish needs there is RTSP.
+// A listener answering something else is not this leg: a publish there needs RTSP, so the row says
+// so rather than calling the port open.
 func probeRTSP(ctx context.Context, t target) (string, error) {
 	c, err := dialTLS(ctx, t)
 	if err != nil {
@@ -100,8 +101,7 @@ func probeRTSP(ctx context.Context, t target) (string, error) {
 }
 
 // dialTLS opens the address's host and completes the handshake.
-// The server name the certificate is measured against is the address's own, which the dialer takes
-// off it.
+// Certificate is measured against the address's own server name, which the dialer takes off it.
 func dialTLS(ctx context.Context, t target) (*tls.Conn, error) {
 	u, err := url.Parse(t.url)
 	assert.Assert(err == nil, "a leg's address parses", t.url)

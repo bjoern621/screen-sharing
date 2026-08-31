@@ -8,14 +8,13 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Where a write lands when the form marks its group applied rather than staged.
 ///
-/// The defect these lock out is a deadlock.
-/// A wizard staging every field until a commit, where the only commit is the publish, cannot get the relay
-/// address to the backend without a stream being started, and that address is the one setting the backend reads
-/// on a poll of its own.
-/// The publish that would carry it is refused, correctly, the relay it is about to change being undiallable.
+/// Deadlock this locks out: staging every field until a commit, where the only commit is the publish,
+/// gets the relay address to the backend only once a stream is started,
+/// and that address is the one setting the backend reads on a poll of its own.
+/// The publish carrying it is refused, correctly, the relay it is about to change being undiallable.
 ///
 /// Which groups are the settings themselves is the form's answer (<c>form.proto</c>, FieldGroup.applied).
-/// These state what the shell does with that answer, not what the answer is.
+/// Asserted here is what the shell does with that answer, not what the answer is.
 /// </summary>
 public sealed class AppliedWriteTests
 {
@@ -37,7 +36,7 @@ public sealed class AppliedWriteTests
     private static void Write(Flow flow, string key, string value)
         => flow.Form.Write(key, new FieldValue { Text = value });
 
-    /// <summary>The relay address reaches the backend with nothing published and nothing else pressed.</summary>
+    /// <summary>Relay address reaches the backend with nothing published and nothing else pressed.</summary>
     [Fact]
     public async Task AWriteToAnAppliedGroupIsStoredWithoutACommit()
     {
@@ -53,9 +52,9 @@ public sealed class AppliedWriteTests
     }
 
     /// <summary>
-    /// The half that must not move.
-    /// A reader configuring a stream is making a proposal, and a half-configured pipeline becoming what this
-    /// machine runs on every keystroke is the failure in the other direction.
+    /// Half that must not move.
+    /// A reader configuring a stream is making a proposal,
+    /// and a half-configured pipeline becoming what this machine runs on every keystroke is the other failure.
     /// </summary>
     [Fact]
     public async Task AWriteToAStagedGroupIsHeldForTheCommit()
@@ -69,9 +68,9 @@ public sealed class AppliedWriteTests
     }
 
     /// <summary>
-    /// A notice rather than the banner that blocks the publish: settings that could not be stored are still
-    /// settings a stream can start on.
-    /// The reason is the backend's own words, and the next write that lands clears it.
+    /// A notice rather than the banner blocking the publish:
+    /// settings that could not be stored are still settings a stream can start on.
+    /// Reason is the backend's own words, and the next write that lands clears it.
     /// </summary>
     [Fact]
     public async Task AWriteThatCouldNotBeStoredNamesTheReason()
@@ -96,10 +95,10 @@ public sealed class AppliedWriteTests
     }
 
     /// <summary>
-    /// Unary calls carry no ordering between them, so writing each one as it arrives lets a burst finish out
-    /// of order and leave an older value stored than the one on screen.
-    /// One write is in flight at a time, and what waits behind it is a draft rather than a queue: they are
-    /// all the same settings, and the older ones have nothing left to say.
+    /// Unary calls carry no ordering between them,
+    /// so writing each one as it arrives lets a burst finish out of order and store an older value than the screen's.
+    /// One write is in flight at a time, and what waits behind it is a draft rather than a queue:
+    /// they are all the same settings, and the older ones have nothing left to say.
     /// </summary>
     [Fact]
     public async Task TwoWritesInFlightStoreTheNewestDraftLast()
@@ -115,8 +114,7 @@ public sealed class AppliedWriteTests
         Assert.Equal(1, backend.HeldSaves);
         Assert.Equal("first", Assert.Single(backend.Saved).Relay.Host);
 
-        // Taken before the first save is answered, so it awaits the write that follows it rather than the one
-        // already sent.
+        // Taken before the first save is answered, so it awaits the write that follows rather than the one sent.
         var follows = backend.NextSaveAsked;
         backend.AnswerSave();
         await follows;

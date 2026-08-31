@@ -20,7 +20,7 @@ const GstExe = "gst-launch-1.0"
 // gstEngine runs one GStreamer capture backend: capture, encode and transport in one pipeline and
 // one process.
 //
-// The backend is a field rather than a branch, which keeps framework and source on separate axes:
+// The backend is a field rather than a branch, keeping framework and source on separate axes:
 // a source only one framework has an element for is a backend only that engine is instantiated
 // with.
 type gstEngine struct {
@@ -72,8 +72,8 @@ func (gstEngine) Engine() string {
 	return EngineGst
 }
 
-// Release drops what the capture backend holds between launches, and does nothing for one that
-// holds nothing.
+// Release drops what the capture backend holds between launches, and does nothing for one
+// that holds nothing.
 func (g gstEngine) Release() {
 	if holder, ok := g.capture.(sourceHolder); ok {
 		holder.Release()
@@ -102,10 +102,10 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 
 	// Instrumentation belongs to a run and not to the pipeline: without OnStats the child runs what
 	// the displayed command reads, rate probe included.
-	// The meter's socket is open from here on, and the port it landed on is what the meter branch is
-	// pointed at.
-	// A connection back to this process rather than an inherited descriptor, since a Windows child
-	// inherits none.
+	// The meter's socket is open from here on, and the port it landed on is what the meter branch
+	// is pointed at.
+	// A connection back to this process rather than an inherited descriptor, a Windows child
+	// inheriting none.
 	var meter *gstMeter
 	meterArg := ""
 	if cb.OnStats != nil {
@@ -138,7 +138,7 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	// The caps follow the pipeline reaching PLAYING, so they do not arrive before it.
 	//
 	// That is an argument about timing, not about the memory model: the handle is written here and
-	// read on the reader goroutine, so the mutex is what makes the write visible to that read.
+	// read on the reader goroutine, so the mutex makes the write visible to that read.
 	// stopped needs none, being written and read inside this callback alone, which is one goroutine.
 	var handleMu sync.Mutex
 	var handle Handle
@@ -171,8 +171,8 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	started, err := supervise(superviseConfig{
 		exe: exe,
 		env: GstChildEnv(),
-		// The subcommand leads, which is what makes this executable play a pipeline rather than start a
-		// second backend (cmd/backend).
+		// The subcommand leads, so this executable plays a pipeline rather than starting a second
+		// backend (cmd/backend).
 		// The control flag follows it, so the pipeline starts at the word gst-launch would start at.
 		args: append(append([]string{GstSubcommand}, gstChildArgs(s, socket, meterArg != "")...), pipeline...),
 		tag:  tag,

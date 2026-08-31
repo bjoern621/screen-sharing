@@ -8,16 +8,17 @@ namespace ScreenShare.App.Features.Setup.AudioStep.ViewModel;
 /// <summary>
 /// One entry of the audio source list: the four controls the form drew for it, on one line.
 ///
-/// No copy and no state of its own. The controls arrive from the group's renderer already decided, and every
-/// write leaves through the one the reader moved.
+/// No copy and no state of its own.
+/// The controls arrive from the group's renderer already decided,
+/// and every write leaves through the one the reader moved.
 ///
 /// Outputs only, written by <see cref="Apply"/> on every pass, the branches that turn a control off included.
 /// </summary>
 public sealed class AudioSourceRowViewModel : Observable
 {
     /// <summary>
-    /// Value the absent kind is spelled by, read off the form rather than written down here: it is what the row
-    /// past the end of the list holds, and picking it on an entry is what takes that entry off
+    /// Value the absent kind is spelled by, read off the form rather than written down here:
+    /// it is what the row past the end of the list holds, and picking it on an entry is what takes that entry off
     /// (<c>api/proto/screenshare/v1/settings.proto</c>, <c>AudioSource</c>).
     /// Empty until a pass has one to read.
     /// </summary>
@@ -48,8 +49,8 @@ public sealed class AudioSourceRowViewModel : Observable
 
     /// <summary>
     /// Why the controls on this row are inert, one line each, in the order the row draws them.
-    /// A line under the row rather than a tip on the control: nothing opens over a greyed control, and the
-    /// column head above it explains what the control does rather than why this one cannot
+    /// A line under the row rather than a tip on the control: nothing opens over a greyed control,
+    /// and the column head above it explains what the control does rather than why this one cannot
     /// (<c>docs/tooltips.md</c>, "An availability note is a line").
     /// </summary>
     public ObservableCollection<string> Reasons { get; }
@@ -77,8 +78,8 @@ public sealed class AudioSourceRowViewModel : Observable
 
     /// <summary>
     /// Whether this row offers the button that takes the entry off.
-    /// False where the entry already names the absent kind, and where the control does not offer it: a kind the
-    /// form refuses is one no press may write.
+    /// False where the entry already names the absent kind, and where the control does not offer it:
+    /// a kind the form refuses is one no press may write.
     /// </summary>
     public bool CanRemove { get => _canRemove; private set => Set(ref _canRemove, value); }
 
@@ -86,8 +87,8 @@ public sealed class AudioSourceRowViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: the group hands back the same controls by key, so an unchanged pass assigns the same
-    /// references and fires no binding.
+    /// Safe to run twice: the group hands back the same controls by key,
+    /// so an unchanged pass assigns the same references and fires no binding.
     /// </summary>
     /// <param name="absent">
     /// What the absent kind is called on this form, empty where no pass has read it yet.

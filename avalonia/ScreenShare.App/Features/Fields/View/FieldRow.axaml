@@ -5,30 +5,29 @@
                     xmlns:ti="using:TablerIcons">
 
   <!--
-    One control of the resolved form. Which controls appear, what they are called, which are
-    greyed and why all arrive in the message, and this template decides how a control kind looks
-    (docs/ipc-api.md).
+    One control of the resolved form.
+    Which controls appear, what they are called, which are greyed and why all arrive in the message,
+    and this template decides how a control kind looks (docs/ipc-api.md).
 
-    One template rather than one per caller: the whole group renders it and so does the advanced
-    part of the quality group, and a second copy is the one that stops matching.
+    One template rather than one per caller: the whole group renders it and so does the advanced part of the
+    quality group, and a second copy is the one that stops matching.
 
-    Merged into the application's resources (App.axaml) rather than included per caller: a
-    template resolves against the scope above the control it is instantiated on, and every caller
-    reaches it from inside a DataTemplate, so the application's is the only scope above them all.
+    Merged into the application's resources (App.axaml) rather than included per caller: a template resolves
+    against the scope above the control it is instantiated on, and every caller reaches it from inside a
+    DataTemplate, so the application's is the only scope above them all.
 
-    Nothing is skinned here. The option row is the design's OptionCard and the picked treatment
-    travels with it (Design/Buttons.axaml). The text roles inside the card are in Design/Text.axaml,
-    because reaching into a button's content needs a descendant selector and a ControlTheme may not
-    carry one.
+    Nothing is skinned here.
+    The option row is the design's OptionCard and the picked treatment travels with it (Design/Buttons.axaml).
+    The text roles inside the card sit in Design/Text.axaml, reaching into a button's content needing a
+    descendant selector a ControlTheme may not carry.
   -->
 
   <DataTemplate x:Key="FieldRow" x:DataType="vm:FieldViewModel">
     <StackPanel Spacing="6" Margin="0,0,0,18">
 
       <!--
-        Unit beside the name and not over the control: it names what the figure is counted in, which
-        is a fact about the setting, and an Auto column is as wide as the word rather than as wide as
-        a column that has to suit every row.
+        Unit beside the name and not over the control: it names what the figure is counted in, a fact about the
+        setting, and an Auto column is as wide as the word rather than as wide as a column suiting every row.
       -->
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock Grid.Column="0"
@@ -59,10 +58,10 @@
                  Text="{Binding Help}" />
 
       <!--
-        Written on losing focus and not per keystroke. A half-typed value resolves to
-        a form about settings nobody asked for, and in an applied group it is stored
-        and acted on a character at a time: the backend would dial every prefix of the
-        relay's hostname in turn.
+        Written on losing focus and not per keystroke.
+        A half-typed value resolves to a form about settings nobody asked for,
+        and in an applied group it is stored and acted on a character at a time:
+        the backend would dial every prefix of the relay's hostname in turn.
       -->
       <TextBox IsVisible="{Binding IsText}"
                IsEnabled="{Binding IsEnabled}"
@@ -79,20 +78,18 @@
                      HorizontalAlignment="Left" />
 
       <!--
-        Box and ladder write one setting, which is what the glued edge says
-        (Controls/NumberSelect). The caret carries no value of its own: what is held
-        is in the box to its left, and a face repeating it would print one figure
-        twice.
+        Box and ladder write one setting, which is what the glued edge says (Controls/NumberSelect).
+        The caret carries no value of its own: what is held is in the box to its left,
+        and a face repeating it would print one figure twice.
       -->
       <StackPanel Orientation="Horizontal"
                   IsVisible="{Binding IsNumberSelect}"
                   HorizontalAlignment="Left">
         <!--
-          The entry standing where the box would be, for a value the range does not
-          reach: a spinner handed one coerces it to its own floor and writes the floor
-          back, which is the answer the entry exists to reach
-          (form.proto, CONTROL_KIND_NUMBER_SELECT). The caret beside it is unchanged,
-          so the way out is the way in.
+          The entry standing where the box would be, for a value the range does not reach:
+          a spinner handed one coerces it to its own floor and writes the floor back,
+          which is the answer the entry exists to reach (form.proto, CONTROL_KIND_NUMBER_SELECT).
+          The caret beside it is unchanged, so the way out is the way in.
         -->
         <Border Theme="{StaticResource NumberSelectHeld}"
                 IsVisible="{Binding IsEntryOutsideBand}"
@@ -124,13 +121,12 @@
       </StackPanel>
 
       <!--
-        The thumb stops where the form does and nowhere between: the setting under it is a
-        whole figure, so a sweep landing between two stops would write a value rounded
-        behind the reader's back.
+        The thumb stops where the form does and nowhere between: the setting under it is a whole figure,
+        so a sweep landing between two stops would write a value rounded behind the reader's back.
         The keys carry the same distance, a shorter move snapping back to the stop it left.
 
-        Ticks over TickFrequency, a frequency counting its grid off the floor and stepping
-        over it (Features/Fields/ViewModel/FieldViewModel.cs).
+        Ticks over TickFrequency, a frequency counting its grid off the floor and stepping over it
+        (Features/Fields/ViewModel/FieldViewModel.cs).
         The frequency stays as what a range holding no stop of its own is swept in.
       -->
       <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}">
@@ -153,8 +149,8 @@
       </Grid>
 
       <!--
-        A flag is the switch and never a CheckBox. One domain concept rendered two
-        ways is the defect the shared control exists to prevent
+        A flag is the switch and never a CheckBox.
+        One domain concept rendered two ways is the defect the shared control exists to prevent
         (docs/design-language.md, "Selection").
       -->
       <ToggleButton IsVisible="{Binding IsToggle}"
@@ -167,8 +163,8 @@
                  Text="{Binding Readback}" />
 
       <!--
-        One list for both option kinds: the two differ in whether an entry carries a
-        paragraph, and an entry with none renders without one.
+        One list for both option kinds: the two differ in whether an entry carries a paragraph,
+        and an entry with none renders without one.
 
         A refused entry states its reason on the card, so nothing opens over it
         (docs/tooltips.md, "An availability note is a line").
@@ -200,8 +196,8 @@
         </ItemsControl>
 
         <!--
-          Outside the list's greying: an inert control is still one a reader arrives at looking
-          for what is missing, and reading is not picking.
+          Outside the list's greying: an inert control is still one a reader arrives at looking for what is
+          missing, and reading is not picking.
         -->
         <Button Theme="{StaticResource LinkButton}"
                 HorizontalAlignment="Left"
@@ -219,10 +215,10 @@
       </StackPanel>
 
       <!--
-        The effect a screen offers for this setting, drawn under whichever control kind holds
-        it rather than inside one kind's branch (Features/Fields/Model/FieldAction.cs).
-        A button and not a figure that fills itself in: it reaches another machine, takes
-        seconds, and is refused outright in the states the backend names.
+        The effect a screen offers for this setting, drawn under whichever control kind holds it rather than
+        inside one kind's branch (Features/Fields/Model/FieldAction.cs).
+        A button and not a figure filling itself in: it reaches another machine, takes seconds,
+        and is refused outright in the states the backend names.
       -->
       <StackPanel IsVisible="{Binding HasAction}" Spacing="6">
         <Button HorizontalAlignment="Left"
@@ -245,8 +241,8 @@
                  Text="{Binding Reason}" />
 
       <!--
-        A note, not a third treatment of inapplicability: the field is live and the
-        value does reach the encoder (docs/field-availability.md, "The treatments").
+        A note, not a third treatment of inapplicability: the field is live and the value does reach the encoder
+        (docs/field-availability.md, "The treatments").
       -->
       <TextBlock Classes="hint"
                  TextWrapping="Wrap"

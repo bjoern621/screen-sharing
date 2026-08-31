@@ -2,8 +2,7 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
 /// One line of the configuration in force, read-only while live.
-/// Editing goes through the card's "Edit in setup" link alone, which keeps broadcast from becoming a second
-/// editor.
+/// Editing goes through the card's "Edit in setup" link alone, so broadcast never becomes a second editor.
 /// </summary>
 /// <remarks>
 /// Both halves come from the backend.

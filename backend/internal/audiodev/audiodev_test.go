@@ -8,8 +8,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 )
 
-// The enumeration is the one part of the audio list that touches the machine, so these hold it to
-// answering a real one.
+// The enumeration is the one part of the audio list touching the machine,
+// so these hold it to answering a real one.
 // A list built from nothing offers every kind its default and nothing else.
 
 // Every device carries the kind it is inside and the handle a publish opens it by.
@@ -34,15 +34,16 @@ func TestEveryEnumeratedDeviceIsOpenable(t *testing.T) {
 		kinds[d.Kind]++
 	}
 
-	// A machine that plays sound has a sink and the desktop kind is that sink's monitor, which makes
-	// it the one kind every machine running the daemon has something in.
+	// A machine that plays sound has a sink, and the desktop kind is that sink's monitor,
+	// so it is the one kind every machine running the daemon has something in.
 	if kinds[platform.AudioSourceDesktop] == 0 {
 		t.Errorf("the daemon reports no sink to record, and it enumerated %v", kinds)
 	}
 }
 
-// The desktop kind records the monitor of a sink, so a handle without that suffix names the sink
-// itself, which a publish opens for playback and never records.
+// The desktop kind records the monitor of a sink,
+// so a handle without that suffix names the sink itself,
+// which a publish opens for playback and never records.
 func TestADesktopDeviceIsASinksMonitor(t *testing.T) {
 	for _, d := range Cached(context.Background()) {
 		if d.Kind == platform.AudioSourceDesktop && !strings.HasSuffix(d.ID, monitorSuffix) {
@@ -51,8 +52,8 @@ func TestADesktopDeviceIsASinksMonitor(t *testing.T) {
 	}
 }
 
-// The enumeration is a subprocess and a form resolves on every keystroke, which is the whole reason
-// it is cached rather than taken on demand.
+// The enumeration is a subprocess and a form resolves on every keystroke,
+// which is why it is cached rather than taken on demand.
 func TestTheEnumerationIsTakenOnce(t *testing.T) {
 	first := Cached(context.Background())
 	second := Cached(context.Background())

@@ -25,8 +25,8 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="shell:DestinationTab">
               <!--
-                Read back off the container: a TextBlock foreground is stated app-wide, so inheritance loses
-                to it and every segment state comes out one colour.
+                Read back off the container: a TextBlock foreground is stated app-wide,
+                so inheritance loses to it and every segment state comes out one colour.
               -->
               <TextBlock Text="{Binding Label}"
                          Foreground="{Binding $parent[ListBoxItem].Foreground}"

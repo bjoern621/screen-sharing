@@ -2,8 +2,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
 /// Where a window can be.
-/// Closed on purpose: the nav strip draws every destination at once, so the shape of the app is read off the
-/// strip rather than off entries that appear and vanish.
+/// Closed on purpose: the nav strip draws every destination at once, so the shape of the app is read off
+/// the strip rather than off entries that appear and vanish.
 /// </summary>
 public enum Destination
 {

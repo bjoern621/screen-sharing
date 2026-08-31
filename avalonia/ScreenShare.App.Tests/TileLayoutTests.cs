@@ -4,9 +4,9 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Failures a screenshot shows only when the case is unlucky: rows off centre, a tile that is not its
-/// stream's shape, tiles squashed below legibility, an order that follows whichever aspect arrived first.
-/// The solver is pure, so none of it needs a window (<c>Features/Viewer/Model/TileLayout.cs</c>).
+/// Failures a screenshot shows only on an unlucky case: rows off centre, a tile that is not its stream's shape,
+/// tiles squashed below legibility, an order following whichever aspect arrived first.
+/// Solver is pure, so none of it needs a window (<c>Features/Viewer/Model/TileLayout.cs</c>).
 /// </summary>
 public sealed class TileLayoutTests
 {
@@ -19,8 +19,8 @@ public sealed class TileLayoutTests
         => arrangement.Tiles.Select(t => t.Y).Distinct().Order().ToList();
 
     /// <summary>
-    /// A row is as wide as its contents, so the leftover is split rather than piled on one side, which
-    /// reads as broken alignment.
+    /// A row is as wide as its contents,
+    /// so the leftover is split rather than piled on one side, which reads as broken alignment.
     /// </summary>
     [Fact]
     public void EveryRowIsCentredInTheWidth()
@@ -39,8 +39,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Three tiles in this box come out two over one and are bounded by the width, so the leftover height is
-    /// a margin above and below rather than an empty half-window under the tiles.
+    /// Three tiles in this box come out two over one and are bounded by the width,
+    /// so the leftover height is a margin above and below rather than an empty half-window under the tiles.
     /// </summary>
     [Fact]
     public void TheStackIsCentredInTheHeight()
@@ -65,9 +65,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The rule the arrangement is built around.
-    /// Letting each row fill the width instead would draw a row of one about twice the height of a row of
-    /// two: one big tile beside small ones rather than a grid of equals.
+    /// Rule the arrangement is built around.
+    /// Each row filling the width draws a row of one about twice the height of a row of two,
+    /// one big tile beside small ones rather than a grid of equals.
     /// </summary>
     [Theory]
     [InlineData(3)]
@@ -81,8 +81,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The row count is deliberately not asserted: picking the arrangement that draws the most picture is
-    /// the solver's job, and the three come out equal either way.
+    /// Row count is left unasserted: picking the arrangement drawing the most picture is the solver's job,
+    /// and the three come out equal either way.
     /// </summary>
     [Fact]
     public void ThreeEqualTilesComeOutEqual()
@@ -124,10 +124,7 @@ public sealed class TileLayoutTests
         Assert.True(arrangement.Height <= 900);
     }
 
-    /// <summary>
-    /// A solver that always chose one row passes every other property here and leaves most of the window
-    /// empty.
-    /// </summary>
+    /// <summary>A solver always choosing one row passes every other property here and leaves most of the window empty.</summary>
     [Fact]
     public void AFittingArrangementFillsTheBox()
     {
@@ -159,8 +156,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// An impossible aspect, a pipeline reporting a zero dimension among them, lands on the assumed one
-    /// rather than dividing the arrangement by zero.
+    /// An impossible aspect, a pipeline reporting a zero dimension among them,
+    /// lands on the assumed one rather than dividing the arrangement by zero.
     /// </summary>
     [Theory]
     [InlineData(0)]
@@ -175,8 +172,7 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The search sorts by aspect internally, so results carry the caller's order and no tile takes
-    /// another's rectangle.
+    /// Search sorts by aspect internally, so results carry the caller's order and no tile takes another's rectangle.
     /// </summary>
     [Fact]
     public void PlacementsComeBackInTheCallersOrder()
@@ -222,8 +218,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Every other property here holds while two rectangles sit on top of each other, and overlap is the one
-    /// failure a reader cannot miss.
+    /// Every other property here holds while two rectangles sit on top of each other,
+    /// and overlap is the one failure a reader cannot miss.
     /// </summary>
     [Fact]
     public void TilesDoNotOverlap()

@@ -15,8 +15,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// repairChanged names every settings field that reads differently between two drafts, as the
-// contract names them.
+// repairChanged names every settings field that reads differently between two drafts,
+// as the contract names them.
 //
 // It walks the wire message for the reason Repair does: a field key is that message's own field
 // name, so the answer derives from the contract rather than from a list beside it that could
@@ -42,9 +42,9 @@ func repairChanged(before, after settings.Settings) []string {
 	return changed
 }
 
-// repairCases are the drafts worth walking: a legal one, one stranded on every dimension the
-// cascade runs through, the pair whose device path converts nothing, and a machine whose engine can
-// run no encoder at all.
+// repairCases are the drafts worth walking: a legal one, one stranded on every dimension
+// the cascade runs through, the pair whose device path converts nothing,
+// and a machine whose engine can run no encoder at all.
 func repairCases() []availabilityCase {
 	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
@@ -83,13 +83,13 @@ func repairCases() []availabilityCase {
 	}
 }
 
-// A normalize step has to be a fixed point: a shell calls ResolveForm on every keystroke and adopts
-// the settings it answers with, so a second pass that moved something would resolve to a different
-// draft each time the form was asked about the one it just returned.
+// A normalize step has to be a fixed point: a shell calls ResolveForm on every keystroke
+// and adopts the settings it answers with, so a second pass that moved something would resolve
+// to a different draft each time the form was asked about the one it just returned.
 //
 // It also says the walk cannot spin.
-// A dimension repaired against a value a later dimension replaces shows up here as a second pass
-// with work left to do.
+// A dimension repaired against a value a later dimension
+// replaces shows up here as a second pass with work left to do.
 func TestARepairedDraftRepairsToItself(t *testing.T) {
 	for _, tc := range repairCases() {
 		once, _ := Repair(tc.deps, tc.s)
@@ -105,8 +105,8 @@ func TestARepairedDraftRepairsToItself(t *testing.T) {
 }
 
 // The pointer walks the same way, and its availability is a rule rather than a converted gap.
-// A scanout capture draws no pointer at all, so a draft carrying the default arrives on a backend
-// with no form of it.
+// A scanout capture draws no pointer at all,
+// so a draft carrying the default arrives on a backend with no form of it.
 func TestThePointerWalksOffABackendThatCannotDrawIt(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	draft := availabilityDraft("kmsgrab", "hevc_nvenc", "yuv420p", "rtsp")
@@ -125,8 +125,8 @@ func TestThePointerWalksOffABackendThatCannotDrawIt(t *testing.T) {
 	}
 }
 
-// One evaluation decides both ends of this: a repair landing on a value the form would grey is the
-// disagreement between the form and the publish this package exists to prevent.
+// One evaluation decides both ends of this: a repair landing on a value the form would grey
+// is the disagreement between the form and the publish this package exists to prevent.
 func TestAStrandedValueWalksToALegalOne(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	draft := availabilityDraft("x11grab", "av1_nvenc", "yuv420p", "rtsp")
@@ -134,7 +134,7 @@ func TestAStrandedValueWalksToALegalOne(t *testing.T) {
 
 	if _, gap := mustCodec(t, "av1_nvenc").OptionGap(
 		capabilities.EngineFfmpeg, capabilities.OptionMode, capabilities.ModeLossless); !gap {
-		t.Fatal("av1_nvenc codes lossless, so this draft is no longer the stranded one this test names")
+		t.Fatal("av1_nvenc codes lossless, so this draft is not the stranded one this test names")
 	}
 
 	s, repaired := Repair(deps, draft)
@@ -151,8 +151,8 @@ func TestAStrandedValueWalksToALegalOne(t *testing.T) {
 }
 
 // The list a shell is handed is exactly what changed.
-// Naming a field that did not move says a choice was overridden when it was not, and leaving one
-// out rewrites what the user typed in silence.
+// Naming a field that did not move says a choice was overridden when it was not,
+// and leaving one out rewrites what the user typed in silence.
 func TestTheRepairedListNamesExactlyTheFieldsThatMoved(t *testing.T) {
 	for _, tc := range repairCases() {
 		s, repaired := Repair(tc.deps, tc.s)
@@ -170,14 +170,16 @@ func TestTheRepairedListNamesExactlyTheFieldsThatMoved(t *testing.T) {
 
 // The whole cascade in one call.
 // The capture backend fixes the publish engine, the engine decides which transports serialize,
-// the transport decides which bitstream formats reach the relay, and the codec decides which pixel
-// formats reach the encoder.
-// A capture backend this session cannot run therefore strands the three below it, and one
-// ResolveForm settles all four: a shell that had to call twice would draw the intermediate state.
+// the transport decides which bitstream formats reach the relay,
+// and the codec decides which pixel formats reach the encoder.
+// A capture backend this session cannot run therefore strands the three below it,
+// and one ResolveForm settles all four:
+// a shell that had to call twice would draw the intermediate state.
 func TestACaptureChangeCascadesThroughTransportCodecAndChroma(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
-	// ddagrab runs on Windows alone, rtmp has no GStreamer publish sink, the AMF family has no
-	// GStreamer element at all, and 4:2:2 belongs to the two software H.26x encoders.
+	// ddagrab runs on Windows alone, rtmp has no GStreamer publish sink,
+	// the AMF family has no GStreamer element at all,
+	// and 4:2:2 belongs to the two software H.26x encoders.
 	// Each is legal where the one above it left off and stranded once that one moves.
 	draft := availabilityDraft("ddagrab", "hevc_amf", "yuv422p", "rtmp")
 
@@ -211,8 +213,8 @@ func TestACaptureChangeCascadesThroughTransportCodecAndChroma(t *testing.T) {
 }
 
 // A draft the tables accept is left as it was.
-// The repair moves values the tables forbid, and moving a legal one overrides a choice the user was
-// entitled to make.
+// The repair moves values the tables forbid,
+// and moving a legal one overrides a choice the user was entitled to make.
 func TestADraftTheTablesAcceptIsNotRepaired(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
@@ -228,8 +230,8 @@ func TestADraftTheTablesAcceptIsNotRepaired(t *testing.T) {
 }
 
 // The one case the contract allows a control to show a value its own evaluation refuses.
-// A dimension with nothing legal left keeps what it has, so the field stays disabled with its
-// reason rather than holding a value picked out of the set that greys it.
+// A dimension with nothing legal left keeps what it has, so the field stays disabled
+// with its reason rather than holding a value picked out of the set that greys it.
 func TestADimensionWithNothingLegalLeftKeepsTheValueItHas(t *testing.T) {
 	deps := Deps{
 		Platform: platform.Info{OS: "linux", Display: "x11"},
@@ -260,12 +262,12 @@ func mustCodec(t *testing.T, name string) capabilities.Codec {
 	return c
 }
 
-// A field the walk can reach resolves to a group and a field in it, or the lookup that writes the
-// repair back finds nothing.
+// A field the walk can reach resolves to a group and a field in it,
+// or the lookup that writes the repair back finds nothing.
 //
-// A repeated control resolves through an entry rather than its template: the template names the
-// control and an index names the value, which is what a shell binds and what the walk writes
-// through.
+// A repeated control resolves through an entry rather than its template:
+// the template names the control and an index names the value, what a shell binds
+// and what the walk writes through.
 func TestEveryRepairableFieldNamesASettingsField(t *testing.T) {
 	m := wire.Settings(settings.Defaults())
 
@@ -279,15 +281,15 @@ func TestEveryRepairableFieldNamesASettingsField(t *testing.T) {
 	}
 }
 
-// A codec whose bitrate ceiling sits under the settings' own default is the case the numeric repair
-// exists for.
-// libsvtav1's ceiling is under what settings.Defaults asks for, so selecting it leaves a draft
-// capabilities.Validate refuses, and a number has no entry to grey.
+// A codec whose bitrate ceiling sits under the settings'
+// own default is the case the numeric repair exists for.
+// libsvtav1's ceiling is under what settings.Defaults asks for,
+// so selecting it leaves a draft capabilities.Validate refuses, and a number has no entry to grey.
 func TestABitrateAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
-	// RTSP rather than SRT: MPEG-TS carries no AV1 mapping, so an SRT leg would repair the codec out
-	// from under the ceiling this test is about.
+	// RTSP rather than SRT: MPEG-TS carries no AV1 mapping, so an SRT leg would repair the codec
+	// out from under the ceiling this test is about.
 	draft := availabilityDraft("x11grab", "libsvtav1", "yuv420p", "rtsp")
 	draft.Publish.Mode = capabilities.ModeCbr
 	draft.Publish.BitrateM = 150
@@ -318,8 +320,8 @@ func TestABitrateAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 	}
 }
 
-// A quantizer scale is the codec's own, so changing codec moves the ceiling under a value that was
-// legal where it was set.
+// A quantizer scale is the codec's own, so changing codec moves the ceiling under a value
+// that was legal where it was set.
 func TestAQuantizerOffTheTopOfTheScaleIsBroughtDownToIt(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
@@ -385,14 +387,14 @@ func TestASilentStreamKeepsItsStoredAudioCodec(t *testing.T) {
 	}
 }
 
-// A settings file names a source the machine it was moved to does not serve, and the repair walks
-// it onto one that machine does.
+// A settings file names a source the machine it was moved to does not serve,
+// and the repair walks it onto one that machine does.
 //
-// The platform table decides both ends: the rows the form greys the entry with are the rows this
-// walks over, so a repair lands on a value the same evaluation leaves offered.
-// Reaching for the absent source by name would put an opinion about which source is safe in
-// repair.go, where the table carries the rule (docs/domain-model.md, "The second-track capture
-// sources").
+// The platform table decides both ends: the rows the form greys the entry with are the rows
+// this walks over, so a repair lands on a value the same evaluation leaves offered.
+// Reaching for the absent source by name would put an opinion about which source is safe
+// in repair.go, where the table carries the rule (docs/domain-model.md,
+// "The second-track capture sources").
 func TestASourceThisMachineDoesNotServeWalksToOneItDoes(t *testing.T) {
 	entry := indexedKey(KeyAudioSource, 0)
 	for _, info := range []platform.Info{{OS: "windows"}, {OS: "darwin"}} {
@@ -402,8 +404,9 @@ func TestASourceThisMachineDoesNotServeWalksToOneItDoes(t *testing.T) {
 
 		out, repaired := Repair(d, draft)
 
-		// The kind walks to the absent one, which takes the entry off the list: an entry with no kind
-		// records nothing, and a machine serving none of them has nothing to record.
+		// The kind walks to the absent one, which takes the entry off the list:
+		// an entry with no kind records nothing,
+		// and a machine serving none of them has nothing to record.
 		if len(out.Publish.AudioSources) != 0 {
 			t.Errorf("%s: audio sources = %+v, want the unserved entry taken off",
 				info.OS, out.Publish.AudioSources)
@@ -413,8 +416,8 @@ func TestASourceThisMachineDoesNotServeWalksToOneItDoes(t *testing.T) {
 		}
 	}
 
-	// The same draft on a platform that serves the source is left alone, or the walk is a control that
-	// never keeps what it is given rather than a repair.
+	// The same draft on a platform that serves the source is left alone,
+	// or the walk is a control that never keeps what it is given rather than a repair.
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	draft := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
 	draft.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
@@ -451,8 +454,8 @@ func TestAClampedDraftClampsToItself(t *testing.T) {
 	}
 }
 
-// Constant quality has no target for a ceiling to sit above, so the two figures cannot disagree
-// there.
+// Constant quality has no target for a ceiling to sit above,
+// so the two figures cannot disagree there.
 // Raising the ceiling to a bitrate belonging to another mode would hand a bounded quality encode
 // several times the rate it was bounded to.
 func TestAConstantQualityCeilingIsNotRaisedToTheBitrate(t *testing.T) {
@@ -473,8 +476,8 @@ func TestAConstantQualityCeilingIsNotRaisedToTheBitrate(t *testing.T) {
 	}
 }
 
-// A stored draft can name a keyframe interval no encoder on the newly chosen codec takes, and a
-// draft the form would not offer is one the repair brings back inside the scale.
+// A stored draft can name a keyframe interval no encoder on the newly chosen codec takes,
+// and a draft the form would not offer is one the repair brings back inside the scale.
 func TestAKeyframeIntervalAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
@@ -503,10 +506,10 @@ func TestAKeyframeIntervalAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 	}
 }
 
-// The rate buffer is stated to the encoder as the rate times the window, and a draft can hold a pair
-// whose product no encoder's field takes.
-// The form offers the window inside what the rate leaves, and the repair is the same limit on a
-// draft that arrived from somewhere else.
+// The rate buffer is stated to the encoder as the rate times the window,
+// and a draft can hold a pair whose product no encoder's field takes.
+// The form offers the window inside what the rate leaves, and the repair is the same limit
+// on a draft that arrived from somewhere else.
 func TestARateBufferAboveWhatTheEncoderHoldsIsBroughtDown(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
@@ -530,8 +533,8 @@ func TestARateBufferAboveWhatTheEncoderHoldsIsBroughtDown(t *testing.T) {
 	}
 }
 
-// A target of zero is what the control stopped offering in the modes that send one, so a draft
-// carrying it arrived from a mode that sends none or from a file somebody edited.
+// A target of zero is what the control stopped offering in the modes that send one,
+// so a draft carrying it arrived from a mode that sends none or from a file somebody edited.
 // The walk raises it rather than leaving a stream at no rate, and names the move.
 func TestATargetOfZeroIsRaisedInTheModesThatSendOne(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
@@ -574,12 +577,13 @@ func TestATargetOfZeroStandsWhereNothingSendsIt(t *testing.T) {
 	}
 }
 
-// The format is what every viewer has to decode, so an encoder this machine cannot run moves the
-// encoder alone: the same bitstream goes out through whatever produces it here.
+// The format is what every viewer has to decode, so an encoder this machine cannot run moves
+// the encoder alone: the same bitstream goes out through whatever produces it here.
 //
-// The two controls are what makes that hold. One field naming the whole encode has a single list to
-// walk, so the first entry that runs decides the bitstream as a side effect, and a machine whose
-// software encoders are missing publishes a format nobody asked for.
+// The two controls are what makes that hold.
+// One field naming the whole encode has a single list to walk,
+// so the first entry that runs decides the bitstream as a side effect,
+// and a machine whose software encoders are missing publishes a format nobody asked for.
 //
 // The case is the striking one: an x264 draft on a machine where NVENC is all there is.
 func TestAMissingEncoderMovesTheEncoderAndNotTheFormat(t *testing.T) {

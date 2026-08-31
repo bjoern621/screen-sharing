@@ -9,8 +9,9 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
 ///
 /// An intent either toggles or names a state.
-/// A leave intent names one, arriving from something that means a single direction, a key meaning "leave" or a
-/// window that has closed, and a toggle raised from there would ask for the state it was reporting the end of.
+/// A leave intent names one, arriving from something meaning a single direction:
+/// a window that has closed, or a key meaning "leave".
+/// A toggle raised from there would ask for the state it was reporting the end of.
 /// </summary>
 public enum TileIntent
 {

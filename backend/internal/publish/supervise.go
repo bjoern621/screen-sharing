@@ -20,10 +20,10 @@ import (
 // travels this way, and nothing does on Windows, which inherits no descriptors.
 // onCleanup runs after the child exits, releasing engine-owned resources like the portal session.
 // parseStdout, when set, consumes the child's stdout, where an engine prints its progress.
-// That stream is teed into the run log on the way,
-// so the log holds everything the child said either way.
-// env adds to this process's environment rather than replacing it, so a child keeps everything the
-// app was started with (GstChildEnv fills it).
+// That stream is teed into the run log on the way, so the log holds everything the child said
+// either way.
+// env adds to this process's environment rather than replacing it, so a child keeps everything
+// the app was started with (GstChildEnv fills it).
 // redact hides the run's secrets in whatever is written to the log, and nil hides nothing.
 // The command line is the first thing the log carries and it spells the relay token and the SRT
 // passphrase out in full, so a log offered to whoever is helping carries both out with it
@@ -41,15 +41,16 @@ type superviseConfig struct {
 }
 
 // supervise starts and watches the child, mirroring ffmpeg.Start for engines that speak no ffmpeg
-// -progress stream: stderr is teed to a per-run log and a bounded tail, and onExit fires once with
-// the tail and the log path.
+// -progress stream: stderr is teed to a per-run log and a bounded tail, and onExit fires once
+// with the tail and the log path.
 // A log directory, a pipe or a child the machine will not give is an environment failure and comes
-// back as an error; the asserts below state this package's own contract.
+// back as an error.
+// The asserts below state this package's own contract.
 func supervise(cfg superviseConfig) (Handle, error) {
 	assert.Assert(cfg.exe != "", "a supervised child names the executable to run", cfg.tag)
 	assert.Assert(cfg.tag != "", "a supervised child names its run log", cfg.exe)
-	// The descriptors reach the child by position,
-	// so a closed slot shifts every later fd and lands the pipeline on the wrong one.
+	// The descriptors reach the child by position, so a closed slot shifts every later fd and lands
+	// the pipeline on the wrong one.
 	for i, f := range cfg.extraFiles {
 		assert.IsNotNil(f, "an inherited descriptor is an open file", cfg.tag, i)
 	}
@@ -123,8 +124,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 		}()
 	}
 
-	// Both readers drain before the wait, so the tail and the log hold everything the child wrote by
-	// the time onExit carries them.
+	// Both readers drain before the wait, so the tail and the log hold everything the child wrote
+	// by the time onExit carries them.
 	go func() {
 		readers.Wait()
 		waitErr := cmd.Wait()

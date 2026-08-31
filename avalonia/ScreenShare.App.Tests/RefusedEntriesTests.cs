@@ -7,14 +7,12 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// A choice control lists what this combination allows and keeps the rest behind a disclosure.
-///
-/// What these lock out is a list that decides anything: which entries a combination rules out arrives in the
-/// message, and all that is under test is where a shell puts them (docs/field-availability.md, "Where a greyed
-/// entry sits").
+/// Locked out is a list deciding anything: which entries a combination rules out arrives in the message,
+/// and under test is only where a shell puts them (<c>docs/field-availability.md</c>, "Where a greyed entry sits").
 /// </summary>
 public sealed class RefusedEntriesTests
 {
-    /// <summary>A select over the entries named, the ones prefixed with a dash being the refused ones.</summary>
+    /// <summary>Select over the entries named. Dash prefix marks a refused one: "-kmsgrab".</summary>
     private static FieldViewModel Select(string picked, params string[] entries)
     {
         var field = new Field
@@ -78,8 +76,8 @@ public sealed class RefusedEntriesTests
     }
 
     /// <summary>
-    /// A refused entry keeps the sentence naming what to change, which is the whole reason it is still on the
-    /// list rather than gone from it.
+    /// A refused entry keeps the sentence naming what to change,
+    /// the reason it stays on the list rather than going from it.
     /// </summary>
     [Fact]
     public void ARevealedEntryStillStatesWhyItCannotBePicked()
@@ -94,8 +92,8 @@ public sealed class RefusedEntriesTests
     }
 
     /// <summary>
-    /// A flyout holds nothing but its items, so the disclosure is the last of them and reads as a state: the
-    /// tick says whether the entries are listed (docs/design-language.md, "Menus").
+    /// A flyout holds nothing but its items, so the disclosure is the last of them and reads as a state:
+    /// the tick says whether the entries are listed (<c>docs/design-language.md</c>, "Menus").
     /// </summary>
     [Fact]
     public void ADropdownCarriesTheDisclosureAsItsLastRow()
@@ -135,8 +133,8 @@ public sealed class RefusedEntriesTests
     }
 
     /// <summary>
-    /// A pass is the backend's answer and the reveal is the reader's, so a fresh form leaves an opened list
-    /// open (docs/development-principles.md, "One render function per component").
+    /// A pass is the backend's answer and the reveal the reader's, so a fresh form leaves an opened list open
+    /// (<c>docs/development-principles.md</c>, "One render function per component").
     /// </summary>
     [Fact]
     public void AFurtherPassKeepsTheListTheReaderOpened()

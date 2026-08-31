@@ -62,10 +62,10 @@ public sealed class ViewerTableViewModel : Observable
     }
 
     /// <summary>
-    /// How many readers the relay counts on this stream's path. Null while nothing has been read, or nothing is
-    /// publishing.
-    /// Carried rather than taken off the row count, the two being different facts about one answer: the count is
-    /// what the relay said, the rows what this screen rendered of it.
+    /// How many readers the relay counts on this stream's path. Null while nothing has been read, or nothing
+    /// is publishing.
+    /// Carried rather than taken off the row count, the two being different facts about one answer: the count
+    /// is what the relay said, the rows what this screen rendered of it.
     /// Holding both makes a disagreement between them visible.
     /// </summary>
     public int? Readers
@@ -98,8 +98,8 @@ public sealed class ViewerTableViewModel : Observable
 
     /// <summary>
     /// Why there are no rows, empty while there are some.
-    /// Says an empty roster and never a missing measurement: the relay names its readers, so a viewer that
-    /// connects gets a row and an empty table is an empty path.
+    /// Says an empty roster and never a missing measurement: the relay names its readers, so a viewer
+    /// that connects gets a row and an empty table is an empty path.
     /// The three absences are asked in the order they stop being true as a stream comes up.
     /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }

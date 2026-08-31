@@ -1,25 +1,25 @@
 // Package encoderate measures how many frames per second this machine encodes the configured stream
 // at, so a target rate above what the encoder sustains can be warned about before the publish.
 //
-// It is the encoder's counterpart to the uplink probe, and it measures rather than reads a
-// specification for the same reason: throughput is the product of the CPU or the fixed-function
-// block, the picture size, the chroma and the rate-control mode, and no table holds that product.
+// The encoder's counterpart to the uplink probe, measuring rather than reading a specification
+// for the same reason: throughput is the product of the CPU or the fixed-function block,
+// the picture size, the chroma and the rate-control mode, and no table holds that product.
 //
 // A publish that asks for more than the answer does not degrade visibly.
 // The encoder falls behind, the frames it cannot take are discarded ahead of it, and what reaches
 // the relay is the rate it managed, while the pipeline runs and the transport stays connected.
 //
-// The figure is a range, since encode cost follows content the way bitrate does.
+// The figure is a range, encode cost following content the way bitrate does.
 // The ends are timed on generated frames at the two extremes an encoder can be handed: uncorrelated
 // noise, where nothing predicts and nothing repeats, and a moving object on a flat field, where
 // almost everything does.
 // A screen sits between them and moves within them as its content changes.
 //
-// Everything but frame acquisition and frame delivery is the publish's own: the same encoder, the
-// same rate-control properties, the same conversion into the same encoder input, at the same
+// Everything but frame acquisition and frame delivery is the publish's own: the same encoder,
+// the same rate-control properties, the same conversion into the same encoder input, at the same
 // picture size.
-// Those two are replaced by the cheapest thing that fits, so what is left in the middle is the
-// encoder.
+// Those two are replaced by the cheapest thing that fits, so what is left in the middle
+// is the encoder.
 package encoderate
 
 import (
@@ -38,7 +38,7 @@ import (
 )
 
 // The two ends of the content range, named so a call site reads as the end it measures rather than
-// as a bare true or false.
+// a bare true or false.
 // Heavy content yields the low rate and light content the high one.
 const (
 	lightContent = false
@@ -54,10 +54,10 @@ const probeFrames = 60
 // A hung encoder fails the probe instead of pinning the button's loading state open.
 const measureTimeout = 60 * time.Second
 
-// boundedFraction is how close to the frame generator's own rate an encode may time before the
-// reading is the generator's.
-// No probe measures an encoder faster than the frames reaching it, so the answer past that point is
-// that the encoder's ceiling was not found.
+// boundedFraction is how close to the frame generator's own rate an encode may time before
+// the reading is the generator's.
+// No probe measures an encoder faster than the frames reaching it, so past that point the encoder's
+// ceiling was not found.
 const boundedFraction = 0.9
 
 // Rate is what this machine encodes the configured stream at, in frames per second.
@@ -66,15 +66,16 @@ const boundedFraction = 0.9
 // at and HighFps the easiest, so a target under LowFps is one no content pushes the encoder off and
 // a target over HighFps is one none reaches.
 //
-// A bounded end was timed against the frame generator rather than against the encoder, which
-// happens where the encoder is faster than a probe can feed it.
-// Such an end is a floor: the machine encodes at least that fast, and how much faster is unmeasured.
+// A bounded end was timed against the frame generator rather than the encoder, which happens where
+// the encoder is faster than a probe can feed it.
+// Such an end is a floor: the machine encodes at least that fast, and how much faster
+// is unmeasured.
 //
-// One flag per end, because the two carry the reading in opposite directions.
+// One flag per end, the two carrying the reading in opposite directions.
 // A floor at the low end understates where the safe rate begins, costing a target more caution than
 // it needed.
-// A floor at the high end is what a target above the range is refused on, so reading it as the
-// encoder's ceiling would call a rate unreachable that was never measured.
+// A floor at the high end is what a target above the range is refused on, so reading it
+// as the encoder's ceiling would call a rate unreachable that was never measured.
 type Rate struct {
 	LowFps      float64 `json:"lowFps"`
 	HighFps     float64 `json:"highFps"`
@@ -82,12 +83,12 @@ type Rate struct {
 	HighBounded bool    `json:"highBounded"`
 }
 
-// engineProbe is one publish engine's half of the measurement: where its executable is, what its
-// child needs in the environment, the command that encodes generated frames, and the command that
-// generates them and encodes nothing.
+// engineProbe is one publish engine's half of the measurement: where its executable is, what
+// its child needs in the environment, the command that encodes generated frames, and the command
+// that generates them and encodes nothing.
 //
-// It resolves and launches the binary a publish would, since a measurement taken against a
-// different copy of the encoder is a figure about another install.
+// Resolves and launches the binary a publish would, a measurement taken against a different copy
+// of the encoder being a figure about another install.
 type engineProbe struct {
 	exe     func() (string, error)
 	env     func() []string
@@ -121,10 +122,10 @@ var engineProbes = map[string]engineProbe{
 // Measure times the configured encoder on generated frames at both content extremes.
 //
 // A picture size of zero is refused rather than measured at a size of this package's choosing.
-// The rate is a fact about the frames the encoder is handed, and the captured monitor is what
-// decides how large those are.
-// An unresolved size arrives here where display enumeration is unavailable, an Umgebungsfehler that
-// leaves as an error: a measurement at a size the stream will not use is worse than none.
+// The rate is a fact about the frames the encoder is handed, and the captured monitor decides how
+// large those are.
+// An unresolved size arrives here where display enumeration is unavailable, an Umgebungsfehler
+// that leaves as an error: a measurement at a size the stream will not use is worse than none.
 func Measure(ctx context.Context, s settings.Settings, width, height int) (Rate, error) {
 	assert.IsNotNil(ctx, "a measurement runs under a context")
 
@@ -174,10 +175,9 @@ func Measure(ctx context.Context, s settings.Settings, width, height int) (Rate,
 //
 // The heavy end codes what nothing predicts, so it cannot time above the light one unless something
 // other than the encoder paced a run, which is what a machine under load does to a measurement.
-// Both figures are still readings of this encoder at these settings: reporting them in the order
-// they were taken would put a warning threshold above the rate it bounds, and refusing would answer
-// a measurement somebody asked for with nothing at all, on a machine where anything else encoding is
-// enough to cause it.
+// Both figures remain readings of this encoder at these settings: reporting them in the order taken
+// would put a warning threshold above the rate it bounds, and refusing would answer a requested
+// measurement with nothing, on a machine where anything else encoding is enough to cause it.
 //
 // Each end's flag travels with its figure, whether the frame generator paced a run being a fact
 // about that run rather than about the end it landed on.
@@ -193,11 +193,10 @@ func bracket(low, high float64, lowBounded, highBounded bool) Rate {
 // the encoder set the pace.
 //
 // Three runs make one figure.
-// The encode of probeFrames frames is the measurement, the encode of a single frame is what the
-// pipeline costs to reach its first frame at all, and the difference between them is the time that
-// went into frames.
-// The third run generates the same frames and encodes none, which is the rate no encode here can
-// exceed.
+// The encode of probeFrames frames is the measurement, the encode of a single frame is what
+// the pipeline costs to reach its first frame, and the difference between them is the time
+// that went into frames.
+// The third run generates the same frames and encodes none, the rate no encode here can exceed.
 func measureEnd(
 	ctx context.Context,
 	probe engineProbe,
@@ -259,9 +258,9 @@ func measureEnd(
 
 // run times one probe process from launch to exit.
 //
-// A failed process carries its reason in its own output, which is another program's error text and
-// is handed back as one.
-// Neither engine writes anything on a successful run: both probes launch at an error-only log
+// A failed process carries its reason in its own output, another program's error text handed back
+// as one.
+// Neither engine writes anything on a successful run, both probes launching at an error-only log
 // level.
 func run(ctx context.Context, exe string, env []string, args []string) (time.Duration, error) {
 	assert.IsNotNil(ctx, "a probe process runs under a context")

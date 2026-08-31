@@ -4,28 +4,28 @@ import "bjoernblessin.de/go-utils/util/assert"
 
 // Match is what one axis has to read, or which of a control's values a verdict takes.
 //
-// One type for both, they being one question asked in two directions: a rule binds where the facts
-// match and lands on the values that match.
-// A bare list would leave a numeric control unable to say "everything above this", so a codec's
-// bitrate ceiling is a rule like every other constraint rather than a column with a consumer of its
-// own.
+// One type for both, one question asked in two directions: a rule binds where the facts match
+// and lands on the values that match.
+// A bare list would leave a numeric control unable to say "everything above this",
+// so a codec's bitrate ceiling is a rule like every other constraint rather than a column
+// with a consumer of its own.
 //
 // The zero Match is everything.
-// In When that is an axis the rule does not care about, which is written by leaving the axis out,
+// In When that is an axis the rule does not care about, written by leaving the axis out,
 // and registration refuses it.
 // In Values it is every value the control has, which is how a whole control is greyed.
 type Match struct {
 	// Identifiers that match, for a text axis.
 	any []string
 	// Inclusive numeric bounds, each read only where its flag is set.
-	// Flags rather than a sentinel: zero is a legal bitrate and a legal quantizer, and a sentinel
-	// would make one real value unmatchable.
+	// Flags rather than a sentinel: zero is a legal bitrate and a legal quantizer,
+	// and a sentinel would make one real value unmatchable.
 	low     int
 	high    int
 	hasLow  bool
 	hasHigh bool
 	// Which of the two halves above was written, so a match built for a numeric control is never read
-	// as an empty list of identifiers.
+	// as an empty identifier list.
 	numeric bool
 }
 
@@ -53,7 +53,7 @@ func Between(low, high int) Match {
 	return Match{low: low, high: high, hasLow: true, hasHigh: true, numeric: true}
 }
 
-// everything reports whether the match names nothing, which stands for every value.
+// everything reports whether the match names nothing, standing for every value.
 func (m Match) everything() bool {
 	return len(m.any) == 0 && !m.hasLow && !m.hasHigh
 }
@@ -79,12 +79,12 @@ func (m Match) listed() []string {
 	return m.any
 }
 
-// narrow takes this match's band off the offered range and returns what is left, which is what
-// turns a numeric refusal into the ends a control is offered between.
+// narrow takes this match's band off the offered range and returns what is left,
+// turning a numeric refusal into the ends a control is offered between.
 //
 // A band clipping neither end would leave a hole in the middle, which no offered range can express.
-// That asserts rather than being approximated: a control offering a value the publish refuses is
-// the failure this system exists to remove.
+// That asserts rather than being approximated: a control offering a value the publish refuses
+// is the failure this system exists to remove.
 func (m Match) narrow(low, high int) (int, int) {
 	assert.Assert(m.numeric, "a range is narrowed by a numeric refusal")
 	assert.Assert(!m.everything(), "a narrowed range is refused in part, not entirely")

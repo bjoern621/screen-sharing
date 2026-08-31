@@ -65,8 +65,8 @@
           <nudge:NudgeView Grid.Row="1" DataContext="{Binding Nudge}" Margin="0,0,0,10" />
           <config:ConfigCardView Grid.Row="2" DataContext="{Binding Config}" />
           <!--
-            Under the configuration, being about publishers this machine runs beside the one above rather
-            than about the one above.
+            Under the configuration, being about publishers this machine runs beside the one above,
+            rather than about the one above.
           -->
           <tests:TestStreamsView Grid.Row="3" DataContext="{Binding TestStreams}" Margin="0,10,0,0" />
         </Grid>

@@ -12,13 +12,13 @@ import (
 
 // progressParser turns ffmpeg's -progress stream into Stats samples, one per block.
 //
-// The stream is one "key=value" per line, terminated by "progress=continue" and, for the last block
-// of a run, "progress=end".
+// The stream is one "key=value" per line, terminated by "progress=continue" and,
+// for the last block of a run, "progress=end".
 // ffmpeg writes a block per stats period, half a second unless -stats_period says otherwise,
 // so a sample's interval is that period and not a frame time.
 //
-// Its own fps and bitrate fields are averages over the whole run, which a collapse takes minutes to
-// move.
+// Its own fps and bitrate fields are averages over the whole run,
+// which a collapse takes minutes to move.
 // The per-interval figures are derived here instead, from a block's counters against the previous
 // block's, the same measurement the GStreamer engine takes.
 type progressParser struct {
@@ -45,10 +45,10 @@ func parseProgress(r io.Reader, onStats func(Stats)) {
 	(&progressParser{onStats: onStats, now: time.Now}).parse(r)
 }
 
-// parse consumes the stream and returns when it ends, which is when the child closes the pipe.
+// parse consumes the stream and returns when it ends, when the child closes the pipe.
 //
-// A line that is not a key and a value is skipped rather than asserted on: this reads another
-// program's output, so anything unexpected in it is an Umgebungsfehler.
+// A line that is not a key and a value is skipped rather than asserted on:
+// this reads another program's output, so anything unexpected in it is an Umgebungsfehler.
 func (p *progressParser) parse(r io.Reader) {
 	assert.IsNotNil(r, "a progress stream is read from a reader")
 	assert.IsNotNil(p.onStats, "a parser hands its samples to somebody")
@@ -114,8 +114,8 @@ func (p *progressParser) sample(block map[string]string) {
 		AvgMbps:  avgKbits / 1000,
 		Missing: Missing{
 			Fps: !haveFps,
-			// ffmpeg counts what it encoded and its grabbers pace themselves, so no field of a -progress
-			// block says how often the screen changed.
+			// ffmpeg counts what it encoded and its grabbers pace themselves,
+			// so no field of a -progress block says how often the screen changed.
 			CaptureFps: true,
 			SizeKiB:    !haveBytes,
 			TimeSec:    !haveTime,

@@ -1,11 +1,11 @@
 version: "3"
 
 vars:
-  # Where MSYS2 keeps the Windows toolchain and the GStreamer the backend links through
-  # cgo. It is named here rather than taken from the shell, so a Windows build works from
-  # whichever shell is open: Git Bash announces MSYSTEM=MINGW64 and carries a /mingw64 of
-  # its own that holds none of this, and a plain PowerShell carries nothing.
-  # Set MSYS2_ROOT for an install somewhere other than the default.
+  # MSYS2 prefix: the Windows toolchain and the GStreamer the backend links through cgo.
+  # Named here rather than read from the shell, so a build works from whichever shell is open:
+  # Git Bash announces MSYSTEM=MINGW64 over a /mingw64 of its own holding none of this,
+  # and a plain PowerShell carries nothing.
+  # MSYS2_ROOT names an install somewhere other than the default.
   MSYS2_ROOT: '{{default "C:/msys64" .MSYS2_ROOT}}'
   MSYS2_MINGW: '{{.MSYS2_ROOT}}/mingw64'
 
@@ -18,13 +18,12 @@ tasks:
 
   all:
     desc: Run the relay, the backend and the Avalonia app together
-    # The three are deps rather than cmds because deps run concurrently and cmds run
-    # in sequence, and none of these three ever returns.
-    # Nothing orders them, and nothing needs to: the backend polls the relay for as
-    # long as it runs, and the shell reaches a backend that started after the window
-    # did, so whichever comes up last is picked up where it lands.
-    # One terminal carries all three logs interleaved. `task all --output prefixed`
-    # tags every line with the task it came from.
+    # deps rather than cmds: deps run concurrently, cmds in sequence, and none of the three returns.
+    # Nothing orders them, and nothing needs to:
+    # the backend polls the relay for as long as it runs,
+    # and the shell reaches a backend that started after the window did.
+    # One terminal carries all three logs interleaved.
+    # `task all --output prefixed` tags every line with the task it came from.
     deps: [relay, dev, avalonia]
 
   relay:
@@ -32,11 +31,11 @@ tasks:
     # A script and not a command: three things come up together.
     # A self-signed certificate for the TLS listeners where none is drawn.
     # The group service every token is verified against.
-    # The relay itself, the deployment's certificate and hook paths overridden through
-    # MediaMTX's environment.
+    # The relay itself, the deployment's certificate and hook paths overridden
+    # through MediaMTX's environment.
     #
     # mediamtx and openssl come from the flake's dev shell.
-    # Windows has none, so the PowerShell half fetches mediamtx.exe into bin/ on first run
+    # Windows has neither, so the PowerShell half fetches mediamtx.exe into bin/ on first run
     # and draws the certificate through .NET.
     cmds:
       - platforms: [linux, darwin]
@@ -46,30 +45,32 @@ tasks:
 
   relay:tunnel:
     desc: Forward a deployment's loopback-only endpoints to this machine for the Bruno collection
-    # Two things on that host answer only on loopback, and the collection reaches both through
-    # this and nothing else.
+    # Two endpoints on that host answer only on loopback,
+    # and the collection reaches both through this and nothing else.
     #
-    # 9997 is the relay's API, which the reverse proxy does not front. The credential that goes
-    # with it comes from scripts/relay-api-token.sh, and bruno/README.md covers the pair.
+    # 9997: the relay's API, which the reverse proxy does not front.
+    # Its credential comes from scripts/relay-api-token.sh, and bruno/README.md covers the pair.
     #
-    # 9443 is the group service. The proxy fronts the routes a member's app calls and not
-    # /reconcile, which is the relay's own read hook on loopback, so the `Members` folder
-    # addresses this instead. Sent to the public name it reaches the HLS listener, which answers
-    # "authentication error" for a path it carries no stream at.
+    # 9443: the group service.
+    # The proxy fronts the routes a member's app calls and not /reconcile,
+    # the relay's own read hook on loopback, so the `Members` folder addresses this instead.
+    # Sent to the public name it reaches the HLS listener,
+    # which answers "authentication error" for a path it carries no stream at.
     #
     # RELAY_HOST names another deployment's SSH host.
     #
-    # The tunnel is a multiplexing master so that a second run finds the first instead of
-    # failing on the bound port: the status check asks that master whether it is still
-    # there, and only a run that finds none opens one. A master that was killed rather
-    # than shut down leaves its socket file behind, which the first command clears; ssh
-    # would otherwise start the new one with multiplexing off, where nothing can find it
-    # and the run after that is back to a bound port.
+    # A multiplexing master, so a second run finds the first instead of failing on the bound port:
+    # the status check asks that master whether it is still there,
+    # and only a run that finds none opens one.
+    # A master killed rather than shut down leaves its socket file behind, which the first command clears;
+    # ssh would otherwise start the new one with multiplexing off,
+    # where nothing can find it and the run after that is back to a bound port.
     #
-    # ExitOnForwardFailure because ssh otherwise holds the connection open with no forward
-    # on it, which looks like a tunnel and answers nothing. The keepalive is what takes a
-    # connection that has died down together with its listener: without it the listener
-    # keeps accepting while forwarding nowhere, so a request hangs instead of refusing.
+    # ExitOnForwardFailure, or ssh holds the connection open with no forward on it,
+    # which looks like a tunnel and answers nothing.
+    # The keepalive takes a connection that has died down together with its listener:
+    # without it the listener keeps accepting while forwarding nowhere,
+    # so a request hangs instead of refusing.
     vars:
       RELAY_HOST: '{{default "netcup-g12" .RELAY_HOST}}'
       TUNNEL_SOCKET: /tmp/screenshare-relay-api-$USER.sock
@@ -83,8 +84,9 @@ tasks:
           ssh -f -N -M -S "{{.TUNNEL_SOCKET}}"
           -o ExitOnForwardFailure=yes -o ServerAliveInterval=30
           -L 9997:127.0.0.1:9997 -L 9443:127.0.0.1:9443 {{.RELAY_HOST}}
-      # Windows OpenSSH carries no connection multiplexing, so neither the check nor the
-      # second run's no-op holds there and the tunnel is opened by hand.
+      # Windows OpenSSH carries no connection multiplexing,
+      # so neither the check nor the second run's no-op holds there,
+      # and the tunnel is opened by hand.
       - platforms: [windows]
         cmd: >-
           echo 'Windows OpenSSH does not multiplex, so this task cannot manage the tunnel there. Open it with:
@@ -95,8 +97,8 @@ tasks:
     vars:
       RELAY_HOST: '{{default "netcup-g12" .RELAY_HOST}}'
       TUNNEL_SOCKET: /tmp/screenshare-relay-api-$USER.sock
-    # A tunnel nobody opened is the state this task asks for, so a run that finds no
-    # master has nothing to do rather than an error to report.
+    # A tunnel nobody opened is the state this task asks for,
+    # so a run that finds no master has nothing to do rather than an error to report.
     status:
       - '! ssh -S "{{.TUNNEL_SOCKET}}" -O check {{.RELAY_HOST}}'
     cmds:
@@ -105,17 +107,16 @@ tasks:
   api:
     desc: Lint, breaking-check and regenerate the control contract
     dir: api
-    # The generated Go is committed, so a fresh clone builds with no protobuf
-    # toolchain installed. This task is what keeps it current, and the breaking check
-    # runs before the generation: a change that would break a shipped shell should
-    # fail here rather than after the generated code has already been rewritten.
+    # The generated Go is committed, so a fresh clone builds with no protobuf toolchain,
+    # and this task is what keeps it current.
+    # The breaking check runs before the generation:
+    # a change that would break a shipped shell fails before the generated code is rewritten.
     cmds:
       - buf lint
-      # A first commit of the contract has no earlier state to compare against, so a
-      # missing baseline is not a failure of this task.
-      # The repository root holds the .git this compares against, and this task runs
-      # from api/, so the path climbs out of the module rather than naming a .git
-      # beside the schema, which there is none of.
+      # A first commit of the contract has no earlier state to compare against,
+      # so a missing baseline is not a failure of this task.
+      # The .git this compares against is the repository root's and this task runs from api/,
+      # so the path climbs out of the module.
       - cmd: buf breaking --against '../.git#branch=main,subdir=api'
         ignore_error: true
       - buf generate
@@ -129,12 +130,12 @@ tasks:
   avalonia:
     desc: Run the Avalonia app (relay connection check)
     dir: avalonia
-    # No toolchain variable: this project links nothing through cgo, so MSYS2 is not
-    # involved, and the .NET SDK is on PATH either way - installed system-wide on
-    # Windows, from the flake's dev shell on Linux and macOS, where the shell also
-    # supplies the X11 and Skia libraries Avalonia dlopens and the protoc pair
-    # Grpc.Tools cannot run its own copy of. `task relay` first, or the app renders
-    # its failure state.
+    # No toolchain variable: this project links nothing through cgo, so MSYS2 stays out,
+    # and the .NET SDK is on PATH either way,
+    # system-wide on Windows and from the flake's dev shell on Linux and macOS,
+    # where the shell also supplies the X11 and Skia libraries Avalonia dlopens
+    # and the protoc pair Grpc.Tools cannot run its own copy of.
+    # `task relay` first, or the app renders its failure state.
     cmds:
       - dotnet run --project ScreenShare.App
 
@@ -154,46 +155,48 @@ tasks:
     desc: Run the backend in the foreground
     dir: backend
     env:
-      # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo. Go
-      # turns CGO_ENABLED off by itself when it finds no C compiler, which makes a build
-      # run outside the toolchain's reach fail as "build constraints exclude all Go
-      # files" in packages that look unrelated to the compiler. Asking for cgo outright
-      # means that case names the missing compiler instead.
+      # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo.
+      # Go turns CGO_ENABLED off by itself when it finds no C compiler,
+      # so a build outside the toolchain's reach fails as "build constraints exclude all Go files"
+      # in packages that look unrelated to the compiler.
+      # Asking for cgo outright names the missing compiler instead.
       CGO_ENABLED: "1"
     cmds:
-      # The backend has no window: it opens the control socket and waits, and the
-      # Avalonia shell connects to it ('task avalonia'). Ending this task ends the
-      # children it supervises, which is what the signal handler in backend/cmd/backend is for.
+      # The backend has no window: it opens the control socket and waits,
+      # and the Avalonia shell connects to it ('task avalonia').
+      # Ending this task ends the children it supervises,
+      # through the signal handler in backend/cmd/backend.
       #
-      # The MSYS2 prefix on Windows answers two needs at once: the toolchain and the
-      # GStreamer development files cgo compiles the receive pipelines against, and the
-      # gst-launch-1.0.exe the publish side spawns. Nothing puts that prefix on a normal
-      # PATH, so without it a dev run does not build, and a build that skipped cgo would
-      # find no launcher either. A packaged build carries its own copy of both beside
-      # the binary instead (scripts/bundle-windows.sh).
+      # The MSYS2 prefix on Windows answers two needs at once:
+      # the toolchain and the GStreamer development files cgo compiles the receive pipelines against,
+      # and the gst-launch-1.0.exe the publish side spawns.
+      # Nothing puts that prefix on a normal PATH,
+      # so a dev run without it does not build, and a build that skipped cgo finds no launcher either.
+      # A packaged build carries its own copy of both beside the binary (scripts/bundle-windows.sh).
       #
-      # Appended rather than prepended: MSYS2 ships an ffmpeg of its own, and putting
-      # the prefix first would silently move every capture and encode onto it instead of
-      # the ffmpeg the machine was set up with. gcc and pkg-config have no such rival on
-      # a Windows PATH, so appending still finds them.
+      # Appended rather than prepended: MSYS2 ships an ffmpeg of its own,
+      # and the prefix first would move every capture and encode onto it
+      # instead of the ffmpeg the machine was set up with.
+      # gcc and pkg-config have no such rival on a Windows PATH, so appending still finds them.
       #
-      # Git for Windows' own /mingw64/bin is taken off PATH first, and that is not
-      # tidiness. The frame channel links GStreamer's Direct3D 11 library, which is C++
-      # and pulls in libstdc++-6.dll; Git ships an older one of those, and Windows
-      # resolves an imported DLL by walking PATH, so with Git's prefix ahead of MSYS2's
-      # the backend dies before main with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139).
-      # Dropping it rather than putting MSYS2 first is what keeps the ffmpeg decision
-      # above intact. A packaged build has neither problem: the loader takes the
-      # binary's own directory before any PATH entry, and bundle-windows.sh puts every
-      # DLL there.
+      # Git for Windows' own /mingw64/bin comes off PATH first.
+      # The frame channel links GStreamer's Direct3D 11 library, which is C++ and pulls in libstdc++-6.dll;
+      # Git ships an older one of those, and Windows resolves an imported DLL by walking PATH,
+      # so with Git's prefix ahead of MSYS2's the backend dies before main
+      # with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139).
+      # Dropped rather than reordered, which keeps the ffmpeg decision above intact.
+      # A packaged build has neither problem:
+      # the loader takes the binary's own directory before any PATH entry,
+      # and bundle-windows.sh puts every DLL there.
       #
-      # The Windows run frees the control pipe before it starts. There is no stale
-      # socket file to clear there, only a stale process: `go run`'s child keeps the
-      # pipe open when a dev run ends without Ctrl+C reaching it, and the next backend
-      # then starts with no control socket at all, so the shell connects to the older
-      # one and every change just made looks like it did nothing.
-      # scripts/dev-stop.ps1 carries the rest of that reasoning. It does nothing when
-      # the pipe is free, and fails this task rather than starting a second backend
+      # The Windows run frees the control pipe before it starts.
+      # Nothing stale to clear there but a process:
+      # `go run`'s child keeps the pipe open when a dev run ends without Ctrl+C reaching it,
+      # and the next backend starts with no control socket at all,
+      # so the shell connects to the older one and every edit looks like it did nothing.
+      # scripts/dev-stop.ps1 carries the rest of that reasoning.
+      # It does nothing when the pipe is free,
+      # and fails this task rather than starting a second backend
       # when something outside this build tree holds it.
       - platforms: [windows]
         cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/scripts/dev-stop.ps1'
@@ -208,18 +211,17 @@ tasks:
 
   dev:stop:
     desc: Stop a backend a previous `task dev` left holding the control pipe
-    # `task dev` already does this on its way up, so this task is for the case where
-    # the leftover backend is in the way of something else - a packaged build, a
-    # debugger run, a shell that keeps finding a backend nobody is looking at.
+    # `task dev` already does this on its way up,
+    # so this task covers a leftover backend in the way of something else:
+    # a packaged build, a debugger run, a shell that keeps finding a backend nobody is looking at.
     platforms: [windows]
     cmds:
       - powershell -NoProfile -File scripts/dev-stop.ps1
 
   build:
     desc: Build the backend binary into build/bin
-    # The toolchain and the GStreamer development files come from the flake's dev
-    # shell here. On Windows they come from MSYS2 and the task that names it is
-    # build:windows.
+    # The toolchain and the GStreamer development files come from the flake's dev shell.
+    # On Windows they come from MSYS2, which build:windows names.
     dir: backend
     env:
       CGO_ENABLED: "1"
@@ -228,31 +230,31 @@ tasks:
 
   build:windows:
     desc: Build the Windows backend binary and copy ffmpeg/ffplay in beside it
-    # Built on Windows and never cross-compiled, which is what docs/packaging.md
-    # already says: the receive pipelines link GStreamer through cgo, and a cgo build
-    # needs the target's own toolchain and development files.
+    # Built on Windows and never cross-compiled (docs/packaging.md):
+    # the receive pipelines link GStreamer through cgo,
+    # and a cgo build needs the target's own toolchain and development files.
     platforms: [windows]
     dir: backend
     env:
       CGO_ENABLED: "1"
-      # cgo would look both up on PATH, where the MSYS2 prefix is appended, so any other
-      # pair ahead of it decides the toolchain. Strawberry Perl ships one, and its
-      # pkg-config resolves against a prefix holding no GStreamer.
+      # cgo looks both up on PATH, where the MSYS2 prefix is appended,
+      # so any other pair ahead of it decides the toolchain.
+      # Strawberry Perl ships one, and its pkg-config resolves against a prefix holding no GStreamer.
       CC: '{{.MSYS2_MINGW}}/bin/gcc.exe'
       PKG_CONFIG: '{{.MSYS2_MINGW}}/bin/pkg-config.exe'
     cmds:
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
           go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
-      # ffmpeg and ffplay ship beside the binary, so drop those two executables in
-      # build/windows/redist first (see that directory's README).
+      # ffmpeg and ffplay ship beside the binary,
+      # so both executables go into build/windows/redist first (that directory's README).
       - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
 
   package:linux:
     desc: Build the Linux release tarball into build/dist
-    # The tarball is for distributions this repository packages nothing for. Arch,
-    # Fedora and NixOS take the recipes under packaging/ and nix/ instead, which declare
-    # ffmpeg and GStreamer as dependencies rather than leaving them to the reader.
+    # The tarball is for distributions this repository packages nothing for.
+    # Arch, Fedora and NixOS take the recipes under packaging/ and nix/ instead,
+    # which declare ffmpeg and GStreamer as dependencies rather than leaving them to the reader.
     platforms: [linux]
     cmds:
       - bash scripts/package-linux.sh
@@ -260,9 +262,10 @@ tasks:
   package:windows:
     desc: Build the Windows release zip into build/dist
     platforms: [windows]
-    # Both the binaries and the runtime beside them: build:windows produces the backend
-    # and copies ffmpeg and ffplay in, bundle:windows adds the GStreamer closure, and the
-    # script publishes the shell into the same directory and zips it.
+    # The binaries and the runtime beside them:
+    # build:windows produces the backend and copies ffmpeg and ffplay in,
+    # bundle:windows adds the GStreamer closure,
+    # and the script publishes the shell into the same directory and zips it.
     deps: [bundle:windows]
     cmds:
       - powershell -NoProfile -File scripts/package-windows.ps1
@@ -271,11 +274,12 @@ tasks:
     desc: Copy the GStreamer runtime the backend needs next to the built binaries
     platforms: [windows]
     deps: [build:windows]
-    # MSYS2's own sh runs the script, and MINGW_PREFIX names the prefix to copy out of,
-    # because both have to be MSYS2's: Git Bash ships an ldd and a cygpath of its own and
-    # sets MINGW_PREFIX to a /mingw64 that carries no GStreamer at all, so left to the
-    # shell this would bundle the wrong tree or nothing. The prefix is on PATH so ldd can
-    # resolve the DLLs it reports.
+    # MSYS2's own sh runs the script and MINGW_PREFIX names the prefix to copy out of,
+    # both having to be MSYS2's:
+    # Git Bash ships an ldd and a cygpath of its own
+    # and sets MINGW_PREFIX to a /mingw64 carrying no GStreamer at all,
+    # so left to the shell this bundles the wrong tree or nothing.
+    # The prefix is on PATH so ldd can resolve the DLLs it reports.
     cmds:
       - cmd: >-
           MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;$PATH"

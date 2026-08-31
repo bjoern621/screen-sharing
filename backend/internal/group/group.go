@@ -1,29 +1,28 @@
 // Package group derives a stream's place on the relay from the secret its viewers hold.
 //
-// A group is a path prefix, so the relay's own per-path permissions do the enforcing and "which
-// streams may I see" is a string match rather than a query the relay API cannot answer.
+// A group is a path prefix, so the relay's own per-path permissions do the enforcing
+// and "which streams may I see" is a string match rather than a query the relay API cannot answer.
 //
-// Holding the group key is what lets somebody join, and there are no accounts behind it.
+// Holding the group key is what lets somebody join, and no accounts stand behind it.
 // The service draws a key, the client distributes it, and everyone holding it derives one prefix.
 // Whatever hands the key on, a Discord bot serving a voice channel included, is a transport for it
 // and never its source, so a second integration changes nothing about the security story.
-// Deriving the key from a channel identifier was rejected: a channel id is a public snowflake,
-// so prefixes would be enumerable.
+// A key derived from a channel identifier would leave prefixes enumerable,
+// a channel id being a public snowflake.
 //
-// Who somebody is inside a group is a second derivation, from a secret the joining app draws for
-// itself and hands to nobody (MemberSecret).
-// Both derive under the group key and under labels of their own, so a member id says nothing about
-// the group's secret and a prefix cannot be replayed as a member.
+// Who somebody is inside a group is a second derivation,
+// from a secret the joining app draws for itself and hands to nobody (MemberSecret).
+// Both derive under the group key and under labels of their own,
+// so a member id says nothing about the group's secret and a prefix cannot be replayed as a member.
 //
-// Both sides run this derivation, the client for the prefix it publishes under and the service for
-// the prefix it grants a token on.
+// Both sides run this derivation, the client for the prefix it publishes under
+// and the service for the prefix it grants a token on.
 // Two implementations of one hash issue a member a token for a path nobody publishes to.
 // Nothing here holds state or reaches anything.
 //
 // None of it is end to end.
-// MediaMTX terminates every protocol and re-muxes per listener, so it sees plaintext by
-// construction, and a relay that did not would cost HLS, WebRTC, the browser viewer and every relay
-// statistic.
+// MediaMTX terminates every protocol and re-muxes per listener, so it sees plaintext,
+// and a relay that did not would cost HLS, WebRTC, the browser viewer and every relay statistic.
 // Relay operator and key service can both watch a private stream, and the interface says so.
 package group
 
@@ -43,14 +42,14 @@ import (
 // KeyBytes is a group key's entropy.
 //
 // 32: the key is the whole of the invite, with no account behind it, so guessing one is joining.
-// Nobody types a key, it is copied or handed over by whatever distributes it.
+// Nobody types a key, whatever distributes it handing it over instead.
 const KeyBytes = 32
 
 // IDChars is how much of the derived digest a prefix keeps.
 //
-// A deliberate truncation: the id is not a secret and appears in every URL a member pastes.
-// 26 base32 characters is 130 bits, unguessable by accident and collision-free among one relay's
-// groups by a margin nothing will close.
+// Truncated because the id is no secret and appears in every URL a member pastes.
+// 26 base32 characters is 130 bits, unguessable by accident
+// and collision-free among one relay's groups by a wide margin.
 // Lengthening it moves every existing group's path, so it is stated once and read everywhere.
 const IDChars = 26
 
@@ -59,26 +58,26 @@ const IDChars = 26
 // Padding is stripped: a truncated digest needs none, and "=" in a path is one more escape.
 var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// idLabel separates the id derivation from anything else the key is ever used for.
+// idLabel separates the id derivation from every other use of the key.
 //
-// Each use of a key derives under its own label, so the id, which every URL carries,
-// cannot be replayed as another use's input.
-// Adding a second use then changes nothing about what the first produces.
+// Each use derives under its own label, so the id, which every URL carries,
+// cannot be replayed as another use's input,
+// and a second use changes nothing about what the first produces.
 const idLabel = "screenshare/group-id/v1"
 
 // PublicPrefix leads every stream nobody restricted the audience of.
 //
-// It has an id's shape and is not one: no key derives it, so a group's prefix can never collide
-// with it and holding a key cannot publish into it.
-// The relay still authenticates a publisher and a viewer here, and still carries them over an
-// encrypted transport.
+// An id's shape without being one: no key derives it,
+// so a group's prefix cannot collide with it and holding a key cannot publish into it.
+// The relay authenticates a publisher and a viewer here and carries them over an encrypted transport.
 // What "public" drops is who may watch, and nothing else.
 const PublicPrefix = "public" + separator
 
 // separator divides a group's id from a stream's own name.
 //
-// A slash, because MediaMTX matches path permissions on prefixes and treats a slash as the segment
-// boundary: a permission on "<id>/" grants that group's streams and nothing else,
+// A slash, because MediaMTX matches path permissions on prefixes
+// and treats a slash as the segment boundary:
+// a permission on "<id>/" grants that group's streams and nothing else,
 // where a flat separator would let one group's id be a prefix of another's.
 const separator = "/"
 
@@ -88,10 +87,10 @@ type Key []byte
 
 // NewKey draws a fresh group key.
 //
-// Crypto randomness and never a seeded source: the key is the invite, so a predictable one is a
-// group anybody can join.
+// Crypto randomness and never a seeded source:
+// the key is the invite, so a predictable one is a group anybody can join.
 // A source that cannot answer is an Umgebungsfehler and leaves as an error rather than a fallback,
-// since a key drawn from something weaker looks exactly like a real one.
+// a key drawn from something weaker looking exactly like a real one.
 func NewKey() (Key, error) {
 	key := make([]byte, KeyBytes)
 	if _, err := rand.Read(key); err != nil {
@@ -102,10 +101,10 @@ func NewKey() (Key, error) {
 	return key, nil
 }
 
-// String is the key as it travels, standard base64: what a client stores and what whatever
-// distributes it hands over.
+// String is the key as it travels, standard base64:
+// what a client stores and what whatever distributes it hands over.
 //
-// Deliberately the wire encoding rather than a rendering for a log line, the key being a secret,
+// The wire encoding rather than a rendering for a log line, the key being a secret,
 // and the only way to the bytes.
 func (k Key) String() string {
 	return base64.StdEncoding.EncodeToString(k)
@@ -113,10 +112,10 @@ func (k Key) String() string {
 
 // ParseKey reads a key back off its encoding.
 //
-// A key of the wrong length is refused rather than padded or truncated: this app did not make it,
-// and a prefix derived from it would put a stream where no member is looking.
-// The encoding arrives from a settings file the user owns, so a malformed one is an Umgebungsfehler
-// and leaves as an error.
+// A key of the wrong length is refused rather than padded or truncated:
+// this app did not make it, and a prefix derived from it puts a stream where no member is looking.
+// The encoding arrives from a settings file the user owns,
+// so a malformed one is an Umgebungsfehler and leaves as an error.
 func ParseKey(encoded string) (Key, error) {
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {
@@ -130,8 +129,9 @@ func ParseKey(encoded string) (Key, error) {
 
 // ID is the path prefix this key's streams live under.
 //
-// A keyed digest under a label, not a plain hash of the key: the id is public and appears in every
-// URL, so it must say nothing about the secret behind it and nothing a second use would repeat.
+// A keyed digest under a label rather than a plain hash of the key:
+// the id is public and appears in every URL,
+// so it says nothing about the secret behind it and nothing a second use would repeat.
 //
 // The length is asserted rather than tolerated.
 // Every key here came from NewKey or ParseKey, both of which fix it,
@@ -149,33 +149,33 @@ func (k Key) ID() string {
 
 // memberLabel separates a member's derivation from the id every URL carries.
 //
-// Each use of a key derives under its own label, so a member id cannot be replayed as a prefix nor
-// a prefix as a member.
+// Each use of a key derives under its own label,
+// so a member id cannot be replayed as a prefix nor a prefix as a member.
 const memberLabel = "screenshare/group-member-secret/v1"
 
 // MemberIDChars is how much of a member's digest a token subject keeps.
 //
-// Shorter than an id: a subject tells one member of a group from the others in that group, where an
-// id tells a group from every group on a relay.
+// Shorter than an id: a subject tells one member of a group from the others in that group,
+// where an id tells a group from every group on a relay.
 // 16 base32 characters is 80 bits.
 const MemberIDChars = 16
 
 // MemberSecretBytes is a member secret's entropy.
 //
-// 32, as a group key: guessing one is speaking for that member, since presence is stated over the id
-// the secret derives.
+// 32, as a group key: guessing one is speaking for that member,
+// presence being stated over the id the secret derives.
 const MemberSecretBytes = 32
 
 // MemberSecret is what an app knows itself by inside one group.
 //
-// Drawn by the app that holds it and issued by nobody, so no other member and no service can state
-// this member's presence or take the name it claimed.
+// Drawn by the app that holds it and issued by nobody,
+// so no other member and no service can state this member's presence or take the name it claimed.
 type MemberSecret []byte
 
 // NewMemberSecret draws the secret an app joins one group under.
 //
-// Crypto randomness and never a seeded source, a predictable secret being an identity anybody can
-// take over.
+// Crypto randomness and never a seeded source,
+// a predictable secret being an identity anybody can take over.
 // A source that cannot answer is an Umgebungsfehler and leaves as an error.
 func NewMemberSecret() (MemberSecret, error) {
 	secret := make([]byte, MemberSecretBytes)
@@ -194,8 +194,9 @@ func (s MemberSecret) String() string {
 
 // ParseMemberSecret reads a secret back off its encoding.
 //
-// A secret of the wrong length is refused rather than padded: it arrives from an identity file the
-// user owns or over HTTP, so a malformed one is an Umgebungsfehler and leaves as an error.
+// A secret of the wrong length is refused rather than padded:
+// it arrives from an identity file the user owns or over HTTP,
+// so a malformed one is an Umgebungsfehler and leaves as an error.
 func ParseMemberSecret(encoded string) (MemberSecret, error) {
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 	if err != nil {
@@ -207,17 +208,17 @@ func ParseMemberSecret(encoded string) (MemberSecret, error) {
 	return raw, nil
 }
 
-// MemberID names one member of this group, as a relay token's subject and as what membership is
-// stated over.
+// MemberID names one member of this group,
+// as a relay token's subject and as what membership is stated over.
 //
-// Keyed under the group's key, so one secret is one member per group and a relay listing of one
-// group names nothing about the same app in another.
-// The relay writes a subject into its log lines and its session listings, so what travels is the
-// digest and never the secret behind it.
+// Keyed under the group's key, so one secret is one member per group
+// and a relay listing of one group names nothing about the same app in another.
+// The relay writes a subject into its log lines and its session listings,
+// so what travels is the digest and never the secret behind it.
 //
 // The lengths are asserted rather than tolerated.
-// Every secret here came from NewMemberSecret or ParseMemberSecret, both of which fix it, and an id
-// derived from something shorter is a subject membership can neither match nor explain.
+// Every secret here came from NewMemberSecret or ParseMemberSecret, both of which fix it,
+// and an id derived from something shorter is a subject membership can neither match nor explain.
 func (k Key) MemberID(secret MemberSecret) string {
 	assert.Assert(len(k) == KeyBytes, "a member id is derived from a whole group key", len(k))
 	assert.Assert(len(secret) == MemberSecretBytes, "a member id is derived from a whole member secret", len(secret))
@@ -272,8 +273,8 @@ func (k Key) SrtPassphrase() string {
 // ErrNoGroup is what a Key operation answers for a key nobody gave.
 //
 // A group's path is derived from its key, so there is none to derive without one.
-// Where a stream lives when no key was given is PublicPath, which is a different question and has
-// no Key to ask it of.
+// Where a stream lives with no key given is PublicPath,
+// a different question with no Key to ask it of.
 var ErrNoGroup = errors.New("a group's path is derived from its key, and no group key was given")
 
 // Path is where a stream of this group lives on the relay: id, slash, the stream's own name.
@@ -292,9 +293,10 @@ func (k Key) Path(name string) (string, error) {
 
 // PublicPath is where a stream nobody restricted the audience of lives.
 //
-// The counterpart of Key.Path for a publisher holding no key, and a whole answer rather than a
-// fallback: a stream published here is one anybody may watch, which is a choice the publisher made
-// and not a group that went missing.
+// The counterpart of Key.Path for a publisher holding no key,
+// and a whole answer rather than a fallback:
+// a stream published here is one anybody may watch,
+// a choice the publisher made rather than a group that went missing.
 func PublicPath(name string) (string, error) {
 	if err := checkStreamName(name); err != nil {
 		return "", err
@@ -307,10 +309,10 @@ func PublicPath(name string) (string, error) {
 
 // checkStreamName holds a name against what one path segment may be.
 //
-// The name comes from a settings file the user owns, so a bad one is an Umgebungsfehler and leaves
-// as an error.
-// A name carrying a separator would publish into a prefix nobody granted, which is why it is
-// refused rather than escaped.
+// The name comes from a settings file the user owns,
+// so a bad one is an Umgebungsfehler and leaves as an error.
+// A name carrying a separator would publish into a prefix nobody granted,
+// so it is refused rather than escaped.
 func checkStreamName(name string) error {
 	if name == "" {
 		return errors.New("a stream has a name of its own inside its group")
@@ -321,21 +323,20 @@ func checkStreamName(name string) error {
 	return nil
 }
 
-// Prefix leads every path of this group: what a relay permission is written against and what a
-// listing matches on.
+// Prefix leads every path of this group:
+// what a relay permission is written against and what a listing matches on.
 func (k Key) Prefix() string {
 	return k.ID() + separator
 }
 
 // Split reads a relay path back into the group it belongs to and the stream's own name.
 //
-// The id and not the key: a path carries no secret.
-// A reader of the relay's listing holds the prefix, and whether it is theirs is a comparison
-// against their own key's id.
+// The id rather than the key: a path carries no secret.
+// A reader of the relay's listing holds the prefix,
+// and whether it is theirs is a comparison against their own key's id.
 //
-// A path with no separator belongs to no group.
-// That is a stream published outside the group model, and reporting it as a group of its own would
-// let a listing match on a stream name.
+// A path with no separator belongs to no group, being a stream published outside the group model,
+// and reporting it as a group of its own would let a listing match on a stream name.
 func Split(path string) (id, name string, ok bool) {
 	id, name, ok = strings.Cut(path, separator)
 	if !ok || id == "" || name == "" {
@@ -344,11 +345,11 @@ func Split(path string) (id, name string, ok bool) {
 	return id, name, true
 }
 
-// PrefixOf is the prefix the group of this relay path is enforced under, and false for a path
-// belonging to no group.
+// PrefixOf is the prefix the group of this relay path is enforced under,
+// and false for a path belonging to no group.
 //
-// The path and not the key: what names a group here is the relay's own word, a connection's path,
-// which carries the id and never the secret behind it.
+// The path rather than the key: what names a group here is the relay's own word,
+// a connection's path, which carries the id and never the secret behind it.
 func PrefixOf(path string) (string, bool) {
 	id, _, ok := Split(path)
 	if !ok {

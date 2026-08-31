@@ -33,8 +33,8 @@ var legs = []struct {
 		carriages: func(f Formats) map[string]Carriage { return f.Watch },
 		serializes: map[string]func(Transport) bool{
 			capabilities.EngineFfmpeg: func(t Transport) bool { _, ok := t.(Watcher); return ok },
-			// Either gst watch form counts: one writes the source from settings and the other asks the
-			// relay for it, and a carriage is stated for the leg rather than for the way it is built.
+			// Either gst watch form counts: one writes the source from settings and the other asks the relay
+			// for it, and a carriage is stated for the leg rather than for the way it is built.
 			capabilities.EngineGst: func(t Transport) bool {
 				_, written := t.(GstWatcher)
 				_, resolved := t.(GstWatchResolver)
@@ -47,10 +47,10 @@ var legs = []struct {
 // A carriage and the serialization that builds it are two halves of one statement, per leg and per
 // engine.
 // A transport stating formats an engine cannot serialize offers a combination nothing can build,
-// and one serializing a leg it states no carriage for is offered for streams and refused for all of
-// them.
-// Register asserts the pair on the way in, and this reads it back off the registry, which is what
-// holds a Formats method answering with more than a literal.
+// and one serializing a leg it states no carriage for is offered for streams and refused for all
+// of them.
+// Register asserts the pair on the way in, and this reads it back off the registry, holding
+// a Formats method that answers with more than a literal.
 func TestEveryStatedCarriageHasItsSerialization(t *testing.T) {
 	for _, name := range Names() {
 		tr, _ := Get(name)
@@ -124,8 +124,8 @@ func TestRegisterRefusesAHalfStatedLeg(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			defer func() {
-				// The message is checked and not only the panic: every other assertion in Register aborts the
-				// same way and would prove nothing about the pair this case breaks.
+				// The message is checked and not only the panic: every other assertion in Register aborts
+				// the same way and would prove nothing about the pair this case breaks.
 				switch panicked := recover().(type) {
 				case nil:
 					t.Errorf("Register accepted %s", tc.name)
@@ -162,13 +162,13 @@ func TestEveryFormatHasBothLegsOnEveryEngine(t *testing.T) {
 	}
 }
 
-// A publish carriage names what an encoder here hands the muxer, so every video format on one is a
-// format the codec table produces.
-// A name no row produces is a typo that narrows the transport to nothing for that format, or a
-// promise about a codec this app cannot encode.
+// A publish carriage names what an encoder here hands the muxer, so every video format on one
+// is a format the codec table produces.
+// A name no row produces is a typo that narrows the transport to nothing for that format, or
+// a promise about a codec this app cannot encode.
 //
-// The watch leg is not held to it, because the relay re-serves whatever it ingested, including a
-// stream this app never published, which is why WatchNamesFor narrows on nothing it cannot place.
+// The watch leg is not held to it, the relay re-serving whatever it ingested, including a stream
+// this app never published, so WatchNamesFor narrows on nothing it cannot place.
 func TestEveryPublishedVideoFormatIsOneTheCodecTableProduces(t *testing.T) {
 	for _, name := range Names() {
 		f, _ := FormatsOf(name)
@@ -261,8 +261,8 @@ func TestValidatePublish(t *testing.T) {
 	if err := ValidatePublish("srt", capabilities.EngineFfmpeg, "nope"); err == nil {
 		t.Error("an unknown codec must be refused")
 	}
-	// The same codec over the same transport passes on one engine and is refused on the other, which
-	// is why a refusal names the engine.
+	// The same codec over the same transport passes on one engine and is refused on the other,
+	// which is why a refusal names the engine.
 	if err := ValidatePublish("rtmp", capabilities.EngineGst, "libx264"); err == nil {
 		t.Error("rtmp has no GStreamer publish form and must be refused there")
 	}

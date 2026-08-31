@@ -11,9 +11,9 @@ import (
 //
 // The two lists are spelled separately because the rules package is what every domain package
 // registers into and may therefore import none of them, this one included.
-// That makes them two copies of one fact, which is exactly what this repository does not allow to
-// sit unwatched: a rename reaching only one of them would leave a rule matching an axis no control
-// answers to, and the rule would quietly bind nothing rather than fail.
+// That makes them two copies of one fact, which is exactly what this repository does not allow
+// to sit unwatched: a rename reaching only one of them would leave a rule matching an axis
+// no control answers to, and the rule would quietly bind nothing rather than fail.
 // Here it fails.
 func TestAxesSpellTheFieldKeysTheyName(t *testing.T) {
 	for _, pair := range []struct {
@@ -40,7 +40,7 @@ func TestAxesSpellTheFieldKeysTheyName(t *testing.T) {
 
 // Every axis that looks like a settings field is one the form declares.
 // A derived fact carries no field key and is skipped by the prefix rather than by a list here,
-// which is what keeps a new derived axis from needing an edit in this test.
+// so a derived axis added to the vocabulary needs no edit in this test.
 func TestEveryFieldAxisIsAFieldTheFormDeclares(t *testing.T) {
 	declared := map[string]bool{}
 	for _, f := range fieldTable {
@@ -57,10 +57,10 @@ func TestEveryFieldAxisIsAFieldTheFormDeclares(t *testing.T) {
 	}
 }
 
-// isSettingsKey reports whether an axis name is qualified the way a field key is: a settings group,
-// a dot, then the field.
-// A derived axis names a fact rather than a control, so it carries no group of the settings
-// message.
+// isSettingsKey reports whether an axis name is qualified the way a field key is:
+// a settings group, a dot, then the field.
+// A derived axis names a fact rather than a control,
+// so it carries no group of the settings message.
 func isSettingsKey(name string) bool {
 	for _, group := range []string{"relay" + keySeparator, "publish" + keySeparator, "viewer" + keySeparator} {
 		if len(name) > len(group) && name[:len(group)] == group {

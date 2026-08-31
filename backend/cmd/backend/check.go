@@ -11,14 +11,13 @@ import (
 
 // runCheck dials the relay the stored settings name, leg by leg, and prints what each answered.
 //
-// The stored settings and not a flag: what is asked is whether this machine's relay is answering
-// where this machine addresses it, so a check reads what a publish would read.
+// Stored settings rather than a flag, so a check reads what a publish would read.
 //
-// The status is 1 where a leg that was dialled did not answer, so a script reads the outcome
-// without parsing the table.
-// A settings file that will not load answers 1 too, with its reason on standard error, and the
-// check runs against what Load handed back regardless: those are the defaults, and dialling them
-// tells a reader more than refusing to look.
+// Status 1 where a dialled leg did not answer,
+// so a script reads the outcome without parsing the table.
+// An unloadable settings file answers 1 too, reason on stderr,
+// and the check still dials the defaults Load handed back,
+// which tells a reader more than refusing to look.
 func runCheck() int {
 	s, err := settings.Load()
 	if err != nil {

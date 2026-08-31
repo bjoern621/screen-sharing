@@ -7,8 +7,8 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Relay's own player page, opened in the machine's browser.
-/// What a browser does with an address is out of this shell's reach, so what is asserted is the seam: legs
-/// off the catalog, the row asking for the leg pressed, and a call on every press.
+/// What a browser does with an address is out of this shell's reach,
+/// so asserted is the seam: legs off the catalog, the row asking for the leg pressed, and a call on every press.
 /// </summary>
 public sealed class ViewerBrowserTests
 {
@@ -29,8 +29,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// A list held here would decide which protocols the relay serves a page for, which the contract
-    /// forbids (<c>docs/ipc-api.md</c>).
+    /// A list held here would decide which protocols the relay serves a page for,
+    /// which the contract forbids (<c>docs/ipc-api.md</c>).
     /// </summary>
     [Fact]
     public void TheBrowserLegsAreTheOnesTheBackendNamed()
@@ -61,8 +61,7 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// Stream and leg together are the identity, because the relay re-serves one stream on all its
-    /// listeners.
+    /// Stream and leg together are the identity, the relay re-serving one stream on all its listeners.
     /// </summary>
     [Fact]
     public void PressingALegAsksForThatPage()
@@ -78,8 +77,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// A tab belongs to the browser that opened it and this side cannot read whether it is still there, so
-    /// there is no state a second press could find true.
+    /// A tab belongs to the browser that opened it and this side cannot read whether it is still there,
+    /// so no state exists a second press could find true.
     /// </summary>
     [Fact]
     public void ASecondPressAsksAgain()
@@ -95,7 +94,7 @@ public sealed class ViewerBrowserTests
 
     /// <summary>
     /// <c>StartWatch</c> launches a viewer the backend supervises and reports.
-    /// This hands an address to a program neither side hears from again.
+    /// A page hands an address to a program neither side hears from again.
     /// </summary>
     [Fact]
     public void OpeningAPageLeavesTheWatchedSetAlone()

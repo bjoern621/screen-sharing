@@ -10,8 +10,8 @@ namespace ScreenShare.App.Mvvm;
 /// repeats without effect (<c>docs/development-principles.md</c>, "Idempotency").
 ///
 /// The guard in front of it makes that safe on every pass.
-/// Identity is a row's value at its position, rows being records, so an unchanged reading compares equal and the
-/// collection is left untouched.
+/// Identity is a row's value at its position, rows being records, so an unchanged reading compares equal
+/// and the collection is left untouched.
 /// A row that moved therefore rebuilds the list exactly as a row that changed does.
 ///
 /// The guard is correctness and not economy: a rebuild replaces every container, so a per-second pass would

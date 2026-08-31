@@ -6,42 +6,43 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// The decode half of the codec facts: which decoder takes a published stream, and whether it runs on
-// silicon or on a core.
+// The decode half of the codec facts:
+// which decoder takes a published stream, and whether it runs on silicon or on a core.
 // The publisher's chroma decides it, which is what makes a viewer's cost a publish-side question.
 //
-// Nothing here is probed, because the viewer is not this machine: a stream is published once and
-// watched on whatever hardware the watchers have.
-// A row states what its decoder family reaches at its best, so a hardware verdict means some GPU
-// decodes the stream rather than that a given one will.
-// The measured counterpart is the native grid, which reports the element its own decodebin picked
-// per stream.
+// Nothing here is probed, the viewer not being this machine:
+// a stream is published once and watched on whatever hardware the watchers have.
+// A row states what its decoder family reaches at its best,
+// so a hardware verdict means some GPU decodes the stream rather than that a given one will.
+// The measured counterpart is the native grid,
+// which reports the element its own decodebin picked per stream.
 //
-// Every format carries a software row, so no stream is undecodable and a verdict is only ever about
-// what it costs.
+// Every format carries a software row,
+// so no stream is undecodable and a verdict is only ever about what it costs.
 
 // The decoder families a stream can be decoded by, and the axis every per-vendor fact keys off,
 // as the encoder families are on the publish side.
-// They are their own set rather than the encoder families reused: the vendors do not divide the same
-// way (NVDEC and NVENC carry different formats, AMD ships no decoder plugin of its own),
+// Their own set rather than the encoder families reused:
+// the vendors do not divide the same way
+// (NVDEC and NVENC carry different formats, AMD ships no decoder plugin of its own),
 // and DXVA belongs to a platform rather than to a vendor.
 const (
 	// DecodeSoftware is the CPU path: gst-libav for the H.26x formats, libvpx for VPx, dav1d for AV1.
-	// It is on every install, which is what keeps every stream playable.
+	// On every install, which is what keeps every stream playable.
 	DecodeSoftware = "software"
-	// DecodeVa is the va plugin (vah264dec and siblings): Linux, Intel and AMD, over whichever VA driver
-	// the machine has.
+	// DecodeVa is the va plugin (vah264dec and siblings):
+	// Linux, Intel and AMD, over whichever VA driver the machine has.
 	DecodeVa = "va"
 	// DecodeNvcodec is the nvcodec plugin (nvh264dec and siblings): NVDEC on Linux and Windows.
 	DecodeNvcodec = "nvcodec"
-	// DecodeQsv is the qsv plugin (qsvh264dec and siblings): Intel's oneVPL runtime on Linux and
-	// Windows.
+	// DecodeQsv is the qsv plugin (qsvh264dec and siblings):
+	// Intel's oneVPL runtime on Linux and Windows.
 	DecodeQsv = "qsv"
 	// DecodeDxva is the d3d11 plugin (d3d11h264dec and siblings): Windows and vendor neutral,
 	// the path a machine with no vendor plugin still has.
 	DecodeDxva = "dxva"
-	// DecodeVideoToolbox is the applemedia plugin (vtdec): Apple's media block, and the only hardware
-	// decode a Mac has.
+	// DecodeVideoToolbox is the applemedia plugin (vtdec):
+	// Apple's media block, and the only hardware decode a Mac has.
 	DecodeVideoToolbox = "videotoolbox"
 )
 
@@ -53,15 +54,15 @@ var DecodeFamilies = []string{
 // Decoder is one decoder element and the pixel formats it decodes.
 type Decoder struct {
 	// Element is the GStreamer element name, "vah265dec".
-	// The native grid's stats overlay shows the same string for a playing stream, so a verdict and a
-	// running pipeline name one thing.
+	// The native grid's stats overlay shows the same string for a playing stream,
+	// so a verdict and a running pipeline name one thing.
 	Element string `json:"element"`
 	// Family is the plugin the element comes from, one of DecodeFamilies.
 	Family string `json:"family"`
 	// Format is the bitstream format, spelled as Codec.Format spells it.
 	Format string `json:"format"`
-	// Chromas are the pixel formats this element decodes, named as the publish side names them
-	// (Codec.Chromas), so one vocabulary crosses the wire.
+	// Chromas are the pixel formats this element decodes,
+	// named as the publish side names them (Codec.Chromas), so one vocabulary crosses the wire.
 	// A hardware element advertises the subset its driver and GPU generation implement, at most this.
 	Chromas []string `json:"chromas"`
 }
@@ -70,8 +71,8 @@ func (d Decoder) Hardware() bool {
 	return d.Family != DecodeSoftware
 }
 
-// hardware420 is the format set of every fixed-function decoder that reaches 10-bit: 4:2:0 at both
-// bit depths.
+// hardware420 is the format set of every fixed-function decoder that reaches 10-bit:
+// 4:2:0 at both bit depths.
 // Named once so a row diverging from it reads as the interesting case.
 var hardware420 = []string{"yuv420p", "p010le"}
 
@@ -79,17 +80,19 @@ var hardware420 = []string{"yuv420p", "p010le"}
 // in family order.
 //
 // The absences drive most of the verdicts.
-// No vendor put H.264's High 4:4:4 Predictive profile in silicon, so 4:4:4 H.264 is a software
-// decode everywhere, and lossless H.264 with it: the mode is defined in that profile alone.
+// No vendor put H.264's High 4:4:4 Predictive profile in silicon,
+// so 4:4:4 H.264 is a software decode everywhere, and lossless H.264 with it:
+// the mode is defined in that profile alone.
 // No AV1 or VP9 decoder implements the full-chroma profiles (AV1 profile 1, VP9 profiles 1 and 3),
 // so full chroma on the royalty-free formats costs a core as well.
 //
-// HEVC is the exception on both counts, and the reason a 4:4:4 or RGB screen stream reaches a GPU at
-// all: its Range Extensions profiles are in NVDEC from Turing on and in Intel's decoder from Ice
-// Lake on.
-// 4:2:2 divides one step narrower, since NVDEC implements those profiles without the 4:2:2 one,
+// HEVC is the exception on both counts,
+// and the reason a 4:4:4 or RGB screen stream reaches a GPU at all:
+// its Range Extensions profiles are in NVDEC from Turing on,
+// and in Intel's decoder from Ice Lake on.
+// 4:2:2 divides one step narrower, NVDEC implementing those profiles without the 4:2:2 one,
 // which leaves Intel's HEVC decoder as the only hardware row carrying it.
-// The two software H.26x rows carry it because libavcodec implements every profile.
+// The two software H.26x rows carry it, libavcodec implementing every profile.
 var Decoders = []Decoder{
 	{
 		Element: "avdec_h264",
@@ -255,8 +258,9 @@ var Decoders = []Decoder{
 
 // HardwareDecoders returns the hardware decoders that take format at chroma, in table order.
 //
-// A pair no row carries is answered with nothing rather than asserted: the format and the chroma are
-// the publisher's own choice, held against the codec table before reaching here,
+// A pair no row carries is answered with nothing rather than asserted:
+// the format and the chroma are the publisher's own choice,
+// held against the codec table before reaching here,
 // and a combination this app does not publish has no hardware decoder either.
 func HardwareDecoders(format, chroma string) []Decoder {
 	var out []Decoder
@@ -269,8 +273,8 @@ func HardwareDecoders(format, chroma string) []Decoder {
 }
 
 // SoftwareDecoder returns the CPU decoder for format, and false for a format no row carries.
-// Every format this app publishes has one, which is what makes a missing hardware decoder a cost
-// rather than a failure.
+// Every format this app publishes has one,
+// which is what makes a missing hardware decoder a cost rather than a failure.
 func SoftwareDecoder(format string) (Decoder, bool) {
 	for _, d := range Decoders {
 		if d.Format == format && !d.Hardware() {
@@ -290,8 +294,8 @@ type Decode struct {
 	// Hardware are the elements that decode this stream on fixed-function silicon, in table order.
 	// Empty means every viewer spends a core on it.
 	Hardware []Decoder `json:"hardware"`
-	// Software is the CPU decoder the stream falls to, and what the reasons below are measured
-	// against.
+	// Software is the CPU decoder the stream falls to,
+	// and what the reasons below are measured against.
 	Software Decoder `json:"software"`
 	// Missing carries one entry per hardware family that decodes the format but not this pixel format,
 	// which is what a publisher picking such a chroma is told.
@@ -302,8 +306,8 @@ type Decode struct {
 // The codec is named rather than the format so a caller passes the value its settings carry,
 // and the error is the codec table's: a name it does not hold has no format to look up.
 //
-// It answers for the format and not for the encoder, so hevc_nvenc and libx265 at one chroma decode
-// alike.
+// It answers for the format and not for the encoder,
+// so hevc_nvenc and libx265 at one chroma decode alike.
 func DecodeOf(codec, chroma string) (Decode, error) {
 	c, ok := Get(codec)
 	if !ok {

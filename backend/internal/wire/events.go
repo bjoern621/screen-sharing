@@ -8,23 +8,23 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 )
 
-// The event constructors sit here rather than at each producer, so the oneof wrapper a payload
-// belongs in is written once.
-// A producer that built the envelope itself would be choosing the event kind alongside the state,
-// and a payload in the wrong wrapper is a state arriving under another name with nothing on either
-// side to say so.
+// The event constructors sit here rather than at each producer,
+// so the oneof wrapper a payload belongs in is written once.
+// A producer building the envelope itself would choose the event kind alongside the state,
+// and a payload in the wrong wrapper is a state arriving under another name with nothing to say so.
 //
-// A state payload carries that state whole and never a delta, so a duplicate changes nothing and a
-// dropped connection is recovered from by reading state again rather than by replaying history.
+// A state payload carries that state whole and never a delta,
+// so a duplicate changes nothing and a dropped connection is recovered by reading state again
+// rather than by replaying history.
 //
 // Every constructor leaves Sequence zero.
-// Each subscription stamps its own numbers as it sends, because a subscription that named kinds is
-// not sent the ones it filtered out, and a number shared across subscribers would show a gap for
-// every event a filter dropped.
+// Each subscription stamps its own numbers as it sends: a subscription that named kinds is not sent
+// the ones it filtered out, and a number shared across subscribers would show a gap for every event
+// a filter dropped.
 
 // PublishStateEvent announces the publish state after any change, whoever made it.
-// It carries the message GetPublishState answers with, so a window that has just mounted and one
-// that has been open cannot be told different things.
+// Carries the message GetPublishState answers with,
+// so a window that has just mounted and one that has been open cannot be told different things.
 func PublishStateEvent(p PublishSnapshot) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_PublishState{PublishState: PublishState(p)},
@@ -40,8 +40,8 @@ func PublishStatsEvent(s ffmpeg.Stats) *screensharev1.Event {
 }
 
 // PublishExitEvent announces that the publish pipeline ended, with why and where the log is.
-// What the backend then did about it is the publish state event that follows, so no retry is
-// described here.
+// What the backend did about it is the publish state event that follows,
+// so no retry is described here.
 //
 // cause is optional, for the reason stated at oneCause.
 func PublishExitEvent(message, logPath string, cause ...*screensharev1.Text) *screensharev1.Event {
@@ -51,8 +51,9 @@ func PublishExitEvent(message, logPath string, cause ...*screensharev1.Text) *sc
 }
 
 // RelayStatusEvent announces a relay snapshot at the backend's poll interval.
-// Pushed rather than polled per shell, so the byte-delta bitrates it carries are computed against
-// one steady interval instead of whatever cadence each shell chose.
+// Pushed rather than polled per shell,
+// so the byte-delta bitrates it carries are computed against one steady interval instead
+// of whatever cadence each shell chose.
 func RelayStatusEvent(s relay.Status) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_RelayStatus{RelayStatus: RelayStatus(s)},
@@ -61,9 +62,8 @@ func RelayStatusEvent(s relay.Status) *screensharev1.Event {
 
 // ViewerStateEvent announces the open external viewers whenever one opens or closes.
 //
-// StartWatch and StopWatch answer with an empty message, and an effect whose result reaches no
-// event is an effect only the shell that called it learns the outcome of.
-// That is the rule the event stream is built on.
+// StartWatch and StopWatch answer with an empty message,
+// and an effect whose result reaches no event is one only the calling shell learns the outcome of.
 func ViewerStateEvent(refs []StreamRef) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ViewerState{ViewerState: ViewerState(refs)},
@@ -71,8 +71,9 @@ func ViewerStateEvent(refs []StreamRef) *screensharev1.Event {
 }
 
 // ViewerExitEvent announces that one external viewer ended.
-// The whole ref travels for the reason StreamRef exists: one stream can be watched over several
-// transports at once, so the name alone would clear the wrong viewer.
+// The whole ref travels for the reason StreamRef exists:
+// one stream can be watched over several transports at once,
+// so the name alone would clear the wrong viewer.
 func ViewerExitEvent(ref StreamRef, message, logPath string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ViewerExit{ViewerExit: &screensharev1.ViewerExit{
@@ -83,11 +84,11 @@ func ViewerExitEvent(ref StreamRef, message, logPath string, cause ...*screensha
 }
 
 // TestStreamStateEvent announces the synthetic set, for the reason ViewerStateEvent exists:
-// StartTestStreams and StopTestStreams answer with an empty message, and one that died on its own
-// moves the set with nothing having been called at all.
+// StartTestStreams and StopTestStreams answer with an empty message,
+// and one that died on its own moves the set with nothing having been called.
 //
-// The slots travel beside the count, so a set with one dead publisher says which slot rather than
-// only that it got smaller.
+// The slots travel beside the count,
+// so a set with one dead publisher says which slot rather than only that it got smaller.
 func TestStreamStateEvent(running int, slots ...TestStreamSlot) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_TestStreamState{TestStreamState: TestStreamState(running, slots...)},
@@ -102,10 +103,10 @@ func TestStreamExitEvent(message, logPath string, cause ...*screensharev1.Text) 
 
 // CatalogEvent announces the whole reference set again, after the encoder probe has filled in.
 //
-// The catalog and not the probe result alone, because a shell holding a catalog has nothing to
-// merge a half-state into.
-// It is what keeps the shell that asked for the probe from being the only one that learns what it
-// found: a resolve on any other would otherwise start greying codecs with nothing having said why.
+// The catalog and not the probe result alone,
+// a shell holding a catalog having nothing to merge a half-state into.
+// Every shell learns what the probe found, not only the one that asked:
+// a resolve on any other would otherwise start greying codecs with nothing having said why.
 func CatalogEvent(c *screensharev1.Catalog) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_Catalog{Catalog: c},
@@ -115,9 +116,9 @@ func CatalogEvent(c *screensharev1.Catalog) *screensharev1.Event {
 // SettingsChangedEvent announces that the backend's held settings moved for a reason that did not
 // come from the shell receiving it.
 //
-// It carries no values.
-// The shell re-reads the settings and re-resolves its form, so there is one way to learn what they
-// became rather than two able to disagree.
+// Carries no values.
+// The shell re-reads the settings and re-resolves its form,
+// so there is one way to learn what they became rather than two able to disagree.
 func SettingsChangedEvent() *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_SettingsChanged{SettingsChanged: &screensharev1.SettingsChanged{}},
@@ -126,8 +127,8 @@ func SettingsChangedEvent() *screensharev1.Event {
 
 // ReceiveStateEvent announces the streams the backend is decoding, whole.
 //
-// The receive-side counterpart of ViewerStateEvent, carrying decodes rather than tiles: how a shell
-// arranges what it receives is the shell's, and is on no message this package writes.
+// The receive-side counterpart of ViewerStateEvent, carrying decodes rather than tiles:
+// how a shell arranges what it receives is the shell's, and is on no message this package writes.
 func ReceiveStateEvent(streams []ReceiveStream) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ReceiveState{ReceiveState: ReceiveState(streams)},
@@ -136,9 +137,9 @@ func ReceiveStateEvent(streams []ReceiveStream) *screensharev1.Event {
 
 // ReceiveStatsEvent announces one sample of every running decode.
 //
-// The receive-side counterpart of the publish's progress samples, and a second event rather than a
-// fuller ReceiveState for the reason the publish has two: what a decode is is announced when it
-// changes, and what a decode is doing is read on a clock.
+// The receive-side counterpart of the publish's progress samples,
+// and a second event rather than a fuller ReceiveState for the reason the publish has two:
+// what a decode is is announced when it changes, and what a decode is doing is read on a clock.
 // One message for both would push everything a tile knows at sampling rate.
 func ReceiveStatsEvent(streams []ReceiveStreamStats) *screensharev1.Event {
 	return &screensharev1.Event{
@@ -148,8 +149,8 @@ func ReceiveStatsEvent(streams []ReceiveStreamStats) *screensharev1.Event {
 
 // MonitorPreviewStateEvent announces the monitors the backend is previewing, whole.
 //
-// No exit event beside it, unlike the receive pair: a preview that ended leaves the set, and there
-// is nothing more to say about it - no log to open, no viewer to account for, no retry to explain.
+// No exit event beside it, unlike the receive pair: a preview that ended leaves the set,
+// with no log to open, no viewer to account for and no retry to explain.
 func MonitorPreviewStateEvent(monitors []PreviewedMonitor) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_MonitorPreviewState{
@@ -160,8 +161,9 @@ func MonitorPreviewStateEvent(monitors []PreviewedMonitor) *screensharev1.Event 
 
 // ReceiveExitEvent announces that one receive pipeline ended, and why.
 //
-// No log path, unlike the publish and viewer exits: a receive pipeline runs inside this process
-// rather than as a child, so there is no run log of its own to offer.
+// No log path, unlike the publish and viewer exits:
+// a receive pipeline runs inside this process rather than as a child, so it has no run log
+// to offer.
 func ReceiveExitEvent(stream StreamRef, message string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ReceiveExit{ReceiveExit: &screensharev1.ReceiveExit{
@@ -174,8 +176,9 @@ func ReceiveExitEvent(stream StreamRef, message string, cause ...*screensharev1.
 
 // MembersStateEvent announces who this machine shares a group with, whole.
 //
-// Refusals travel too: a machine that cannot state its presence is one whose connections the relay
-// closes, and the refusal is what a reader gets instead of a stream that ends with nothing said.
+// Refusals travel too:
+// a machine that cannot state its presence is one whose connections the relay closes,
+// and the refusal reaches a reader instead of a stream that ends with nothing said.
 func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_MembersState{MembersState: MembersState(m)},
@@ -184,8 +187,8 @@ func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 
 // oneCause reads the statement off a constructor's trailing argument.
 //
-// Optional and trailing, because a producer that can name what ended a run and one that cannot both
-// build the same event, and the second passes nothing rather than a nil it had to spell.
+// Optional and trailing, so one constructor serves a producer that can name what ended a run
+// and one that cannot, the second passing nothing rather than a nil it had to spell.
 // Two would be two answers to one question.
 func oneCause(cause []*screensharev1.Text) *screensharev1.Text {
 	assert.Assert(len(cause) <= 1, "an ending has one cause at most", len(cause))

@@ -15,8 +15,8 @@ import (
 )
 
 // Presence is stated over these routes and enforced at the relay.
-// These hold the wiring: which request reaches which derivation, what a refusal says, and that a
-// member's token names that member rather than the group.
+// These hold the wiring: which request reaches which derivation, what a refusal says,
+// and that a member's token names that member rather than the group.
 
 // carrying is a relay holding these connections, and a record of what was closed.
 type carrying struct {
@@ -69,8 +69,8 @@ func presence(key group.Key, secret group.MemberSecret, name string) string {
 	return `{"groupKey":"` + key.String() + `","memberSecret":"` + secret.String() + `","displayName":"` + name + `"}`
 }
 
-// The subject is what the relay lists a connection under, so a token naming the group leaves every
-// member's connection looking like every other one's.
+// The subject is what the relay lists a connection under,
+// so a token naming the group leaves every member's connection looking like every other one's.
 func TestATokenForAMemberNamesThatMember(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, _ := enforcing(t)
@@ -91,8 +91,9 @@ func TestATokenForAMemberNamesThatMember(t *testing.T) {
 	}
 }
 
-// A member belongs to a group, so naming one without the group key that derives it is a request this
-// service cannot answer rather than one it answers for the public prefix.
+// A member belongs to a group,
+// so naming one without the group key that derives it is a request this service cannot answer
+// rather than one it answers for the public prefix.
 func TestAMemberSecretNamedWithoutAGroupKeyIsRefused(t *testing.T) {
 	service, _ := enforcing(t)
 
@@ -102,8 +103,9 @@ func TestAMemberSecretNamedWithoutAGroupKeyIsRefused(t *testing.T) {
 	}
 }
 
-// A group whose members state their presence is one where a token naming no member is a subject
-// membership matches nobody to, so it is refused rather than issued and closed a moment later.
+// A group whose members state their presence is one
+// where a token naming no member is a subject membership matches nobody to,
+// so it is refused rather than issued and closed a moment later.
 func TestAGroupThatStatesItsMembersRefusesATokenNamingNone(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, _ := enforcing(t)
@@ -121,8 +123,8 @@ func TestAGroupThatStatesItsMembersRefusesATokenNamingNone(t *testing.T) {
 	}
 }
 
-// The first app in an empty group has nobody to be a member beside, so it buys a token under the
-// group's own id and states its presence with it.
+// The first app in an empty group has nobody to be a member beside,
+// so it buys a token under the group's own id and states its presence with it.
 func TestAGroupWithNoLiveMembersBuysATokenForItself(t *testing.T) {
 	key := mustKey(t)
 	service, _ := enforcing(t)
@@ -136,8 +138,8 @@ func TestAGroupWithNoLiveMembersBuysATokenForItself(t *testing.T) {
 	}
 }
 
-// Stating presence is claim and refresh at once, and the answer is the whole group: who this member
-// is, how long it holds, and everybody else beside it.
+// Stating presence is claim and refresh at once, and the answer is the whole group:
+// who this member is, how long it holds, and everybody else beside it.
 func TestStatingPresenceAnswersTheGroup(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, _ := enforcing(t)
@@ -185,8 +187,8 @@ func TestANameAnotherMemberHoldsIsRefused(t *testing.T) {
 	}
 }
 
-// Stating presence reconciles before it answers, so a lease that lapsed has its connections closed
-// by the call that noticed.
+// Stating presence reconciles before it answers,
+// so a lease that lapsed has its connections closed by the call that noticed.
 func TestStatingPresenceClosesWhatNoMemberHolds(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, relayed := enforcing(t)
@@ -203,8 +205,8 @@ func TestStatingPresenceClosesWhatNoMemberHolds(t *testing.T) {
 	}
 }
 
-// Releasing is idempotent, so it answers whether there was a lease rather than refusing the second
-// call.
+// Releasing is idempotent,
+// so it answers whether there was a lease rather than refusing the second call.
 func TestReleasingAMemberAnswersWhetherItHeldALease(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, _ := enforcing(t)
@@ -226,8 +228,8 @@ func TestReleasingAMemberAnswersWhetherItHeldALease(t *testing.T) {
 	}
 }
 
-// The view is how an app reads the group without stating anything, which is what a member joining
-// asks before it picks a name.
+// The view is how an app reads the group without stating anything,
+// which is what a member joining asks before it picks a name.
 func TestTheMembersViewStatesNothing(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, relayed := enforcing(t,
@@ -261,8 +263,9 @@ func TestTheMembersViewStatesNothing(t *testing.T) {
 	}
 }
 
-// Publishing is read off the relay's connection lists, and a list that would not answer leaves every
-// member on it publishing nothing, which is what a member sending nothing looks like.
+// Publishing is read off the relay's connection lists,
+// and a list that would not answer leaves every member on it publishing nothing,
+// which is what a member sending nothing looks like.
 // Both answers say which of the two they read.
 func TestTheAnswersNameAConnectionListThatWouldNotAnswer(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
@@ -294,8 +297,8 @@ func TestAnAnswerOffAWholeReadNamesNoUnreadList(t *testing.T) {
 	}
 }
 
-// The relay reports a read as it starts, which is what makes a reconnect on a token that has not
-// expired close again instead of being served.
+// The relay reports a read as it starts,
+// which makes a reconnect on an unexpired token close again instead of being served.
 func TestReconcileTakesTheRelaysOwnPath(t *testing.T) {
 	key, secret := mustKey(t), mustSecret(t)
 	service, relayed := enforcing(t)
@@ -307,8 +310,9 @@ func TestReconcileTakesTheRelaysOwnPath(t *testing.T) {
 	relayed.live = []relay.Session{
 		{Segment: "hlssessions", ID: "back-again", Path: key.Prefix() + "desk", User: "whoever", State: "read"},
 	}
-	// One look at the relay per group per membership.SweepWindow, and the statement above took this
-	// group's. The reconnect is read off the next one.
+	// One look at the relay per group per membership.SweepWindow,
+	// and the statement above took this group's.
+	// The reconnect is read off the next one.
 	time.Sleep(membership.SweepWindow)
 
 	status, body := call(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`)
@@ -320,8 +324,8 @@ func TestReconcileTakesTheRelaysOwnPath(t *testing.T) {
 	}
 }
 
-// A path belonging to no group names no group's members, and answering one would enforce against a
-// stream name.
+// A path belonging to no group names no group's members,
+// and answering one would enforce against a stream name.
 func TestReconcileOnAPathOutsideAnyGroupIsRefused(t *testing.T) {
 	service, _ := enforcing(t)
 
@@ -330,8 +334,8 @@ func TestReconcileOnAPathOutsideAnyGroupIsRefused(t *testing.T) {
 	}
 }
 
-// A group nobody stated presence in is not enforced, so the hook firing for one is a no-op rather
-// than a removal of everybody on it.
+// A group nobody stated presence in is not enforced,
+// so the hook firing for one is a no-op rather than a removal of everybody on it.
 func TestReconcileOnAGroupWithNoLiveMembersClosesNothing(t *testing.T) {
 	key := mustKey(t)
 	service, relayed := enforcing(t,
@@ -371,8 +375,8 @@ func TestARequestBodyTheServiceCannotReadIsRefused(t *testing.T) {
 	}
 }
 
-// A group key of the wrong length is one this service did not make, and a prefix derived from it
-// would enforce against a group nobody is in.
+// A group key of the wrong length is one this service did not make,
+// and a prefix derived from it would enforce against a group nobody is in.
 func TestAMembersGroupKeyTheServiceCannotReadIsRefused(t *testing.T) {
 	service, _ := enforcing(t)
 	secret := mustSecret(t).String()
@@ -390,8 +394,8 @@ func TestAMembersGroupKeyTheServiceCannotReadIsRefused(t *testing.T) {
 	}
 }
 
-// A member is named by the secret only that member holds, so a request carrying none or one of the
-// wrong length names nobody.
+// A member is named by the secret only that member holds,
+// so a request carrying none or one of the wrong length names nobody.
 func TestAMemberSecretTheServiceCannotReadIsRefused(t *testing.T) {
 	key := mustKey(t)
 	service, _ := enforcing(t)
@@ -432,8 +436,9 @@ func TestAMembersRequestWithoutAGroupKeyIsRefused(t *testing.T) {
 	}
 }
 
-// Streams under the public prefix are watchable by anybody, so a run there is refused with the
-// reason rather than answered as a group nobody stated presence in.
+// Streams under the public prefix are watchable by anybody,
+// so a run there is refused with the reason
+// rather than answered as a group nobody stated presence in.
 func TestAReconcileOnThePublicPrefixIsRefused(t *testing.T) {
 	service, relayed := enforcing(t,
 		relay.Session{Segment: "srtconns", ID: "public-read", Path: group.PublicPrefix + "desk", User: "public", State: "read"},
@@ -448,8 +453,8 @@ func TestAReconcileOnThePublicPrefixIsRefused(t *testing.T) {
 	}
 }
 
-// The answers name a stream inside the group and a leg in this app's vocabulary, which is what the
-// index answers under and what every other surface of this app says.
+// The answers name a stream inside the group and a leg in this app's vocabulary,
+// which is what the index answers under and what every other surface of this app says.
 // The relay's session id and the address a connection came from are an operator's view of the relay,
 // and a group key is a way into the group rather than an operator's credential.
 func TestTheAnswersCarryNoRelayOperationalState(t *testing.T) {
@@ -476,8 +481,8 @@ func TestTheAnswersCarryNoRelayOperationalState(t *testing.T) {
 	}
 }
 
-// A route answers the methods it names and nothing else, so a caller reaching for one it does not
-// serve is told rather than falling through to another.
+// A route answers the methods it names and nothing else,
+// so a caller reaching for one it does not serve is told rather than falling through to another.
 func TestARouteAnswersTheMethodsItNames(t *testing.T) {
 	service, _ := enforcing(t)
 
@@ -493,8 +498,8 @@ func TestARouteAnswersTheMethodsItNames(t *testing.T) {
 	}
 }
 
-// raw makes one request and returns its status and the body as it was written, for the answers that
-// are not JSON and for the ones being read for what they do not carry.
+// raw makes one request and returns its status and the body as it was written,
+// for the answers that are not JSON and for the ones read for what they do not carry.
 func raw(t *testing.T, s *Service, method, target, body string) (int, string) {
 	t.Helper()
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -511,8 +516,8 @@ func bodyOf(t *testing.T, s *Service, method, target, body string) string {
 	return answered
 }
 
-// The index derives a prefix from the group key it is given, so one it cannot read names no group to
-// answer for.
+// The index derives a prefix from the group key it is given,
+// so one it cannot read names no group to answer for.
 func TestAnIndexGroupKeyTheServiceCannotReadIsRefused(t *testing.T) {
 	service, _ := enforcing(t)
 

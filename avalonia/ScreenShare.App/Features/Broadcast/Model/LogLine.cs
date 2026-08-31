@@ -8,8 +8,8 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 /// One line of the session log: when, how loud, and what happened.
 ///
 /// The level is the word the log itself prints and not an enum.
-/// This screen only renders it, so a level nobody here has seen still reads correctly instead of meeting an
-/// exhaustive dispatch it is not in.
+/// This screen only renders it, so a level nobody here has seen still reads correctly instead of meeting
+/// an exhaustive dispatch it is not in.
 ///
 /// <b>Two producers, reaching this screen by different routes.</b> The event stream carries what this shell did
 /// not do, a pipeline that died on its own or a viewer that closed, each with the failure as prose and the run

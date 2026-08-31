@@ -32,10 +32,8 @@ public sealed record TestStreamSlotRow(
     string LogPath,
     bool IsLast = false)
 {
-    /// <summary>Whether the row has the child's own words to show.</summary>
     public bool HasMessage => Message.Length > 0;
 
-    /// <summary>Whether the row names a log to go and read.</summary>
     public bool HasLogPath => LogPath.Length > 0;
 
     public bool HasCause => Cause.Length > 0;

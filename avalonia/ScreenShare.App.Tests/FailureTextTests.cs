@@ -9,9 +9,9 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// A picture that never arrives and a stream that keeps relaunching are the two failures a reader meets without
-/// pressing anything, and a screen holding "connecting" through either one describes a stream that is still
-/// coming.
+/// A picture that never arrives and a stream that keeps relaunching are the two failures a reader meets
+/// without pressing anything.
+/// A screen holding "connecting" through either one describes a stream that is still coming.
 /// Each carries the statement the backend made and the child's own words beside it.
 /// </summary>
 public sealed class FailureTextTests
@@ -36,8 +36,8 @@ public sealed class FailureTextTests
     }
 
     /// <summary>
-    /// A relay that closed a connection states no reason of its own, so the app resolves it from the membership
-    /// it holds and the tile says which of the two it was.
+    /// A relay that closed a connection states no reason of its own,
+    /// so the app resolves it from the membership it holds and the tile says which of the two it was.
     /// </summary>
     [Fact]
     public void ATileClosedForLapsedMembershipSaysMembershipRatherThanTheBareClose()
@@ -49,7 +49,7 @@ public sealed class FailureTextTests
         Assert.Contains("not a member of the group", tile.Notice);
     }
 
-    /// <summary>A decode that is opening has nothing to report, which is a different state from one that failed.</summary>
+    /// <summary>A decode that is opening has nothing to report, a different state from one that failed.</summary>
     [Fact]
     public void ATileStillOpeningStillSaysItIsConnecting()
     {
@@ -72,8 +72,8 @@ public sealed class FailureTextTests
     }
 
     /// <summary>
-    /// The attempt counter says which relaunch is pending and nothing about what ended the last pipeline, which
-    /// is the half a reader can act on.
+    /// The attempt counter says which relaunch is pending and nothing about what ended the last pipeline,
+    /// the half a reader can act on.
     /// </summary>
     [Fact]
     public void ARetryingPublishSaysWhyUnderTheAttemptCounter()
@@ -113,8 +113,8 @@ public sealed class FailureTextTests
     }
 
     /// <summary>
-    /// A relaunch the backend named no cause for still says which attempt it is on, so the counter never waits on
-    /// a statement.
+    /// A relaunch the backend named no cause for still says which attempt it is on,
+    /// so the counter never waits on a statement.
     /// </summary>
     [Fact]
     public void ARelaunchWithNoStatementStillCountsItsAttempt()

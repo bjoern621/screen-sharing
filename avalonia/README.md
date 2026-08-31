@@ -70,7 +70,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | --- | --- |
 | `Contracts/Assert.cs` | always-on assertions, the C# counterpart of the Go `assert` package |
 | `Mvvm/` | `Observable` and `DelegateCommand`: the change notification a compiled binding reads, and nothing else |
-| `Design/` | the design system as tokens and styles - `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Menus`, `Tooltips`, `Icons` |
+| `Design/` | the design system as tokens and styles: `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Menus`, `Tooltips`, `Icons` |
 | `Assets/Fonts/` | the mono family `Design/Typography.axaml` names, as files: Avalonia packages Inter and no mono, so this one is carried rather than resolved off the platform |
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
@@ -90,7 +90,7 @@ Namespaces mirror the path exactly, so a file's name says where it sits.
 
 **Nothing outside `Design/` states a colour, size, font or radius.**
 A component asks for the role it wants (`MutedBrush`, `RadiusPanel`, `FontSizeLabel`) and the palette decides.
-That keeps a light variant a second dictionary rather than a sweep through eighty files.
+That keeps a light variant a second dictionary rather than a sweep through every view.
 
 ### The design language
 
@@ -215,7 +215,7 @@ The apply row says in plain words that the stream restarts, because it does: bot
 The broadcast screen's quality track is greyed carrying that same fact (`Features/Broadcast/Nudge`), and a button promising a seamless change would be the one place in the app that lied.
 
 The relay half is the one state the shell reads from a poll it does not run.
-The backend polls for as long as it is up, records each snapshot and answers `GetRelayStatus` from it, its opening value being unreachable with no reason, the honest reading of a relay nobody has asked yet.
+The backend polls for as long as it is up, records each snapshot and answers `GetRelayStatus` from it, its opening value being unreachable with no reason, the honest reading of a relay nobody has asked.
 The side the contract names as owner has to do the owning, and the honest opening value is what makes a gap visible rather than plausible.
 
 Where the window goes afterwards is the window's.
@@ -277,7 +277,7 @@ Nothing is committed by it: publish settings are staged until a commit carries t
 The store is the one state on this seam that no event announces.
 Presets are a file the backend does not run on, so a save or a delete is followed by a read rather than by patching the list, and the re-read is offered as a button: a preset another window saved is invisible here until someone asks.
 The built-in half needs none of that.
-It arrives on the form, as current as everything else the resolve answered with, and applying one reads the settings off the form the window holds now rather than off the row that was rendered.
+It arrives on the form, as current as everything else the resolve answered with, and applying one reads the settings off the form the window holds rather than off the row that was rendered.
 
 Which row is marked as in force is derived on every pass, and the two halves derive it differently.
 A saved preset is marked while the draft equals it field for field, a snapshot saying every field.
@@ -341,7 +341,7 @@ A press asks the command whether it can run first, so a key is refused wherever 
 
 `docs/development-principles.md` governs this module too.
 Three of its four rules translate directly.
-The fourth needed a decision.
+The fourth takes a decision, stated at the end of this section.
 
 **State has one owner.**
 `Backend/Session.cs` owns the running state (what is publishing, what the encoder is measuring, what the relay is carrying, which viewers are open) and the screens read it through on every pass and keep no copy.
@@ -445,17 +445,16 @@ The separation on the wire (`docs/ipc-api.md`) would be worth nothing if both en
 Every distinct size re-announces a pool in the backend, and a rearranging grid moves every tile's exact size.
 `StreamTile` rounds the ask up onto a ladder of heights and sends it once the size has settled, so most rearrangements ask for the size already in force.
 
-## What is not settled yet
+## Open ends
 
-**Video, on the platform whose handle type is not built.**
-`Features/Viewer/Tile` draws two of the three, and which one a tile uses is read off the pool rather than off the operating system: `StreamTile` owns the subscription and the loan, and one `ITileSurface` per handle type owns the import.
+**Video, one surface per handle type.**
+Which surface a tile uses is read off the pool rather than off the operating system: `StreamTile` owns the subscription and the loan, and one `ITileSurface` per handle type owns the import.
 
 - **Windows**: `SharedTextureSurface` imports a DXGI shared texture through `Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`, draws it on a `CompositionDrawingSurface`, and hands the slot back with `UpdateWithKeyedMutexAsync`.
 - **Linux**: `DmaBufSurface` imports a dmabuf descriptor itself, with `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)` and `glEGLImageTargetTexture2DOES`, and draws it from an `OpenGlControlBase`.
   The compositor imports a shared texture and an opaque descriptor and not a dmabuf, which is why this one draws where the other hands over.
   The descriptors arrive over the socket the pool names rather than in the message (`Backend/FrameDescriptors.cs`), a descriptor not being a number another process can use.
-- **macOS**: IOSurface from VideoToolbox, with no first-class import handle type.
-  The weakest leg, and the one to schedule last.
+- **macOS**: IOSurface from VideoToolbox, which carries no first-class import handle type, so no `ITileSurface` covers it.
 
 `NativeControlHost` plus `gst_video_overlay_set_window_handle` is the wrong path, and the reason is visible on the tile: the native child window draws above all Avalonia content, so the name, the colour badge and the stats panel would disappear behind the video.
 Both surfaces are composition visuals for that reason, the OpenGL one included.
@@ -464,17 +463,16 @@ A tile whose handle type has no surface refuses rather than falling back to a co
 A fallback that worked and cost gigabytes a second is the outcome the frame channel exists to prevent, and one that is quietly slow is worse than one that names itself.
 
 **GStreamer bindings.**
-`gstreamer-sharp` wraps the 1.12 API and is effectively unmaintained, so the pipeline is not being rewritten in C#.
-The plan that avoids the problem entirely is two processes: Go keeps the pipeline and `go-gst`, this shell keeps the UI, and frames cross as shared GPU handles.
-The actual design work is the buffer-ownership protocol and not the import call: pool ownership, release-back messages, how each side knows a frame's pixels have landed, and what each side does when the other dies.
+`gstreamer-sharp` wraps the 1.12 API and is unmaintained, so the pipeline stays out of C#.
+Two processes avoid it entirely: Go keeps the pipeline and `go-gst`, this shell keeps the UI, and frames cross as shared GPU handles.
+The design work is the buffer-ownership protocol rather than the import call: pool ownership, release-back messages, how each side knows a frame's pixels have landed, and what each side does when the other dies.
 No fence crosses: Windows pairs the handle with a keyed mutex, and the Linux export returns only once the device copy has finished (`docs/glossary.md`).
 
 That split also settles where the publish side lives.
 Capture, encode and the publish pipeline stay in Go, and this module owns the settings form that configures them, so the shell talks to one Go process whether it is asking for frames or for an encoder change.
 
-The control half is settled: `api/proto/screenshare/v1`, gRPC over a named pipe on Windows and a Unix socket elsewhere (`docs/ipc-api.md`).
-The frame half is the open question above, and it is deliberately not on that API: shared GPU handles and a buffer-ownership protocol are a second channel, and no pixel crosses the control one.
+The control half is `api/proto/screenshare/v1`, gRPC over a named pipe on Windows and a Unix socket elsewhere (`docs/ipc-api.md`).
+The frame half is a channel of its own: shared GPU handles and a buffer-ownership protocol, with no pixel crossing the control one.
 
 **No DevTools.**
-`Avalonia.Diagnostics` was dropped from the Avalonia repository in 12 and stops at 11.3.19.
-The replacements on NuGet are third-party, so none is pulled in here.
+`Avalonia.Diagnostics` is not part of Avalonia 12, and the replacements on NuGet are third-party, so none is pulled in here.

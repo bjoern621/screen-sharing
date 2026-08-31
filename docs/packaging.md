@@ -133,7 +133,7 @@ The app then invokes `/run/wrappers/bin/screenshare-ffmpeg` for capture.
 The standards-track way to capture a Wayland desktop is the `org.freedesktop.portal.ScreenCast` portal backed by PipeWire, the path OBS and browsers use.
 It grants no static capability: the user picks the surface in a portal dialog and the compositor hands back a PipeWire stream.
 ffmpeg consumes it through the `pipewiregrab` filter, present only in a build with `--enable-libpipewire`.
-The stock `ffmpeg-full` in nixpkgs is not, so this path needs a custom build before it can replace `kmsgrab`.
+The stock `ffmpeg-full` in nixpkgs is not, so this path takes a custom ffmpeg build.
 
 ### Capture device selection
 
@@ -148,8 +148,7 @@ Portable capture picks the active card node at run time, the DRM node whose driv
 `scripts/package-windows.ps1` assembles this channel over what `task build:windows` and `task bundle:windows` produce.
 Windows has no dependency manager the installer can rely on, so the app ships ffmpeg: the build task copies `ffmpeg.exe` and `ffplay.exe` next to the backend binary, where `FindExe` finds them first.
 A development run needs no bundle, `FindExe` falling back to `PATH`.
-Use a recent third-party build (Gyan or BtbN).
-`ddagrab` needs a current ffmpeg.
+The bundle takes a third-party build (Gyan or BtbN) carrying `ddagrab`.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
 
 The launcher is the exception: on Windows it comes from MSYS2, whose prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the run.
@@ -179,7 +178,7 @@ Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, which is why `bundle:wind
 
 One Windows runtime quirk belongs to the running process rather than the build.
 libsrt names its threads by raising the debugger's thread-naming exception, which the Go runtime has no owner for and ends the process over.
-So every pipeline carrying an `srtsrc` or `srtsink` died as it was built, reported as `Exception 0x406d1388 ... signal arrived during external code execution`.
+Undisarmed, every pipeline carrying an `srtsrc` or `srtsink` dies as it is built, reported as `Exception 0x406d1388 ... signal arrived during external code execution`.
 `backend/internal/receive` disarms it in the backend, the process building those elements in-process.
 A spawned `gst-launch-1.0` is a C program and never sees it, which is why the same pipeline plays there.
 RTSP is unaffected, no libsrt being loaded.

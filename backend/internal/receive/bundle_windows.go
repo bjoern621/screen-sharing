@@ -10,9 +10,9 @@ import (
 
 // useBundledPlugins aims this process's GStreamer at the plugins shipped beside the binary.
 //
-// The variable goes on the running process and not on a child, which is what separates it from
-// publish.GstChildEnv: this package links the library, so the registry scan that must reach the
-// bundle is its own.
+// The variable goes on the running process and not on a child,
+// which separates it from publish.GstChildEnv:
+// this package links the library, so the registry scan that must reach the bundle is its own.
 func useBundledPlugins() {
 	path, ok := gstbundle.PluginPath()
 	if !ok {

@@ -8,16 +8,18 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 ///
 /// A sample states a figure only where something measured it over that interval, and a second is short enough
 /// for that to fail on a healthy stream: an encoder that emitted no frame in one times nothing, and a relay poll
-/// that has not landed states no reader. Both are gaps in a figure that is otherwise there, and a row alternating
-/// between a number and an ellipsis is a row nobody reads.
+/// that has not landed states no reader.
+/// Both are gaps in a figure that is otherwise there, and a row alternating between a number and an ellipsis
+/// is a row nobody reads.
 ///
-/// Held for the run and no further. A stream that stopped, one waiting out a retry and one publishing under
-/// another name measure nothing at all, so every held figure goes and the screen reads absent.
+/// Held for the run and no further.
+/// A stream that stopped, one waiting out a retry and one publishing under another name measure nothing at all,
+/// so every held figure goes and the screen reads absent.
 ///
-/// The two relay figures are held only while the relay states no path. A path naming readers and timing none of
-/// them is the answer rather than a gap, which the header says in a sentence
-/// (<c>HeaderStats/ViewModel/HeaderStatsViewModel.cs</c>), and a number held over that sentence would name a
-/// round trip nobody is taking.
+/// The two relay figures are held only while the relay states no path.
+/// A path naming readers and timing none of them is the answer rather than a gap, which the header says
+/// in a sentence (<c>HeaderStats/ViewModel/HeaderStatsViewModel.cs</c>), and a number held over that sentence would
+/// name a round trip nobody is taking.
 /// </summary>
 public sealed class HeldFigures
 {
@@ -37,23 +39,22 @@ public sealed class HeldFigures
     {
         Assert.NotNull(reading, "a hold fills the reading it is handed");
 
-        // A stream that stopped and one waiting out a retry measure nothing, so there is nothing to fill from
-        // and nothing this pass adds.
+        // A stream that stopped and one waiting out a retry measure nothing, so there is nothing to fill from.
         if (!reading.IsLive || reading.IsRetrying)
         {
             Forget(reading.Stream);
             return reading;
         }
 
-        // A stream under another name is another run, and its first pass still measures: forgetting what the
-        // last one read is the whole of it.
+        // A stream under another name is another run, and its first pass still measures: forgetting what
+        // the last one read is the whole of it.
         if (reading.Stream != _stream)
         {
             Forget(reading.Stream);
         }
 
-        // Read before anything is filled: what it answers is whether the relay stated a path this pass, and a
-        // held count would make an unreachable relay look like one naming readers.
+        // Read before anything is filled: what it answers is whether the relay stated a path this pass, and
+        // a held count would make an unreachable relay look like one naming readers.
         var stated = reading.Viewers is not null;
 
         var filled = reading with

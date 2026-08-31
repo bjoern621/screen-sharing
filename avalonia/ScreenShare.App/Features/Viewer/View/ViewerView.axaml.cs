@@ -11,16 +11,20 @@ namespace ScreenShare.App.Features.Viewer.View;
 ///
 /// Everything a binding can express is bound, a handler that set a widget directly leaving
 /// <see cref="ViewerViewModel.Apply"/> unable to restore a correct view on its own.
-/// Nothing binds a window into existence, so windows are reconciled here instead: the view model names the
-/// streams belonging in windows of their own, and this opens and closes windows until that holds.
+/// Nothing binds a window into existence, so windows are reconciled here instead:
+/// the view model names the streams belonging in windows of their own,
+/// and this opens and closes windows until that holds.
 ///
 /// An apply rather than a sequence of events.
 /// The pass reads the wanted set against the open set and acts on the difference, so a second run over unchanged
-/// state opens nothing, closes nothing and moves nothing, which lets every render raise it.
+/// state opens, closes and moves nothing, which lets every render raise it.
 /// </summary>
 public sealed partial class ViewerView : UserControl
 {
-    /// <summary>Keyed by the stream each window draws. The one piece of bookkeeping the pass owns.</summary>
+    /// <summary>
+    /// Keyed by the stream each window draws.
+    /// The one piece of bookkeeping the pass owns.
+    /// </summary>
     private readonly Dictionary<string, PopOutWindow> _windows = [];
 
     private ViewerViewModel? _viewer;
@@ -28,7 +32,7 @@ public sealed partial class ViewerView : UserControl
     /// <summary>
     /// Window a stream has taken fullscreen and the state to give it back, null while no stream has.
     ///
-    /// The state is kept because a window maximised before a stream filled it would otherwise come back normal,
+    /// The state is kept so a window maximised before a stream filled it does not come back normal,
     /// and the window because a detach hands it back long after this control can look one up.
     ///
     /// Presence also leaves a fullscreen alone that this app did not ask for: a desktop can fill a window itself,
@@ -48,7 +52,7 @@ public sealed partial class ViewerView : UserControl
         };
     }
 
-    /// <summary>Follows the view model the windows are reconciled against, and reconciles once against it.</summary>
+    /// <summary>Follows the view model the windows are reconciled against, and reconciles once.</summary>
     private void Bind()
     {
         if (_viewer is not null)
@@ -67,8 +71,7 @@ public sealed partial class ViewerView : UserControl
 
     /// <summary>
     /// Opens, closes and re-states windows until they match what the view model names.
-    /// The main window's fullscreen is set here too, a window state being no bindable property of anything in this
-    /// tree.
+    /// The main window's fullscreen is set here too, no window state in this tree being a bindable property.
     /// </summary>
     private void Sync()
     {
@@ -79,8 +82,7 @@ public sealed partial class ViewerView : UserControl
             return;
         }
 
-        // Closed before opened, so a stream that popped out and back within one pass ends with one window rather
-        // than with a new one beside the old.
+        // Closed before opened, so a stream that popped out and back within one pass ends with one window.
         foreach (var stream in _windows.Keys.Where(stream => !_viewer.PoppedOut.Contains(stream)).ToList())
         {
             Close(stream);
@@ -95,11 +97,10 @@ public sealed partial class ViewerView : UserControl
 
             var window = new PopOutWindow(tile);
 
-            // A closed window is a stream returning to the grid, never a stream being stopped, and it is reported
-            // back rather than acted on so the arrangement stays the view model's.
-            // What it reports is that state, not a toggle: every close runs this, the closes this pass performs
-            // for a stream already given back included, and a toggle raised from there would pop the stream out
-            // into a window the next pass opens.
+            // A closed window is a stream returning to the grid, never a stream being stopped,
+            // reported back rather than acted on so the arrangement stays the view model's.
+            // A state and not a toggle: every close runs this, the closes this pass performs included,
+            // and a toggle raised from there would pop the stream out into a window the next pass opens.
             window.Closed += (_, _) =>
             {
                 _windows.Remove(stream);
@@ -116,8 +117,8 @@ public sealed partial class ViewerView : UserControl
         }
 
         // The main window fills a screen where a tile in its grid was asked to.
-        // Only the window state is set here: the stream drawn over the grid, and the shell's bands coming off the
-        // window, are both bindings.
+        // Only the window state is set here.
+        // The stream drawn over the grid, and the shell's bands coming off the window, are both bindings.
         if (_viewer.HasFullscreen && TopLevel.GetTopLevel(this) is Window main)
         {
             Fill(main);

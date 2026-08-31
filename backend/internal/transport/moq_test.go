@@ -42,8 +42,8 @@ func TestMoQBrowserURL(t *testing.T) {
 
 // The scheme and the port hold under Tls, where every other HTTP leg drops both for the proxy's
 // name on 443.
-// WebTransport refuses a plaintext listener and no proxy carries it, so this is the one leg the
-// relay terminates itself in every deployment.
+// WebTransport refuses a plaintext listener and no proxy carries it, so this is the one leg
+// the relay terminates itself in every deployment.
 func TestMoQKeepsItsOwnListenerBehindAProxy(t *testing.T) {
 	s := moqTestStream()
 	s.Relay.Host = "relay.example.com"
@@ -67,8 +67,9 @@ func TestMoQCarriesTheCredentialAsUserinfo(t *testing.T) {
 	}
 }
 
-// The one reader that reaches it. libavformat has no MoQ demuxer and GStreamer no MoQ source, so a
-// carriage for either would offer a leg nothing here can open.
+// The one reader that reaches it.
+// libavformat has no MoQ demuxer and GStreamer no MoQ source, so a carriage for either would offer
+// a leg nothing here can open.
 func TestMoQIsWatchedInABrowserAlone(t *testing.T) {
 	if !CanWatch("moq", EngineBrowser) {
 		t.Error("moq must state a browser watch carriage")
@@ -89,8 +90,8 @@ func TestMoQIsWatchedInABrowserAlone(t *testing.T) {
 	}
 }
 
-// The reason to offer it beside the other two browser legs: it is the only one carrying every
-// bitstream this app encodes.
+// The reason to offer it beside the other browser legs: the only one carrying every bitstream this
+// app encodes.
 func TestMoQCarriesEveryFormatTheOtherBrowserLegsDrop(t *testing.T) {
 	moq, ok := WatchCarriage("moq", EngineBrowser)
 	if !ok {

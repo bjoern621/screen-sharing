@@ -4,8 +4,8 @@ using ScreenShare.App.Copy;
 namespace ScreenShare.App.Features.Broadcast.Preview.Model;
 
 /// <summary>
-/// Which picture of one stream the broadcast preview draws, or that it draws none, and the whole of what the
-/// card's toggle chooses.
+/// Which picture of one stream the broadcast preview draws, or that it draws none, and the whole of what
+/// the card's toggle chooses.
 ///
 /// The two routes carry the same encode, so neither answers what the capture looked like before it.
 /// What separates them is everything downstream of the encoder: <see cref="Local"/> is taken before the relay and
@@ -81,7 +81,8 @@ public static class PreviewRoutes
         _ => Assert.Never<string>("unexpected preview route", (int)route),
     };
 
-    /// <summary>What the picture is, what it costs and what it cannot answer, as the card's sentence states it.</summary>
+    /// <summary>What the picture is, what it costs and what it cannot answer, as the card's sentence states
+    /// it.</summary>
     public static string CostOf(PreviewRoute route) => route switch
     {
         PreviewRoute.Off => Cards.PreviewOffCost,

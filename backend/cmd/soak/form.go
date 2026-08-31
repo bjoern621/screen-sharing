@@ -12,8 +12,8 @@ import (
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// Fields whose value reaches something outside this process, so a probe leaves them where the run
-// set them.
+// Fields whose value reaches something outside this process,
+// so a probe leaves them where the run set them.
 var frozen = map[string]bool{
 	"relay.host":      true,
 	"relay.group_key": true,
@@ -22,9 +22,9 @@ var frozen = map[string]bool{
 
 // runForm walks the settings space one legal move at a time and checks what the resolver owes.
 //
-// One field per resolve is what makes the checks say anything: the option was enabled on the form
-// the draft came from, so a repair landing on it is a contradiction rather than a consequence of
-// something else having moved.
+// One field per resolve is what makes the checks say anything:
+// the option was enabled on the form the draft came from,
+// so a repair landing on it is a contradiction rather than a consequence of something else moving.
 func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time) error {
 	settings, err := run.settled(ctx)
 	if err != nil {
@@ -48,9 +48,9 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 		checkForm(run, form, settings)
 		run.cover.see(form)
 
-		// A preset is a corner of the space the walk reaches about never: it moves the codec, the
-		// chroma, the rate control and the capture backend together, and one legal move at a time
-		// takes as long as the run to assemble that.
+		// A preset is a corner of the space the walk reaches about never:
+		// it moves the codec, the chroma, the rate control and the capture backend together,
+		// and one legal move at a time takes as long as the run to assemble that.
 		if iteration%50 == 25 {
 			if next, ok := applyPreset(ctx, run, rng, form); ok {
 				form, settings = next, next.GetSettings()
@@ -58,8 +58,9 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 			continue
 		}
 
-		// Back to the stored draft now and then, so a walk that reached a corner of the space
-		// leaves it instead of resolving there for the rest of the run.
+		// Back to the stored draft now and then,
+		// so a walk that reached a corner of the space leaves it
+		// instead of resolving there for the rest of the run.
 		if iteration%200 == 199 {
 			settings, err = run.settled(ctx)
 			if err != nil {
@@ -142,14 +143,17 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 	return nil
 }
 
-// applyPreset puts one built-in preset on the draft and holds the answer to what the preset
-// promised, which is the corner of the settings space one legal move at a time never assembles.
+// applyPreset puts one built-in preset on the draft
+// and holds the answer to what the preset promised,
+// which is the corner of the settings space one legal move at a time never assembles.
 //
-// Applying is the swap the shell makes: the publish group becomes the preset's, and the relay
-// coordinates and this machine's watching stay where they are (form.proto, BuiltinPreset.settings).
+// Applying is the swap the shell makes: the publish group becomes the preset's,
+// and the relay coordinates and this machine's watching are left alone
+// (form.proto, BuiltinPreset.settings).
 func applyPreset(ctx context.Context, run *session, rng *rand.Rand, form *v1.Form) (*v1.Form, bool) {
-	// From a draft that publishes, so what the preset is held to is its own doing: applying one over
-	// a draft already refused for something outside the publish group leaves that refusal standing.
+	// From a draft that publishes, so what the preset is held to is its own doing:
+	// applying one over a draft already refused for something outside the publish group
+	// leaves that refusal standing.
 	if !form.GetPublishable() {
 		return nil, false
 	}
@@ -176,8 +180,8 @@ func applyPreset(ctx context.Context, run *session, rng *rand.Rand, form *v1.For
 	}
 
 	fields := map[string]string{"preset": preset.GetKey(), "codec": run.codecOf(next.GetSettings())}
-	// A preset carries a configuration the backend found on this machine, so the resolve that
-	// follows it has nothing to walk and nothing to refuse.
+	// A preset carries a configuration the backend found on this machine,
+	// so the resolve that follows it has nothing to walk and nothing to refuse.
 	if keys := next.GetRepairedFieldKeys(); len(keys) > 0 {
 		run.report.report("form.preset_repaired", "form/preset-repaired/"+preset.GetKey()+"/"+keys[0],
 			fmt.Sprintf("applying %s was answered with a repair of %v", preset.GetKey(), keys), fields, draft)
@@ -197,8 +201,8 @@ func applyPreset(ctx context.Context, run *session, rng *rand.Rand, form *v1.For
 	return next, true
 }
 
-// blockingText names the diagnostic that put a form out of reach of publishing, which is what turns
-// a refusal into something to look at.
+// blockingText names the diagnostic that put a form out of reach of publishing,
+// which is what turns a refusal into something to look at.
 func blockingText(form *v1.Form) string {
 	for _, d := range form.GetDiagnostics() {
 		if d.GetSeverity() == v1.Severity_SEVERITY_ERROR {
@@ -227,8 +231,8 @@ func checkMove(run *session, move mutable, chosen string, draft *v1.Settings, ne
 		if key != move.key {
 			continue
 		}
-		// An entry taken off a list is what its own removal entry does, so the key naming it is
-		// gone rather than walked.
+		// An entry taken off a list is what its own removal entry does,
+		// so the key naming it is gone rather than walked.
 		if _, _, err := locate(next.GetSettings(), move.key, false); err != nil {
 			continue
 		}
@@ -318,8 +322,8 @@ func checkForm(run *session, form *v1.Form, settings *v1.Settings) {
 	run.report.pass()
 }
 
-// formDiff names where two descriptions of one draft stop agreeing, so an impurity is triaged from
-// the finding rather than from a rerun.
+// formDiff names where two descriptions of one draft stop agreeing,
+// so an impurity is triaged from the finding rather than from a rerun.
 func formDiff(a, b *v1.Form) string {
 	if a.GetPublishable() != b.GetPublishable() {
 		return "publishable"

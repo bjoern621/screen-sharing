@@ -8,24 +8,24 @@ import (
 
 // The statement vocabulary this package's answers are built from.
 //
-// Every reason, note and diagnostic is one code and the identifiers it is about, never a sentence
-// (api/proto/screenshare/v1/text.proto).
+// Every reason, note and diagnostic is one code and the identifiers it is about,
+// never a sentence (api/proto/screenshare/v1/text.proto).
 // The wrappers exist so a rule reads as the fact it states, say(codecCannotEncodeChroma,
-// argCodec(...), argChroma(...)) rather than three lines of enum spelling, and so an argument is
-// named here once instead of at every site that fills it.
+// argCodec(...), argChroma(...)) rather than three lines of enum spelling,
+// and so an argument is named here once instead of at every site that fills it.
 //
 // A code constant is named for what is true, not for the control it greys.
-// The same fact greys a pixel format on one screen and explains a diagnostic on another, so a name
-// taken from either would read as a lie on the other.
+// The same fact greys a pixel format on one screen and explains a diagnostic on another,
+// so a name taken from either would read as a lie on the other.
 //
-// Nothing here asserts a precondition, which is the shape rather than an oversight.
-// Every wrapper is one call to text.Of or text.ID, and both already assert what they require:
-// a statement names which statement it is, and an argument names which substitution it fills
-// (internal/text).
+// No wrapper here asserts a precondition.
+// Every one is a single call to text.Of or text.ID, and both already assert what they require:
+// a statement names which statement it is,
+// and an argument names which substitution it fills (internal/text).
 // A second assert beside them is a second answer to one question.
 
-// say is one statement: text.Of under this package's own name, so no rule spells the constructor's
-// package.
+// say is one statement: text.Of under this package's own name,
+// so no rule spells the constructor's package.
 func say(code screensharev1.TextCode, args ...*screensharev1.TextArg) *screensharev1.Text {
 	return text.Of(code, args...)
 }
@@ -38,8 +38,8 @@ const (
 	scaledFromSource       = screensharev1.TextCode_TEXT_CODE_SCALED_FROM_SOURCE
 	engineToolingMissing   = screensharev1.TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING
 	engineHasNoPublishSink = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK
-	// The app builds this leg and the machine cannot run what it builds, which is the encoder
-	// probe's question asked about a sink.
+	// The app builds this leg and the machine cannot run what it builds,
+	// which is the encoder probe's question asked about a sink.
 	publishSinkElementMissing = screensharev1.TextCode_TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING
 	engineNotProbed           = screensharev1.TextCode_TEXT_CODE_ENGINE_NOT_PROBED
 	probeNoDevice             = screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE
@@ -122,14 +122,14 @@ func argTransport(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, v)
 }
 
-// argValue is a settings value with no axis of its own: a render chain is not a codec, a chroma or
-// a transport, and giving it one of those names would say it was.
+// argValue is a settings value with no axis of its own: a render chain is not a codec, a chroma
+// or a transport, and giving it one of those names would say it was.
 func argValue(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_VALUE, v)
 }
 
-// argElement is a GStreamer element factory, which nobody picks: it names what this machine lacks
-// rather than a choice that was made.
+// argElement is a GStreamer element factory, which nobody picks:
+// it names what this machine lacks rather than a choice that was made.
 func argElement(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ELEMENT, v)
 }
@@ -223,8 +223,8 @@ func argRefreshHz(v int) *screensharev1.TextArg {
 }
 
 // One constructor per substitution name, so a surface reading this argument meets one value shape.
-// A whole number of Mbit/s crosses as a Decimal too: a reader keyed on the case would otherwise find
-// a Number here and a Decimal in the next sentence, under one name.
+// A whole number of Mbit/s crosses as a Decimal too: a reader keyed on the case would otherwise
+// find a Number here and a Decimal in the next sentence, under one name.
 func argBitrateMbps(v float64) *screensharev1.TextArg {
 	return text.Dec(screensharev1.TextArgName_TEXT_ARG_NAME_BITRATE_MBPS, v)
 }

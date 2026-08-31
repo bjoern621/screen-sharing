@@ -8,8 +8,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 )
 
-// What a scrape reads is the registry as it stands, so the reading is taken the way an answer to a
-// member is: leases from here, publishing off the relay.
+// What a scrape reads is the registry as it stands,
+// so the reading is taken the way an answer to a member is:
+// leases from here, publishing off the relay.
 
 func TestReadNamesEveryGroupHoldingALease(t *testing.T) {
 	first, firstSecret := mustKey(t), mustSecret(t)
@@ -67,8 +68,9 @@ func TestReadReportsWhoIsPublishing(t *testing.T) {
 	}
 }
 
-// A refresh is not a member arriving. The app states presence on every pass of its poll, so counting
-// each one leaves the churn a reader came for buried under the poll rate.
+// A refresh is not a member arriving.
+// The app states presence on every pass of its poll,
+// so counting each one leaves the churn a reader came for buried under the poll rate.
 func TestANewLeaseIsCountedOnceAcrossRefreshes(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	registry := New(&fakeRelay{})
@@ -110,8 +112,8 @@ func TestAReleaseIsCounted(t *testing.T) {
 	}
 }
 
-// A release the registry held no lease for is already in the state it names, so it succeeds and is
-// not a departure to count.
+// A release the registry held no lease for is already in the state it names,
+// so it succeeds and is not a departure to count.
 func TestAReleaseOfNothingIsNotCounted(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	registry := New(&fakeRelay{})
@@ -158,8 +160,8 @@ func TestAClosedConnectionIsCountedUnderItsTransport(t *testing.T) {
 	}
 }
 
-// A refused kick is a member possibly still watching, so it is counted apart from what was closed
-// rather than folded into it.
+// A refused kick is a member possibly still watching,
+// so it is counted apart from what was closed rather than folded into it.
 func TestARefusedKickIsCountedApart(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{refuse: map[string]error{"theirs": errors.New("no")}}

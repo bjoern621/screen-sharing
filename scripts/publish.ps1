@@ -1,8 +1,8 @@
 <#
   publish.ps1 - capture a screen and push it to the MediaMTX relay over SRT.
 
-  Needs ffmpeg on PATH. Get a recent build: https://www.gyan.dev/ffmpeg/builds/
-  (ddagrab GPU capture needs n6.1+; gdigrab works on any build.)
+  Needs ffmpeg on PATH: https://www.gyan.dev/ffmpeg/builds/
+  ddagrab GPU capture needs n6.1 or newer; gdigrab works on any build.
 
   Examples:
     ./publish.ps1 -Name bjorn
@@ -19,12 +19,12 @@ param(
   [ValidateSet("hevc_nvenc","h264_nvenc","av1_nvenc","hevc_amf","h264_amf","hevc_qsv","libx264")]
   [string]$Codec   = "hevc_nvenc",
   [ValidateSet("yuv420p","yuv444p","p010le","gbrp")]
-  [string]$Chroma  = "gbrp",                            # gbrp = true RGB, exact desktop pixels (default); yuv420p = cheapest for weak links
+  [string]$Chroma  = "gbrp",                            # gbrp = true RGB, exact desktop pixels; yuv420p = cheapest for weak links
   [ValidateSet("pc","tv")]
   [string]$Range   = "pc",                              # pc = full range 0-255
   [ValidateSet("gdigrab","ddagrab")]
-  [string]$Capture = "ddagrab",                         # ddagrab = GPU, per-monitor (default); gdigrab = whole desktop fallback
-  [int]   $Monitor = 0,                                 # ddagrab output index (which monitor)
+  [string]$Capture = "ddagrab",                         # ddagrab = GPU, per-monitor; gdigrab = whole desktop fallback
+  [int]   $Monitor = 0,                                 # ddagrab output index: which monitor
   [string]$Scale   = "",                                # e.g. "2560:-1" downscale; needed for software libx264
   [ValidateSet("quality","latency","lossless")]
   [string]$Mode    = "quality",                         # quality = best look (VBR+cq); latency = min delay (CBR/ll); lossless = perfect, huge bitrate
@@ -40,11 +40,10 @@ $mbps = [double]($Bitrate -replace '[^0-9.]','')
 Write-Host "Publishing '$Name'  $($Fps)fps  $Codec  $Chroma  range=$Range  capture=$Capture  ~$mbps Mbps UP" -ForegroundColor Cyan
 Write-Host "Friends watch:  ./watch.ps1 -Name $Name -Relay <your-ip>" -ForegroundColor DarkGray
 
-# srt 'latency' is MICROSECONDS in ffmpeg; big sndbuf+fc for lossless bursts
+# ffmpeg's srt 'latency' is in microseconds; big sndbuf and fc for lossless bursts
 $srt = "srt://${Relay}:${Port}?streamid=publish:${Name}&pkt_size=1316&latency=1500000&sndbuf=150000000&ffs=150000000"
 $gop = $Fps * 2
 
-# capture args differ per backend
 if ($Capture -eq "ddagrab") {
   # GPU capture via filter source, hwdownload so any encoder can consume it
   $inputArgs = @(
@@ -61,7 +60,6 @@ if ($Capture -eq "ddagrab") {
 $vf = @()
 if ($Scale) { $vf = @("-vf", "scale=$Scale") }
 
-# encoder args depend on codec family + mode
 $isNvenc = $Codec -like "*nvenc"
 if ($Codec -eq "libx264") {
   if ($Mode -eq "quality") {
@@ -75,7 +73,8 @@ if ($Codec -eq "libx264") {
     # -bf 0: B-frames save nothing in lossless, only add reorder complexity for the decoder
     $encArgs = @("-c:v",$Codec,"-preset","p7","-tune","lossless","-bf","0")
   } elseif ($Mode -eq "quality") {
-    # VBR + constant-quality: cq drives look, -Bitrate is the burst ceiling. p7/hq/multipass = best per bit.
+    # VBR + constant-quality: cq drives look, -Bitrate is the burst ceiling.
+    # p7/hq/multipass = best per bit.
     $encArgs = @("-c:v",$Codec,"-preset","p7","-tune","hq","-multipass","fullres",
                  "-rc","vbr","-cq","$Cq","-b:v","0","-maxrate",$Bitrate,"-bufsize",$Bitrate)
   } else {

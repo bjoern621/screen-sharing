@@ -16,16 +16,18 @@ const presetsFileName = "presets.json"
 
 // presetsMu serializes the read-modify-write that saving and deleting both are.
 //
-// Each reads the whole file, changes one entry and writes all of it back, so two running at once
-// lose an edit: the second read happens before the first write and the second write then carries a
-// list that never saw the first change.
-// Reachable rather than theoretical, since every call arrives on a goroutine of its own and more
-// than one shell can be connected at a time.
+// Each reads the whole file, changes one entry and writes all of it back,
+// so two running at once lose an edit:
+// the second read happens before the first write,
+// and the second write then carries a list that never saw the first change.
+// Reachable rather than theoretical,
+// every call arriving on a goroutine of its own and more than one shell being connectable at a time.
 var presetsMu sync.Mutex
 
 // Preset is a named way of publishing, saved for reuse.
-// A Publish group and nothing else: where the relay sits belongs to a deployment and how this
-// machine watches belongs to a viewer, and neither is part of what a saved configuration means.
+// A Publish group and nothing else:
+// where the relay sits belongs to a deployment and how this machine watches belongs to a viewer,
+// and neither is part of what a saved configuration means.
 //
 // Presets stand apart from the working settings Load and Save persist.
 // A delete never touches the working settings, and the settings restored on launch answer to no
@@ -43,14 +45,14 @@ func presetsPath() (string, error) {
 	return filepath.Join(dir, presetsFileName), nil
 }
 
-// LoadPresets reads the saved presets in the order they were stored, and answers none and a reason
-// where the file cannot be used.
-// A missing file is no failure: nothing has been saved yet.
+// LoadPresets reads the saved presets in the order they were stored,
+// and answers none and a reason where the file cannot be used.
+// A missing file is no failure: nothing is saved.
 //
-// An unusable file is an Umgebungsfehler and is moved aside (setAside), for the reason SavePreset
-// and DeletePreset name.
-// Both rewrite the whole file from what this returns, so answering an unreadable file with an empty
-// list would let the next save replace every preset in it.
+// An unusable file is an Umgebungsfehler and is moved aside (setAside),
+// for the reason SavePreset and DeletePreset name.
+// Both rewrite the whole file from what this returns,
+// so answering an unreadable file with an empty list would let the next save replace every preset.
 func LoadPresets() ([]Preset, error) {
 	path, err := presetsPath()
 	if err != nil {
@@ -92,10 +94,10 @@ func savePresets(presets []Preset) error {
 // SavePreset stores s under name, replacing any preset already saved under it.
 //
 // A presets file that could not be read is reported rather than written over.
-// The whole file is rewritten from what LoadPresets returned, so saving into a file that read as
-// empty would replace every preset in it with this one entry.
-// The unreadable file has been moved aside by then, so the same save repeated writes a fresh file
-// and the reason names where the old values went.
+// The whole file is rewritten from what LoadPresets returned,
+// so saving into a file that read as empty would replace every preset in it with this one entry.
+// The unreadable file has been moved aside by then,
+// so the same save repeated writes a fresh file and the reason names where the old values went.
 func SavePreset(name string, s Publish) error {
 	assert.Assert(name != "", "a saved preset is saved under a name")
 

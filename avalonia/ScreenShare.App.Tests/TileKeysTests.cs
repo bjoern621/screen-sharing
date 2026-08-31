@@ -9,10 +9,10 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// One table serves the press and the menu row that prints the gesture, so neither can name a key the other
-/// does not run.
-/// A volume key names a level rather than a change: the target is computed from what the decode plays at and
-/// read back off the decode's state.
+/// One table serves the press and the menu row that prints the gesture,
+/// so neither can name a key the other does not run.
+/// A volume key names a level rather than a change:
+/// the target is computed from what the decode plays at and read back off the decode's state.
 /// </summary>
 public sealed class TileKeysTests
 {
@@ -92,8 +92,8 @@ public sealed class TileKeysTests
     }
 
     /// <summary>
-    /// A press at the top asks for the level already in force, so holding the key is a run of calls that
-    /// change nothing.
+    /// A press at the top asks for the level already in force,
+    /// so holding the key is a run of calls changing nothing.
     /// </summary>
     [Fact]
     public async Task AVolumeKeyStopsAtTheEndOfTheRange()
@@ -112,8 +112,8 @@ public sealed class TileKeysTests
     }
 
     /// <summary>
-    /// A key is refused wherever the row it names is greyed, and the card leaves the press for whatever else
-    /// wants it.
+    /// A key is refused wherever the row it names is greyed,
+    /// and the card leaves the press for whatever else wants it.
     /// </summary>
     [Fact]
     public async Task AStreamWithNoSoundTrackRefusesTheAudioKeys()

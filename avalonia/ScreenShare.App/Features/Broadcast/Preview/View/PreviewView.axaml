@@ -27,10 +27,12 @@
 
         <tiles:StreamTile Source="{Binding Tile}" />
 
-        <!-- Selectable, because this carries the backend's own refusal for the end-to-end preview,
-             naming the stream's format and the protocols that would have carried it. A reader gets
-             that sentence out of the app by selecting it, and the style wraps rather than trims so
-             the characters they came for are still there. -->
+        <!--
+          Selectable, because this carries the backend's own refusal for the end-to-end preview,
+          naming the stream's format and the protocols that would have carried it.
+          A reader gets that sentence out of the app by selecting it,
+          and the style wraps rather than trims so the characters they came for are still there.
+        -->
         <SelectableTextBlock Classes="hint"
                              FontSize="{StaticResource FontSizeBody}"
                              Text="{Binding Placeholder}"
@@ -57,8 +59,8 @@
 
         <!--
           The pointer travels beside the picture rather than in it, so no route's frames carry one
-          and the marker is drawn here (docs/capture-architecture.md, "The pointer"). The offsets
-          are in this card's own pixels.
+          and the marker is drawn here (docs/capture-architecture.md, "The pointer").
+          The offsets are in this card's own pixels.
         -->
         <Canvas IsVisible="{Binding HasPointer}" ClipToBounds="True">
           <Ellipse Width="14" Height="14"

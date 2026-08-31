@@ -10,8 +10,8 @@ import (
 // Its text reaches no decision, only its presence does.
 var exit = errors.New("publish exited: signal: aborted (core dumped)")
 
-// A pipeline that ended without failing was ended by something that wanted it ended, and a relaunch
-// would undo that.
+// A pipeline that ended without failing was ended by something that wanted it ended,
+// and a relaunch would undo that.
 func TestACleanExitIsNotRetried(t *testing.T) {
 	if _, _, retry := publishRetryAfter(nil, time.Hour, 0); retry {
 		t.Error("a clean exit scheduled a relaunch, want none")
@@ -19,8 +19,8 @@ func TestACleanExitIsNotRetried(t *testing.T) {
 }
 
 // Settings this machine cannot run fail the same way every attempt, so the budget has to bind.
-// The AV1 encoder that hangs the GPU is the case: every attempt costs a driver reset, and nothing
-// about the next one differs from the last.
+// The AV1 encoder that hangs the GPU is the case: every attempt costs a driver reset,
+// and nothing about the next one differs from the last.
 func TestAPipelineFailingAtLaunchWalksTheBackoffOnce(t *testing.T) {
 	for attempts := range len(publishBackoff) {
 		spent, wait, retry := publishRetryAfter(exit, 4*time.Second, attempts)
@@ -44,8 +44,8 @@ func TestAPipelineFailingAtLaunchWalksTheBackoffOnce(t *testing.T) {
 	}
 }
 
-// A publish pipeline dying by itself usually means a relay restart or a source going away, which
-// take seconds.
+// A publish pipeline dying by itself usually means a relay restart or a source going away,
+// which take seconds.
 // A flat retry would spend the whole budget inside the outage it is waiting out.
 func TestTheBackoffGrows(t *testing.T) {
 	for i := 1; i < len(publishBackoff); i++ {
@@ -55,8 +55,9 @@ func TestTheBackoffGrows(t *testing.T) {
 	}
 }
 
-// A pipeline that carried the stream proved the settings run on this machine, so what an earlier
-// outage cost says nothing about this one and the next failure starts at the first delay.
+// A pipeline that carried the stream proved the settings run on this machine,
+// so what an earlier outage cost says nothing about this one,
+// and the next failure starts at the first delay.
 func TestAHealthyRunRefillsTheBudget(t *testing.T) {
 	spent, wait, retry := publishRetryAfter(exit, publishHealthy, len(publishBackoff))
 	if !retry {
@@ -70,9 +71,9 @@ func TestAHealthyRunRefillsTheBudget(t *testing.T) {
 	}
 }
 
-// A relay that is not up and an encoder that hangs the GPU exit under the same status and the same
-// signal, so how far the pipeline got is the only thing telling them apart.
-// The bound is therefore what the decision turns on, and both sides of it are pinned here.
+// A relay that is not up and an encoder that hangs the GPU exit under the same status and signal,
+// so how far the pipeline got is the only thing telling them apart.
+// The bound is what the decision turns on, and both sides of it are pinned here.
 func TestTheHealthyBoundIsWhatSeparatesTheTwo(t *testing.T) {
 	spent, _, _ := publishRetryAfter(exit, publishHealthy-time.Millisecond, 1)
 	if spent != 1 {

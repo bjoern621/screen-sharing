@@ -9,8 +9,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/reach"
 )
 
-// A verdict the contract has no value for would cross as the zero it keeps for "not set", which a
-// shell draws as a row it cannot mark.
+// A verdict the contract has no value for would cross as the zero it keeps for "not set",
+// which a shell draws as a row it cannot mark.
 func TestEveryVerdictCrossesAsOneOfTheContractsOwn(t *testing.T) {
 	for _, verdict := range reach.Verdicts {
 		result := reach.Result{Leg: "srt", Address: "srt://relay:8890", Verdict: verdict}
@@ -28,8 +28,8 @@ func TestEveryVerdictCrossesAsOneOfTheContractsOwn(t *testing.T) {
 	}
 }
 
-// A reason with no statement behind it would draw as a blank where the row says why nothing was
-// dialled, which reads as a leg that failed for nothing.
+// A reason with no statement behind it draws as a blank where the row says why nothing was dialled,
+// reading as a leg that failed for nothing.
 func TestEveryReasonCrossesAsAStatement(t *testing.T) {
 	for _, reason := range reach.Reasons {
 		legs := RelayLegs([]reach.Result{{Leg: "api", Verdict: reach.Unaddressed, Unaddressed: reason}})
@@ -40,8 +40,8 @@ func TestEveryReasonCrossesAsAStatement(t *testing.T) {
 	}
 }
 
-// What a listener answered is another machine's string, so it crosses raw and whole: a reader takes
-// it to a bug report as it stands.
+// What a listener answered is another machine's string,
+// so it crosses raw and whole: a reader takes it to a bug report as it stands.
 func TestALegCarriesTheListenersOwnWords(t *testing.T) {
 	legs := RelayLegs([]reach.Result{{
 		Leg:     "rtsp",

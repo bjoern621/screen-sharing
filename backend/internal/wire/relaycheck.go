@@ -13,9 +13,10 @@ import (
 
 // relayLegVerdicts is one row per verdict a check states.
 //
-// A table rather than a switch: a verdict added to internal/reach and left out here fails the
-// lookup below, where a default arm would cross as the zero the contract keeps for "not set" and
-// draw as a row a shell cannot mark.
+// A table rather than a switch: a verdict added to internal/reach and left out here fails
+// the lookup below.
+// A default arm would cross as the zero the contract keeps for "not set", drawing as a row a shell
+// cannot mark.
 var relayLegVerdicts = map[reach.Verdict]screensharev1.RelayLegVerdict{
 	reach.Reachable:   screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_REACHABLE,
 	reach.Unreachable: screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNREACHABLE,
@@ -23,7 +24,7 @@ var relayLegVerdicts = map[reach.Verdict]screensharev1.RelayLegVerdict{
 }
 
 // relayLegReasons is why a leg went undialled, as the statement a shell writes the sentence for.
-// ReasonNone is absent: it is a leg that was dialled, and the row carries what came back instead.
+// ReasonNone is absent: a dialled leg, whose row carries what came back instead.
 var relayLegReasons = map[reach.Reason]screensharev1.TextCode{
 	reach.ReasonNoRelay:      screensharev1.TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY,
 	reach.ReasonLoopbackOnly: screensharev1.TextCode_TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY,
@@ -42,13 +43,14 @@ func RelayLegs(results []reach.Result) []*screensharev1.RelayLeg {
 			Leg:     r.Leg,
 			Address: r.Address,
 			Verdict: verdict,
-			// The listener's own words, or the dial's, raw: another machine's string is data rather than
-			// this app's vocabulary (api/proto/screenshare/v1/text.proto).
+			// The listener's own words, or the dial's, raw:
+			// another machine's string is data rather than this app's vocabulary
+			// (api/proto/screenshare/v1/text.proto).
 			Detail:      r.Detail,
 			Unaddressed: relayLegUnaddressed(r.Unaddressed),
 		}
-		// Absent rather than nought where nothing was dialled: a wait of zero milliseconds is a figure,
-		// and no wait at all is not one.
+		// Absent rather than nought where nothing was dialled:
+		// a wait of zero milliseconds is a figure, and no wait at all is not one.
 		if r.Took > 0 {
 			leg.WaitedMs = proto.Int64(r.Took.Milliseconds())
 		}

@@ -16,40 +16,40 @@ import (
 // Membership is enforced by closing connections, never by withholding a token.
 //
 // The relay reads a token at the handshake and not again, measured against v1.20.0: a session
-// outlives its token on every leg, and a client that is kicked opens another with the same one.
-// So a member whose lease has lapsed is removed by kicking what they hold,
-// and kicked again on every later sweep for as long as they reconnect (internal/membership).
+// outlives its token on every leg, and a kicked client opens another with the same one.
+// So a member whose lease has lapsed is removed by kicking what they hold, and kicked again
+// on every later sweep for as long as they reconnect (internal/membership).
 
 // Session is one connection the relay is carrying, as enforcement reads it.
 //
-// Enough to decide and to act: who opened it, what it is on, and which list it came from, that being
-// where its kick lives.
-// The figures a viewer row shows are Reader's instead (readers.go), which is a different question
-// asked of the same connection.
+// Enough to decide and to act: who opened it, what it is on, and which list it came from, where
+// its kick lives.
+// The figures a viewer row shows are Reader's instead (readers.go), a different question asked
+// of the same connection.
 type Session struct {
 	// Segment is the per-protocol list this was found on, and the one its kick goes to.
 	Segment string `json:"segment"`
 	ID      string `json:"id"`
 	Path    string `json:"path"`
-	// User is the subject of the token the connection was opened with: a member id where a member was
-	// named, and the group's own id where none was (internal/group).
+	// User is the subject of the token the connection was opened with: a member id where a member
+	// was named, the group's own id where none was (internal/group).
 	User string `json:"user"`
-	// State is "publish" or "read" in the relay's own words, and empty on a list whose connections are
-	// only ever readers.
+	// State is "publish" or "read" in the relay's own words, empty on a list whose connections
+	// are only ever readers.
 	State      string `json:"state,omitempty"`
 	RemoteAddr string `json:"remoteAddr,omitempty"`
 	// Transport is the leg in this app's vocabulary, "srt" where the relay says "srtconns".
-	// Filled from readerKinds rather than from the answer, the relay naming a list and not a
-	// transport.
+	// Filled from readerKinds rather than from the answer, the relay naming a list and not
+	// a transport.
 	Transport string `json:"transport,omitempty"`
 }
 
 // Unread is a per-protocol list that exists and would not answer, and why.
 //
-// A listener that is off is not one of these. It answers 404, which is a fact about the deployment
-// and not a failure (readers.go).
-// This is a sweep that came back partial, and a caller kicking on a partial sweep leaves somebody
-// connected who should not be, so it travels beside the connections rather than being logged here.
+// A listener that is off is not one of these: it answers 404, a fact about the deployment and not
+// a failure (readers.go).
+// A partial sweep leaves somebody connected who should not be, so it travels beside the connections
+// rather than being logged here.
 type Unread struct {
 	Segment string `json:"segment"`
 	Reason  string `json:"reason"`
@@ -60,19 +60,18 @@ type Unread struct {
 const sessionsPerPage = 100
 
 // listLimit bounds one list's body.
-// A relay carrying more connections than this in one page is answering something this is not
-// reading.
+// A page bigger than this is an answer this does not read.
 const listLimit = 4 << 20
 
-// errNoListener is a list this relay does not serve, which is its answer for a protocol whose
-// listener is switched off.
+// errNoListener is a list this relay does not serve, its answer for a protocol whose listener
+// is switched off.
 var errNoListener = errors.New("no listener")
 
-// Sessions is every connection the relay reports across the lists enforcement can act on, and the
-// lists that would not answer.
+// Sessions is every connection the relay reports across the lists enforcement can act on, and
+// the lists that would not answer.
 //
-// Both are returned because a caller has to see the second: a short sweep looks exactly like a quiet
-// relay, and acting on one leaves a member watching.
+// Both are returned because a short sweep looks exactly like a quiet relay, and acting on one
+// leaves a member watching.
 func (c *Client) Sessions(host string, apiPort int) ([]Session, []Unread) {
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)
 
@@ -100,15 +99,15 @@ func (c *Client) Sessions(host string, apiPort int) ([]Session, []Unread) {
 
 // Kick closes one connection.
 //
-// A refusal is carried out rather than swallowed: the connection is a member still watching, and a
-// caller told it succeeded would report a removal that did not happen.
+// A refusal is carried to the caller rather than swallowed: the connection is a member still
+// watching, and a caller told it succeeded would report a removal that did not happen.
 func (c *Client) Kick(host string, apiPort int, segment, id string) error {
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)
 	assert.Assert(segment != "", "a kick names the list the connection is on")
 	assert.Assert(id != "", "a kick names the connection to close")
 
-	// Escaped, the id being the relay's own word travelling back to it: an unescaped one reaches a
-	// path of its own making.
+	// Escaped, the id being the relay's own word travelling back to it: an unescaped one reaches
+	// a path of its own making.
 	address := fmt.Sprintf("http://%s:%d/v3/%s/kick/%s", host, apiPort, segment, url.PathEscape(id))
 	resp, err := c.httpClient().Post(address, "application/json", nil)
 	if err != nil {
@@ -124,11 +123,11 @@ func (c *Client) Kick(host string, apiPort int, segment, id string) error {
 	return nil
 }
 
-// kickableLists names the per-protocol lists enforcement sweeps, in one order so two sweeps read the
-// same relay the same way.
+// kickableLists names the per-protocol lists enforcement sweeps, in one order so two sweeps read
+// the same relay the same way.
 //
-// Derived from readerKinds rather than written out a second time, that table already stating which
-// list describes which kind of connection.
+// Derived from readerKinds rather than written out a second time, that table stating which list
+// describes which kind of connection.
 func kickableLists() []string {
 	lists := []string{}
 	for _, kind := range readerKinds {

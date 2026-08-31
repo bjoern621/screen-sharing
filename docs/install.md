@@ -7,7 +7,7 @@ The app is one window with two programs behind it: a headless backend that captu
 Opening the shell starts the backend, so there is one thing to launch and nothing to start in a particular order.
 
 Streams do not travel between machines directly.
-Every publisher sends to one relay and every viewer reads from it, so somebody has to be running a relay before anything is watchable ("The relay" below).
+Every publisher sends to one relay and every viewer reads from it, so somebody has to be running a relay before anything is watchable ("The relay").
 
 ## Windows
 
@@ -40,7 +40,7 @@ makepkg -si
 sudo dnf install ./screen-sharing-*.rpm
 ```
 
-Two encoders are missing afterwards, and both are Fedora's packaging rather than the app's:
+What is missing afterwards is Fedora's packaging rather than the app's:
 
 - `x264enc`, the software H.264 encoder the GStreamer publish engine uses, lives in [RPM Fusion](https://rpmfusion.org/Configuration): `sudo dnf install gstreamer1-plugins-ugly`.
 - The WebRTC transports (WHIP to publish, WHEP to watch) need `gst-plugins-rs`, which Fedora does not package.

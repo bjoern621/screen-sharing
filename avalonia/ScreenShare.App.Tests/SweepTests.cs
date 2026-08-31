@@ -10,10 +10,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// A control under a held thumb, against a backend that answers by hand.
-///
-/// A sweep writes a value per pointer move, and each of them is a configuration the reader is passing through.
-/// What the draft takes, what the screen prints and what the backend is asked are three different answers to
-/// that, and this is where they are stated (<c>docs/settings-editing.md</c>).
+/// A sweep writes a value per pointer move, each of them a configuration the reader is passing through.
+/// Three different answers to that: what the draft takes, what the screen prints, what the backend is asked
+/// (<c>docs/settings-editing.md</c>).
 /// </summary>
 public sealed class SweepTests
 {
@@ -23,7 +22,7 @@ public sealed class SweepTests
 
     private sealed record Panel(ViewerViewModel Viewer, FormSession Form, DeferredBackend Backend);
 
-    /// <summary>The watch panel on an answered opening read, which is where the sliders are.</summary>
+    /// <summary>Watch panel on an answered opening read, where the sliders are.</summary>
     private static async Task<Panel> PanelAsync()
     {
         var backend = new DeferredBackend();
@@ -39,8 +38,8 @@ public sealed class SweepTests
         => panel.Viewer.Watch.Group.Fields.Single(field => field.Key == key);
 
     /// <summary>
-    /// The whole of the sweep: the draft follows the thumb, the figure beside it follows the draft, and the
-    /// backend is asked once, about the value the reader stopped on.
+    /// The whole of the sweep: the draft follows the thumb, the figure beside it follows the draft,
+    /// and the backend is asked once, about the value the reader stopped on.
     /// </summary>
     [Fact]
     public async Task ASweepAsksNothingUntilTheThumbIsLetGo()
@@ -68,7 +67,7 @@ public sealed class SweepTests
     }
 
     /// <summary>
-    /// A render pass during a sweep draws the form it has, which describes the value the sweep started from.
+    /// A render pass during a sweep draws the form it has, describing the value the sweep started from.
     /// Taking that value back into the control would put the thumb back under the pointer on every step.
     /// </summary>
     [Fact]
@@ -90,9 +89,9 @@ public sealed class SweepTests
     }
 
     /// <summary>
-    /// The widget's half of it: the thumb's own two edges are what the reading is made of.
-    /// Stated here because everything above rests on the binding carrying them, and a control that watched the
-    /// wrong events would leave every sweep looking like a settled value.
+    /// The widget's half: the thumb's own two edges are what the reading is made of.
+    /// Everything above rests on the binding carrying them,
+    /// and a control watching the wrong events would leave every sweep looking like a settled value.
     /// </summary>
     [Fact]
     public void TheThumbsEdgesAreWhatTheControlReports()
@@ -109,9 +108,9 @@ public sealed class SweepTests
     }
 
     /// <summary>
-    /// The figure is the control's own value and not the last answer's, so it is right in the window between a
-    /// move and the form that confirms it.
-    /// A keyboard step is that window at its shortest, and a sweep is that window held open.
+    /// The figure is the control's own value and not the last answer's,
+    /// so it is right in the window between a move and the form that confirms it.
+    /// A keyboard step is that window at its shortest, a sweep that window held open.
     /// </summary>
     [Fact]
     public async Task TheFigureFollowsTheControlBeforeTheAnswerLands()

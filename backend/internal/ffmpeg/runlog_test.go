@@ -41,8 +41,8 @@ func names(t *testing.T, dir string) []string {
 	return out
 }
 
-// One file per run and nothing taking them off leaves a directory that grows for as long as the
-// product is used.
+// One file per run and nothing taking them off leaves
+// a directory that grows for as long as the product is used.
 // What survives is the newest, a reader who asks for a log asking about a run that just ended.
 func TestPruningKeepsTheNewestRunLogs(t *testing.T) {
 	dir := t.TempDir()

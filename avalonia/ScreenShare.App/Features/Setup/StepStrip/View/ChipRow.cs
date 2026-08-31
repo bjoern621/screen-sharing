@@ -9,8 +9,8 @@ namespace ScreenShare.App.Features.Setup.StepStrip.View;
 /// Chips side by side, each holding an equal share of the row.
 ///
 /// Computes nothing.
-/// Every boundary comes from <see cref="ChipRowLayout"/>, pure and tested without a window, so what is here is the
-/// two Avalonia passes.
+/// Every boundary comes from <see cref="ChipRowLayout"/>, pure and tested without a window,
+/// so what is here is the two Avalonia passes.
 /// </summary>
 public sealed class ChipRow : Panel
 {

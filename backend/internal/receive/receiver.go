@@ -17,22 +17,22 @@ import (
 	"bjoernblessin.de/screenshare/internal/pipedelay"
 )
 
-// stopTimeout bounds one attempt at taking a pipeline to NULL, and stopAttempts is how many an
-// unwilling pipeline is given.
+// stopTimeout bounds one attempt at taking a pipeline to NULL, and stopAttempts is how many
+// an unwilling pipeline is given.
 //
 // The bound keeps a source that will not let go from holding up the stream that replaces it or
 // the backend's own shutdown.
-// It is not a way out: a pipeline still running at process exit is torn down by the operating
-// system rather than by GStreamer, and on Windows that means threads killed wherever they stand,
+// Not a way out: a pipeline still running at process exit is torn down by the operating system
+// rather than by GStreamer, and on Windows that means threads killed wherever they stand,
 // including inside the display driver.
 // A process left with a thread wedged in a driver call never finishes exiting, and everything it
 // owns, the control pipe among it, stays owned by a process nothing can kill.
 // So the bound is generous enough for a decoder shutting down under load to reach NULL inside it,
 // and a pipeline that misses it twice is reported rather than walked past.
 //
-// Two attempts of the same length rather than one of twice the length: the first covers the
-// ordinary slow case of a decoder draining, and the second separates "slower than expected" from
-// "not coming back" in the log.
+// Two attempts of the same length rather than one of twice the length: the first covers
+// the ordinary slow case of a decoder draining, and the second separates "slower than expected"
+// from "not coming back" in the log.
 const (
 	stopTimeout  = 3 * time.Second
 	stopAttempts = 2
@@ -40,11 +40,10 @@ const (
 
 // renderSize is a width and a height in one word, width in the high half.
 //
-// A type with a pack and an unpack rather than the shift spelled per site: every packed size is
-// the same uint64 as every other, so a site that unpacks the halves the other way round is a
-// mistake the compiler cannot catch.
-// One word rather than two fields is what lets a size be swapped and compared in one atomic
-// operation.
+// A type with a pack and an unpack rather than the shift spelled per site: every packed size
+// is the same uint64 as every other, so a site that unpacks the halves the other way round
+// is a mistake the compiler cannot catch.
+// One word rather than two fields lets a size be swapped and compared in one atomic operation.
 type renderSize uint64
 
 func packSize(width, height int) renderSize {
@@ -58,18 +57,20 @@ func (s renderSize) unpack() (width, height int) {
 // Stream is one stream a receive pipeline is opened for.
 //
 // Source is the transport's own launch-line fragment, the elements up to the encoded stream
-// (transport.GstSource); everything after it is this package's (chains.go).
+// (transport.GstSource).
+// Everything after it is this package's (chains.go).
 // The protocol's knowledge stays in the transport entry and the decode knowledge here.
 type Stream struct {
 	// Name is what the relay knows the stream by, and what this package's log lines
 	// report it under.
 	Name string
 	// Transport is the watch leg the source fragment was built for, carried so a log
-	// line can name it. Nothing here branches on the protocol.
+	// line can name it.
+	// Nothing here branches on the protocol.
 	Transport string
 	Source    string
-	// Raw is whether Source hands over pictures rather than a bitstream, which takes the
-	// decoder out of the line and the audio branch with it.
+	// Raw is whether Source hands over pictures rather than a bitstream, which takes
+	// the decoder out of the line and the audio branch with it.
 	// A monitor read off this machine's screen is the case that exists: nothing encoded
 	// those frames and nothing carried them, so there is no format to autoplug a decoder
 	// for and no second track to expose.
@@ -78,37 +79,38 @@ type Stream struct {
 
 // Open carries the render choices that belong to the viewer rather than to the stream.
 //
-// A struct so a choice can be added without every caller learning about it, and its zero value is
-// what a caller with no choice to make passes.
+// A struct so a choice can be added without every caller learning about it, and its zero value
+// is what a caller with no choice to make passes.
 type Open struct {
-	// Chain names the render chain the source fragment is completed with, one of the
-	// names Chains reports.
+	// Chain names the render chain the source fragment is completed with, one
+	// of the names Chains reports.
 	// Empty asks for the default, and so does a name this machine cannot run.
 	Chain string
 	// ToneMap asks for an HDR stream to be rolled down into the range a standard display
 	// shows (tonemap.go).
-	// A machine with no rung builds the decode without one and reports that it did, the
-	// same fallback Chain makes.
+	// A machine with no rung builds the decode without one and reports that it did,
+	// the same fallback Chain makes.
 	//
-	// Asked here rather than turned on by what the stream turns out to carry, because a
-	// pipeline is built before anything has negotiated: what a decode is asked for is
-	// knowable at that moment and what it will receive is not.
+	// Asked here rather than turned on by what the stream turns out to carry, because
+	// a pipeline is built before anything has negotiated: what a decode is asked
+	// for is knowable at that moment and what it will receive is not.
 	// An SDR stream through the rung is a filter with nothing to convert.
 	ToneMap bool
 }
 
 // Events are one receiver's lifecycle callbacks.
-// They fire on pipeline threads rather than on the caller's, so a callback touching state of the
-// caller's own guards it itself.
+// They fire on pipeline threads rather than on the caller's, so a callback touching state
+// of the caller's own guards it itself.
 type Events struct {
-	// OnLive fires once, on the first decoded frame out of the sink. Not a transport
+	// OnLive fires once, on the first decoded frame out of the sink.
+	// Not a transport
 	// coming up.
 	OnLive func()
-	// OnAudio fires once, when the stream turns out to carry audio and the branch is
-	// playing.
+	// OnAudio fires once, when the stream turns out to carry audio and the branch
+	// is playing.
 	OnAudio func()
-	// OnEnd fires once on a fatal pipeline error or end of stream, with a message for a
-	// reader.
+	// OnEnd fires once on a fatal pipeline error or end of stream, with a message
+	// for a reader.
 	// The pipeline is already stopped: a dead receive pipeline has nothing to recover.
 	OnEnd func(message string)
 }
@@ -116,13 +118,13 @@ type Events struct {
 // Receiver is the running receive pipeline of one stream.
 type Receiver struct {
 	name string
-	// chain is the row the pipeline was built from: the receive state reports what a
-	// stream renders through, and the size bound and the memory check are written from
-	// it.
+	// chain is the row the pipeline was built from: the receive state reports what
+	// a stream renders through, and the size bound and the memory check are written
+	// from it.
 	chain chain
-	// toneMap is whether the pipeline was built with the rung that rolls an HDR stream
-	// down, which is not always what was asked for: a machine with no rung builds without
-	// one.
+	// toneMap is whether the pipeline was built with the rung that rolls an HDR stream down,
+	// which is not always what was asked for:
+	// a machine with no rung builds without one.
 	// The receive state reports it, and a caller compares a new request against it.
 	toneMap  bool
 	pipeline gst.Pipeline
@@ -133,8 +135,8 @@ type Receiver struct {
 	// reports the configured latency and never the work.
 	delay *pipedelay.Probe
 	fit   gst.Element // capsfilter bounding what the chain's scaler produces
-	// stopMu serialises the teardown, which two sides can reach at once: a stop, and the bus watch on
-	// a pipeline that ended by itself.
+	// stopMu serialises the teardown, which two sides can reach at once: a stop, and the bus watch
+	// on a pipeline that ended by itself.
 	// Apart from mu, which guards the fields a teardown clears and is taken inside it.
 	stopMu  sync.Mutex
 	cancel  context.CancelFunc
@@ -159,8 +161,8 @@ type Receiver struct {
 	mu           sync.Mutex
 	volume       gst.Element // audio branch's volume element, nil without audio
 	audioConvert gst.Element // audio branch's audioconvert, read for the raw audio caps
-	// wantVolume and wantMuted are what SetAudio last asked for, held whether or not the
-	// branch exists.
+	// wantVolume and wantMuted are what SetAudio last asked for, held whether or not
+	// the branch exists.
 	// A decode that has not exposed an audio pad yet is the ordinary case for a volume
 	// arriving early, and dropping it there would make the effect's result depend on when
 	// it was sent.
@@ -170,8 +172,8 @@ type Receiver struct {
 	stats []elementStats
 	// subs are the consumers frames are handed to, each with a pool of its own
 	// (export.go).
-	// None is the ordinary state of a decode nothing is drawing, and the pipeline runs
-	// the same either way.
+	// None is the ordinary state of a decode nothing is drawing,
+	// and the pipeline runs the same either way.
 	subs []*Subscription
 }
 
@@ -195,8 +197,8 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	if !ok {
 		return nil, fmt.Errorf("stream %q: parse did not yield a pipeline", st.Name)
 	}
-	// One type assertion for two failures: a pipeline that grew no sink at all yields a
-	// nil element, which is not an appsink either.
+	// One type assertion for two failures: a pipeline that grew no sink at all yields
+	// a nil element, which is not an appsink either.
 	sink, ok := pipeline.GetByName(sinkName).(gstapp.AppSink)
 	if !ok {
 		return nil, fmt.Errorf("stream %q: no appsink named %s in the pipeline", st.Name, sinkName)
@@ -204,8 +206,8 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	// A shader holds the newlines its preprocessor directives need and quotes the launch
 	// parser reads as syntax, so a rung's own conversion is set as a property rather than
 	// written into the line.
-	// The element it goes into is one this package's fragment named, so its absence is
-	// this package's own bug.
+	// The element it goes into is one this package's fragment named, so its absence
+	// is this package's own bug.
 	if rung.shader != "" {
 		shader := pipeline.GetByName(toneMapName)
 		assert.Assert(shader != nil, "a rung that carries a shader builds the element it is written into", rung.name, toneMapName)
@@ -223,8 +225,9 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 		fit:      pipeline.GetByName(fitName),
 		cancel:   cancel,
 		started:  time.Now(),
-		// A decode plays at the loudness it arrived with until something asks for
-		// another. Any other default alters a stream nobody has said anything about.
+		// A decode plays at the loudness it arrived with until something asks
+		// for another.
+		// Any other default alters a stream nobody has said anything about.
 		wantVolume: 1,
 	}
 	// A chain's elements and its fit caps come from one row, so a mismatch is that row's
@@ -251,19 +254,19 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 // The count feeds the measured fps a reader derives and the stall sweep a session runs, so both
 // hold only while a pull means a frame.
 //
-// The sink emits on its streaming thread and holds the buffer until the handler returns, which is
-// the backpressure renderSink's one-buffer bound is written for: pulling here and returning is
-// what lets the next frame through.
+// The sink emits on its streaming thread and holds the buffer until the handler returns,
+// which is the backpressure renderSink's one-buffer bound is written for: pulling here and
+// returning is what lets the next frame through.
 //
-// The sample then goes to every consumer that has subscribed (export.go), each copying it into a
-// slot of its own pool on the GPU and naming that slot to the shell.
+// The sample then goes to every consumer that has subscribed (export.go), each copying it
+// into a slot of its own pool on the GPU and naming that slot to the shell.
 // None of them blocks: a consumer with no free slot drops the frame, so a window that is busy
 // costs frames and never costs the pipeline.
-// A decode nothing is drawing has no consumers and the sample is released here, which is the
-// ordinary state of a stream received and not yet watched.
+// A decode nothing is drawing has no consumers and the sample is released here,
+// the ordinary state of a stream received and unwatched.
 //
-// The handler stays connected: disconnecting from inside the emission is not worth the
-// bookkeeping.
+// The handler stays connected: disconnecting from inside the emission is not worth
+// the bookkeeping.
 func (r *Receiver) watchSamples(onLive func()) {
 	r.sink.ConnectNewSample(func(sink gstapp.AppSink) gst.FlowReturn {
 		// A sink with nothing to hand over was flushed on its way out of PLAYING.
@@ -272,8 +275,8 @@ func (r *Receiver) watchSamples(onLive func()) {
 		if sample == nil {
 			return gst.FlowEOS
 		}
-		// A pulled sample is owned here, and the binding otherwise drops it from a
-		// finalizer whenever the collector next runs.
+		// A pulled sample is owned here, and the binding otherwise drops it
+		// from a finalizer whenever the collector next runs.
 		// Every sample pins one of the decoder's textures, so a pool the collector has
 		// not got around to freeing is a decoder that cannot allocate the next frame.
 		// Unreffed here, the sample lives exactly as long as the handover.
@@ -283,8 +286,8 @@ func (r *Receiver) watchSamples(onLive func()) {
 		if r.live.CompareAndSwap(false, true) {
 			logger.Debugf("stream %q decoded its first frame", r.name)
 			// A frame out of the sink proves every pad from the decoder to the sink
-			// negotiated, which is what makes the memory the chain asked for
-			// comparable to the memory it got.
+			// negotiated, which is what makes the memory the chain asked
+			// for comparable to the memory it got.
 			r.verifyMemory()
 			if onLive != nil {
 				onLive()
@@ -340,8 +343,8 @@ func (r *Receiver) watchSourcePads(onAudio func()) {
 // builds its decoders inside nested bins, rtspsrc its jitterbuffers.
 // The signal catches those as they appear and the walk catches what parse-launch already built,
 // the transport's source among them.
-// Connecting before the walk means an element added in between is seen twice, which onElement
-// absorbs.
+// Connecting before the walk means an element added in between is seen twice,
+// which onElement absorbs.
 func (r *Receiver) watchElements() {
 	r.pipeline.Connect("deep-element-added", func(_ gst.Bin, _ gst.Bin, child gst.Element) {
 		r.onElement(child)
@@ -353,8 +356,8 @@ func (r *Receiver) watchElements() {
 	}
 }
 
-// watchBus reports the first fatal bus message and stops the pipeline, in the element's own
-// wording.
+// watchBus reports the first fatal bus message and stops the pipeline,
+// in the element's own wording.
 // The debug string GStreamer sends with it names the element and the source line it failed on,
 // which is a log line rather than something to put in front of a reader.
 func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
@@ -369,7 +372,7 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 			message = "stream ended"
 		case gst.MessageElement:
 			// The level element posts here, at the metering rate.
-			// It is the one message on this bus that is not about the pipeline ending,
+			// The one message on this bus that is not about the pipeline ending,
 			// so it is read on the watch already running rather than on a second one.
 			if msg.HasName(levelMessage) {
 				r.onLevelMessage(msg)
@@ -400,8 +403,8 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 	}
 }
 
-// ToneMap answers what the pipeline was built with rather than what was asked for, which is what
-// makes it the value a caller compares a new request against.
+// ToneMap answers what the pipeline was built with rather than what was asked for,
+// making it the value a caller compares a new request against.
 // A machine with no rung builds without one, and a caller comparing against its own ask would
 // rebuild the same pipeline forever.
 func (r *Receiver) ToneMap() bool { return r.toneMap }
@@ -414,8 +417,8 @@ func (r *Receiver) ToneMap() bool { return r.toneMap }
 // pixels away again at draw time.
 //
 // The bound is a maximum and not a size.
-// The chain's scaler fixates inside the range and corrects the pixel aspect ratio to hold the
-// display aspect ratio, so the picture needs no borders and a tile larger than its stream
+// The chain's scaler fixates inside the range and corrects the pixel aspect ratio to hold
+// the display aspect ratio, so the picture needs no borders and a tile larger than its stream
 // negotiates the stream's own size rather than an upscale nobody asked for.
 //
 // The caps come from the chain, feature and all: caps naming no memory feature pin the frames
@@ -448,27 +451,28 @@ func (r *Receiver) SetRenderSize(width, height int) {
 //
 // No main-context guard is needed: an appsink owns nothing outside the pipeline, so the way down
 // belongs to the thread that asks for it.
-// Whether the pipeline reached NULL is the return value, because the caller that matters is the
-// one shutting the process down: it is the only place that can decide what to do about a decoder
-// still running, and it cannot decide it from a call that says nothing.
+// Whether the pipeline reached NULL is the return value,
+// the caller that matters being the one shutting the process down:
+// the only place that can decide what to do about a decoder still running,
+// and it cannot decide it from a call that says nothing.
 func (r *Receiver) Stop() bool {
 	r.cancel()
-	// The consumers go before the pipeline does: each frees its pool as it ends, and a
-	// pool freed after the device it was allocated on is torn down is a free against a
-	// device that is gone.
+	// The consumers go before the pipeline does: each frees its pool as it ends, and
+	// a pool freed after the device it was allocated on is torn down is a free against
+	// a device that is gone.
 	r.endSubs("the stream was closed")
 
 	return r.teardown()
 }
 
-// teardown takes the pipeline to NULL and hands it back, once, whichever side asks first: a stop, or
-// the bus watch on a pipeline that ended on its own.
+// teardown takes the pipeline to NULL and hands it back, once, whichever side asks first: a stop,
+// or the bus watch on a pipeline that ended on its own.
 //
-// The whole of it runs under one lock, so the pipeline cannot be handed back between the read that
-// takes it and the state change that uses it, which would be a state change against memory that has
-// been freed.
-// A receiver that has already handed its pipeline back is the state a stop names, so it succeeds and
-// does nothing, as StopReceive does on a decode nobody opened.
+// The whole of it runs under one lock, so the pipeline cannot be handed back between the read
+// that takes it and the state change that uses it, which would be a state change against memory
+// that has been freed.
+// A receiver that has already handed its pipeline back is the state a stop names, so it succeeds
+// and does nothing, as StopReceive does on a decode nobody opened.
 func (r *Receiver) teardown() bool {
 	r.stopMu.Lock()
 	defer r.stopMu.Unlock()
@@ -481,9 +485,9 @@ func (r *Receiver) teardown() bool {
 	started := time.Now()
 	for attempt := 1; attempt <= stopAttempts; attempt++ {
 		// A state change that runs out of time comes back ASYNC and leaves the pipeline
-		// running, which is the case a discarded result would read as SUCCESS: the
-		// threads are still in the decoder, and the next thing this process does is
-		// exit.
+		// running, which is the case a discarded result would read as SUCCESS:
+		// the threads are still in the decoder, and the next thing this process does
+		// is exit.
 		switch ret := pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout)); ret {
 		case gst.StateChangeSuccess:
 			r.release()
@@ -515,19 +519,20 @@ func (r *Receiver) heldPipeline() gst.Pipeline {
 	return r.pipeline
 }
 
-// release hands the pipeline back, which a pipeline at NULL is not: the state change stops the
-// threads and frees nothing.
+// release hands the pipeline back, which a pipeline at NULL is not: the state change stops
+// the threads and frees nothing.
 //
 // The binding unrefs a wrapper when Go collects it, and Go sees the wrapper rather than the decoder
 // contexts, buffer pools and device surfaces behind it, so a process opening a pipeline per stream
-// climbs by what each one holds and never comes down. Measured at six megabytes, five threads and
+// climbs by what each one holds and never comes down.
+// Measured at six megabytes, five threads and
 // eight descriptors a stream, none of it returned by a stop.
 //
 // Once per receiver, after the pipeline is at NULL and never before: a running pipeline handed back
 // is a decoder still on the device with nothing left pointing at it.
-// The element handles go with it. Each holds a ref of its own, so dropping them is what lets the
-// children go when the bin releases them, and a method reaching one afterwards would be reaching
-// into a stream that has stopped.
+// The element handles go with it.
+// Each holds a ref of its own, so dropping them lets the children go when the bin releases them,
+// and a method reaching one afterwards would be reaching into a stream that has stopped.
 func (r *Receiver) release() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

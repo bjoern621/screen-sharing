@@ -61,7 +61,7 @@ Written down rather than probed, because trying it is the damage: `av1_vaapi` un
 So the engine-scoped lookups (`OptionGap`, `Reaches`) keep answering what the encoder implements on any machine, and a defect reaches a form and a publish through the evaluator alone.
 `Codec.WithheldByDriver` is the question they do not answer.
 
-### One evaluator, and what a gap is now
+### One evaluator, and what a gap is
 
 A `Gap` and a numeric ceiling are how a codec's limits are *written*, on the row they belong to.
 They are not what anything *reads*.
@@ -69,9 +69,9 @@ They are not what anything *reads*.
 
 A gap can only name a codec, an engine, an option and a value.
 A fact about a capture backend and a codec together, or a codec and the platform, has no row to sit on.
-Each grew a table with a consumer written against it, and every one of those restated part of an answer the gap mechanism already knew how to give.
+Such a fact takes a table of its own with a consumer written against it, and that consumer restates part of an answer the gap mechanism already knows how to give.
 The ceilings show the cost.
-`CqMax` and `BitrateLimitM` were columns the form narrowed a control by and the validator refused a value by, making the range a slider offers and the range a publish accepts two answers derived from one fact, free to gate on different things.
+`CqMax` and `BitrateLimitM` are columns, and a form narrowing a control by them beside a validator refusing a value by them makes the range a slider offers and the range a publish accepts two answers derived from one fact, free to gate on different things.
 
 A rule is a row:
 
@@ -94,7 +94,7 @@ Rules and axis vocabulary stay in Go (`ipc-api.md`).
 How hard an encoder works and what it works towards are two settings, `publish.effort` and `publish.tune`, and each codec's row declares its own ladder for both (`capabilities/ladders.go`).
 
 Steps are the encoder's own identifiers: x264 counts in names, SVT-AV1 in numbers to 13, NVENC p1 to p7.
-A scale normalized across codecs was rejected: a number carried across a codec change lands on a different real setting than the one held.
+No scale is normalized across codecs: a number carried across a codec change lands on a different real setting than the one held.
 So a step off the selected codec's ladder is reset to the one that codec's row declares for the mode, never mapped by position, and the field is named in the repaired list so the change is readable.
 
 Two fields rather than one: a live encode drops the lookahead and frame reordering a quality encode keeps, whatever effort it spends.
@@ -123,7 +123,7 @@ A knob one engine spends and the other does not is a departure rather than a gap
 VAAPI is the case: its rows declare the seven target usages the `va` elements take, and ffmpeg's `-quality` counts over the range the installed driver reports, measured 0..32 on Mesa's radeonsi against oneVPL's 1..7 on Intel's.
 One step carried across would spend a different amount of work per engine and per card, so the ffmpeg builder spends none and the form greys the control there with that reason (`form.availabilityEngineRules`).
 
-Two rows declare no ladder at all, each for its own reason.
+Some rows declare no ladder at all, each for its own reason.
 No VA profile carries a tuning hint, so the VAAPI rows tune for nothing.
 AMF declares effort and no tune though the API has a usage hint, because this app pins it: a low-latency usage drops the IDR period and leaves a late subscriber no recovery point.
 VideoToolbox declares neither, the framework taking no preset and no tuning hint, and what stands in for both is the realtime flag every mapping sets.

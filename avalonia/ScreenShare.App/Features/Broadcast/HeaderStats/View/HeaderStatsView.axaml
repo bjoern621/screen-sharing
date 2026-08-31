@@ -18,12 +18,13 @@
       A stream between attempts keeps the pill, so this is what tells it apart from one carrying frames.
       In the red rather than the caution hue: a relaunch is a stream that stopped, on its way back.
 
-      The counter says which attempt and the two lines under it say why, in this app's words and then in
-      the pipeline's own. Both wrap and both are selectable: the raw line is what a reader takes to a
-      search box, and trimming would cut away the characters they came for.
+      The counter says which attempt and the two lines under it say why,
+      in this app's words and then in the pipeline's own.
+      Both wrap and both are selectable: the raw line is what a reader takes to a search box,
+      and trimming would cut away the characters they came for.
 
-      A ceiling on the width, because this block shares the band with the promoted figures and a
-      pipeline's last words run long.
+      A ceiling on the width, because this block shares the band with the promoted figures
+      and a pipeline's last words run long.
     -->
     <StackPanel DockPanel.Dock="Left"
                 MaxWidth="330"

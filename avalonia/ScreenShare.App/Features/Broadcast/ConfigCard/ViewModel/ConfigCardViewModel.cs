@@ -29,8 +29,8 @@ public sealed class ConfigCardViewModel : Observable
     private IReadOnlyList<ConfigRow> _reported = [];
 
     /// <summary>
-    /// What the pipeline reports it is running: a row per group of the form resolved against the settings the
-    /// running pipeline was built from.
+    /// What the pipeline reports it is running: a row per group of the form resolved against the settings
+    /// the running pipeline was built from.
     /// An input, since nothing on this screen writes it.
     /// </summary>
     public IReadOnlyList<ConfigRow> Reported
@@ -76,10 +76,10 @@ public sealed class ConfigCardViewModel : Observable
     public DelegateCommand EditInSetupCommand { get; }
 
     /// <summary>
-    /// What stands in for the rows, and there are two states it can stand in for.
-    /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form for the
-    /// settings the running pipeline was built from, and every broadcast's first passes happen before that answer
-    /// lands.
+    /// What stands in for the rows.
+    /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form
+    /// for the settings the running pipeline was built from, and every broadcast's first passes happen before
+    /// that answer lands.
     /// With nothing publishing there is no pipeline to describe at all, and a card saying it is reading one would
     /// wait on an answer nothing has been asked for.
     /// </summary>

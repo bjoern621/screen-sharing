@@ -13,9 +13,9 @@
   <Border Classes="card" Padding="{StaticResource InsetPanel}">
     <StackPanel>
       <!--
-        Three runs, because the stream name sits inside the sentence at full strength and the sentence itself
-        moves with what the press will do (Model/CommitCopy.cs): a literal here would be one of the two
-        wordings, written where the other cannot reach it.
+        Three runs, the stream name sitting inside the sentence at full strength
+        and the sentence itself moving with what the press will do (Model/CommitCopy.cs):
+        a literal here would be one of the two wordings, written where the other cannot reach it.
       -->
       <TextBlock Classes="hint"
                  TextWrapping="Wrap"
@@ -55,8 +55,8 @@
         <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
 
         <!--
-          The dot takes the button's own Foreground, which the disabled treatment moves: content naming a brush
-          of its own would stay bright on a locked button.
+          The dot takes the button's own Foreground, which the disabled treatment moves:
+          content naming a brush of its own would stay bright on a locked button.
         -->
         <Button Grid.Column="1"
                 Theme="{StaticResource GoButton}"

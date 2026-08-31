@@ -1,13 +1,13 @@
 // Package relay talks to the MediaMTX HTTP API for stream discovery.
 //
-// The relay is the single source of truth for "who is live".
+// Relay is the single source of truth for "who is live".
 // The API exposes counters and no rates, so a per-path bitrate is a bytesReceived delta between two
-// fetches: the figure is a rate only while a caller asks at a steady cadence, which is the poll
-// loop in internal/app (watch.go) and never a shell.
+// fetches: a rate only while a caller asks at a steady cadence, which is the poll loop
+// in internal/app (watch.go) and never a shell.
 //
-// Everything the relay answers with is another process's word, so nothing here asserts on it.
-// An unreachable relay, a malformed response and a path naming a format this app does not know are
-// all Umgebungsfehler, and each is carried in the snapshot rather than raised.
+// Everything the relay answers is another process's word, so nothing here asserts on it.
+// An unreachable relay, a malformed response and a path naming an unknown format
+// are Umgebungsfehler, each carried in the snapshot rather than raised.
 package relay
 
 import (
@@ -28,9 +28,8 @@ type Client struct {
 	prev map[string]byteSample
 	// Renders the credential every request carries. nil for a relay that answers its API to anyone.
 	//
-	// A function and not a value, because the relay checks the token's window too: what a caller
-	// holds is the means to sign one, and a stored string stops working partway through a process's
-	// life.
+	// A function and not a value, the relay checking the token's window too: a caller holds the means
+	// to sign one, and a stored string expires partway through a process's life.
 	authorize func() string
 }
 
@@ -42,21 +41,19 @@ type byteSample struct {
 // Path is one stream the relay is carrying, as a viewer's list shows it.
 type Path struct {
 	Name string `json:"name"`
-	// OwnName is Name with the prefix this machine reaches under taken off, and Name where none
-	// was.
-	// Nothing here derives it: which prefix that is comes off the settings, so the poll fills it in
-	// (internal/app, groups.go).
+	// OwnName is Name with the prefix this machine reaches under taken off, and Name where none was.
+	// Which prefix comes off the settings, so the poll fills it in (internal/app, groups.go).
 	OwnName string `json:"ownName"`
 	Ready   bool   `json:"ready"`
 	Tracks  string `json:"tracks"`
-	// Format is the video track's bitstream format in the vocabulary the codec table keys on, and
-	// empty for a path whose tracks name none.
-	// It decides which protocols can carry the stream, so the viewer's refusal and the watch dropdown
-	// both read it rather than each parsing Tracks their own way.
+	// Format is the video track's bitstream format in the vocabulary the codec table keys on, empty
+	// for a path whose tracks name none.
+	// Decides which protocols can carry the stream, so the viewer's refusal and the watch dropdown
+	// read it rather than each parsing Tracks their own way.
 	Format string `json:"format"`
 	// Readers is how many the relay is serving this path to, and Roster is who they are.
-	// Both are read off the one array the relay answered with, so the count is the roster's length by
-	// construction rather than by agreement.
+	// Both come off the one array the relay answered with, so the count is the roster's length
+	// by construction rather than by agreement.
 	Readers int      `json:"readers"`
 	Roster  []Reader `json:"roster"`
 	InMbps  float64  `json:"inMbps"` // Mbit/s ingest, from the byte delta since the previous fetch
@@ -64,11 +61,11 @@ type Path struct {
 
 // trackFormats maps the codec names a relay reports on a path to the bitstream formats the codec
 // table keys on.
-// The relay names a track after the coding format and never after the encoder that produced it,
-// which is why one entry serves every encoder of a format.
+// A relay names a track after the coding format, never after the encoder, so one entry serves every
+// encoder of a format.
 //
-// Both spellings of the two H.26x formats appear, since a relay reports either the ITU name or the
-// MPEG one depending on how the stream was ingested.
+// Both spellings of the H.26x formats appear, a relay reporting either the ITU name or the MPEG one
+// depending on how the stream was ingested.
 var trackFormats = map[string]string{
 	"H264": "h264",
 	"AVC":  "h264",
@@ -79,9 +76,9 @@ var trackFormats = map[string]string{
 	"AV1":  "av1",
 }
 
-// formatOfTracks returns the bitstream format of the video track among the ones a relay path
-// reports, and "" where none of them names a format this app knows.
-// A path carries at most one video track here, so the first match is the answer.
+// formatOfTracks returns the bitstream format of the video track a relay path reports, and "" where
+// none names a format this app knows.
+// A path carries at most one video track, so the first match is the answer.
 func formatOfTracks(tracks []string) string {
 	for _, track := range tracks {
 		if format, ok := trackFormats[strings.ToUpper(track)]; ok {
@@ -96,12 +93,12 @@ type Status struct {
 	Reachable bool   `json:"reachable"`
 	Error     string `json:"error,omitempty"`
 	Paths     []Path `json:"paths"`
-	// FromIndex is a snapshot off the group service's index rather than the relay's own API, which is
-	// what a member gets on a relay that authenticates it (internal/app, groups.go).
+	// FromIndex marks a snapshot off the group service's index rather than the relay's own API, what
+	// a member gets on a relay that authenticates it (internal/app, groups.go).
 	//
 	// The two sources answer different amounts, not different truths: an index row names a stream and
 	// what it carries, and knows nothing of readers or rate.
-	// Those fields are zero here, and a reader that did not know would show "no viewers" for "not
+	// Those fields are zero here, so a reader that did not know would show "no viewers" for "not
 	// answered here".
 	FromIndex bool `json:"fromIndex,omitempty"`
 }
@@ -130,7 +127,7 @@ func New() *Client {
 }
 
 // NewAuthorized is the client for a relay that answers its API to nobody anonymous.
-// Its one caller is the group service, whose credential is one it signs itself (cmd/groupd).
+// Called by the group service, whose credential is one it signs itself (cmd/groupd).
 func NewAuthorized(authorize func() string) *Client {
 	assert.IsNotNil(authorize, "an authorized client can render its credential")
 
@@ -139,8 +136,8 @@ func NewAuthorized(authorize func() string) *Client {
 
 // httpClient is the client one fetch runs on, carrying the credential where there is one.
 //
-// The round tripper adds the header rather than each call site: a fetch is the path list plus a
-// reader list per protocol (readers.go), and a per-site credential is one a later endpoint forgets.
+// Round tripper adds the header rather than each call site: a fetch is the path list plus a reader
+// list per protocol (readers.go), and a per-site credential is one a later endpoint forgets.
 func (c *Client) httpClient() *http.Client {
 	client := &http.Client{Timeout: 3 * time.Second}
 	if c.authorize != nil {
@@ -157,8 +154,8 @@ type authorizing struct {
 func (a authorizing) RoundTrip(r *http.Request) (*http.Response, error) {
 	assert.IsNotNil(a.authorize, "an authorizing round tripper renders a credential")
 
-	// Cloned rather than written to: net/http documents that a RoundTripper must not modify the
-	// request it is handed.
+	// Cloned rather than written to: net/http forbids a RoundTripper modifying the request it
+	// is handed.
 	authorized := r.Clone(r.Context())
 	if credential := a.authorize(); credential != "" {
 		authorized.Header.Set("Authorization", "Bearer "+credential)
@@ -168,8 +165,8 @@ func (a authorizing) RoundTrip(r *http.Request) (*http.Response, error) {
 
 // Fetch queries the relay once and returns the snapshot.
 //
-// An unreachable relay is an Umgebungsfehler and rides in the Status rather than an error return,
-// which is what lets one poll answer both halves.
+// An unreachable relay is an Umgebungsfehler carried in the Status rather than an error return, so
+// one poll answers both halves.
 func (c *Client) Fetch(host string, apiPort int) Status {
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)
 
@@ -188,11 +185,10 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 		return Status{Reachable: false, Error: "invalid API response: " + err.Error()}
 	}
 
-	// The per-protocol lists are read before the lock and never under it.
-	// They are HTTP calls, the lock guards nothing but the byte samples, and holding it across a
-	// network round trip would let one slow relay stall every other caller of this client.
-	// Their failures are absences rather than errors (readers.go), so there is nothing here for the
-	// snapshot to fail on.
+	// Per-protocol lists are read before the lock and never under it.
+	// They are HTTP calls, the lock guards the byte samples alone, and holding it across a round trip
+	// would let one slow relay stall every other caller.
+	// Their failures are absences rather than errors (readers.go), so nothing here fails the snapshot.
 	named := make([]apiReader, 0, len(list.Items))
 	for _, item := range list.Items {
 		named = append(named, item.Readers...)

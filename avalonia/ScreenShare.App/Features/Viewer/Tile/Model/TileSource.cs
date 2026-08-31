@@ -5,19 +5,19 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <summary>
 /// Which picture a tile draws from.
 ///
-/// The contract's own distinction and not a second one: <c>FrameSubscribe</c> names a <c>StreamRef</c>, the running
-/// publish's preview, or one of this machine's monitors, and the identities differ in kind.
-/// A relay decode is the stream together with the protocol it crossed the relay over, the publish preview is
-/// identified by nothing at all there being at most one publish, and a monitor by the index its output is
-/// enumerated under.
-/// This type is that oneof, so the screens putting a tile on the air pick between them here rather than each in
-/// their own way.
+/// The contract's own distinction and not a second one: <c>FrameSubscribe</c> names a <c>StreamRef</c>,
+/// the running publish's preview, or one of this machine's monitors, and the identities differ in kind.
+/// A relay decode is the stream with the protocol it crossed the relay over,
+/// the publish preview is identified by nothing at all there being at most one publish,
+/// and a monitor by the index its output is enumerated under.
+/// This type is that oneof, so the screens putting a tile on the air pick between them here
+/// rather than each in their own way.
 ///
-/// What a preview is not is a leg.
-/// The publish preview's frames never reached the relay, the publish child copying its already-encoded video to a
-/// loopback port the backend decodes (<c>docs/viewer-architecture.md</c>).
-/// A monitor preview's were never encoded or carried at all, the capture element handing raw pictures straight to
-/// the render chain.
+/// Neither preview is a leg.
+/// The publish preview's frames never reached the relay, the publish child copying its already-encoded video
+/// to a loopback port the backend decodes (<c>docs/viewer-architecture.md</c>).
+/// A monitor preview's were never encoded or carried at all,
+/// the capture element handing raw pictures straight to the render chain.
 /// A transport name on either would put a protocol in the table every consumer reads with nothing behind it.
 /// </summary>
 public sealed record TileSource
@@ -53,8 +53,8 @@ public sealed record TileSource
 
     /// <summary>
     /// A screen of this machine, read live.
-    /// The heading is the caller's: what a screen is called is its size, its refresh rate and whether it is the
-    /// main one, all of which the catalog carries and this type does not.
+    /// The heading is the caller's: a screen is named by its size, its refresh rate and whether it is the main
+    /// one, all carried by the catalog and not here.
     /// </summary>
     public static TileSource MonitorPreview(int monitor, string heading)
     {
@@ -87,9 +87,8 @@ public sealed record TileSource
 
     /// <summary>
     /// Opens the frames of this source.
-    /// Opens no picture: the relay's decode is <c>StartReceive</c>'s, the publish preview's is the publish's, and
-    /// a screen's is <c>StartMonitorPreview</c>'s, so a caller that established none is refused rather than
-    /// served.
+    /// Opens no picture: the relay's decode is <c>StartReceive</c>'s, the publish preview's is the publish's,
+    /// a screen's is <c>StartMonitorPreview</c>'s, so a caller that established none is refused rather than served.
     /// </summary>
     public Task<FrameChannel> OpenAsync(IBackend backend, CancellationToken cancellation)
     {
@@ -106,8 +105,8 @@ public sealed record TileSource
 
 /// <summary>
 /// Pictures the frame channel carries, as the shell picks between them.
-/// A named discriminator rather than a flag, for the reason the backend's own <c>FrameSource</c> carries one: a
-/// flag separates two kinds and no more.
+/// A named discriminator rather than a flag, as the backend's own <c>FrameSource</c> carries one: a flag separates
+/// two kinds and no more.
 /// </summary>
 public enum TileSourceKind
 {

@@ -46,17 +46,17 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="model:LogLine">
               <!--
-                A grid and not a horizontal stack, and a floor rather than a height: what a line carries
-                is a failure as prose, and a stack measures against infinite width, so the sentence
-                would run off the card's edge instead of wrapping into the row.
+                A grid and not a horizontal stack, and a floor rather than a height:
+                a line carries a failure as prose, and a stack measures against infinite width,
+                so the sentence would run off the card's edge instead of wrapping into the row.
 
-                Top and not centre, on all three: a message runs to several lines, and a stamp centred
-                against the block of them sits beside its middle line, reading as a stamp for something
-                other than the row it belongs to.
+                Top and not centre, on all three: a message runs to several lines,
+                and a stamp centred against the block of them sits beside its middle line,
+                reading as a stamp for something other than the row it belongs to.
 
-                The stamp and the level take the transcript face along with the message, though this
-                screen wrote both: a row is read as one line, and a face changing halfway across it
-                reads as two.
+                The stamp and the level take the transcript face along with the message,
+                though this screen wrote both: a row is read as one line,
+                and a face changing halfway across it reads as two.
               -->
               <Grid ColumnDefinitions="Auto,Auto,*"
                     ColumnSpacing="{StaticResource GapTight}"

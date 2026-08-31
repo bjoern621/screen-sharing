@@ -9,8 +9,8 @@ namespace ScreenShare.App.Features.Broadcast.Plots.Model;
 /// <summary>
 /// Sparkline geometry: readings mapped into the space the design was drawn in.
 ///
-/// <see cref="Extent"/> is that space, 480 by 104: X runs across <see cref="WindowSeconds"/>, Y runs 0 at the top
-/// to 104 at the bottom.
+/// <see cref="Extent"/> is that space, 480 by 104: X runs across <see cref="WindowSeconds"/>,
+/// Y runs 0 at the top to 104 at the bottom.
 /// Design coordinates let a wider card stretch the same window instead of covering a longer one.
 ///
 /// Three series, three clocks.
@@ -35,8 +35,8 @@ public static class PlotSeries
     /// and leaves the rest empty rather than stretching over it.
     /// A stretched curve puts a given moment somewhere else on the card each second, on a plot whose one fixed
     /// thing is where a moment sits.
-    /// A span and not a count of readings: both series carry a stamp, so no cadence has to be assumed to place a
-    /// point.
+    /// A span and not a count of readings: both series carry a stamp, so no cadence has to be assumed to place
+    /// a point.
     /// </summary>
     public const double WindowSeconds = 60;
 
@@ -64,8 +64,8 @@ public static class PlotSeries
 
     /// <summary>
     /// Both latency curves for one stream, empty where there is no shape to draw.
-    /// Produced together, so a snapshot contributes a point to both curves or to neither and an X on one is the
-    /// same moment as an X on the other.
+    /// Produced together, so a snapshot contributes a point to both curves or to neither and an X on one
+    /// is the same moment as an X on the other.
     /// An unreachable relay, a snapshot older than this stream's path, and one whose readers are all on legs
     /// nobody times contribute nothing: a zero would draw as a viewer with a perfect link rather than as one
     /// nobody measured.
@@ -92,8 +92,8 @@ public static class PlotSeries
             losses.Add(new Reading(at, loss));
         }
 
-        // Axis ends at the newest snapshot, not at the newest one that timed somebody, so readings older than the
-        // window leave the plot instead of describing viewers who have gone.
+        // Axis ends at the newest snapshot, not at the newest one that timed somebody, so readings older than
+        // the window leave the plot instead of describing viewers who have gone.
         var now = samples.Count == 0 ? (double?)null : Seconds(samples[^1].At);
         var series = new LatencySeries(Curve(rtts, now), Curve(losses, now));
 
@@ -105,8 +105,8 @@ public static class PlotSeries
     /// <summary>
     /// Where the encoder's ceiling falls on the egress curve, 0 at the top to 1 at the bottom, and
     /// <see cref="double.NaN"/> where it falls off the plot.
-    /// Placed against the same peak the curve is scaled to, a rule at a fixed height marking the ceiling only by
-    /// coincidence.
+    /// Placed against the same peak the curve is scaled to, a rule at a fixed height marking the ceiling only
+    /// by coincidence.
     /// A stream running well under its ceiling gets no rule, and the label states the figure instead.
     /// </summary>
     public static double CeilingFraction(IReadOnlyList<PublishStats> samples, double? ceilingMbps)
@@ -186,10 +186,10 @@ public static class PlotSeries
     /// of two runs laid over each other.
     ///
     /// A newest reading past the anchor is that same relaunch seen from the other side: the anchor is on the new
-    /// run's clock and every reading on the old one's, the run that just started having been measured a time but
-    /// not yet a rate.
-    /// Those readings draw nothing until the new run has a shape of its own, rather than being placed against a
-    /// clock that never counted them.
+    /// run's clock and every reading on the old one's,
+    /// the run that just started having been measured a time and no rate.
+    /// Those readings draw nothing until the new run has a shape of its own, rather than being placed against
+    /// a clock that never counted them.
     /// </summary>
     private static List<Reading> Windowed(IReadOnlyList<Reading> readings, double? now)
     {
@@ -221,8 +221,8 @@ public static class PlotSeries
 
     /// <summary>
     /// End of the egress axis: running time of the newest sample stating one, null where none does.
-    /// The newest sample rather than the newest carrying a rate, so an encoder reporting without a rate slides its
-    /// curve off the plot instead of freezing it at its last shape.
+    /// The newest sample rather than the newest carrying a rate, so an encoder reporting without a rate slides
+    /// its curve off the plot instead of freezing it at its last shape.
     /// </summary>
     private static double? Now(IReadOnlyList<PublishStats> samples)
     {
