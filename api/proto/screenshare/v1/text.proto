@@ -136,7 +136,6 @@ enum TextArgName {
   TEXT_ARG_NAME_MAXRATE_MBPS = 48;
   TEXT_ARG_NAME_BITRATE_LIMIT_MBPS = 49;
   TEXT_ARG_NAME_UPLINK_MBPS = 50;
-  TEXT_ARG_NAME_RAW_MBPS = 51;
   TEXT_ARG_NAME_LOW_MBPS = 52;
   TEXT_ARG_NAME_HIGH_MBPS = 53;
   TEXT_ARG_NAME_RATE_HZ = 54;
@@ -170,6 +169,10 @@ enum TextArgName {
   // Reserved for a rename rather than a removal: TEXT_ARG_NAME_EFFORT carries the number,
   // and a build still spelling the old name fails to compile rather than to parse.
   reserved "TEXT_ARG_NAME_ENC_PRESET";
+
+  // 51 was the raw rate inside a sentence, which Estimate.raw_mbps carries as a figure.
+  reserved 51;
+  reserved "TEXT_ARG_NAME_RAW_MBPS";
 }
 
 // IdList is several identifiers of one axis.
@@ -599,9 +602,11 @@ enum TextCode {
   // These settings resolve to no picture the prediction can be priced from.
   // No arguments.
   TEXT_CODE_NO_PICTURE_TO_PRICE = 136;
-  // What the capture produces, and what the encode is predicted to leave of it.
-  // TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
-  TEXT_CODE_COMPRESSION_RATIO = 137;
+
+  // 137 said in a sentence what Estimate.raw_mbps and Estimate.bitrate_mbps say as figures,
+  // so a surface showing both had the pair twice.
+  reserved 137;
+  reserved "TEXT_CODE_COMPRESSION_RATIO";
 
   // Why a stream a reader was watching or publishing stopped.
   // Numbered from 144, the run after 137 belonging to the groups below.

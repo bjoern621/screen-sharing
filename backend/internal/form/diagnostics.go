@@ -224,27 +224,20 @@ func diagnosticsAboutTheViewer(s settings.Settings) []*screensharev1.Diagnostic 
 	return nil
 }
 
-// diagnosticsAboutThePrediction states the prediction, or why there is none.
+// diagnosticsAboutThePrediction says why there is no prediction.
+// A prediction that exists says itself, on Summary.estimate.
 func diagnosticsAboutThePrediction(d Deps, s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
-	if est == nil {
-		if _, found := estimateMonitor(d, s); !found {
-			return []*screensharev1.Diagnostic{
-				diagnosticFor(screensharev1.Severity_SEVERITY_INFO, KeyMonitor,
-					say(monitorNotPriced, argMonitor(s.Publish.Monitor))),
-			}
-		}
+	if est != nil {
+		return nil
+	}
+	if _, found := estimateMonitor(d, s); !found {
 		return []*screensharev1.Diagnostic{
-			diagnosticFor(screensharev1.Severity_SEVERITY_INFO, "", say(noPictureToPrice)),
+			diagnosticFor(screensharev1.Severity_SEVERITY_INFO, KeyMonitor,
+				say(monitorNotPriced, argMonitor(s.Publish.Monitor))),
 		}
 	}
-
-	// The raw rate crosses beside the predicted one so a surface can state the ratio between them,
-	// which is the one figure that says what the encoder is being asked to do.
-	// Both are figures in Mbit/s, so the precision is the surface's,
-	// as is what a zero prediction reads as: a bitrate target of zero has no ratio.
 	return []*screensharev1.Diagnostic{
-		diagnosticFor(screensharev1.Severity_SEVERITY_INFO, "",
-			say(compressionRatio, argRawMbps(est.GetRawMbps()), argBitrateMbps(est.GetBitrateMbps()))),
+		diagnosticFor(screensharev1.Severity_SEVERITY_INFO, "", say(noPictureToPrice)),
 	}
 }
 

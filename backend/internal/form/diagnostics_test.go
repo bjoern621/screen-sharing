@@ -244,6 +244,22 @@ func TestALineUnderThePredictionWarnsWithoutRefusing(t *testing.T) {
 	}
 }
 
+// The prediction crosses on Summary.estimate, which every surface showing a figure reads.
+// A diagnostic restating it would be the same two numbers a second time,
+// on a list whose other lines are things to act on.
+func TestAPricedDraftAddsNoDiagnosticAboutThePrediction(t *testing.T) {
+	d := diagnosticTestDeps()
+	s := diagnosticTestStream()
+
+	est := estimate(d, s)
+	if est == nil {
+		t.Fatal("these settings rest on an enumerated monitor and are priced")
+	}
+	if diags := diagnosticsAboutThePrediction(d, s, est); len(diags) != 0 {
+		t.Errorf("a priced draft added %v, and the estimate is already on the summary", diags)
+	}
+}
+
 // Every format has a CPU decoder, so a format no GPU decodes costs a viewer cores,
 // and is never a reason to refuse the publish.
 func TestAPixelFormatNoGpuDecodesCostsRatherThanRefuses(t *testing.T) {

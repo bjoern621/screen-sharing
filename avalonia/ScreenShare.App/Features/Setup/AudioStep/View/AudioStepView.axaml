@@ -180,8 +180,10 @@
         The form's own row past the end of the list.
         Picking a kind on it writes the entry,
         so the face says that rather than naming the absent kind the row holds (Copy/Cards.cs).
+        The flyout is assigned in code-behind, one per trailing row (AudioStepView.axaml.cs).
       -->
-      <Button Theme="{StaticResource OutlineButton}"
+      <Button x:Name="AddButton"
+              Theme="{StaticResource OutlineButton}"
               HorizontalAlignment="Left"
               IsVisible="{Binding HasAdd}"
               IsEnabled="{Binding Add.IsEnabled}"
@@ -190,13 +192,6 @@
           <ti:TablerIcon Icon="IconPlus" Brush="{StaticResource MutedBrush}" VerticalAlignment="Center" />
           <TextBlock Text="{Binding AddLabel}" VerticalAlignment="Center" />
         </StackPanel>
-
-        <Button.Flyout>
-          <MenuFlyout ItemsSource="{Binding Add.MenuRows}"
-                      ItemTemplate="{StaticResource SelectEntry}"
-                      ItemContainerTheme="{StaticResource SelectMenuItem}"
-                      Placement="BottomEdgeAlignedLeft" />
-        </Button.Flyout>
       </Button>
 
       <!--

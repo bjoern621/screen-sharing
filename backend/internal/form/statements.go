@@ -98,7 +98,6 @@ const (
 	fpsAboveRefresh        = screensharev1.TextCode_TEXT_CODE_FPS_ABOVE_REFRESH
 	monitorNotPriced       = screensharev1.TextCode_TEXT_CODE_MONITOR_NOT_PRICED
 	noPictureToPrice       = screensharev1.TextCode_TEXT_CODE_NO_PICTURE_TO_PRICE
-	compressionRatio       = screensharev1.TextCode_TEXT_CODE_COMPRESSION_RATIO
 	settingsStoreUnreadble = screensharev1.TextCode_TEXT_CODE_SETTINGS_STORE_UNREADABLE
 	presetStoreUnreadable  = screensharev1.TextCode_TEXT_CODE_PRESET_STORE_UNREADABLE
 )
@@ -235,10 +234,6 @@ func argMaxrateMbps(v int) *screensharev1.TextArg {
 
 func argUplinkMbps(v int) *screensharev1.TextArg {
 	return text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_UPLINK_MBPS, int64(v))
-}
-
-func argRawMbps(v float64) *screensharev1.TextArg {
-	return text.Dec(screensharev1.TextArgName_TEXT_ARG_NAME_RAW_MBPS, v)
 }
 
 func argLowMbps(v float64) *screensharev1.TextArg {

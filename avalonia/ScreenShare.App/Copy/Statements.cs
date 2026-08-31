@@ -545,12 +545,6 @@ public static class Statements
             TextCode.NoPictureToPrice =>
                 "No prediction is possible from these settings.",
 
-            TextCode.CompressionRatio => a.BitrateMbps > 0
-                ? $"This screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed. The stream is predicted "
-                  + $"to send {Decimal(a.BitrateMbps)} Mbit/s, "
-                  + $"about {Number((long)Math.Round(a.RawMbps / a.BitrateMbps))}:1."
-                : $"This screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed.",
-
             // Presets.
 
             // The sentence names the preset although it prints under the row that already does, so it still says
@@ -746,8 +740,6 @@ public static class Statements
         /// Both are read here, so a sentence quoting it need not know which it got.
         /// </summary>
         public double BitrateMbps => Dec(TextArgName.BitrateMbps);
-
-        public double RawMbps => Dec(TextArgName.RawMbps);
 
         public double LowMbps => Dec(TextArgName.LowMbps);
 

@@ -131,7 +131,6 @@ const (
 	TextArgName_TEXT_ARG_NAME_MAXRATE_MBPS       TextArgName = 48
 	TextArgName_TEXT_ARG_NAME_BITRATE_LIMIT_MBPS TextArgName = 49
 	TextArgName_TEXT_ARG_NAME_UPLINK_MBPS        TextArgName = 50
-	TextArgName_TEXT_ARG_NAME_RAW_MBPS           TextArgName = 51
 	TextArgName_TEXT_ARG_NAME_LOW_MBPS           TextArgName = 52
 	TextArgName_TEXT_ARG_NAME_HIGH_MBPS          TextArgName = 53
 	TextArgName_TEXT_ARG_NAME_RATE_HZ            TextArgName = 54
@@ -213,7 +212,6 @@ var (
 		48: "TEXT_ARG_NAME_MAXRATE_MBPS",
 		49: "TEXT_ARG_NAME_BITRATE_LIMIT_MBPS",
 		50: "TEXT_ARG_NAME_UPLINK_MBPS",
-		51: "TEXT_ARG_NAME_RAW_MBPS",
 		52: "TEXT_ARG_NAME_LOW_MBPS",
 		53: "TEXT_ARG_NAME_HIGH_MBPS",
 		54: "TEXT_ARG_NAME_RATE_HZ",
@@ -276,7 +274,6 @@ var (
 		"TEXT_ARG_NAME_MAXRATE_MBPS":       48,
 		"TEXT_ARG_NAME_BITRATE_LIMIT_MBPS": 49,
 		"TEXT_ARG_NAME_UPLINK_MBPS":        50,
-		"TEXT_ARG_NAME_RAW_MBPS":           51,
 		"TEXT_ARG_NAME_LOW_MBPS":           52,
 		"TEXT_ARG_NAME_HIGH_MBPS":          53,
 		"TEXT_ARG_NAME_RATE_HZ":            54,
@@ -671,9 +668,6 @@ const (
 	// These settings resolve to no picture the prediction can be priced from.
 	// No arguments.
 	TextCode_TEXT_CODE_NO_PICTURE_TO_PRICE TextCode = 136
-	// What the capture produces, and what the encode is predicted to leave of it.
-	// TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
-	TextCode_TEXT_CODE_COMPRESSION_RATIO TextCode = 137
 	// Why a stream a reader was watching or publishing stopped.
 	// Numbered from 144, the run after 137 belonging to the groups below.
 	//
@@ -847,7 +841,6 @@ var (
 		134: "TEXT_CODE_FPS_ABOVE_REFRESH",
 		135: "TEXT_CODE_MONITOR_NOT_PRICED",
 		136: "TEXT_CODE_NO_PICTURE_TO_PRICE",
-		137: "TEXT_CODE_COMPRESSION_RATIO",
 		144: "TEXT_CODE_GROUP_MEMBERSHIP_LAPSED",
 		145: "TEXT_CODE_GROUP_NAME_TAKEN",
 		146: "TEXT_CODE_GROUP_NAME_MISSING",
@@ -979,7 +972,6 @@ var (
 		"TEXT_CODE_FPS_ABOVE_REFRESH":                         134,
 		"TEXT_CODE_MONITOR_NOT_PRICED":                        135,
 		"TEXT_CODE_NO_PICTURE_TO_PRICE":                       136,
-		"TEXT_CODE_COMPRESSION_RATIO":                         137,
 		"TEXT_CODE_GROUP_MEMBERSHIP_LAPSED":                   144,
 		"TEXT_CODE_GROUP_NAME_TAKEN":                          145,
 		"TEXT_CODE_GROUP_NAME_MISSING":                        146,
@@ -1284,7 +1276,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xdd\r\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xdf\r\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1336,7 +1328,6 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1aTEXT_ARG_NAME_MAXRATE_MBPS\x100\x12$\n" +
 	" TEXT_ARG_NAME_BITRATE_LIMIT_MBPS\x101\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UPLINK_MBPS\x102\x12\x1a\n" +
-	"\x16TEXT_ARG_NAME_RAW_MBPS\x103\x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_LOW_MBPS\x104\x12\x1b\n" +
 	"\x17TEXT_ARG_NAME_HIGH_MBPS\x105\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_RATE_HZ\x106\x12\x1e\n" +
@@ -1347,7 +1338,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\x83*\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x86*\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1465,8 +1456,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_BURST_ABOVE_UPLINK\x10\x85\x01\x12 \n" +
 	"\x1bTEXT_CODE_FPS_ABOVE_REFRESH\x10\x86\x01\x12!\n" +
 	"\x1cTEXT_CODE_MONITOR_NOT_PRICED\x10\x87\x01\x12\"\n" +
-	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12 \n" +
-	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12&\n" +
+	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12&\n" +
 	"!TEXT_CODE_GROUP_MEMBERSHIP_LAPSED\x10\x90\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_GROUP_NAME_TAKEN\x10\x91\x01\x12!\n" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
@@ -1479,7 +1469,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\x12!\n" +
 	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\x12&\n" +
-	"!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY\x10\xa7\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY\x10\xa7\x01\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P*\x1bTEXT_CODE_COMPRESSION_RATIO**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once
