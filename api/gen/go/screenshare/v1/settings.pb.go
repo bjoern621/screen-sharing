@@ -152,15 +152,7 @@ type RelaySettings struct {
 	// Empty is a machine that has been given no name. Joining a group asks for one, a name being
 	// claimed first-come inside a group, so there is nothing to fill this with that another member
 	// may not already hold.
-	DisplayName string `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	// Keys the relay-wide SRT listener, and empty for a relay that takes none.
-	//
-	// SRT is UDP with no TLS, so no reverse proxy wraps it and what protects the packets on the
-	// wire is a passphrase both ends hold.
-	// The relay takes one value for every path, so this is one setting rather than one per
-	// stream, and it protects a different thing from the key above: that one decides which
-	// streams a member reaches, this whether the packets are readable at all.
-	SrtPassphrase string `protobuf:"bytes,9,opt,name=srt_passphrase,json=srtPassphrase,proto3" json:"srt_passphrase,omitempty"`
+	DisplayName   string `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -268,13 +260,6 @@ func (x *RelaySettings) GetGroupKey() string {
 func (x *RelaySettings) GetDisplayName() string {
 	if x != nil {
 		return x.DisplayName
-	}
-	return ""
-}
-
-func (x *RelaySettings) GetSrtPassphrase() string {
-	if x != nil {
-		return x.SrtPassphrase
 	}
 	return ""
 }
@@ -857,7 +842,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xe3\x02\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xd2\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -871,8 +856,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x03tls\x18\n" +
 	" \x01(\bR\x03tls\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
-	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12%\n" +
-	"\x0esrt_passphrase\x18\t \x01(\tR\rsrtPassphrase\"\xdf\b\n" +
+	"\fdisplay_name\x18\f \x01(\tR\vdisplayNameJ\x04\b\t\x10\n" +
+	"R\x0esrt_passphrase\"\xdf\b\n" +
 	"\x0fPublishSettings\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
 	"\x11publish_transport\x18\n" +

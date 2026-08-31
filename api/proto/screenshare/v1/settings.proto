@@ -86,14 +86,12 @@ message RelaySettings {
   // claimed first-come inside a group, so there is nothing to fill this with that another member
   // may not already hold.
   string display_name = 12;
-  // Keys the relay-wide SRT listener, and empty for a relay that takes none.
-  //
-  // SRT is UDP with no TLS, so no reverse proxy wraps it and what protects the packets on the
-  // wire is a passphrase both ends hold.
-  // The relay takes one value for every path, so this is one setting rather than one per
-  // stream, and it protects a different thing from the key above: that one decides which
-  // streams a member reaches, this whether the packets are readable at all.
-  string srt_passphrase = 9;
+
+  // The SRT passphrase crosses the contract nowhere:
+  // the backend derives it from the group key on both ends of the leg,
+  // so there is nothing a shell could type or show.
+  reserved 9;
+  reserved "srt_passphrase";
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded.

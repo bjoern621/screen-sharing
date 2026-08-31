@@ -390,8 +390,8 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 				// states is the pair a single element cannot hold, a VBR ceiling more than twice its
 				// target being the case that exists.
 				// The encoder alone, not a rendered command: a command carries the transport too, and a
-				// relay with no SRT passphrase would take away a preset that says nothing about how the
-				// stream is carried (publish.EncoderRefusal).
+				// group key that will not read back would take away a preset that says nothing about how
+				// the stream is carried (publish.EncoderRefusal).
 				if err := publish.EncoderRefusal(reached); err != nil {
 					continue
 				}

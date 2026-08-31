@@ -638,10 +638,10 @@ enum TextCode {
   // transport is fixed: UDP would put the media on the wire beside it in the clear.
   // No arguments.
   TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP = 141;
-  // SRT is UDP and has no TLS, so the relay's passphrase is what encrypts it, and this relay
-  // is reached over TLS with no passphrase set.
-  // No arguments.
-  TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION = 142;
+
+  // The SRT passphrase derives from the group key, so no line of copy asks for one.
+  reserved 142;
+  reserved "TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION";
 
   // --- Presets -------------------------------------------------------------------
 

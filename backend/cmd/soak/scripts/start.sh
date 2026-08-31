@@ -13,12 +13,10 @@ mkdir -p "$SOAK_ROOT/bin"
 # each names the listener that relay actually binds: RTSP and RTMP terminate TLS, so those two are
 # the encrypted listeners (deploy/mediamtx-groups.yml).
 #
-# The passphrase is the one that configuration keys every path with. SRT is UDP with no TLS, and a
-# publisher holding another value connects and carries nothing.
-#
 # No group key: a key is drawn by the group service rather than written down, so the probe publishes
-# under the prefix anybody may watch. It still carries a token, which the group service beside the
-# relay issues on that prefix.
+# under the prefix anybody may watch, and its SRT legs carry the public prefix's well-known
+# passphrase the backend derives on its own. It still carries a token, which the group service
+# beside the relay issues on that prefix.
 if [ ! -f "$XDG_CONFIG_HOME/screenshare/settings.json" ]; then
   mkdir -p "$XDG_CONFIG_HOME/screenshare"
   cat > "$XDG_CONFIG_HOME/screenshare/settings.json" <<JSON
@@ -26,8 +24,7 @@ if [ ! -f "$XDG_CONFIG_HOME/screenshare/settings.json" ]; then
   "relay": {
     "host": "127.0.0.1",
     "srtPort": 18890, "apiPort": 19997, "rtspPort": 18554,
-    "webrtcPort": 18889, "rtmpPort": 11936, "hlsPort": 18888, "moqPort": 8892,
-    "srtPassphrase": "CHANGE-ME-16-CHARS-MINIMUM"
+    "webrtcPort": 18889, "rtmpPort": 11936, "hlsPort": 18888, "moqPort": 8892
   },
   "publish": {
     "name": "soak", "transport": "rtsp", "codec": "libx264", "mode": "cbr",

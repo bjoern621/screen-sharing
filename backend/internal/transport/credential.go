@@ -6,6 +6,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -36,11 +37,13 @@ const Redacted = "<redacted>"
 //
 // What a reader wants a run log for survives it: the relay, the path, the element that failed and
 // its own wording are all still there, and only the two values that are worth stealing are not.
-// The passphrase in particular is relay-wide and outlives every token, so a log offered to whoever
-// is helping is exactly how it leaves.
+// The passphrase in particular is the group's and outlives every token, so a log offered to
+// whoever is helping is exactly how it leaves.
+// The public prefix's passphrase stays readable: it is a well-known label,
+// and blacking it out would dress it up as a secret worth asking about.
 func Redact(s settings.Settings, text string) string {
-	for _, secret := range []string{s.Relay.Token, s.Relay.SrtPassphrase} {
-		if secret == "" {
+	for _, secret := range []string{s.Relay.Token, s.Relay.SrtPassphrase()} {
+		if secret == "" || secret == group.PublicSrtPassphrase {
 			continue
 		}
 		text = strings.ReplaceAll(text, secret, Redacted)

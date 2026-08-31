@@ -496,6 +496,40 @@ func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	}
 }
 
+// The SRT passphrase follows the group key the way the path does,
+// one derivation answering both ends of the leg,
+// so nothing about it is stored and nothing about it is typed.
+// A stored value beside the key would be a second copy of a fact the key already carries,
+// wrong the moment the group changes.
+func TestTheSrtPassphraseFollowsTheGroupKey(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+
+	for deployment, want := range map[Relay]string{
+		{Host: "relay.example", GroupKey: groupKey.String()}: groupKey.SrtPassphrase(),
+		{Host: "relay.example"}:                              group.PublicSrtPassphrase,
+		{Host: "192.168.1.9"}:                                group.PublicSrtPassphrase,
+		// A damaged key publishes to the bare name every relay refuses (Path), so the leg it would
+		// have keyed opens nowhere.
+		{Host: "relay.example", GroupKey: "not a group key"}: "",
+		{}: "",
+	} {
+		if got := deployment.SrtPassphrase(); got != want {
+			t.Errorf("the relay %+v keys SRT with %q, want %q", deployment, got, want)
+		}
+	}
+
+	encoded, err := json.Marshal(Defaults())
+	if err != nil {
+		t.Fatalf("rendering the settings: %v", err)
+	}
+	if strings.Contains(string(encoded), "srtPassphrase") {
+		t.Errorf("the stored settings carry an srtPassphrase key: %s", encoded)
+	}
+}
+
 // A burst ceiling of zero is an answer and not an absence: it is the encode bounded by nothing, which
 // the form offers as an entry of its own beside the band a ceiling sits in
 // (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).

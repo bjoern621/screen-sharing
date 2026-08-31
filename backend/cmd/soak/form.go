@@ -15,10 +15,9 @@ import (
 // Fields whose value reaches something outside this process, so a probe leaves them where the run
 // set them.
 var frozen = map[string]bool{
-	"relay.host":           true,
-	"relay.group_key":      true,
-	"relay.srt_passphrase": true,
-	"publish.name":         true,
+	"relay.host":      true,
+	"relay.group_key": true,
+	"publish.name":    true,
 }
 
 // runForm walks the settings space one legal move at a time and checks what the resolver owes.

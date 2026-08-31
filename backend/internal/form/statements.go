@@ -90,7 +90,6 @@ const (
 	streamIsPublic              = screensharev1.TextCode_TEXT_CODE_STREAM_IS_PUBLIC
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
-	srtPassphraseIsEncryption   = screensharev1.TextCode_TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION
 
 	publishRefused         = screensharev1.TextCode_TEXT_CODE_PUBLISH_REFUSED
 	noUplinkStated         = screensharev1.TextCode_TEXT_CODE_NO_UPLINK_STATED

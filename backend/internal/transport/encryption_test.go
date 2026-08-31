@@ -16,11 +16,10 @@ import (
 // These hold what falls out of that: which listener an address names, what the certificate on it is
 // measured against, and what the publish refuses rather than sending in the clear.
 
-// behindTheProxy is a relay across somebody else's network, keyed and named like a real one.
+// behindTheProxy is a relay across somebody else's network, named like a real one.
 func behindTheProxy() settings.Settings {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
-	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Name = "standup"
 	return s
 }
@@ -144,19 +143,26 @@ func TestTheRtspWatchLegRefusesUdpOnEveryRelay(t *testing.T) {
 }
 
 // SRT is UDP with no TLS, so the passphrase is not one credential among several: it is the whole of
-// what makes the leg unreadable, and an empty one on a relay across the internet is the picture in
-// the clear.
-func TestSrtAcrossTheInternetRefusesAnEmptyPassphrase(t *testing.T) {
+// what makes the leg unreadable.
+// It derives from the group key,
+// so the one machine none derives for is one whose stored key will not read back,
+// and across the internet that publish is refused rather than sent in the clear.
+func TestSrtAcrossTheInternetRefusesAnUnderivablePassphrase(t *testing.T) {
 	s := behindTheProxy()
-	s.Relay.SrtPassphrase = ""
+	s.Relay.GroupKey = "not a group key"
 
 	if err := (SRT{}).ValidatePublishSettings(s); err == nil {
 		t.Fatal("a relay across the internet accepted SRT with no passphrase, which sends the stream in the clear")
 	}
 
-	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
+	// A member and a keyless machine both derive one, so both publish.
+	s.Relay.GroupKey = mustGroupKey(t).String()
 	if err := (SRT{}).ValidatePublishSettings(s); err != nil {
-		t.Errorf("a keyed SRT publish was refused: %v", err)
+		t.Errorf("a member's SRT publish was refused: %v", err)
+	}
+	s.Relay.GroupKey = ""
+	if err := (SRT{}).ValidatePublishSettings(s); err != nil {
+		t.Errorf("a keyless machine's SRT publish was refused: %v", err)
 	}
 }
 

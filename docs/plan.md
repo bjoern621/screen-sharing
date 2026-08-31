@@ -157,7 +157,9 @@ Tokens are short and validated at connect, and a live connection survives expiry
 So withholding one reaches the next connection and never the one in progress, which is why membership is a lease enforced by closing what a lapsed member holds.
 
 **Every leg is encrypted.** A reverse proxy fronts everything, including the API, with the relay's own listeners on loopback, and ACME lives in the proxy because MediaMTX has no ACME of its own.
-SRT is the one exception: UDP with no TLS, taking a relay-wide passphrase through `pathDefaults`, one user-set value written into both the publish and read keys.
+SRT is the one exception: UDP with no TLS, taking a passphrase per path prefix.
+A group's derives from its group key on both ends, the service writing it into the relay's path configuration and the app keying its legs with it, so nobody sets one.
+The public prefix takes a well-known value spelled in the app and the relay configuration alike.
 
 Encryption is a flag plus a second port only where the relay has a second listener.
 RTSP and RTMP have their own TLS listeners.
@@ -191,11 +193,11 @@ How a token travels is the relay's answer per protocol, measured against MediaMT
 
 The relay's own API takes one too, and refuses every token this service issues: a group's grant covers publishing and reading under one prefix and names no API action.
 
-**Built: the deployment and the app's half.** `deploy/` carries the relay configured for groups (`authJWTJWKS` pointed at the service, the SRT passphrase in `pathDefaults`, every other listener on loopback) and the reverse proxy that terminates TLS and renews the certificate for all of them.
+**Built: the deployment and the app's half.** `deploy/` carries the relay configured for groups (`authJWTJWKS` pointed at the service, the public prefix's SRT entry, every other listener on loopback) and the reverse proxy that terminates TLS and renews the certificate for all of them.
 The NixOS modules in the `nixos-config` repository read both files straight out of this one, so what the relay carries stays the app's decision and which listeners a machine exposes stays the host's.
 One relay configuration, and `task relay` runs it too: a development relay and a deployment differ in the certificate and hook paths handed to MediaMTX through its own environment, and in nothing a token or a permission depends on.
 
-The app publishes under its group: the group key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
+The app publishes under its group: the group key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase derives from the same key and rides both legs.
 What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix.
 A machine holding no group key still publishes, under the public prefix anybody reaching the relay can watch, and the bare name is what a machine pointed at no relay builds.
 

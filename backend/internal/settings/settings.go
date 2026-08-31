@@ -81,14 +81,6 @@ type Relay struct {
 	// Empty is a machine that has been given no name, and joining a group asks for one.
 	// With the relay because a group is, and a preset carries neither.
 	DisplayName string `json:"displayName,omitempty"`
-	// SrtPassphrase keys the relay-wide SRT listener, empty for a relay that takes none.
-	//
-	// SRT is the one leg no reverse proxy wraps, being UDP with no TLS, so what protects the packets
-	// is a passphrase both ends hold.
-	// The relay takes one value for every path through pathDefaults, hence one setting and not one
-	// per stream.
-	// GroupKey decides which streams a member reaches, this whether the packets are readable at all.
-	SrtPassphrase string `json:"srtPassphrase,omitempty"`
 	// Token is the relay credential the leg being built carries, and not a setting.
 	//
 	// A short-lived JWT the group service signed in exchange for GroupKey, so it belongs to that
@@ -234,6 +226,32 @@ func (r Relay) Path(name string) string {
 		return name
 	}
 	return path
+}
+
+// SrtPassphrase keys this machine's SRT legs, derived and never stored or typed.
+//
+// SRT is the one leg no reverse proxy wraps, being UDP with no TLS,
+// so a passphrase is the whole of what encrypts it.
+// It follows the group key the way Path does,
+// so the audience of the packets is the audience of the stream:
+// the group's own derivation under its key,
+// the well-known public value under the prefix anybody may watch,
+// and none where Path answers the bare name every relay refuses.
+// The relay's side of the same value is written per prefix by the group service
+// (internal/groupsvc), and spelled into the public path entry (deploy/mediamtx-groups.yml).
+func (r Relay) SrtPassphrase() string {
+	if r.GroupKey != "" {
+		groupKey, err := group.ParseKey(r.GroupKey)
+		if err != nil {
+			return ""
+		}
+		return groupKey.SrtPassphrase()
+	}
+
+	if _, hasService := r.GroupService(); !hasService {
+		return ""
+	}
+	return group.PublicSrtPassphrase
 }
 
 // Prefix leads every path this machine reaches, and is empty where Path answers a bare name.

@@ -19,7 +19,7 @@ const configDirMode = 0o755
 
 // Mode the settings and preset files are written with.
 // Owner-only, because the settings carry Relay.GroupKey, possession of which is membership of a
-// group, and Relay.SrtPassphrase, which decides whether the packets are readable at all.
+// group and what every other per-group secret derives from.
 // cmd/groupd writes its signing key the same way.
 const storeFileMode = 0o600
 

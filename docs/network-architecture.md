@@ -58,8 +58,10 @@ The certificate is the proxy's, handed to the relay by the deployment rather tha
 An encrypted RTSP session carries its RTP interleaved in that connection.
 RTSPS wraps the control channel alone, so media over UDP would travel beside it in the clear, and TCP is the encrypted session's only lower transport rather than its slower one.
 
-SRT is UDP with no TLS at all, so what protects it is a relay-wide passphrase rather than a certificate.
-A publish to an encrypted relay with no passphrase set is refused rather than sent.
+SRT is UDP with no TLS at all, so what protects it is a passphrase rather than a certificate, one per path prefix.
+A group's passphrase derives from its group key on both ends, so nobody sets or sees one: the app keys its legs with it, and the group service writes the same derivation into the relay's path configuration (`backend/internal/groupsvc`).
+The public prefix has no key to derive from and takes a well-known value spelled in the app and the relay configuration alike, as public as the audience it keys.
+A publish whose stored group key will not read back derives nothing, and an encrypted relay refuses that leg rather than sending it in the clear.
 
 WebRTC media negotiates a direct UDP path to the viewer, which is the point of it, so it never meets the proxy either.
 It is DTLS-SRTP by construction.
@@ -78,7 +80,7 @@ That listener carries two certificates, and a deployment configures one of them.
 The page over TCP is ordinary TLS, validated against a CA like any other site.
 It takes the proxy's certificate, handed over the way RTSPS and RTMPS take it, and shows an interstitial without one.
 `moqServerCert` and `moqServerKey` name it, and a host points them at the pair it already has through `MTX_MOQSERVERCERT` and `MTX_MOQSERVERKEY`.
-The override is what keeps the path out of a config file every deployment reads, the way the SRT passphrase stays out of it.
+The override is what keeps the path out of a config file every deployment reads.
 
 The session over UDP is pinned instead: the page reads the listener's SHA-256 off `/fingerprint` and passes it in `serverCertificateHashes`, which is how a browser accepts a certificate no CA vouches for.
 Pinning bounds what that certificate may be, since nothing can revoke one: no RSA key, and no validity longer than 14 days.

@@ -1,6 +1,8 @@
 package group
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -223,6 +225,84 @@ func TestAMemberSecretOfTheWrongLengthIsRefused(t *testing.T) {
 		if _, err := ParseMemberSecret(encoded); err == nil {
 			t.Errorf("%q was accepted as a member secret", encoded)
 		}
+	}
+}
+
+// The SRT leg is keyed per group, both ends deriving the passphrase from the key they share:
+// the app for the legs it opens,
+// the group service for the path configuration it writes into the relay.
+// Two derivations that disagree are a publish the relay's own listener refuses.
+func TestOneKeyDerivesOnePassphrase(t *testing.T) {
+	key := mustKey(t)
+	if key.SrtPassphrase() != key.SrtPassphrase() {
+		t.Error("one key derived two passphrases")
+	}
+
+	// Through the encoding is the path the derivation takes in practice: the app reads the key off
+	// its settings file, the service is handed it per request.
+	same, err := ParseKey(key.String())
+	if err != nil {
+		t.Fatalf("reading back a key this package wrote: %v", err)
+	}
+	if same.SrtPassphrase() != key.SrtPassphrase() {
+		t.Error("a key read back derives another passphrase")
+	}
+}
+
+// One group's members cannot read another group's SRT packets, which is what a passphrase per key
+// buys over one value for the whole relay.
+func TestTwoKeysAreTwoPassphrases(t *testing.T) {
+	if mustKey(t).SrtPassphrase() == mustKey(t).SrtPassphrase() {
+		t.Error("two keys derived one passphrase")
+	}
+}
+
+// libsrt refuses a passphrase outside 10 to 79 characters,
+// and the group service writes this one into the relay's path configuration,
+// so an out-of-bounds derivation is a leg nothing can open.
+// The public one is under the same bound for the same reason.
+func TestEveryPassphraseFitsSrtsBounds(t *testing.T) {
+	for name, passphrase := range map[string]string{
+		"a derived passphrase": mustKey(t).SrtPassphrase(),
+		"the public one":       PublicSrtPassphrase,
+	} {
+		if len(passphrase) < 10 || len(passphrase) > 79 {
+			t.Errorf("%s is %d characters, and libsrt takes 10 to 79", name, len(passphrase))
+		}
+	}
+}
+
+// The public prefix's passphrase is spelled twice,
+// in PublicSrtPassphrase and in the relay's own configuration,
+// no group service standing in the path to write it there.
+// This holds the two spellings together:
+// a relay keyed on one and an app on the other is a public SRT leg that never connects.
+func TestTheRelayConfigurationSpellsThePublicPassphrase(t *testing.T) {
+	config, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "mediamtx-groups.yml"))
+	if err != nil {
+		t.Fatalf("reading the relay configuration every deployment runs: %v", err)
+	}
+
+	for _, key := range []string{"srtPublishPassphrase", "srtReadPassphrase"} {
+		want := key + `: "` + PublicSrtPassphrase + `"`
+		if !strings.Contains(string(config), want) {
+			t.Errorf("the relay configuration does not key the public prefix with %s", want)
+		}
+	}
+}
+
+// The passphrase reaches the relay's configuration and every SRT handshake,
+// so it must say nothing about the key behind it
+// and nothing another derivation of the same key publishes.
+func TestThePassphraseCarriesNeitherTheKeyNorTheId(t *testing.T) {
+	key := mustKey(t)
+	passphrase := key.SrtPassphrase()
+
+	if strings.Contains(key.String(), passphrase) {
+		t.Error("the passphrase appears inside the key's own encoding")
+	}
+	if strings.Contains(passphrase, key.ID()) || strings.Contains(key.ID(), passphrase) {
+		t.Error("the passphrase and the public id share their content")
 	}
 }
 

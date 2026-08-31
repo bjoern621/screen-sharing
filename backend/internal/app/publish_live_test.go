@@ -37,10 +37,6 @@ func (h *applierHandle) ApplyLive(s settings.Settings) error {
 func liveStream(t *testing.T) (*App, *applierHandle, settings.Settings) {
 	t.Helper()
 	s := settings.Defaults()
-	// The default relay is the one on the internet, so its SRT leg is refused without the passphrase
-	// that encrypts it. This test is about what a running child takes, and a publish nothing would
-	// start covers neither branch.
-	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
@@ -137,7 +133,6 @@ func TestAFailedWriteFallsBackToTheRelaunch(t *testing.T) {
 // there relaunches even where the same change on the other engine is a write.
 func TestAHandleThatTakesNothingRelaunches(t *testing.T) {
 	s := settings.Defaults()
-	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "x11grab"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"

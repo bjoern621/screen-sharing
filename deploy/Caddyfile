@@ -5,7 +5,7 @@
 # second certificate to renew for the same name.
 #
 # What it does not front is SRT. That leg is UDP with no TLS at all, and what protects it is
-# the relay-wide passphrase in the relay's own configuration - stated there rather than
+# a passphrase per path prefix in the relay's own configuration - stated there rather than
 # implied here, because a reader looking for "where is SRT encrypted" should find the answer
 # beside the listener and not by noticing an absence in this file.
 #

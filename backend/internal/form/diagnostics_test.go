@@ -27,9 +27,6 @@ func diagnosticTestDeps() Deps {
 // so a healthy configuration stays healthy wherever these tests run.
 func diagnosticTestStream() settings.Settings {
 	s := settings.Defaults()
-	// The default relay is the one on the internet, so its SRT leg is refused without the passphrase
-	// that encrypts it, and a healthy configuration is what these tests start from.
-	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "gdigrab"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "cbr"

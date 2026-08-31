@@ -453,15 +453,6 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.Tls()) },
 	},
 	{
-		// The passphrase the relay keys its SRT listener with, that leg being the one no proxy wraps:
-		// UDP with no TLS, so what protects the packets is a value both ends hold.
-		// Empty is a relay that takes none.
-		key:     KeySrtPassphrase,
-		group:   GroupRelay,
-		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.SrtPassphrase) },
-	},
-	{
 		key:     KeyRelayHost,
 		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,

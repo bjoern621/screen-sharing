@@ -35,18 +35,17 @@ func Settings(s settings.Settings) *screensharev1.Settings {
 
 func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	return &screensharev1.RelaySettings{
-		Host:          r.Host,
-		SrtPort:       int32(r.SrtPort),
-		ApiPort:       int32(r.ApiPort),
-		RtspPort:      int32(r.RtspPort),
-		WebrtcPort:    int32(r.WebrtcPort),
-		RtmpPort:      int32(r.RtmpPort),
-		HlsPort:       int32(r.HlsPort),
-		MoqPort:       int32(r.MoqPort),
-		Tls:           r.Tls(),
-		GroupKey:      r.GroupKey,
-		DisplayName:   r.DisplayName,
-		SrtPassphrase: r.SrtPassphrase,
+		Host:        r.Host,
+		SrtPort:     int32(r.SrtPort),
+		ApiPort:     int32(r.ApiPort),
+		RtspPort:    int32(r.RtspPort),
+		WebrtcPort:  int32(r.WebrtcPort),
+		RtmpPort:    int32(r.RtmpPort),
+		HlsPort:     int32(r.HlsPort),
+		MoqPort:     int32(r.MoqPort),
+		Tls:         r.Tls(),
+		GroupKey:    r.GroupKey,
+		DisplayName: r.DisplayName,
 	}
 }
 
@@ -128,17 +127,16 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 // Taking it would let a stale draft turn encryption off.
 func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
-		Host:          m.GetHost(),
-		SrtPort:       int(m.GetSrtPort()),
-		ApiPort:       int(m.GetApiPort()),
-		RtspPort:      int(m.GetRtspPort()),
-		WebrtcPort:    int(m.GetWebrtcPort()),
-		RtmpPort:      int(m.GetRtmpPort()),
-		HlsPort:       int(m.GetHlsPort()),
-		MoqPort:       int(m.GetMoqPort()),
-		GroupKey:      m.GetGroupKey(),
-		DisplayName:   m.GetDisplayName(),
-		SrtPassphrase: m.GetSrtPassphrase(),
+		Host:        m.GetHost(),
+		SrtPort:     int(m.GetSrtPort()),
+		ApiPort:     int(m.GetApiPort()),
+		RtspPort:    int(m.GetRtspPort()),
+		WebrtcPort:  int(m.GetWebrtcPort()),
+		RtmpPort:    int(m.GetRtmpPort()),
+		HlsPort:     int(m.GetHlsPort()),
+		MoqPort:     int(m.GetMoqPort()),
+		GroupKey:    m.GetGroupKey(),
+		DisplayName: m.GetDisplayName(),
 	}
 }
 

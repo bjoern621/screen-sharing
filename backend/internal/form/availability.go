@@ -109,16 +109,7 @@ var availabilityRules = map[string]func(availability) state{
 	// An empty name greys nothing either: it is refused where a group is joined (control.JoinGroup),
 	// and this control is where that refusal is answered.
 	KeyDisplayName: func(availability) state { return availabilityLive() },
-	// Noted while it is empty on an encrypted relay, that being the one combination where the field
-	// decides whether the stream is encrypted at all rather than merely which key it uses: SRT is UDP
-	// and carries no TLS, so nothing else on this screen makes that leg private.
-	KeySrtPassphrase: func(av availability) state {
-		if av.s.Relay.Tls() && av.s.Relay.SrtPassphrase == "" {
-			return availabilityNoted(say(srtPassphraseIsEncryption))
-		}
-		return availabilityLive()
-	},
-	KeyAPIPort: func(availability) state { return availabilityLive() },
+	KeyAPIPort:     func(availability) state { return availabilityLive() },
 	// Every listener port follows both legs, because the relay serves one listener per protocol in
 	// both directions and the number here is what each of them is addressed on (reachesOver).
 	// HLS reaches the same rule from the other side: the relay serves it and ingests nothing over it,

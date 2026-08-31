@@ -231,6 +231,44 @@ func (k Key) MemberID(secret MemberSecret) string {
 	return id
 }
 
+// srtLabel separates the SRT passphrase from every other use of the key.
+const srtLabel = "screenshare/srt-passphrase/v1"
+
+// srtEncoding spells a passphrase in characters no URL query and no pipeline description escapes.
+var srtEncoding = base64.RawURLEncoding
+
+// PublicSrtPassphrase keys SRT under PublicPrefix,
+// where no group key exists to derive one from.
+// deploy/mediamtx-groups.yml spells the same value into the relay's public path entry.
+//
+// Not a secret, exactly as the prefix it keys is not:
+// anybody may watch a public stream, so its wire key is only ever as private as its audience.
+// What it buys is uniformity: every SRT leg runs encrypted,
+// and the handshake refuses a keyless caller on the public prefix the way a group's refuses one.
+const PublicSrtPassphrase = "screenshare/public-srt/v1"
+
+// SrtPassphrase keys this group's SRT legs, both directions.
+//
+// SRT is UDP with no TLS, so a passphrase is the whole of what encrypts it,
+// and deriving it from the group key makes the audience of the packets the group and nothing wider.
+// A keyed digest under its own label, as ID is and for the same reason:
+// the value reaches the relay's configuration and every handshake,
+// and must say nothing about the key behind it.
+//
+// The whole digest, 43 characters: libsrt takes 10 to 79,
+// and the relay refuses a value outside that on both the publish and the read key.
+func (k Key) SrtPassphrase() string {
+	assert.Assert(len(k) == KeyBytes, "a passphrase is derived from a whole group key", len(k))
+
+	mac := hmac.New(sha256.New, k)
+	mac.Write([]byte(srtLabel))
+
+	passphrase := srtEncoding.EncodeToString(mac.Sum(nil))
+	assert.Assert(len(passphrase) >= 10 && len(passphrase) <= 79,
+		"a derived passphrase is inside libsrt's bounds", len(passphrase))
+	return passphrase
+}
+
 // ErrNoGroup is what a Key operation answers for a key nobody gave.
 //
 // A group's path is derived from its key, so there is none to derive without one.

@@ -23,12 +23,11 @@ const encodeTimeout = 20 * time.Second
 func baseStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			// A name rather than an address, so this publishes to an encrypted relay, and the passphrase
-			// that encrypts the SRT leg goes with it: these tests are about what the encoder is asked for
-			// and a publish that is refused builds no arguments to read.
-			Host:          "relay.example",
-			SrtPort:       8890,
-			SrtPassphrase: "a-passphrase-long-enough",
+			// A name rather than an address, so this publishes to an encrypted relay: these tests are
+			// about what the encoder is asked for, and a publish that is refused builds no arguments
+			// to read.
+			Host:    "relay.example",
+			SrtPort: 8890,
 		},
 		Publish: settings.Publish{
 			Name:       "alice",

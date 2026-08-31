@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/membership"
@@ -102,12 +103,25 @@ type Streams interface {
 	Paths() []Stream
 }
 
+// SrtKeys writes a group's SRT passphrase into the relay's per-prefix path configuration.
+//
+// The app derives the same value from the same key (internal/group, SrtPassphrase),
+// so both ends of the leg agree without either being told.
+// Idempotent: the state named is "this prefix is keyed with this passphrase",
+// and a call that finds it already true writes nothing.
+// The relay's configuration is the one copy,
+// so a relay restarted empty is re-seeded by the next call rather than from anything held here.
+type SrtKeys interface {
+	Ensure(prefix, passphrase string) error
+}
+
 // Service answers the questions.
 // Safe for concurrent use, which is what an HTTP server needs of a handler.
 type Service struct {
 	signer  *token.Signer
 	streams Streams
 	members *membership.Registry
+	srtKeys SrtKeys
 	// now is read rather than time.Now called directly, so a test can issue a token at a moment it
 	// chooses and read the window back off it.
 	now func() time.Time
@@ -147,15 +161,18 @@ func (s *Service) refuseToken(w http.ResponseWriter, status int, why string) {
 	refuse(w, status, why)
 }
 
-// New is a service signing with this key, reading streams from there and holding membership in that.
-func New(signer *token.Signer, streams Streams, members *membership.Registry) *Service {
+// New is a service signing with this key, reading streams from there, holding membership in that
+// and writing SRT keys through there.
+func New(signer *token.Signer, streams Streams, members *membership.Registry, srtKeys SrtKeys) *Service {
 	assert.IsNotNil(signer, "a service signs its tokens with a key")
 	assert.IsNotNil(members, "a service holds its groups' membership in a registry")
+	assert.IsNotNil(srtKeys, "a service keys its groups' prefixes at the relay")
 
 	s := &Service{
 		signer:  signer,
 		streams: streams,
 		members: members,
+		srtKeys: srtKeys,
 		now:     time.Now,
 		created: map[string][]time.Time{},
 	}
@@ -260,6 +277,10 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 			s.refuseToken(w, http.StatusBadRequest, "this group states its members, and this request names none")
 			return
 		}
+
+		// Ahead of every connection the token buys,
+		// so the relay knows the prefix's SRT keys before the first handshake carries them.
+		s.keySrt(groupKey)
 	} else if strings.TrimSpace(body.MemberSecret) != "" {
 		s.refuseToken(w, http.StatusBadRequest, "a member belongs to a group, and this request names no group key")
 		return
@@ -339,6 +360,11 @@ func (s *Service) stateMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	// On the poll a member's app already runs,
+	// so a relay whose configuration restarted empty is keyed again within one pass
+	// rather than when the next token is asked for.
+	s.keySrt(groupKey)
 
 	stated, err := s.members.State(groupKey, secret, body.DisplayName)
 	if err != nil {
@@ -432,6 +458,18 @@ func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	answer(w, s.members.Reconcile(prefix))
+}
+
+// keySrt writes this group's SRT keys through to the relay.
+//
+// Best effort per request:
+// a relay that will not take them costs the SRT leg until a later call reaches it,
+// where a refusal here would cost every leg the answer buys.
+// Warnf and never Errorf, an unreachable relay API being an Umgebungsfehler this service outlives.
+func (s *Service) keySrt(groupKey group.Key) {
+	if err := s.srtKeys.Ensure(groupKey.Prefix(), groupKey.SrtPassphrase()); err != nil {
+		logger.Warnf("the relay is not taking SRT keys for %s: %v", groupKey.ID(), err)
+	}
 }
 
 // readBody decodes one request body, and reports whether the caller was already refused.

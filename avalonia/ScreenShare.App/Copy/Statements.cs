@@ -516,10 +516,6 @@ public static class Statements
                 "An encrypted RTSP session carries the video inside its TLS connection. Sending it over UDP would put "
                 + "the picture on the wire beside that connection unencrypted, so TCP is the only choice here.",
 
-            TextCode.SrtPassphraseIsTheEncryption =>
-                "SRT has no TLS of its own, so this passphrase is what encrypts it. Without one the stream crosses the "
-                + "internet readable by anyone on the way. It is the same value the relay is configured with.",
-
             TextCode.NoUplinkStated =>
                 "No upload speed is set, so nothing checks the stream against the connection. Measure it or type it "
                 + "in, and a configuration this line cannot carry will say so here instead of at the viewers.",

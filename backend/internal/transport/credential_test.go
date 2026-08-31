@@ -5,24 +5,26 @@ import (
 	"strings"
 	"testing"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
 // The run log holds the child's whole command line and the app offers to open it, so a secret
 // spelled there leaves with every log a user forwards.
-// The passphrase is the one that matters most: it is relay-wide and expires with nothing.
+// The passphrase is the one that matters most: it is the group's and expires with nothing.
 func TestASecretIsHiddenInEveryCarriageForm(t *testing.T) {
 	s := testStream()
 	s.Relay.Token = "eyJhbGciOiJFUzI1NiJ9.payload.signature"
-	s.Relay.SrtPassphrase = "a passphrase/with+specials"
+	s.Relay.GroupKey = mustGroupKey(t).String()
+	passphrase := s.Relay.SrtPassphrase()
 
 	// One line per carriage the transports build: a query, a field of an SRT stream id, and an element
 	// property (credential.go, srt.go, webrtc.go).
 	lines := []string{
 		"rtsps://relay:8322/g/alice?jwt=" + s.Relay.Token,
 		"srt://relay:8890?streamid=publish:g/alice:jwt:" + s.Relay.Token,
-		"passphrase=" + s.Relay.SrtPassphrase,
-		"srt://relay:8890?passphrase=" + url.QueryEscape(s.Relay.SrtPassphrase),
+		"passphrase=" + passphrase,
+		"srt://relay:8890?passphrase=" + url.QueryEscape(passphrase),
 		"signaller::auth-token=" + s.Relay.Token,
 		"https://jwt:" + s.Relay.Token + "@relay:8892/g/alice/",
 	}
@@ -31,12 +33,22 @@ func TestASecretIsHiddenInEveryCarriageForm(t *testing.T) {
 		if strings.Contains(got, s.Relay.Token) {
 			t.Errorf("%q kept the token: %q", line, got)
 		}
-		if strings.Contains(got, s.Relay.SrtPassphrase) {
+		if strings.Contains(got, passphrase) {
 			t.Errorf("%q kept the passphrase: %q", line, got)
 		}
 		if !strings.Contains(got, Redacted) {
 			t.Errorf("%q named no redaction: %q", line, got)
 		}
+	}
+}
+
+// The public prefix's passphrase is a well-known label, so a log keeps it:
+// blacking it out would dress it up as a secret worth asking about.
+func TestThePublicPassphraseStaysReadable(t *testing.T) {
+	s := testStream()
+	line := "srt://relay:8890?passphrase=" + url.QueryEscape(group.PublicSrtPassphrase)
+	if got := Redact(s, line); got != line {
+		t.Errorf("the public passphrase was redacted: %q", got)
 	}
 }
 

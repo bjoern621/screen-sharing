@@ -73,13 +73,16 @@ func main() {
 	client := relay.NewAuthorized(func() string { return apiToken(signer) })
 	reader := &relayStreams{host: *relayHost, apiPort: *relayAPIPort, client: client}
 
-	// One client for both, the index reading what is live and enforcement closing what a member whose
-	// lease lapsed still holds. Neither reaches the relay as anything a group token could.
+	// One client for all three: the index reading what is live,
+	// enforcement closing what a member whose lease lapsed still holds,
+	// and the SRT keys riding the same credential.
+	// None reaches the relay as anything a group token could.
 	enforcer := relayConnections{host: *relayHost, apiPort: *relayAPIPort, client: client}
 	members := membership.New(enforcer)
 	go reap(members)
 
-	service := groupsvc.New(signer, reader, members)
+	srtKeys := relayKeys{host: *relayHost, apiPort: *relayAPIPort, client: client}
+	service := groupsvc.New(signer, reader, members, srtKeys)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
 	// A listener of its own, and off unless a deployment asks for one.
@@ -335,4 +338,16 @@ func (c relayConnections) Sessions() ([]relay.Session, []relay.Unread) {
 
 func (c relayConnections) Kick(segment, id string) error {
 	return c.client.Kick(c.host, c.apiPort, segment, id)
+}
+
+// relayKeys is the relay this service writes SRT path keys into,
+// bound to the one address the process was pointed at the way relayConnections is.
+type relayKeys struct {
+	host    string
+	apiPort int
+	client  *relay.Client
+}
+
+func (k relayKeys) Ensure(prefix, passphrase string) error {
+	return k.client.EnsureSRTKeys(k.host, k.apiPort, prefix, passphrase)
 }

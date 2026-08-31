@@ -51,7 +51,7 @@ authJWTClaimKey: mediamtx_permissions
 #
 # The expression is anchored and a group prefix is base32, so no group is reachable through it.
 # An exclusion names an action and a path and no protocol, so an RTSP or RTMP reader of a public
-# stream is unauthenticated on the same terms, and SRT keeps the passphrase in pathDefaults.
+# stream is unauthenticated on the same terms, and SRT keeps the public path entry's passphrase.
 authJWTExclude:
   - action: read
     path: ~^public/
@@ -71,19 +71,24 @@ authJWTExclude:
 # --- SRT -------------------------------------------------------------------------
 #
 # SRT is UDP and has no TLS, so it is the one leg the reverse proxy cannot wrap. What it takes
-# instead is a passphrase, relay-wide, written into both the publish and the read keys: one
-# value an operator sets, and the app sends it on both legs.
+# instead is a passphrase per path prefix, checked at the handshake.
 #
-# It is a second secret beside the group key and it protects a different thing: the group key
-# decides which streams a member reaches, and this decides whether the packets on the wire are
-# readable at all.
+# No group's value stands in this file.
+# The group service derives each group's passphrase from its group key
+# and writes it into this relay's path configuration over the API,
+# as an entry named "~^<prefix>" (backend/internal/groupsvc).
+# The app derives the same value from the same key, so both ends agree with nothing set by anyone.
+# The entries live in the relay's memory,
+# and a restart that drops them is re-seeded by the next statement of presence or token,
+# which rides every member's poll.
+#
+# The public prefix is the exception, with its entry under paths below:
+# no key derives it, so its passphrase is spelled in the open,
+# here and in the app (backend/internal/group, PublicSrtPassphrase).
 srt: yes
 srtAddress: :8890
 
 pathDefaults:
-  srtPublishPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
-  srtReadPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
-
   # A read announces itself to the group service, which closes it where no live member of that
   # group holds it. A token cannot do that job: it is checked at the handshake and not again, so a
   # member whose presence lapsed opens a connection with the one they still hold.
@@ -189,5 +194,17 @@ moqServerKey: auto.key
 # It opens nothing. What a caller may publish or read is the path expression in its token, and
 # a request the entry admits is still refused by the permission check above
 # (backend/internal/token, GroupPermissions).
+#
+# The public entry keys SRT under the one prefix no group key derives.
+# The value is not a secret, exactly as the prefix is not:
+# anybody may watch, so the wire key is as public as the audience.
+# What it buys is uniformity: every SRT leg runs encrypted,
+# and a keyless handshake is refused on this prefix the way a group's entry refuses one.
+# The app spells the same value as PublicSrtPassphrase,
+# and a test in backend/internal/group holds the two spellings together.
 paths:
+  "~^public/":
+    srtPublishPassphrase: "screenshare/public-srt/v1"
+    srtReadPassphrase: "screenshare/public-srt/v1"
+
   all_others:

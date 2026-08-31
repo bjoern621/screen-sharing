@@ -71,10 +71,6 @@ public static class Fields
             "Name in the group",
             "What this machine goes by to everyone in the group: the row that is this machine in the member list, and the name beside each stream it publishes. A name is claimed per group and the first claim holds it, so one another member already goes by is refused and this machine keeps the identity it had either way. Joining a group takes one."),
 
-        ["relay.srt_passphrase"] = new(
-            "SRT passphrase",
-            "What scrambles the packets on the SRT leg. It is the one way out that cannot be wrapped in the usual encryption, so this is what protects it, and the relay operator sets the same value at their end. Leave it empty if the relay asks for none."),
-
         ["relay.host"] = new(
             "Relay address",
             "The machine running the relay. This machine pushes to it and everyone watching pulls from it, so it needs to be reachable from both sides: a machine on the same network for a LAN stream, a server with a public address for anyone further away."),

@@ -22,7 +22,7 @@ import (
 // derived from either could not.
 var availabilityAllKeys = []string{
 	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
-	KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
+	KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,

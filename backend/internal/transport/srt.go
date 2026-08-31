@@ -61,8 +61,8 @@ var srtFormats = Formats{
 func (SRT) Formats() Formats { return srtFormats }
 
 // ListenerURL is the relay's SRT listener, "srt://relay:8890".
-// No TLS on this leg at all: it is UDP, and what protects it is the relay-wide passphrase
-// (deploy/mediamtx-groups.yml).
+// No TLS on this leg at all: it is UDP, and what protects it is the per-prefix passphrase
+// (settings.Relay.SrtPassphrase).
 func (SRT) ListenerURL(s settings.Settings) string {
 	return fmt.Sprintf("srt://%s:%d", s.Relay.Host, s.Relay.SrtPort)
 }
@@ -140,16 +140,18 @@ func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(
 //
 // The passphrase is what encrypts SRT, there being no TLS on it: it is UDP, and the reverse proxy
 // that wraps every HTTP leg of an encrypted relay never sees this one.
-// So a relay reached over TLS and an empty passphrase is a stream that crosses the internet in the
-// clear, which is refused here rather than sent.
+// It derives from the group key,
+// so the one deployment none derives for is a stored key that will not read back,
+// and a relay across the internet refuses the leg here
+// rather than sending the stream in the clear to a path the relay refuses anyway.
 func (SRT) ValidatePublishSettings(s settings.Settings) error {
 	id := srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name))
 	if !srtStreamIDFits(id) {
 		return fmt.Errorf("the SRT stream id is %d bytes and the protocol carries %d: shorten the stream name by %d characters",
 			len(id), srtStreamIDBytes, len(id)-srtStreamIDBytes)
 	}
-	if s.Relay.Tls() && s.Relay.SrtPassphrase == "" {
-		return errors.New("SRT is UDP and carries no TLS, so the relay's SRT passphrase is what encrypts it, and this relay has none set")
+	if s.Relay.Tls() && s.Relay.SrtPassphrase() == "" {
+		return errors.New("SRT is encrypted with a key derived from the group key, and the stored group key cannot be read: rejoin the group, or leave it to stream publicly")
 	}
 	return nil
 }
@@ -158,24 +160,26 @@ func (t SRT) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), srtWatchKnobs, s, key, value)
 }
 
-// srtPassphraseQuery is the passphrase as ffmpeg's srt protocol takes it, empty where the relay is
-// keyed with none.
+// srtPassphraseQuery is the passphrase as ffmpeg's srt protocol takes it,
+// empty where the path is one no derivation keys (settings.Relay.SrtPassphrase).
 //
-// Both legs carry it because the relay keys both, pathDefaults holding a publish value and a read
-// value that an operator sets alike.
+// Both legs carry it because the relay keys both directions of a prefix alike
+// (internal/groupsvc).
 // A passphrase on one side only is a stream that connects and never plays.
 func srtPassphraseQuery(s settings.Settings) string {
-	if s.Relay.SrtPassphrase == "" {
+	passphrase := s.Relay.SrtPassphrase()
+	if passphrase == "" {
 		return ""
 	}
-	return "&passphrase=" + url.QueryEscape(s.Relay.SrtPassphrase)
+	return "&passphrase=" + url.QueryEscape(passphrase)
 }
 
 // srtPassphraseProperty is the same value as srtsink and srtsrc take it, a property rather than a
 // URI query, which is the split the latency and the stream id already have between the two engines.
 func srtPassphraseProperty(s settings.Settings) []string {
-	if s.Relay.SrtPassphrase == "" {
+	passphrase := s.Relay.SrtPassphrase()
+	if passphrase == "" {
 		return nil
 	}
-	return []string{"passphrase=" + s.Relay.SrtPassphrase}
+	return []string{"passphrase=" + passphrase}
 }
