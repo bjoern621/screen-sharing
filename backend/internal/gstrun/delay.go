@@ -112,7 +112,11 @@ func watchDelay(pipeline gst.Pipeline, element string) *pipedelay.Probe {
 
 // reportDelay writes one reading per tick until the context ends, on its own goroutine.
 // shed is nil on a pipeline carrying none, which reports no drop rather than a drop of nothing.
-func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Probe, shed *shedCount, out io.Writer) {
+//
+// The window this reads off the sink is also what the stamp on each frame carries, so it is handed
+// to window as it is read: a viewer of another machine's stream has no other way to it, and reading
+// it per frame would be a property read per frame on an element that answers once a second.
+func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Probe, shed *shedCount, window *linkWindow, out io.Writer) {
 	assert.IsNotNil(ctx, "a delay report runs under a context")
 	assert.IsNotNil(out, "a delay report is written to a writer")
 	assert.IsNotNil(probe, "a delay report reads a probe")
@@ -132,6 +136,7 @@ func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Pr
 			delay.Dropped = &dropped
 		}
 		delay.LinkMs, delay.RttMs = linkOf(pipeline)
+		window.take(delay.LinkMs)
 		writeDelay(out, delay)
 	}
 }

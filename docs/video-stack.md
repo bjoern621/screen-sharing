@@ -621,19 +621,17 @@ A tile's stats panel carries a delay block with a row per stage, and the publish
 | --- | --- | --- |
 | Capture and encode | the publish pipeline's own clock, at the encoded-frame counter | capture, conversion, encode, parse |
 | Publisher to relay | the publish transport's negotiated delivery window | the outbound link |
-| Through the relay | nothing | terminate and re-mux |
+| Through the relay | the timed way here, less the two windows | terminate and re-mux |
 | Relay to here | the watch transport's negotiated delivery window | the inbound link |
 | Decode | the receive pipeline's own clock, at the sink's pad | depacketize, decode, convert |
 | Held for play time | the latency query, less the row above | present |
 
-Two rows are measured rather than configured, both by the same subtraction: a frame's running time taken off the pipeline's clock at a pad it has reached.
+Two of those rows are measured rather than configured, and so is the timing the relay's row is derived from, though no row draws that one.
+All three are the same subtraction: a moment a frame carries, taken off a clock at a point the frame has reached.
 That is a wall-clock reading of what a stage really cost, which a setting cannot be.
 An SRT window is a request the peer can raise, and a lookahead depth is frames rather than milliseconds until something times them.
 
-**Two stages have no reading and never will from either end.**
-A relay terminates one protocol and re-muxes for each listener, and neither end can time that without a timestamp the relay does not send.
-The publishing rows are measured on the machine that captures the screen, so a viewer watching somebody else's stream has neither.
-Both stay on the panel without a figure, and the total is stated as a floor: every missing stage only makes the real delay larger.
+Where each reading is taken, and which rows a machine cannot fill: `delay-measurement.md`.
 
 ## Bitrate and quality
 

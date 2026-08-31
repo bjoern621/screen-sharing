@@ -346,6 +346,11 @@ The measuring point is the encoded-frame counter, named by the parent on the com
 Measuring at whatever happens to be last would measure the meter's own sink on a run that carries one.
 The delay rides with the meter for the reason the frame count does: a run's instrumentation, so a pipeline built without progress times nothing and `Command` renders neither.
 
+The same pad is where the child writes into each coded picture what a viewer has no other way to: the wall clock it was encoded at, and the running totals of the three figures above (`delay-measurement.md`).
+The clock lets a viewer time the way there, and the totals put this leg's own stages on a tile watching from another machine.
+One point for both so the two readings meet rather than overlap: the stamp says "encoded now" exactly where the delay reading stops counting.
+A stream whose buffers hold less than a whole picture goes unstamped, a message put in front of a fragment landing wherever that fragment does.
+
 Two things keep that reading from growing without bound.
 The trunk sheds ahead of the encoder, the newest frame held and the rest dropped, so an encoder or a leg short of the capture rate costs frames instead of holding the capture up while every frame behind it ages (`gstEncodeQueue`).
 What it dropped is counted at both ends of that queue and crosses on the same line as the delay, the two being one reading: what the shed threw away is what the delay did not grow by.

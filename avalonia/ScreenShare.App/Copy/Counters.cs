@@ -187,7 +187,7 @@ public static class Counters
             "The delivery window the publisher's leg settled on with the relay: every packet is held for this long so a lost one has room to arrive again. It is paid on every frame whether or not anything is lost, which is what makes it the largest stage on a healthy path."),
         ["delay.relay"] = new(
             "Through the relay",
-            "What the relay spends taking the stream in and repackaging it for this viewer. Never a figure: the relay states no per-path delay and no leg carries a relay timestamp to subtract, so the only honest reading is that it is unmeasured and that the total below is short by it."),
+            "What the relay spends taking the stream in and repackaging it for this viewer. The publisher writes the time into each picture, so the way from that machine to this one is timed as a whole, and this row is what the two delivery windows around it leave over. A figure exactly where both of them carry one."),
         ["delay.watch_link"] = new(
             "Relay to here",
             "The same delivery window on this leg, held by the protocol before a packet reaches the decode at all. Only SRT states one; a leg that buffers further in pays it under the two rows below."),
@@ -202,7 +202,7 @@ public static class Counters
             "How long each frame was held after arriving, so that it was drawn at the moment the latency window puts it. It shrinks as the decode above grows, the two together being that window."),
         ["delay.total"] = new(
             "At least, end to end",
-            "The stages above that were measured, added up. A floor and never the whole delay: the relay's own share is missing from it, and so are the publishing stages whenever the stream comes from another machine."),
+            "Everything that was measured, added up, and nothing counted twice. Where the way from the publishing machine could be timed as a whole, that timing is counted rather than the delivery windows it already covers, so this can be larger than the rows above add up to. A floor wherever a stage is missing: a stream carrying no time of its own leaves the relay out, and watching another machine's stream leaves its capture and encode out."),
 
         // section.audio
         ["audio_codec_description"] = new(

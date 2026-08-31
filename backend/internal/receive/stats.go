@@ -122,6 +122,33 @@ type Stats struct {
 	// decode has ever been short of the rate it is sent rather than short on average.
 	TransitPeak time.Duration
 
+	// Path is the wall clock between the publishing machine's encoder handing a frame over and this
+	// machine's decoder being handed the same frame, summed over PathFrames frames: the publish leg,
+	// the relay's own share and this leg, as one figure.
+	// A sum and a count like Transit, and read the same way.
+	//
+	// It comes off a clock written into the frame itself, so it is measured over any transport and on
+	// somebody else's stream as readily as on this machine's (internal/framestamp).
+	// Both zero on a stream carrying no stamp: a codec with no unit to write one into, a publisher
+	// that is not this app, and a pair of machines whose clocks disagree enough to put the encoder
+	// ahead of the decoder.
+	Path       time.Duration
+	PathFrames uint64
+
+	// What the publishing pipeline measured of its own share, as the newest stamp carried it: the
+	// wall clock capture and encode have cost it in total, over PublishFrames frames, and the window
+	// its leg settled on with the relay.
+	//
+	// Cumulative where they were measured, so a reader divides two samples of them as it does its own
+	// counters. Zero frames is a publish that measured none of its own stages, and a zero window a leg
+	// that states none.
+	//
+	// The one reading here about a machine that is not this one, and the only way to it: nothing else
+	// carries the publishing side over a relay.
+	PublishTotal  time.Duration
+	PublishFrames uint64
+	PublishLink   time.Duration
+
 	// Audio, zero until an audio pad turns up and the branch is built.
 	AudioCodec    string
 	AudioDecoder  string

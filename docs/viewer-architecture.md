@@ -399,16 +399,16 @@ A field with no entry renders as its key, which is what gets the entry written.
 `DelayBudget` rides on the same sample and is the one thing on it that is a model rather than a reading: the stages between a screen and this window, each carrying what this machine measured of it.
 `backend/internal/app/receivedelay.go` assembles it: which stage a figure belongs to and which figures may be added together are decisions, and a shell making them would be a second place deciding them.
 
-Two stages are measured rather than configured, both by `internal/pipedelay`, which subtracts a frame's running time from the pipeline's own clock at a pad.
+Two of its stages are measured by `internal/pipedelay`, which subtracts a frame's running time from the pipeline's own clock at a pad.
 On the receiving side that pad is the sink's, not the sample handler: the sink holds each frame until its presentation time, so a reading taken where the samples arrive reports the latency the pipeline configured and never the work it did.
 The publishing side's is the encoded-frame counter's source pad, measured inside the publish child and reported on its standard output beside the caps and the pointer (`internal/gstrun/delay.go`).
 The work and the wait together are the latency window, so a decode whose work rises to meet it is one about to start dropping frames.
 What that window is measured against, what the sink does with a frame past it, and how the panel's four timing figures are read together: `decode-timing.md`.
 
-**The total is a floor and says so.**
-The relay terminates the publishing protocol and re-muxes for every reader, and neither end can time that: its API states no per-path delay and is an operator's rather than a member's, and no leg carries a relay timestamp for a receiver to subtract.
-The publishing stages have a second limit of the same kind: measured on the pipeline that captures the screen and carried over the relay by nothing, so they are present on a tile only where this machine publishes that stream, matched on the relay path rather than the bare name.
-Both gaps are stages the panel names and leaves without a figure, rather than stages it leaves out: a total presented as the whole journey would be wrong by exactly what is missing.
+The way between the two machines is measured at the decoder's input, off the clock the publisher wrote into the coded picture (`internal/framestamp`).
+The publishing machine's own stages reach this side the same way, its pipeline stamping its running readings into the pictures it sends.
+Where this machine is that machine the local run answers for them instead, matched on the relay path rather than the bare name, that being the same figure at full precision and one a codec carrying no stamp still has.
+What each row is measured at and which rows a machine cannot fill: `delay-measurement.md`.
 
 ## The frame channel
 

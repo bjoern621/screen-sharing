@@ -75,13 +75,15 @@ public sealed class TileStatsTests
         AudioBytes = 27_000_000,
         AudioKbps = 96,
 
-        // A tile on the machine that is publishing this stream, which is the one place every stage but the
-        // relay's carries a figure.
+        // A stamped stream over a leg stating its own window at both ends, which is what fills every stage
+        // of the path.
         Delay = new DelayBudget
         {
             PublishMs = 8.4,
             PublishLinkMs = 300,
             WatchLinkMs = 120,
+            PathMs = 440,
+            RelayMs = 20,
             ReceiveMs = 6.2,
             PresentMs = 13.8,
             TotalMs = 448.4,
@@ -107,9 +109,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The delay block is the whole path in the order a frame crosses it, and it keeps the relay's stage even
-    /// though nothing measures it.
-    /// Dropping that row would present the total as the whole journey, and the total is short by exactly it.
+    /// The delay block is the whole path in the order a frame crosses it.
+    /// The way between the two machines is timed as a whole and drawn nowhere: it is what the relay's row is
+    /// derived from and what the total counts, and a row of its own would print those milliseconds a third time.
     /// The decode's worst frame is the one row that is not a stage, and it sits under the mean it is read
     /// against rather than in a block of its own.
     /// </summary>
@@ -127,24 +129,38 @@ public sealed class TileStatsTests
 
         Assert.Equal("8.4 ms", Value(panel, "Delay", "Capture and encode"));
         Assert.Equal("300 ms", Value(panel, "Delay", "Publisher to relay"));
+        Assert.Equal("20 ms", Value(panel, "Delay", "Through the relay"));
         Assert.Equal("448 ms", Value(panel, "Delay", "At least, end to end"));
-
-        // The one row with no figure behind it, and the reason the total is a floor.
-        Assert.Equal("…", Value(panel, "Delay", "Through the relay"));
     }
 
     /// <summary>
-    /// A viewer watching somebody else's stream cannot see the publishing side at all: nothing carries those
-    /// stages over the relay, and inventing them would put a number on the one part of the path this machine
-    /// has no reading of.
+    /// A stream carrying no clock of its own leaves the relay's share unmeasured, that share being what the
+    /// timing of the whole way here leaves over once the two windows come off it.
     /// </summary>
     [Fact]
-    public void AStreamFromAnotherMachineShowsNoPublishingStages()
+    public void AnUnstampedStreamShowsNoRelayShare()
     {
-        var remote = Sample();
-        remote.Delay = new DelayBudget { WatchLinkMs = 120, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 140 };
+        var unstamped = Sample();
+        unstamped.Delay = new DelayBudget { PublishMs = 8.4, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 28.4 };
 
-        var panel = TileStats.Of(remote, Report());
+        var panel = TileStats.Of(unstamped, Report());
+
+        Assert.Equal("…", Value(panel, "Delay", "Through the relay"));
+        Assert.Equal("28 ms", Value(panel, "Delay", "At least, end to end"));
+    }
+
+    /// <summary>
+    /// A stream carrying nothing of the publishing side draws no figure for it, rather than one standing in.
+    /// Which streams those are is the backend's answer: the pictures carry the publishing machine's own
+    /// readings, so it is a stream with no stamp in it and not simply one from another machine.
+    /// </summary>
+    [Fact]
+    public void AStreamWithNoPublishingReadingShowsNoPublishingStages()
+    {
+        var unstamped = Sample();
+        unstamped.Delay = new DelayBudget { WatchLinkMs = 120, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 140 };
+
+        var panel = TileStats.Of(unstamped, Report());
 
         Assert.Equal("…", Value(panel, "Delay", "Capture and encode"));
         Assert.Equal("…", Value(panel, "Delay", "Publisher to relay"));

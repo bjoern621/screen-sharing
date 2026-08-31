@@ -507,7 +507,12 @@ type DelayBudget struct {
 	Publish     *float64
 	PublishLink *float64
 	WatchLink   *float64
-	Receive     *float64
+	// Path is the two legs and the relay between them as one measurement, off the clock the publisher
+	// wrote into the coded picture.
+	// Relay is what that leaves once both legs' own windows are taken off it.
+	Path    *float64
+	Relay   *float64
+	Receive *float64
 	// ReceivePeak is the worst Receive has been for a single frame since the decode started, so it
 	// is the one field here that is not a figure over the interval between two samples.
 	ReceivePeak *float64
@@ -578,6 +583,8 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 				PublishMs:     s.Delay.Publish,
 				PublishLinkMs: s.Delay.PublishLink,
 				WatchLinkMs:   s.Delay.WatchLink,
+				PathMs:        s.Delay.Path,
+				RelayMs:       s.Delay.Relay,
 				ReceiveMs:     s.Delay.Receive,
 				ReceivePeakMs: s.Delay.ReceivePeak,
 				PresentMs:     s.Delay.Present,

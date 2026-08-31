@@ -1465,36 +1465,53 @@ func (x *ReceiveStreamStats) GetDelay() *DelayBudget {
 
 // What each stage of the path between a screen and a window costs a frame, in milliseconds.
 //
-// Every stage carries presence, because which of them are measurable depends on where the
-// machine reading them sits rather than on the moment: a viewer measures its own leg and
-// its own pipeline, sees the publishing side only where it is the publisher too, and never
-// sees what the relay spent.
+// Every stage carries presence, because which of them are measurable depends on what the
+// stream carries rather than on the moment: a viewer measures its own leg and its own
+// pipeline, and reads the publishing machine's stages off the pictures it sent.
 // An absent stage is one nothing measured, never a stage that cost nothing.
 //
-// One stage the path has and this message does not: the relay terminates the publishing
-// protocol and re-muxes for each reader, and neither end can time that. Its API states no
-// per-path delay, and no leg carries a relay timestamp a receiver could subtract, so the
-// figure would have to be invented. total_ms is therefore a floor and not a sum of the
-// whole path.
+// What crosses a relay is the coded picture, a re-mux being no re-encode, so the publisher
+// writes into each one what only it can know: the moment it finished encoding, and its own
+// running readings of the stages ahead of the wire.
+// path_ms is the subtraction against that moment, spanning both legs and the relay over any
+// transport, and relay_ms is what it leaves once the legs' own windows come off.
 type DelayBudget struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Capture to the encoded stream leaving the publishing pipeline: converting, encoding and
 	// parsing, measured against that pipeline's own clock.
 	//
-	// Present only on a stream this machine is itself publishing.
-	// It is measured on the pipeline that captures the screen, and nothing carries it over
-	// the relay, so a viewer watching somebody else's stream has no way to know it.
+	// Measured on the machine holding the screen, and read here off either of two sources: its
+	// own run where this machine is that machine, and otherwise the clock stamped into each
+	// coded picture, which is what carries it over a relay.
+	// Absent on a stream this machine neither publishes nor can read a stamp out of.
 	PublishMs *float64 `protobuf:"fixed64,1,opt,name=publish_ms,json=publishMs,proto3,oneof" json:"publish_ms,omitempty"`
 	// The delivery window the publishing leg settled on with the relay: the delay every
 	// packet is held for so a lost one has room to arrive again.
-	// Carries publish_ms's restriction, and is absent on a publishing transport that states
-	// no window.
+	// Reaches a viewer the same two ways publish_ms does, and is absent on a publishing
+	// transport that states no window.
 	PublishLinkMs *float64 `protobuf:"fixed64,2,opt,name=publish_link_ms,json=publishLinkMs,proto3,oneof" json:"publish_link_ms,omitempty"`
 	// The same window on this reading leg, held by the transport before the pipeline is
 	// handed a packet at all.
 	// SRT is the leg that states one; a leg that buffers inside the pipeline instead reports
 	// that buffering under present_ms, where the pipeline's own latency query answers for it.
 	WatchLinkMs *float64 `protobuf:"fixed64,3,opt,name=watch_link_ms,json=watchLinkMs,proto3,oneof" json:"watch_link_ms,omitempty"`
+	// The publishing machine's encoder handing a frame over to this machine's decoder being
+	// handed the same frame: the two legs and the relay between them, as one measurement.
+	//
+	// Measured rather than derived, off a clock written into the coded picture, so it is
+	// present on somebody else's stream and over every transport.
+	// Absent on a codec with no unit to carry a clock, on a stream this app did not publish,
+	// and where the two machines' clocks disagree enough to put the encoder ahead of the
+	// decoder.
+	//
+	// relay_ms and total_ms are both taken off it, and it is what the panel draws neither of
+	// the two windows on top of. A reader may draw it or not, this stating what was measured
+	// rather than what a panel has room for.
+	PathMs *float64 `protobuf:"fixed64,8,opt,name=path_ms,json=pathMs,proto3,oneof" json:"path_ms,omitempty"`
+	// What the relay itself spent, which is path_ms less the two legs' own windows.
+	// Present exactly where all three of those are: a leg stating no window leaves the relay's
+	// share inside path_ms rather than derived from a figure that is not there.
+	RelayMs *float64 `protobuf:"fixed64,9,opt,name=relay_ms,json=relayMs,proto3,oneof" json:"relay_ms,omitempty"`
 	// The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
 	// and the queues between them, measured.
 	ReceiveMs *float64 `protobuf:"fixed64,4,opt,name=receive_ms,json=receiveMs,proto3,oneof" json:"receive_ms,omitempty"`
@@ -1509,9 +1526,10 @@ type DelayBudget struct {
 	// Work and wait together are that window, which is why a receive_ms rising to meet it is
 	// a decode about to start dropping frames.
 	PresentMs *float64 `protobuf:"fixed64,5,opt,name=present_ms,json=presentMs,proto3,oneof" json:"present_ms,omitempty"`
-	// The stages above that carry a figure, added up.
-	// A floor and not a total: the relay's own share is in the path and in no measurement, and
-	// a publisher on another machine takes the first two stages out of reach as well.
+	// The stages above that carry a figure, added up, counting path_ms in place of the three
+	// stages it spans wherever it is present.
+	// A floor where it is not: the relay's own share is then in the path and in no measurement,
+	// and a publisher on another machine takes the first stage out of reach as well.
 	// Absent where no stage was measured at all.
 	TotalMs       *float64 `protobuf:"fixed64,6,opt,name=total_ms,json=totalMs,proto3,oneof" json:"total_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1565,6 +1583,20 @@ func (x *DelayBudget) GetPublishLinkMs() float64 {
 func (x *DelayBudget) GetWatchLinkMs() float64 {
 	if x != nil && x.WatchLinkMs != nil {
 		return *x.WatchLinkMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetPathMs() float64 {
+	if x != nil && x.PathMs != nil {
+		return *x.PathMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetRelayMs() float64 {
+	if x != nil && x.RelayMs != nil {
+		return *x.RelayMs
 	}
 	return 0
 }
@@ -2384,21 +2416,26 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x0f_latency_min_msB\x11\n" +
 	"\x0f_latency_max_msB\x0f\n" +
 	"\r_position_secB\r\n" +
-	"\v_audio_kbps\"\x90\x03\n" +
+	"\v_audio_kbps\"\xe7\x03\n" +
 	"\vDelayBudget\x12\"\n" +
 	"\n" +
 	"publish_ms\x18\x01 \x01(\x01H\x00R\tpublishMs\x88\x01\x01\x12+\n" +
 	"\x0fpublish_link_ms\x18\x02 \x01(\x01H\x01R\rpublishLinkMs\x88\x01\x01\x12'\n" +
-	"\rwatch_link_ms\x18\x03 \x01(\x01H\x02R\vwatchLinkMs\x88\x01\x01\x12\"\n" +
+	"\rwatch_link_ms\x18\x03 \x01(\x01H\x02R\vwatchLinkMs\x88\x01\x01\x12\x1c\n" +
+	"\apath_ms\x18\b \x01(\x01H\x03R\x06pathMs\x88\x01\x01\x12\x1e\n" +
+	"\brelay_ms\x18\t \x01(\x01H\x04R\arelayMs\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"receive_ms\x18\x04 \x01(\x01H\x03R\treceiveMs\x88\x01\x01\x12+\n" +
-	"\x0freceive_peak_ms\x18\a \x01(\x01H\x04R\rreceivePeakMs\x88\x01\x01\x12\"\n" +
+	"receive_ms\x18\x04 \x01(\x01H\x05R\treceiveMs\x88\x01\x01\x12+\n" +
+	"\x0freceive_peak_ms\x18\a \x01(\x01H\x06R\rreceivePeakMs\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"present_ms\x18\x05 \x01(\x01H\x05R\tpresentMs\x88\x01\x01\x12\x1e\n" +
-	"\btotal_ms\x18\x06 \x01(\x01H\x06R\atotalMs\x88\x01\x01B\r\n" +
+	"present_ms\x18\x05 \x01(\x01H\aR\tpresentMs\x88\x01\x01\x12\x1e\n" +
+	"\btotal_ms\x18\x06 \x01(\x01H\bR\atotalMs\x88\x01\x01B\r\n" +
 	"\v_publish_msB\x12\n" +
 	"\x10_publish_link_msB\x10\n" +
-	"\x0e_watch_link_msB\r\n" +
+	"\x0e_watch_link_msB\n" +
+	"\n" +
+	"\b_path_msB\v\n" +
+	"\t_relay_msB\r\n" +
 	"\v_receive_msB\x12\n" +
 	"\x10_receive_peak_msB\r\n" +
 	"\v_present_msB\v\n" +

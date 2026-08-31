@@ -60,12 +60,14 @@ var watchLinkSources = map[string]string{
 // the zero value where it is not.
 func receiveDelayOf(now, last receive.Stats, seen bool, publishing publishDelay) wire.DelayBudget {
 	budget := wire.DelayBudget{
-		Publish:     publishing.Transit,
-		PublishLink: publishing.Link,
+		Publish:     firstOf(publishing.Transit, stampedPublishOf(now, last, seen)),
+		PublishLink: firstOf(publishing.Link, stampedLinkOf(now)),
 		WatchLink:   watchLinkOf(now.Groups),
+		Path:        pathOf(now, last, seen),
 		Receive:     transitOf(now, last, seen),
 		ReceivePeak: transitPeakOf(now),
 	}
+	budget.Relay = relayOf(budget)
 	budget.Present = presentOf(now.LatencyMin, budget.Receive)
 	budget.Total = totalOf(budget)
 
@@ -86,6 +88,79 @@ func transitOf(now, last receive.Stats, seen bool) *float64 {
 	}
 	mean := float64(now.Transit-last.Transit) / float64(now.TransitFrames-last.TransitFrames)
 	return msOfPtr(time.Duration(mean))
+}
+
+// firstOf is the nearer of two readings of one stage, and nil where neither took one.
+//
+// The publishing stages have two sources and one meaning. This machine's own run measures them
+// directly, and a stamp carries another machine's over the relay, so the local reading is preferred
+// where there is one: it is the same figure at full precision, it is there before a frame has been
+// decoded, and it is there for a codec that carries no stamp at all.
+func firstOf(local, stamped *float64) *float64 {
+	if local != nil {
+		return local
+	}
+	return stamped
+}
+
+// stampedPublishOf is the mean wall clock capture and encode cost the publishing machine, over the
+// interval between two of this side's readings.
+//
+// Its counters are that pipeline's own running totals, so they divide exactly as a local probe's do
+// and for the same reason: the average worth reading is the one over the interval between two
+// samples rather than over the run (internal/framestamp, Stamp).
+// nil on the same three grounds a transit is, and on a publish that measured none of its own stages,
+// which reaches here as no frames.
+func stampedPublishOf(now, last receive.Stats, seen bool) *float64 {
+	if !seen || now.PublishFrames <= last.PublishFrames || now.PublishTotal < last.PublishTotal {
+		return nil
+	}
+	mean := float64(now.PublishTotal-last.PublishTotal) / float64(now.PublishFrames-last.PublishFrames)
+	return msOfPtr(time.Duration(mean))
+}
+
+// stampedLinkOf is the window the publishing leg settled on, as its frames carried it.
+// nil for a leg that states none, which arrives as a window of zero: no transport settles on
+// nothing, so zero is unstated rather than instant.
+func stampedLinkOf(now receive.Stats) *float64 {
+	if now.PublishLink <= 0 {
+		return nil
+	}
+	return msOfPtr(now.PublishLink)
+}
+
+// pathOf is the mean wall clock one frame spent between the publishing machine's encoder and this
+// decoder, over the interval between two readings.
+//
+// The same three readings a transit is taken from and for the same reason, and nil on the same
+// three grounds: a first reading, a pipeline whose counters restarted, and an interval no stamped
+// frame crossed.
+// The last of those is also every frame of a stream carrying no clock at all, which is a path
+// nothing measured rather than a path of no length (internal/framestamp).
+func pathOf(now, last receive.Stats, seen bool) *float64 {
+	if !seen || now.PathFrames <= last.PathFrames || now.Path < last.Path {
+		return nil
+	}
+	mean := float64(now.Path-last.Path) / float64(now.PathFrames-last.PathFrames)
+	return msOfPtr(time.Duration(mean))
+}
+
+// relayOf is what the relay itself spent: the measured way between the two machines, less what each
+// leg's own transport says it holds a packet for.
+//
+// nil where any of the three is missing, and nil where the windows sum past the measurement.
+// The measurement is the one figure here that was measured; a window is what a transport settled on
+// and a packet may cross a leg in less, so windows overrunning it says the subtraction has nothing
+// to report rather than that the relay took less than no time.
+func relayOf(budget wire.DelayBudget) *float64 {
+	if budget.Path == nil || budget.PublishLink == nil || budget.WatchLink == nil {
+		return nil
+	}
+	spent := *budget.Path - *budget.PublishLink - *budget.WatchLink
+	if spent < 0 {
+		return nil
+	}
+	return &spent
 }
 
 // transitPeakOf is the worst that stage has cost a single frame since the decode started.
@@ -139,13 +214,17 @@ func watchLinkOf(groups []receive.StatGroup) *float64 {
 
 // totalOf adds the stages that carry a figure, and is nil where none does.
 //
-// A floor rather than a sum of the path: the relay's own share is in neither this list nor any
-// measurement, and a publisher on another machine puts the first two stages out of reach too.
-// Adding what is there is still the useful answer, because every absent stage only makes the real
-// delay larger.
+// The measured way between the two machines stands in for the three stages it spans wherever it is
+// there, so a leg's window is never added on top of a measurement that already includes it.
+// Without it the sum is a floor rather than a total, the relay's own share being in neither this
+// list nor any measurement. Adding what is there is still the useful answer, because every absent
+// stage only makes the real delay larger.
 func totalOf(budget wire.DelayBudget) *float64 {
-	stages := []*float64{
-		budget.Publish, budget.PublishLink, budget.WatchLink, budget.Receive, budget.Present,
+	stages := []*float64{budget.Publish, budget.Receive, budget.Present}
+	if budget.Path != nil {
+		stages = append(stages, budget.Path)
+	} else {
+		stages = append(stages, budget.PublishLink, budget.WatchLink)
 	}
 
 	total, measured := 0.0, false

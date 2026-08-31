@@ -265,12 +265,12 @@ public static class TileStats
     /// Path a frame took, stage by stage, in the order it crossed them.
     ///
     /// Which stages carry a figure is the backend's answer and not this side's: a viewer measures its own leg and
-    /// its own pipeline, sees the publishing side only where it is the publisher too, and never sees what the
-    /// relay spent (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
+    /// its own pipeline, and sees the publishing machine's own work only where it is that machine too
+    /// (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
     ///
-    /// The relay's row is the one this side draws without a figure behind it, there being no figure to have.
-    /// Leaving the stage out instead would present the total as the whole path, and the total is short by exactly
-    /// this row.
+    /// One stage the budget carries is drawn nowhere: the way between the two machines, timed as a whole. It is
+    /// what the relay's row is derived from and what the total counts in place of the legs it covers, and a row of
+    /// its own would print the same milliseconds a third time.
     ///
     /// One row is not a stage. The decode's worst single frame sits directly under the decode's mean, the two
     /// being read against each other and against the sink's deadline, and a reader holding them apart in two
@@ -287,7 +287,7 @@ public static class TileStats
         [
             Line("delay.publish", Ms(d.HasPublishMs, d.PublishMs)),
             Line("delay.publish_link", Ms(d.HasPublishLinkMs, d.PublishLinkMs)),
-            Line("delay.relay", ""),
+            Line("delay.relay", Ms(d.HasRelayMs, d.RelayMs)),
             Line("delay.watch_link", Ms(d.HasWatchLinkMs, d.WatchLinkMs)),
             Line("delay.receive", Ms(d.HasReceiveMs, d.ReceiveMs)),
             Line("delay.receive_peak", Ms(d.HasReceivePeakMs, d.ReceivePeakMs)),

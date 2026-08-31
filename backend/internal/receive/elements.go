@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-gst/go-gst/pkg/gst"
 
+	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/framestamp"
 	"bjoernblessin.de/screenshare/internal/padprobe"
 )
 
@@ -22,11 +24,16 @@ const (
 
 // trackByKlass sends a decoder to the track it drives, going by the media type in its class. A
 // decoder for neither drives no track and is passed over.
+//
+// stamped is the track a publisher writes its clock into, which is the coded picture and not the
+// sound beside it: reading the audio track for one would scan every buffer of it for a marker
+// nothing put there.
 var trackByKlass = []struct {
-	klass string
-	track func(r *Receiver) *decodeTrack
+	klass   string
+	stamped bool
+	track   func(r *Receiver) *decodeTrack
 }{
-	{klass: "Video", track: func(r *Receiver) *decodeTrack { return &r.video }},
+	{klass: "Video", stamped: true, track: func(r *Receiver) *decodeTrack { return &r.video }},
 	{klass: "Audio", track: func(r *Receiver) *decodeTrack { return &r.audio }},
 }
 
@@ -46,9 +53,63 @@ type decodeTrack struct {
 	// lastKey is the last keyframe's arrival in unix nanoseconds, 0 before the first one.
 	lastKey atomic.Int64
 
+	// path sums what the way here cost the frames carrying a publisher's clock, over pathFrames of
+	// them. Both stay at zero on a stream nobody stamped.
+	path       atomic.Uint64 // ns
+	pathFrames atomic.Uint64
+
+	// The publishing pipeline's own running totals, as the newest stamp carried them, and the window
+	// that leg settled on.
+	//
+	// The newest reading rather than a sum: they are already cumulative where they were measured, so
+	// what a viewer needs is the latest pair and its own two samples to divide between.
+	// All three stay at zero on a stream nobody stamped, and the first two on a publish that measured
+	// none of its own stages.
+	publishMs     atomic.Uint64
+	publishFrames atomic.Uint64
+	publishLinkMs atomic.Uint64
+
 	dec      gst.Element
 	factory  string
 	hardware bool
+}
+
+// takeStamp reads what one frame carried out of the publishing machine: what the way here cost it,
+// and what that machine measured of its own share.
+//
+// A frame carrying no stamp is passed over rather than counted as a frame that took no time, which
+// is every frame of a stream this app did not publish and every frame of a codec with no unit to
+// write one into.
+// So is a stamp from ahead of this clock: two machines agreeing to the millisecond is a fact about
+// their time synchronisation and not something this can assert, and a negative reading is the one
+// answer that is certainly wrong (internal/framestamp).
+//
+// The publishing figures are kept even where the clock reading is refused. They are that pipeline's
+// own totals and say nothing about the two machines agreeing, so a pair of clocks too far apart to
+// time the way here still leaves a viewer the publisher's own stages.
+func (t *decodeTrack) takeStamp(buf *gst.Buffer) {
+	assert.IsNotNil(buf, "a stamp is read off a frame")
+
+	m, mapped := buf.Map(gst.MapRead)
+	if !mapped {
+		return
+	}
+	s, stamped := framestamp.Read(m.Data())
+	m.Close()
+	if !stamped {
+		return
+	}
+
+	t.publishMs.Store(uint64(s.PublishMs))
+	t.publishFrames.Store(uint64(s.PublishFrames))
+	t.publishLinkMs.Store(uint64(s.LinkMs))
+
+	spent := time.Since(s.At)
+	if spent < 0 {
+		return
+	}
+	t.path.Add(uint64(spent))
+	t.pathFrames.Add(1)
 }
 
 // elementStats pairs an element found in the pipeline with the table entry stating which of its
@@ -72,7 +133,7 @@ func (r *Receiver) onElement(e gst.Element) {
 	if strings.Contains(klass, klassDecoder) {
 		for _, t := range trackByKlass {
 			if strings.Contains(klass, t.klass) {
-				r.trackDecoder(t.track(r), e, factory, strings.Contains(klass, klassHardware))
+				r.trackDecoder(t.track(r), e, factory, strings.Contains(klass, klassHardware), t.stamped)
 				break
 			}
 		}
@@ -87,7 +148,10 @@ func (r *Receiver) onElement(e gst.Element) {
 // trackDecoder records one track's decoder and starts counting the encoded stream handed to it.
 // First decoder wins: the pipeline builds one per elementary stream, so a second video decoder
 // would be a second video stream nothing renders.
-func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, hardware bool) {
+//
+// stamped adds the reading of the publisher's own clock to the same probe, the frames it is written
+// into being the ones counted here.
+func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, hardware, stamped bool) {
 	r.mu.Lock()
 	seen := t.dec != nil
 	if !seen {
@@ -117,6 +181,9 @@ func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 		if !buf.HasFlags(gst.BufferFlagDeltaUnit) {
 			t.keyframes.Add(1)
 			t.lastKey.Store(time.Now().UnixNano())
+		}
+		if stamped {
+			t.takeStamp(buf)
 		}
 		return gst.PadProbeOK
 	})

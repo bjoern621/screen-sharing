@@ -52,6 +52,7 @@ A cutoff there is not a second line of defence, and on top of a working QoS loop
 ## Reading it off the tile
 
 The three rates are one funnel, in the order the panel prints them.
+The rows below them carry the whole path a frame took, which `delay-measurement.md` covers.
 
 | Panel row | What it is |
 |---|---|
