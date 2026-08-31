@@ -8,11 +8,11 @@
   <!--
     Caption shapes as Windows draws them, in the 10x10 box Design/Icons.axaml maps onto pixels one to one.
 
-    Coordinates land on halves, a 1px stroke centring on the line it is given: x.5 fills pixel column x, an
-    integer splits over two columns at half strength.
+    Coordinates land on halves, a 1px stroke centring on the line it is given:
+    x.5 fills pixel column x, an integer splits over two columns at half strength.
 
-    Restore is the two-window shape: an 8x8 front for the size the window returns to, and behind it the part
-    of the maximised one that front no longer covers.
+    Restore is the two-window shape: an 8x8 front for the size the window returns to,
+    and behind it the part of the maximised one that front leaves uncovered.
   -->
   <UserControl.Resources>
     <StreamGeometry x:Key="CaptionMinimise">M0,5.5 H10</StreamGeometry>
@@ -25,7 +25,8 @@
     Left inset written out: GapPanel holds the same 12, and a Thickness has no token to name.
 
     The band stands in for the native caption the window extended itself over, so it claims the TitleBar role:
-    drag, double-click to maximise and the right-click window menu stay the platform's rather than a handler's.
+    drag, double-click to maximise and the right-click window menu stay the platform's,
+    rather than a handler's.
   -->
   <Border Classes="chromeband"
           Height="{StaticResource TitleBarHeight}"
@@ -40,9 +41,9 @@
                   VerticalAlignment="Center">
 
         <!--
-          The app mark, and identity is all it carries: the red is spent on this machine sharing and on
-          something having broken (docs/design-language.md), and a mark that is red whatever the app is
-          doing spends it on neither.
+          The app mark, and identity is all it carries:
+          the red is spent on this machine sharing and on something having broken (docs/design-language.md),
+          and a mark that is red whatever the app is doing spends it on neither.
           Whether this machine is sharing is the pill's to say, in the chrome and in the header.
           Its 12px has no metric token, so the radius takes the smallest one the design states.
         -->
@@ -58,30 +59,32 @@
       </StackPanel>
 
       <!--
-        The platform's caption shapes rather than the app's icon set: these stand in for the buttons Windows
-        hid when the client area was extended over the caption, and a reader compares them with every other
-        window on the screen.
+        The platform's caption shapes rather than the app's icon set:
+        these stand in for the buttons Windows hid when the client area was extended over the caption,
+        and a reader compares them with every other window on the screen.
 
         Stroke read off the button, because Path.caption's own brush would not follow the button's state.
 
-        Each role names the caption button it stands in for. On Win32 that is HTMINBUTTON, HTMAXBUTTON and
-        HTCLOSE, which restore the system's minimise and restore animations and the snap-layout flyout under
-        maximise. Elsewhere the role is inert and the command does the work.
+        Each role names the caption button it stands in for.
+        On Win32 that is HTMINBUTTON, HTMAXBUTTON and HTCLOSE,
+        which restore the system's minimise and restore animations and the snap-layout flyout under maximise.
+        Elsewhere the role is inert and the command does the work.
       -->
       <StackPanel Grid.Column="2" Orientation="Horizontal">
 
         <Button Theme="{StaticResource WindowControlButton}"
                 Command="{Binding MinimiseCommand}"
                 chrome:WindowDecorationProperties.ElementRole="MinimizeButton"
-                ToolTip.Tip="Minimise">
+                ToolTip.Tip="Minimize">
           <Path Classes="caption"
                 Data="{StaticResource CaptionMinimise}"
                 Stroke="{Binding $parent[Button].Foreground}" />
         </Button>
 
         <!--
-          One button and two glyphs, as Windows has it: maximise while the window is normal, restore while it
-          is maximised. Both are present and the bound state picks, so no handler writes the shape.
+          One button and two glyphs, as Windows has it:
+          maximise while the window is normal, restore while it is maximised.
+          Both are present and the bound state picks, so no handler writes the shape.
         -->
         <Button Theme="{StaticResource WindowControlButton}"
                 Command="{Binding MaximiseCommand}"

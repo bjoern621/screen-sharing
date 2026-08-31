@@ -7,20 +7,20 @@ namespace ScreenShare.App.Copy;
 /// Turns one statement from the backend into a sentence.
 ///
 /// The backend sends no prose.
-/// It sends a code naming the fact it is stating and the identifiers the fact is about, capture <c>portal</c>,
-/// codec <c>libx264</c>, engine <c>gstreamer</c>, and this is where that becomes something to read
-/// (api/proto/screenshare/v1/text.proto).
+/// It sends a code naming the fact and the identifiers the fact is about,
+/// capture <c>portal</c>, codec <c>libx264</c>, engine <c>gstreamer</c>,
+/// and this is where that becomes something to read (api/proto/screenshare/v1/text.proto).
 ///
-/// Every sentence names the limit, which side has it, and the way out, which makes a greyed control useful
-/// rather than merely honest.
-/// Where the backend hands over an alternative the sentence uses it, and where it hands over none the sentence
-/// stops rather than trailing off.
-/// Identifiers reach the screen through <see cref="Words"/>, so a reader is told about an NVIDIA GPU rather than
-/// about <c>nvenc</c>, and the identifier comes back only where the reader meets it again in a log or a command
-/// line.
+/// Every sentence names the limit, which side has it, and the way out,
+/// which makes a grayed control useful rather than merely honest.
+/// Where the backend hands over an alternative the sentence uses it,
+/// and where it hands over none the sentence stops rather than trailing off.
+/// Identifiers reach the screen through <see cref="Words"/>,
+/// so a reader is told about an NVIDIA GPU rather than about <c>nvenc</c>,
+/// and the identifier comes back only where the reader meets it again in a log or a command line.
 ///
-/// An unknown code renders as the code: a shell older than its backend will meet one, and a blank where a reason
-/// belongs reads as a control greyed for nothing.
+/// An unknown code renders as the code: a shell older than its backend meets one,
+/// and a blank where a reason belongs reads as a control grayed for nothing.
 /// </summary>
 public static class Statements
 {
@@ -45,32 +45,31 @@ public static class Statements
 
             TextCode.CaptureWrongSession =>
                 $"{Words.Capture(a.Capture)} needs an {Words.DisplayServer(a.Display)} session. "
-                + "On Wayland it would see only the older windows, not the desktop. Use the screen picker instead.",
+                + "On Wayland it sees only X11 windows, not the desktop. Use the screen picker instead.",
 
-            // A note and not a refusal, so a fragment: it prints on the entry's own row, where a sentence would
-            // crowd out the name.
+            // A note and not a refusal, so a fragment:
+            // it prints on the entry's own row, where a sentence would crowd out the name.
             // What the privilege is for is the entry's paragraph (Descriptions.Capture).
             TextCode.CaptureNeedsGrant => "needs elevated privileges",
 
             TextCode.CaptureTakesNoMonitor => a.Capture switch
             {
-                "kmsgrab" => "This capture takes everything the GPU is scanning out, not one screen.",
-                "gdigrab" => "This capture takes the whole desktop as one picture: every monitor side by side.",
+                "kmsgrab" => "This capture reads everything the GPU is scanning out, not one screen.",
+                "gdigrab" => "This capture reads the whole desktop as one picture: every monitor side by side.",
                 "portal" => "The desktop's own picker chooses what is shared, so there is nothing to pick here.",
-                _ => "This capture method chooses what it grabs itself.",
+                _ => "This capture method chooses what it captures.",
             },
 
-            // Each branch names what the session does rather than what it lacks, so the absence of a picture reads
-            // as how the machine works and not as a fault.
+            // Each branch names what the session does rather than what it lacks,
+            // so a missing picture reads as how the machine works and not as a fault.
             TextCode.NoMonitorPreview => a.Display == "wayland"
-                ? "Wayland reaches a screen only through the desktop's own picker, which asks "
-                  + "every time, so there is no picture of one screen to show here. The picker "
-                  + "shows what is being shared when the stream starts."
-                : "This system hands the app whichever screen it likes rather than the one asked "
-                  + "for, so there is no picture of a single screen to show here.",
+                ? "Wayland hands out screens only through the desktop's own picker, which asks "
+                  + "every time. The picker shows what is shared when the stream starts."
+                : "This system decides itself which screen it hands over, so a preview of a "
+                  + "single screen cannot be shown.",
 
             TextCode.MonitorNotEnumerated =>
-                "Not connected. It stays selected, so what the stream would capture is still readable. "
+                "Not connected. It stays selected, so what the stream would capture stays visible. "
                 + "Pick a screen that is plugged in.",
 
             TextCode.ScaledFromSource =>
@@ -79,8 +78,8 @@ public static class Statements
             // Publish engines and the encoder probe.
 
             TextCode.EngineToolingMissing =>
-                $"{Words.Engine(a.Engine)} is not installed, so nothing that runs on it can encode here. "
-                + "Install it, or pick a capture method that runs the other one.",
+                $"{Words.Engine(a.Engine)} is not installed, so its encoders cannot run. "
+                + "Install it, or pick a capture method that uses the other engine.",
 
             TextCode.EngineHasNoPublishSink =>
                 $"{Words.Capture(a.Capture)} runs on {Words.Engine(a.Engine)}, which cannot send over "
@@ -88,36 +87,35 @@ public static class Statements
 
             TextCode.PublishSinkElementMissing =>
                 $"Sending over {Words.Transport(a.Transport)} needs {a.Element}, which this "
-                + $"{Words.Engine(a.Engine)} install does not carry. Install the plugin it ships in, or "
-                + "pick another way out.",
+                + $"{Words.Engine(a.Engine)} install does not include. Install the plugin that provides it, "
+                + "or pick another protocol.",
 
             TextCode.EngineNotProbed =>
-                $"Nothing on {Words.Engine(a.Engine)} has been tested on this machine, because "
-                + $"{Lower(Of(a.Cause))} Until then nothing is greyed out for missing hardware, "
-                + "so a choice this machine cannot run will fail at the start rather than here.",
+                $"No encoder on {Words.Engine(a.Engine)} has been tested on this computer, because "
+                + $"{Lower(Of(a.Cause))} Every choice stays offered, so one this computer cannot run "
+                + "fails at the start instead of here.",
 
             TextCode.ProbeNoDevice =>
-                $"No {Words.Family(a.Family)} encoder was found on this machine. Either the hardware is not here, "
+                $"No {Words.Family(a.Family)} encoder was found on this computer. Either the hardware is missing, "
                 + "or its driver does not offer encoding.",
 
             TextCode.ProbeNoBuild =>
-                $"This install has no {a.Codec} encoder. It is a missing piece of software rather than missing "
-                + "hardware, so another build or another package would bring it back.",
+                $"This install has no {a.Codec} encoder. The software is missing, not the hardware. "
+                + "A different build or package provides it.",
 
             TextCode.ProbeFailed =>
-                $"{Words.Engine(a.Engine)} could not run {a.Codec} on this machine.",
+                $"{Words.Engine(a.Engine)} could not run {a.Codec} on this computer.",
 
             TextCode.CodecNotImplemented =>
-                "Nothing in this app codes this format.",
+                "This format cannot be encoded here.",
 
             TextCode.NoEncoderForFormat =>
-                $"Nothing on this machine codes {Words.Format(a.Format)}. Another format goes out through an "
-                + "encoder that is here.",
+                $"No encoder on this computer produces {Words.Format(a.Format)}. Pick another format.",
 
             TextCode.EncoderCodesNoFormat => a.Formats.Count > 0
-                ? $"{Words.Encoder(a.Encoder)} codes {Words.List(a.Formats.Select(Words.Format))}, "
+                ? $"{Words.Encoder(a.Encoder)} encodes {Words.List(a.Formats.Select(Words.Format))}, "
                   + $"not {Words.Format(a.Format)}."
-                : $"{Words.Encoder(a.Encoder)} codes no {Words.Format(a.Format)}.",
+                : $"{Words.Encoder(a.Encoder)} does not encode {Words.Format(a.Format)}.",
 
             // Carriage.
 
@@ -127,42 +125,42 @@ public static class Statements
                     ? $"send it over {Words.List(a.Transports.Select(Words.Transport))}"
                     : "",
                 a.OtherEngine.Length > 0
-                    ? $"keep {Words.Transport(a.Transport)} and pick a capture method that runs {Words.Engine(a.OtherEngine)}"
+                    ? $"keep {Words.Transport(a.Transport)} and pick a capture method that uses {Words.Engine(a.OtherEngine)}"
                     : ""),
 
             TextCode.LegCarriesNoAudioCodec => a.AudioCodecs.Count > 0
                 ? $"{Words.Transport(a.Transport)} carries no {Words.AudioCodec(a.AudioCodec)} track on "
                   + $"{Words.Engine(a.Engine)}. It carries {Words.List(a.AudioCodecs.Select(Words.AudioCodec))}."
-                : $"{Words.Transport(a.Transport)} carries no audio at all on {Words.Engine(a.Engine)}. "
+                : $"{Words.Transport(a.Transport)} carries no audio on {Words.Engine(a.Engine)}. "
                   + "Send over another protocol, or turn audio off.",
 
             TextCode.RenderChainElementMissing =>
-                $"This machine has no {a.Element}, which {Words.RenderChain(a.Value)} needs. "
-                + "Another route converts the frames instead.",
+                $"This computer has no {a.Element}, which {Words.RenderChain(a.Value)} needs. "
+                + "Pick another route to convert the frames.",
 
             TextCode.EngineHasNoAudioEncoder =>
                 $"{Words.Engine(a.Engine)} has no {Words.AudioCodec(a.AudioCodec)} encoder. "
                 + "Change the capture method to reach the other engine.",
 
             TextCode.NoViewerReceivesOver =>
-                $"No player here opens {Words.Transport(a.Transport)}. "
-                + $"Watching goes over {Words.List(a.Transports.Select(Words.Transport))}.",
+                $"No built-in player opens {Words.Transport(a.Transport)}. "
+                + $"Watch over {Words.List(a.Transports.Select(Words.Transport))}.",
 
             TextCode.RelayServesNoFormatOver => a.Transports.Count > 0
-                ? $"The relay does not re-serve {Words.Format(a.Format)} over {Words.Transport(a.Transport)}, so a "
+                ? $"The relay does not serve {Words.Format(a.Format)} over {Words.Transport(a.Transport)}, so a "
                   + $"player would connect and receive nothing. Watch over {Words.List(a.Transports.Select(Words.Transport))}."
-                : $"The relay does not re-serve {Words.Format(a.Format)} over {Words.Transport(a.Transport)}, so a "
+                : $"The relay does not serve {Words.Format(a.Format)} over {Words.Transport(a.Transport)}, so a "
                   + "player would connect and receive nothing.",
 
-            // Pixel format, colour and decoding.
+            // Pixel format, color and decoding.
 
             TextCode.CodecCodesNoRgb =>
-                "This encoder cannot take the desktop's pixels directly. Only H.265 and VP9 have a mode for it, "
-                + "and only on some encoders. Pick 4:4:4 for the next best thing.",
+                "This encoder cannot take the desktop's RGB pixels directly. Only some H.265 and VP9 encoders "
+                + "can. Pick 4:4:4 for the closest result.",
 
             TextCode.CodecCannotEncodeChroma =>
-                $"This encoder cannot code {Words.Chroma(a.Chroma)}. Most hardware encoders do 4:2:0 and nothing "
-                + "else; the CPU encoders reach the rest.",
+                $"This encoder cannot produce {Words.Chroma(a.Chroma)}. Most hardware encoders produce only "
+                + "4:2:0. The CPU encoders cover the rest.",
 
             TextCode.RgbIsFullRange =>
                 "RGB uses every code value by definition, so there is nothing to choose here.",
@@ -171,14 +169,15 @@ public static class Statements
                 $"Viewers decode this on the GPU on {Words.List(a.DecodeFamilies.Select(Words.DecodeFamily), "and")}.",
 
             TextCode.DecodesOnCpu =>
-                $"No GPU decodes {Words.Format(a.Format)} at {Words.Chroma(a.Chroma)}, so every viewer spends CPU on it"
-                + (a.Decoder.Length > 0 ? $", through {a.Decoder}" : "")
-                + ". That is a trade the publisher is entitled to make: it plays everywhere, and costs them.",
+                $"No GPU decodes {Words.Format(a.Format)} at {Words.Chroma(a.Chroma)}, so every viewer decodes it "
+                + "on the CPU"
+                + (a.Decoder.Length > 0 ? $" ({a.Decoder})" : "")
+                + ". It plays everywhere, at the cost of viewer CPU.",
 
             TextCode.DecodesInHardwarePartly =>
-                $"{Words.Chroma(a.Chroma)} {Words.Format(a.Format)} reaches a GPU on "
-                + $"{Words.List(a.DecodeFamilies.Select(Words.DecodeFamily), "and")} and nowhere else. "
-                + "Everyone else decodes it on the CPU, which still works and costs them cores.",
+                $"{Words.Chroma(a.Chroma)} {Words.Format(a.Format)} decodes on the GPU only on "
+                + $"{Words.List(a.DecodeFamilies.Select(Words.DecodeFamily), "and")}. "
+                + "Every other viewer decodes it on the CPU.",
 
             // Frame memory and the GPU path.
 
@@ -187,21 +186,21 @@ public static class Statements
                 + "so the frames go through main memory whatever this is set to.",
 
             TextCode.PairConvertsOnDevice =>
-                $"{Words.Capture(a.Capture)} and this encoder already convert on the GPU using the colour chosen here, "
-                + $"so there is nothing to trade. \"{Words.Memory(a.Memory)}\" keeps both.",
+                $"{Words.Capture(a.Capture)} and this encoder convert on the GPU with the color chosen here. "
+                + $"\"{Words.Memory(a.Memory)}\" keeps both.",
 
             TextCode.PairTradesColour => Sentences(
                 $"{Words.Capture(a.Capture)} and this encoder can share memory on {Words.Engine(a.Engine)}, but "
-                + "nothing between them can convert the colour",
+                + "nothing between them converts the color",
                 Of(a.Cost),
                 Of(a.Reach)),
 
             TextCode.ExactColourReach =>
-                $"{Words.Capture(a.Capture)} on {Words.Engine(a.Engine)} shares the same screen and does convert, "
-                + "so it keeps the GPU path and the colour chosen here.",
+                $"{Words.Capture(a.Capture)} on {Words.Engine(a.Engine)} converts on the GPU, "
+                + "so the frames stay there in the color chosen here.",
 
             TextCode.DevicePathHasNoScaler =>
-                "On this path the frames never leave the GPU and nothing on it can resize them. "
+                "On this path the frames never leave the GPU, and nothing on it can resize them. "
                 + $"Send at the source size, or set frames to \"{Words.Memory(a.Memory)}\".",
 
             TextCode.DrmMapUnusedOnDevice =>
@@ -222,7 +221,7 @@ public static class Statements
                 "The captured texture is handed to Quick Sync as a GPU frame and converted there.",
 
             TextCode.ImportFfmpegDdagrabNvenc =>
-                "The NVIDIA encoder reads the captured texture on its own device, with nothing converting in between.",
+                "The NVIDIA encoder reads the captured texture on its own device, with no conversion in between.",
 
             TextCode.CostEncoderSignalsItsOwnColour =>
                 $"The encoder converts the picture itself and sends {Words.Chroma(a.Chroma)} at "
@@ -231,105 +230,106 @@ public static class Statements
             // Rate control.
 
             TextCode.CqOnlyInConstantQuality =>
-                "There is a quality target only when the encoder is holding quality. Switch to constant quality to set one.",
+                "Only constant quality has a quality target. Switch to it to set one.",
 
             TextCode.BitrateNotInMode =>
-                $"{Words.Mode(a.Mode)} aims at no bandwidth figure. It spends whatever the picture costs.",
+                $"{Words.Mode(a.Mode)} does not target a bitrate. The rate follows the picture instead.",
 
             // The pointer.
 
             TextCode.KmsgrabHasNoCursorPlane =>
-                $"{Words.Capture(a.Capture)} reads the screen as it is scanned out, and the pointer is composed "
-                + "over that at the last moment by the display hardware. There is nothing on that path to draw it in.",
+                $"{Words.Capture(a.Capture)} reads the screen as it is scanned out. The display hardware "
+                + "draws the pointer later, so it never appears in the capture.",
 
             TextCode.CaptureHasNoCursorMetadata =>
-                $"{Words.Capture(a.Capture)} hands over a picture and nothing else. Only the desktop portal reports "
-                + "where the pointer is, separately from the frames.",
+                $"{Words.Capture(a.Capture)} delivers the picture and nothing else. Only the desktop portal "
+                + "reports the pointer position separately from the frames.",
 
             TextCode.CursorMetadataLocalOnly =>
-                "The position leaves the capture and reaches this machine, so the preview here draws it. "
-                + "Nothing carries it over the relay, so people watching from elsewhere see no pointer.",
+                "The pointer shows only in the preview on this computer. "
+                + "Viewers elsewhere see the picture without it.",
 
             TextCode.CursorMetadataNotCarried =>
-                "Nothing here reads the pointer position this capture reports, so a stream sent this way would "
-                + "arrive with no pointer at all.",
+                "This capture reports the pointer position separately, but the stream does not carry it. "
+                + "Viewers would see no pointer.",
 
             TextCode.CqAboveCodecScale =>
-                $"{a.Codec} counts quality to {a.CqMax} on {Words.Engine(a.Engine)}, so the slider stops there. "
-                + "Each encoder has its own scale, and the same number is a different quality on each.",
+                $"The quality scale of {a.Codec} ends at {a.CqMax} on {Words.Engine(a.Engine)}, so the slider "
+                + "stops there. Each encoder has its own scale, and the same number means a different quality "
+                + "on each.",
 
             TextCode.BitrateAboveCodecLimit =>
-                $"{a.Codec} refuses a target above {a.BitrateLimitMbps} Mbit/s on {Words.Engine(a.Engine)}. "
-                + "It is the encoder's own limit, and an encode asking for more does not start.",
+                $"{a.Codec} does not accept a target above {a.BitrateLimitMbps} Mbit/s on {Words.Engine(a.Engine)}. "
+                + "It's the encoder's own limit, and an encode asking for more does not start.",
 
             TextCode.GopAboveCodecLimit =>
-                $"{a.Codec} holds a keyframe interval of at most {a.GopLimitFrames} frames on {Words.Engine(a.Engine)}. "
-                + "It is the encoder's own field, and an encode asking for a longer one does not start.",
+                $"{a.Codec} accepts a keyframe interval of at most {a.GopLimitFrames} frames on "
+                + $"{Words.Engine(a.Engine)}. An encode asking for a longer one does not start.",
 
             TextCode.DriverDefectWithholdsOption =>
-                $"{a.Codec} codes this, and the graphics driver here does not survive it: on {a.GpuModel} "
-                + "such a stream stops the share partway through and takes the picture down with it. "
-                + "The other choices on this control run on it.",
+                $"{a.Codec} supports this, but the graphics driver here crashes on it. On {a.GpuModel} "
+                + "such a stream stops partway and takes the picture down with it. "
+                + "The other choices on this control work.",
 
             TextCode.MaxrateOnlyInConstrainedVbr =>
-                "A ceiling belongs to the modes that let the rate move: capped variable bitrate, and constant quality. "
-                + "The others hold the target itself.",
+                "A ceiling applies only in the modes that let the rate move: capped variable bitrate and "
+                + "constant quality. The other modes hold the target itself.",
 
             TextCode.VbvOnlyInBoundedModes =>
-                "The buffer only means something while the encoder is holding a bandwidth figure.",
+                "The buffer matters only while the encoder holds a bitrate.",
 
             TextCode.NoCeilingInConstantQuality =>
-                $"{a.Codec} holds a quality target and spends whatever the picture costs, with nothing above it to "
-                + "stop at. Capped variable bitrate is the mode that bounds the rate on this encoder.",
+                $"In constant quality {a.Codec} takes no ceiling: the rate follows the picture. "
+                + "Capped variable bitrate bounds the rate on this encoder.",
 
             TextCode.VbvNeedsACeiling =>
-                "The buffer is how long the stream may sit above the ceiling. Set a ceiling and it applies to that.",
+                "The buffer sets how long the stream may stay above the ceiling. Set a ceiling first.",
 
             TextCode.BframesOffInMode =>
-                $"{Words.Mode(a.Mode)} switches these off: they would save nothing here and still add delay.",
+                $"{Words.Mode(a.Mode)} turns these off. They would add delay and save nothing in this mode.",
 
             TextCode.BframesOnlyOnFamilies =>
-                $"Only the {Words.List(a.Families.Select(Words.Family), "and")} encoders take these.",
+                $"Only the {Words.List(a.Families.Select(Words.Family), "and")} encoders accept these.",
 
             TextCode.CodecTakesNoEffortLadder =>
-                $"{a.Codec} has no such setting: how hard it works is that encoder's own to decide.",
+                $"{a.Codec} has no effort setting. The encoder decides on its own how hard it works.",
 
             TextCode.EffortPinnedByMode =>
                 $"{Words.Mode(a.Mode)} pins this to {Words.Effort(a.Effort)} for its low-delay tuning.",
 
             TextCode.CodecTakesNoTuneLadder =>
-                $"{a.Codec} tunes for nothing picked here: it encodes the picture the same way whatever it contains.",
+                $"{a.Codec} has no tune setting. It encodes the picture the same way whatever it contains.",
 
             TextCode.TunePinnedByMode =>
-                $"{Words.Mode(a.Mode)} pins this to {Words.Tune(a.Tune)}, which is what the mode is for.",
+                $"{Words.Mode(a.Mode)} pins this to {Words.Tune(a.Tune)}.",
 
             TextCode.AudioCodecNeedsSource =>
                 "No audio is being sent, so there is nothing to compress.",
 
             TextCode.EngineTagsStandardRange =>
-                $"{Words.Engine(a.Engine)} tags every stream standard range and cannot read what this screen is producing, "
-                + $"so ten bits buys precision here and not high dynamic range. {Words.Engine(a.OtherEngine)} carries it.",
+                $"{Words.Engine(a.Engine)} tags every stream as standard range and cannot read what this screen "
+                + $"produces. Ten bits adds precision here, not HDR. {Words.Engine(a.OtherEngine)} carries HDR.",
 
             TextCode.AudioEntryNeedsSource =>
                 "Pick where this row records from first.",
 
             TextCode.AudioSourceHasOneDevice =>
-                $"{Words.AudioSource(a.Audio)} has one device on this machine, so there is nothing to choose between.",
+                $"{Words.AudioSource(a.Audio)} has one device on this computer, so there is nothing to choose between.",
 
             TextCode.AudioDeviceNotEnumerated =>
-                "not here right now",
+                "not available right now",
 
             TextCode.AudioSourceUnservedByEngine =>
-                $"{Words.Engine(a.Engine)} has nothing that opens {Words.AudioSource(a.Audio)} audio. "
-                + $"Pick a capture method that runs {Words.Engine(a.OtherEngine)}.",
+                $"{Words.Engine(a.Engine)} cannot record this source. "
+                + $"Pick a capture method that uses {Words.Engine(a.OtherEngine)}.",
 
             TextCode.AudioSourceUnserved => a.Os switch
             {
-                "windows" => "Windows records one program's own sound only through its process id, which nothing "
-                    + "here can look up. Recording everything the machine plays reaches the same sound.",
-                "darwin" => "macOS offers no system-audio input device, so neither encoder can record what it plays. "
+                "windows" => "Windows exposes one program's sound only by its process id, which cannot be "
+                    + "looked up here. Record everything this computer plays instead.",
+                "darwin" => "macOS offers no system-audio input device, so desktop sound cannot be recorded. "
                     + "A loopback driver is the usual workaround.",
-                _ => $"{Words.OperatingSystem(a.Os)} offers nothing here that either encoder can record from.",
+                _ => $"{Words.OperatingSystem(a.Os)} offers no device either encoder can record from.",
             },
 
             TextCode.AudioSourceServer => a.Os switch
@@ -348,7 +348,7 @@ public static class Statements
                 "rav1e has no rate buffer, in any mode.",
 
             TextCode.GstRav1EncNoKeyframeInterval =>
-                "The GStreamer rav1e element has no keyframe-interval setting, so its own default stands.",
+                "The GStreamer rav1e element has no keyframe-interval setting. Its own default applies.",
 
             TextCode.GstNvencNoRateBuffer =>
                 "The GStreamer NVIDIA elements have no rate-buffer setting.",
@@ -357,35 +357,35 @@ public static class Statements
                 "The GStreamer Quick Sync elements have no rate-buffer setting. It works on ffmpeg.",
 
             TextCode.QualityCeilingRequired =>
-                $"{a.Codec} has no unbounded quality mode: it always codes toward a rate it stays under, so this is "
-                + "the one figure it cannot be left without.",
+                $"{a.Codec} has no unbounded quality mode. It always encodes toward a ceiling, "
+                + "so this figure is required.",
 
             TextCode.FixedFunctionAbrDerivesCeiling =>
-                "Hardware encoders always code against a ceiling, so this target is sent with twice itself as one. "
-                + "The average is what the target holds.",
+                "Hardware encoders always encode against a ceiling, so this target is sent with twice its "
+                + "value as one. The target holds the average.",
 
             TextCode.AmfCodesNoBframes =>
-                "AMD's encoders are driven with look-ahead frames switched off, so a live stream pays none of their delay.",
+                "AMD's encoders run with look-ahead frames off, so a live stream avoids their delay.",
 
             TextCode.FfmpegVaapiQualityIsTheDriversScale =>
-                "How hard this encoder works is left to the graphics driver here, which counts it on a scale of its "
-                + "own. A capture method that runs GStreamer offers the setting.",
+                "The graphics driver decides how hard this encoder works, on a scale of its own. "
+                + "A capture method that uses GStreamer offers the setting.",
 
             TextCode.VaapiCeilingBound =>
                 $"On this encoder the ceiling cannot exceed {Number(a.MaxrateMbps)} Mbit/s against a "
-                + $"{Decimal(a.BitrateMbps)} Mbit/s target. It sets the target as a percentage of the ceiling, "
-                + "and half is as low as it goes.",
+                + $"{Decimal(a.BitrateMbps)} Mbit/s target. The target is set as a percentage of the ceiling, "
+                + "and half is the minimum.",
 
             // Codec capability gaps.
 
             TextCode.GapNvencAv1NoLosslessTune =>
-                "NVIDIA's AV1 encoder has no lossless mode, unlike its H.264 and H.265 ones.",
+                "NVIDIA's AV1 encoder has no lossless mode. Its H.264 and H.265 encoders have one.",
 
             TextCode.GapGstVp9EncNoLossless =>
                 "The GStreamer VP9 element has no lossless setting. It works on ffmpeg.",
 
             TextCode.GapVp8HasNoLossless =>
-                "VP8 has no lossless mode at all. VP9 is the first of the two with one.",
+                "VP8 has no lossless mode. VP9 has one.",
 
             TextCode.GapGstAv1EncEightBitOnly =>
                 "The GStreamer libaom element takes 8-bit input only. 10-bit works on ffmpeg.",
@@ -394,15 +394,15 @@ public static class Statements
                 "Neither build exposes libaom's lossless switch.",
 
             TextCode.GapGstAv1EncNoColourDescription =>
-                "The GStreamer libaom element writes no colour information, so every viewer would expand the picture "
-                + "as limited range whatever is picked. It works on ffmpeg.",
+                "The GStreamer libaom element writes no color information, so every viewer would expand the "
+                + "picture as limited range whatever is picked. It works on ffmpeg.",
 
             TextCode.GapSvtav1NoLossless =>
                 "SVT-AV1 has no lossless mode.",
 
             TextCode.GapSvtav1NoConstrainedVbr =>
-                "SVT-AV1 refuses a ceiling outside quality mode, so no build can cap its bursts. "
-                + "Average bitrate is the same encode under a name that fits it.",
+                "SVT-AV1 accepts no ceiling outside quality mode, so its bursts cannot be capped. "
+                + "Average bitrate produces the same encode.",
 
             TextCode.GapGstSvtav1EncNoCbr =>
                 "The GStreamer SVT-AV1 element stalls in the mode constant bitrate needs. It works on ffmpeg.",
@@ -411,150 +411,153 @@ public static class Statements
                 "rav1e has no lossless mode.",
 
             TextCode.GapRav1ENoConstrainedVbr =>
-                "rav1e takes one bitrate target and nothing above it, so no build can cap its bursts. "
-                + "Average bitrate is the same encode under a name that fits it.",
+                "rav1e takes one bitrate target and no ceiling, so its bursts cannot be capped. "
+                + "Average bitrate produces the same encode.",
 
             TextCode.GapAmfAv1LimitedRangeOnly =>
-                "AMD's AV1 encoder marks everything as limited range whatever it is given, so a full-range stream "
-                + "would arrive stretched at every viewer.",
-
-            TextCode.GapVulkanAv1LimitedRangeOnly =>
-                "The Vulkan AV1 encoder marks everything as limited range whatever it is given, so a full-range "
+                "AMD's AV1 encoder marks everything as limited range whatever it is given, so a full-range "
                 + "stream would arrive stretched at every viewer.",
 
+            TextCode.GapVulkanAv1LimitedRangeOnly =>
+                "The Vulkan AV1 encoder marks everything as limited range whatever it is given, so a "
+                + "full-range stream would arrive stretched at every viewer.",
+
             TextCode.GapVaapiNoLossless =>
-                "Intel and AMD's fixed-function encoders quantize every frame. No profile they implement is lossless.",
+                "Intel and AMD's fixed-function encoders quantize every frame. No profile they implement "
+                + "is lossless.",
 
             TextCode.GapGstVaNoColourDescription =>
-                "The GStreamer VAAPI elements write no colour information, so every viewer would expand the picture "
-                + "as limited range whatever is picked. It works on ffmpeg.",
+                "The GStreamer VAAPI elements write no color information, so every viewer would expand the "
+                + "picture as limited range whatever is picked. It works on ffmpeg.",
 
             TextCode.GapQsvNoLossless =>
                 "Quick Sync quantizes every frame. Intel's runtime exposes no lossless path.",
 
             TextCode.GapGstAmfcodecWindowsOnly =>
-                "The GStreamer AMD plugin is built for Windows only. AMD's encoders are reachable through ffmpeg.",
+                "The GStreamer AMD plugin is built for Windows only. AMD's encoders are available through ffmpeg.",
 
             TextCode.GapAmfNoLossless =>
                 "AMD's fixed-function encoders quantize every frame. No profile they implement is lossless.",
 
             TextCode.GapGstVulkanNoCaptureMemory =>
                 "The GStreamer Vulkan encoder reads frames no capture method on that engine produces. "
-                + "Vulkan encoding is reachable through ffmpeg.",
+                + "Vulkan encoding is available through ffmpeg.",
 
             TextCode.GapVulkanNoLossless =>
-                "Vulkan's lossless setting is a hint rather than a mode, and its encoders quantize under it anyway.",
+                "Vulkan's lossless setting is a hint rather than a mode, and its encoders quantize under "
+                + "it anyway.",
 
             TextCode.GapVp8HasNoColourRangeField =>
-                "VP8 has nowhere in its stream to record the colour range, so every viewer would expand the picture "
-                + "as limited range. The other formats carry it and reach both.",
+                "VP8 has nowhere in its stream to record the color range, so every viewer would expand the "
+                + "picture as limited range. The other formats carry the range.",
 
             TextCode.GapGstSoftwareNoRateCeiling =>
-                "No GStreamer CPU encoder takes a ceiling above the target, so capped variable bitrate needs ffmpeg. "
-                + "Average bitrate is the same encode under a name that fits it.",
+                "No GStreamer CPU encoder takes a ceiling above the target, so capped variable bitrate needs "
+                + "ffmpeg. Average bitrate produces the same encode.",
 
             TextCode.GapGstElementsNoPlanarRgb =>
-                "The GStreamer H.265, VP9 and AV1 elements take no RGB input. Sending the desktop's own pixels "
-                + "needs a capture method that runs ffmpeg.",
+                "The GStreamer H.265, VP9 and AV1 elements take no RGB input. Sending the desktop's own "
+                + "pixels needs a capture method that uses ffmpeg.",
 
             TextCode.GapGstAv1EncNoTune =>
-                "This AV1 encoder aims at nothing in particular on a GStreamer capture method. Picking what it "
-                + "optimises for needs a capture method that runs ffmpeg.",
+                "This AV1 encoder has no tune setting on a GStreamer capture method. Picking one needs a "
+                + "capture method that uses ffmpeg.",
 
             TextCode.GapGstQsvNoScenario =>
-                "The GStreamer Quick Sync elements take no scenario, so telling the encoder what the session is "
-                + "for needs a capture method that runs ffmpeg.",
+                "The GStreamer Quick Sync elements take no scenario setting. Setting one needs a capture "
+                + "method that uses ffmpeg.",
 
             TextCode.GapVideotoolboxNoLossless =>
-                "The Mac encoder compresses every frame and has no exact mode. Encoding on the CPU reaches one.",
+                "The Mac hardware encoder compresses every frame and has no lossless mode. "
+                + "The CPU encoders have one.",
 
             TextCode.GapVideotoolboxAverageBitrateOnly =>
-                "The Mac encoder aims at an average bitrate and takes no ceiling and no quality target. "
-                + "Average bitrate is the mode it codes.",
+                "The Mac hardware encoder targets an average bitrate only, with no ceiling and no quality target.",
 
             // Diagnostics.
 
             TextCode.PublishRefused =>
                 "These settings cannot be published as they stand.",
 
-            // Names the one move that puts the reader back in: everything else about a close is the child's
-            // own words, printed beside this.
+            // Names the one move that puts the reader back in:
+            // everything else about a close is the child's own words, printed beside this.
             TextCode.GroupMembershipLapsed =>
-                "This machine is not a member of the group, so the relay closes what it holds there. "
-                + "Join the group to send and to watch on it.",
+                "This computer is not a member of the group, so the relay closes its streams there. "
+                + "Join the group to send and watch.",
 
-            // Names the group holding it and never the member: an id says who holds a name, and printing one
-            // beside a name a reader chose is a string they cannot act on.
+            // Names the group holding it and never the member: an id says who holds a name,
+            // and printing one beside a name a reader chose is a string they cannot act on.
             TextCode.GroupNameTaken =>
                 "Another member of this group holds that name. Pick a different one to join under.",
 
             TextCode.GroupNameMissing =>
-                "Joining a group takes a name this machine goes by. Set one under Relay.",
+                "Joining a group needs a name for this computer. Set one under Relay.",
 
-            // The nested statement is the relay's own, quoted through the same recursion a cost or a reach is
-            // (Sentences), and it carries what the reader can do about it.
+            // The nested statement is the relay's own, carrying what the reader can do about it.
+            // Quoted through the same recursion a cost or a reach is (Sentences).
             TextCode.GroupServiceRefused => Sentences(
-                "The relay refused this machine's presence in the group",
+                "The relay refused this computer's membership in the group",
                 Of(a.Cause)),
 
             TextCode.StreamLeftTheRelay =>
-                "The stream stopped arriving at the relay, so there is nothing on this path to receive.",
+                "The stream stopped arriving at the relay, so there is nothing to receive on this path.",
 
             // The audience and the wire.
 
             TextCode.StreamIsPublic =>
-                "No group key is set, so this stream goes out where anyone who knows the relay address can watch it. "
-                + "It is still encrypted on the way there. Create a group and hand the key to the people who should "
-                + "see it, or leave this as it is if the stream is meant to be open.",
+                "No group key is set, so anyone who knows the relay address can watch this stream. "
+                + "The connection is still encrypted. Create a group and share the key to restrict "
+                + "watching, or leave it open.",
 
             TextCode.EncryptionFollowsTheAddress =>
-                "Whether the connection is encrypted follows the relay address above and is not a setting, so this "
-                + "box is a reading rather than a switch. A relay on this machine or the local network is reached "
-                + "directly; anything else is encrypted, with no way to turn that off.",
+                "Encryption follows the relay address above. This box shows the result rather than setting it. "
+                + "A relay on this computer or the local network is reached directly. Anything further away "
+                + "is always encrypted.",
 
             TextCode.EncryptedRtspInterleavesRtp =>
-                "An encrypted RTSP session carries the video inside its TLS connection. Sending it over UDP would put "
-                + "the picture on the wire beside that connection unencrypted, so TCP is the only choice here.",
+                "An encrypted RTSP session carries the video inside its TLS connection. UDP would put the "
+                + "picture on the wire unencrypted, so TCP is the only choice here.",
 
             TextCode.NoUplinkStated =>
-                "No upload speed is set, so nothing checks the stream against the connection. Measure it or type it "
-                + "in, and a configuration this line cannot carry will say so here instead of at the viewers.",
+                "No upload speed is set, so the stream is not checked against the connection. Measure or "
+                + "enter it. A configuration the connection cannot carry then shows up here instead of at "
+                + "the viewers.",
 
             TextCode.UplinkBelowPrediction =>
-                $"This is predicted to need about {Decimal(a.BitrateMbps)} Mbit/s, and the upload speed is "
-                + $"{Number(a.UplinkMbps)} Mbit/s. The encoder does not slow down to fit: the stream queues, packets "
-                + "are dropped, and viewers see it stall rather than soften.",
+                $"This stream is predicted to need about {Decimal(a.BitrateMbps)} Mbit/s, but the upload "
+                + $"speed is {Number(a.UplinkMbps)} Mbit/s. The encoder does not slow down to fit. "
+                + "Packets get dropped and viewers see the stream stall.",
 
             TextCode.BurstAboveUplink =>
-                $"These settings run between about {Decimal(a.LowMbps)} and {Decimal(a.HighMbps)} Mbit/s depending on "
-                + $"what is on screen, and the top of that is above the {Number(a.UplinkMbps)} Mbit/s upload speed. "
-                + $"{Burst(a.Mode)} A still desktop will go out fine and a moving one will not.",
+                $"These settings need between about {Decimal(a.LowMbps)} and {Decimal(a.HighMbps)} Mbit/s, "
+                + "depending on what is on screen. The peak is above the "
+                + $"{Number(a.UplinkMbps)} Mbit/s upload speed. "
+                + $"{Burst(a.Mode)} A still desktop goes out fine, a moving one does not.",
 
             TextCode.FpsAboveRefresh =>
                 $"This asks for {Number(a.Fps)} frames a second from a screen that produces "
-                + $"{Number(a.RefreshHz)}. The extra frames are copies of the last one: they cost bandwidth and add "
+                + $"{Number(a.RefreshHz)}. The extra frames are copies. They cost bandwidth and add "
                 + "no smoothness.",
 
             TextCode.MonitorNotPriced =>
                 "The selected screen is not connected, so there is no picture size to predict from.",
 
             TextCode.NoPictureToPrice =>
-                "These settings do not add up to a picture that can be predicted from.",
+                "No prediction is possible from these settings.",
 
             TextCode.CompressionRatio => a.BitrateMbps > 0
-                ? $"This screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed, and this is predicted to send "
-                  + $"{Decimal(a.BitrateMbps)} Mbit/s of it, about {Number((long)Math.Round(a.RawMbps / a.BitrateMbps))}:1."
+                ? $"This screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed. The stream is predicted "
+                  + $"to send {Decimal(a.BitrateMbps)} Mbit/s, "
+                  + $"about {Number((long)Math.Round(a.RawMbps / a.BitrateMbps))}:1."
                 : $"This screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed.",
 
             // Presets.
 
             // The sentence names the preset although it prints under the row that already does, so it still says
             // what it is about wherever it is shown.
-            // The publish leg is the one dimension the search does not move, so it is what is left to change.
             TextCode.PresetUnreachable =>
-                $"Nothing this machine can run delivers {Words.Preset(a.Preset)} over "
-                + $"{Words.Transport(a.Transport)}. Nothing was changed: a near miss under this "
-                + "name would be settings nobody asked for.",
+                $"This computer cannot deliver {Words.Preset(a.Preset)} over "
+                + $"{Words.Transport(a.Transport)}. The settings were left unchanged.",
 
             // Notices.
 
@@ -567,14 +570,15 @@ public static class Statements
                 : "The saved presets could not be read, so none are listed.",
 
             // Legs of a relay check nothing was asked of.
-            // Each says what is so rather than what is missing: a reader who has never heard of these listeners
-            // gets a fact about their relay, not a capability taken away.
+            // Each says what is so rather than what is missing:
+            // a reader who never heard of these listeners gets a fact about their relay,
+            // not a capability taken away.
 
             TextCode.RelayLegNoRelay =>
-                "No relay is set, so there is no address to reach this on.",
+                "No relay is set, so there is no address to check.",
 
             TextCode.RelayLegLoopbackOnly =>
-                "This one answers on the relay's own machine only, so it is not reached from here.",
+                "This listener answers only on the relay's own computer, so it cannot be reached from here.",
 
             // A backend newer than this build.
             // The code is printed so it can be searched for and reported.
@@ -591,8 +595,8 @@ public static class Statements
     /// </summary>
     private static string Burst(string mode) => mode switch
     {
-        "crf" => "Constant quality sets no bandwidth bound at all, so what goes out is whatever the picture costs.",
-        "lossless" => "A lossless encode spends whatever the picture costs and approaches the raw rate on motion.",
+        "crf" => "Constant quality sets no upper bound, so the rate follows the picture.",
+        "lossless" => "A lossless encode approaches the raw rate on motion.",
         "vbr" => "Variable bitrate averages toward the target and bursts to the ceiling above it.",
         _ => "",
     };
@@ -622,8 +626,8 @@ public static class Statements
     private static string Number(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
     /// <summary>
-    /// Whole figure with no grouping, for the ones that are identifiers rather than quantities: a pixel dimension
-    /// is written 2560 everywhere, and a separator in one reads as a different number.
+    /// Whole figure with no grouping, for the ones that are identifiers rather than quantities:
+    /// a pixel dimension is written 2560 everywhere, and a separator in one reads as a different number.
     /// </summary>
     private static string Plain(long value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -643,8 +647,8 @@ public static class Statements
 
     /// <summary>
     /// Arguments of one statement, read by name and never by position.
-    /// A statement carries the arguments its facts needed and leaves out the rest, so a reader keyed on position
-    /// would silently shift.
+    /// A statement carries the arguments its facts needed and leaves out the rest,
+    /// so a reader keyed on position would silently shift.
     /// </summary>
     private readonly struct Args(Text text)
     {

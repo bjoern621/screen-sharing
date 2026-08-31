@@ -6,18 +6,21 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// How this shell names one option of one control, and what it says about it.
 ///
-/// The field key is the switch and the value the lookup, a value alone not identifying an entry: <c>auto</c>
-/// under the frame path and <c>auto</c> under the download route are different entries.
+/// The field key is the switch and the value the lookup, a value alone not identifying an entry:
+/// <c>auto</c> under the frame path and <c>auto</c> under the download route are different entries.
 /// A control added to the contract is a row here and a change nowhere else.
 ///
-/// Two entries need more than their own value and both read the catalog: a capture backend takes the engine that
-/// reads it, and a monitor the size and refresh rate of the output at that index.
-/// The catalog is absent until the first read lands, so every method answers without one: a screen falls back to
-/// its index, which is what the backend called it.
+/// Two entries need more than their own value and both read the catalog:
+/// a capture backend takes the engine that reads it, and a monitor the size and refresh rate at that index.
+/// The catalog is absent until the first read lands, so every method answers without one:
+/// a screen falls back to its index, which is what the backend called it.
 /// </summary>
 public sealed class Vocabulary
 {
-    /// <summary>Used before the catalog arrives. Every method answers, some more briefly.</summary>
+    /// <summary>
+    /// Used before the catalog arrives.
+    /// Every method answers, some more briefly.
+    /// </summary>
     public static readonly Vocabulary Empty = new(null);
 
     private readonly Catalog? _catalog;
@@ -77,12 +80,12 @@ public sealed class Vocabulary
 
     /// <summary>
     /// What one group settled on, in the few words a step chip repeats.
-    /// Composed here rather than received: the separator, the abbreviation and the length are the strip's
-    /// decisions.
+    /// Composed here rather than received: the separator, the abbreviation and the length are the strip's.
     /// The values behind it are the draft's, so it says nothing the form does not.
-    /// A group with nothing worth a line answers with nothing: the relay settles on an address and seven ports,
-    /// and "8890 · 8322 · 8889" beside a step name says less than a blank, a port meaning nothing without the
-    /// label it sat under.
+    /// A group with nothing worth a line answers with nothing:
+    /// the relay settles on an address and a port per listener,
+    /// and "8890 · 8322 · 8889" beside a step name says less than a blank,
+    /// a port meaning nothing without the label it sat under.
     /// </summary>
     public string Shorthand(FieldGroup? group, Settings? settings)
     {
@@ -99,8 +102,8 @@ public sealed class Vocabulary
             "quality" => Join(Words.Format(publish.Format), Quality(publish, CeilingOf(group))),
             "audio" => AudioShorthand(publish),
             "transport" => Words.Transport(publish.PublishTransport),
-            // The tile's leg, the group's only one: a player and a browser page take theirs from the roster, per
-            // press.
+            // The tile's leg, the group's only one:
+            // a player and a browser page take theirs from the roster, per press.
             "watch" => Words.Transport(settings.Viewer.TileWatchTransport),
             "relay" => settings.Relay.Host,
             _ => "",
@@ -110,8 +113,8 @@ public sealed class Vocabulary
     /// <summary>
     /// What the rate control settled on, with the number each mode is holding.
     /// The mode's name alone is not the answer: "20 Mbit/s" is what a reader checks against their connection.
-    /// A quality target holds no number a line can be read against, so it carries the rate it is held to where
-    /// there is one: <c>quality 18, up to 45 Mbit/s</c>.
+    /// A quality target holds no number a line can be read against,
+    /// so it carries the rate it is held to where there is one: <c>quality 18, up to 45 Mbit/s</c>.
     /// </summary>
     private static string Quality(PublishSettings s, double? ceilingMbps) => s.Mode switch
     {
@@ -127,11 +130,10 @@ public sealed class Vocabulary
 
     /// <summary>
     /// Rate this encode is held to, null where it is held to none.
-    /// Read off the ceiling control the backend offered rather than off the settings value beside it: whether a
-    /// ceiling reaches the encoder is the mode's and the element's answer, and the form states it by offering the
-    /// field or greying it (<c>docs/field-availability.md</c>).
-    /// A control the form withheld therefore says nothing here, which is what keeps the line from naming a bound
-    /// nothing is holding.
+    /// Read off the ceiling control the backend offered rather than off the settings value beside it:
+    /// whether a ceiling reaches the encoder is the mode's and the element's answer,
+    /// and the form states it by offering the field or greying it (<c>docs/field-availability.md</c>).
+    /// A control the form withheld says nothing here, so the line never names a bound nothing is holding.
     /// </summary>
     private static double? CeilingOf(FieldGroup group)
     {
@@ -161,10 +163,10 @@ public sealed class Vocabulary
 
     /// <summary>
     /// What the second track is mixed from, at a step chip's width.
-    /// One source is named and several are counted, a chip listing three kinds being one nobody reads at a
-    /// glance.
-    /// An entry recording nothing is not a source: the list carries a row for a reader to grow it by, and one
-    /// turned off keeps its place until the next resolve takes it away.
+    /// One source is named and several are counted, a chip listing three kinds being one nobody reads at a glance.
+    /// An entry recording nothing is not a source:
+    /// the list carries a row for a reader to grow it by,
+    /// and one turned off keeps its place until the next resolve takes it away.
     /// </summary>
     private string AudioShorthand(PublishSettings s)
     {
@@ -194,8 +196,8 @@ public sealed class Vocabulary
 
     /// <summary>
     /// A capture backend named by what it reads and by the engine reading it.
-    /// The engine is half the choice: it decides which encoders and transports the rest of the form offers, and
-    /// it is what a refusal elsewhere asks the reader to change.
+    /// The engine is half the choice: it decides which encoders and transports the rest of the form offers,
+    /// and it is what a refusal elsewhere asks the reader to change.
     /// Without the catalog, and for a source newer than its rows, the source name stands alone.
     /// </summary>
     private string Capture(string value)
@@ -224,8 +226,8 @@ public sealed class Vocabulary
 
     /// <summary>
     /// A pixel format, the identifier kept beside the plain-language half.
-    /// <c>yuv420p</c> is what the command preview prints and what every answer found elsewhere calls it, so
-    /// dropping it would make this app the one place it has another name.
+    /// <c>yuv420p</c> is what the command preview prints and what every answer found elsewhere calls it,
+    /// so dropping it would make this app the one place it has another name.
     /// </summary>
     private static string Chroma(string value)
     {
@@ -257,9 +259,9 @@ public sealed class Vocabulary
     /// <summary>
     /// One device inside an audio kind.
     /// The empty value is the kind's default, following whatever the system is set to.
-    /// Anything else is named off the catalog's enumeration and falls back to the handle: a device the
-    /// enumeration no longer reports is one the settings still carry, and naming what a publish would open beats
-    /// a blank.
+    /// Anything else is named off the catalog's enumeration and falls back to the handle:
+    /// a device the enumeration does not report is one the settings still carry,
+    /// and naming what a publish would open beats a blank.
     /// </summary>
     private string Device(string value)
     {
@@ -289,8 +291,8 @@ public sealed class Vocabulary
 
     /// <summary>
     /// A step of the frame-rate ladder, carrying its unit.
-    /// The field states the unit beside its label, but an opened menu is read away from that label, where "60"
-    /// and "120" say what they are only to a reader still holding the heading in view.
+    /// The field states the unit beside its label, but an opened menu is read away from that label,
+    /// where "60" and "120" say what they are only to a reader still holding the heading in view.
     /// </summary>
     private static string Rate(string value) => $"{value} fps";
 
@@ -303,8 +305,7 @@ public sealed class Vocabulary
     /// <summary>What scaling trades, said once for every entry that scales.</summary>
     private static string Scaling(string value) => value.Length == 0
         ? ""
-        : "Costs sharpness and saves everything downstream at once: fewer bits to encode, to upload and for "
-          + "viewers to decode.";
+        : "Costs sharpness and saves everything at once: encoding, upload, and decoding.";
 
     private VideoCodec? Row(string name)
     {

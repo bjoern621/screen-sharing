@@ -7,21 +7,19 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// Import path for a handle the compositor takes itself: a shared texture named to Avalonia's device and drawn as
-/// a composition visual.
+/// Import path for a handle the compositor takes itself: a shared texture named to Avalonia's device,
+/// drawn as a composition visual.
 ///
-/// No pixel is read.
-/// The decoder writes the texture, the frame channel carries its name, and the name goes to the compositor:
-/// nothing in a message, nothing in system memory, nothing copied here (<c>docs/viewer-architecture.md</c>, "The
-/// frame channel").
+/// No pixel read: the decoder writes the texture, the frame channel carries its name,
+/// and the name goes to the compositor (<c>docs/viewer-architecture.md</c>, "The frame channel").
 ///
-/// Deliberately not a <see cref="NativeControlHost"/>.
-/// Handing GStreamer a window handle is easier and wrong: a native child window paints over every Avalonia
-/// control, burying the name, the badge and the stats panel that belong above the video.
-/// A composition visual sits among the others (<c>avalonia/README.md</c>).
+/// Not a <see cref="NativeControlHost"/>.
+/// A native child window paints over every Avalonia control,
+/// burying the name, the badge and the stats panel that belong above the video.
+/// A composition visual sits among them (<c>avalonia/README.md</c>).
 ///
-/// A frame is a slot on loan, returned once the compositor has taken it, which
-/// <see cref="CompositionDrawingSurface.UpdateWithKeyedMutexAsync"/> resolves on.
+/// A frame is a slot on loan, returned once the compositor has taken it,
+/// which <see cref="CompositionDrawingSurface.UpdateWithKeyedMutexAsync"/> resolves on.
 /// A slow tile costs frames the backend drops, and never a torn picture or a stalled pipeline.
 /// </summary>
 internal sealed class SharedTextureSurface : Control, ITileSurface
@@ -40,14 +38,13 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
 
     /// <summary>
     /// Imports of the live pool, by slot index.
-    /// Each is imported once and drawn from repeatedly; importing per frame would cross the graphics driver per
-    /// frame.
+    /// Each is imported once and drawn from repeatedly, an import per frame being a driver crossing per frame.
     /// </summary>
     private readonly List<ICompositionImportedGpuImage> _slots = [];
 
     /// <summary>
-    /// Keyed-mutex keys, taken crossed: this side acquires on the pool's consumer key and releases on its producer
-    /// key, so neither end hardcodes a number the other picked.
+    /// Keyed-mutex keys, taken crossed: acquire on the pool's consumer key, release on its producer key,
+    /// so neither end hardcodes a number the other picked.
     /// Zero on a handle type synchronized some other way.
     /// </summary>
     private uint _acquireKey;
@@ -109,12 +106,12 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
             return "This window's renderer cannot import a shared texture.";
         }
 
-        // Queried of the renderer rather than derived from the platform, and refused outright: copying through
-        // system memory is the gigabyte-a-second fallback the frame channel exists to avoid.
+        // Queried of the renderer rather than derived from the platform, and refused outright:
+        // copying through system memory is the gigabyte-a-second fallback the frame channel exists to avoid.
         var handleType = HandleTypeOf(pool.HandleType);
         if (handleType is null || !interop.SupportedImageHandleTypes.Contains(handleType))
         {
-            return "This window's renderer cannot open the kind of shared frame this machine decodes into.";
+            return "This window's renderer cannot open the kind of shared frame this computer decodes into.";
         }
 
         var properties = new PlatformGraphicsExternalImageProperties
@@ -140,9 +137,9 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
 
     /// <summary>
     /// Draws one lent slot, resolving when the compositor has taken it.
-    /// Flow control lives in that await: it marks the slot genuinely free, so the release behind it reports rather
-    /// than assumes, and a tile the compositor serves slowly stops asking for frames instead of overwriting one
-    /// still being drawn.
+    /// Flow control lives in that await: it marks the slot free,
+    /// so the release behind it reports rather than assumes,
+    /// and a tile the compositor serves slowly stops asking for frames instead of overwriting one being drawn.
     /// </summary>
     public Task DrawAsync(uint slot, CancellationToken cancellation)
     {
@@ -155,9 +152,10 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
     }
 
     /// <summary>
-    /// Discards the imports of a pool no longer current.
-    /// Awaited, not fired off: the release runs on the render thread while the backend frees the texture as the
-    /// call ends, and one still in flight would land on memory that is gone.
+    /// Discards the imports of a replaced pool.
+    /// Awaited, not fired off.
+    /// The release runs on the render thread while the backend frees the texture as the call ends,
+    /// so one still in flight would land on memory that is gone.
     /// </summary>
     private async Task ReleaseAsync()
     {
@@ -173,8 +171,7 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
 
     /// <summary>
     /// Toolkit's name for a handle type the backend lends, null for one this surface leaves alone.
-    /// A table rather than a guess: two graphics backends on one operating system import different sets, hence the
-    /// supported list being queried instead of inferred from the platform.
+    /// Two graphics backends on one operating system import different sets.
     /// </summary>
     private static string? HandleTypeOf(FrameHandleType type) => type switch
     {

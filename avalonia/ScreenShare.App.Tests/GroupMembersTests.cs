@@ -6,10 +6,10 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The group is a reading and never a list this shell keeps: every member's own app states its presence, and one
-/// that stopped drops out by not appearing.
-/// So the card renders whatever the last answer named, says which row is this machine, and offers exactly one of
-/// the two actions.
+/// The group is a reading and never a list this shell keeps:
+/// every member's own app states its presence, and one that stopped drops out by not appearing.
+/// The card renders whatever the last answer named, says which row is this machine,
+/// and offers exactly one of the two actions.
 /// </summary>
 public sealed class GroupMembersTests
 {
@@ -51,8 +51,8 @@ public sealed class GroupMembersTests
     }
 
     /// <summary>
-    /// A member the service named with no display name is still a member, and the id is what a bug report
-    /// carries.
+    /// A member the service named with no display name is still a member,
+    /// and the id is what a bug report carries.
     /// </summary>
     [Fact]
     public void AMemberWithNoNameIsListedUnderItsIdentity()
@@ -90,8 +90,8 @@ public sealed class GroupMembersTests
     }
 
     /// <summary>
-    /// A name another member holds leaves the list empty on a group that has people in it, so the refusal is the
-    /// whole of what the reader can act on.
+    /// A name another member holds leaves the list empty on a group that has people in it,
+    /// so the refusal is the whole of what the reader can act on.
     /// </summary>
     [Fact]
     public void ARefusedNameIsSaidBesideTheActions()
@@ -117,7 +117,7 @@ public sealed class GroupMembersTests
         card.Reported = state;
         card.Apply();
 
-        Assert.Contains("name this machine goes by", card.Refusal);
+        Assert.Contains("needs a name for this computer", card.Refusal);
     }
 
     /// <summary>Three absences, and a reader has a different thing to do next in each.</summary>
@@ -187,8 +187,8 @@ public sealed class GroupMembersTests
     }
 
     /// <summary>
-    /// Rows are records, so an unchanged answer leaves the bound list where it is and nothing under the pointer
-    /// repaints.
+    /// Rows are records, so an unchanged answer leaves the bound list where it is,
+    /// and nothing under the pointer repaints.
     /// </summary>
     [Fact]
     public void ASecondPassOverOneAnswerRebuildsNothing()

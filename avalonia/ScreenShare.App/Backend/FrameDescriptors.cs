@@ -24,8 +24,7 @@ internal static class FrameDescriptors
     /// <summary>
     /// One descriptor per slot, in index order.
     /// Off the UI thread, being a socket round trip with another process, and bounded by the caller's
-    /// cancellation: a backend that died mid-pool leaves a socket that accepts and never answers, otherwise a
-    /// tile waiting for the rest of the run.
+    /// cancellation: a backend that died mid-pool leaves a socket that accepts and never answers.
     /// </summary>
     public static Task<int[]> ReceiveAsync(string socketPath, int slots, CancellationToken cancellation)
     {
@@ -51,7 +50,8 @@ internal static class FrameDescriptors
                 {
                     Close(descriptor);
                     throw new BackendUnavailableException(
-                        $"The backend lent slot {index} where slot {received} was expected.");
+                        $"This window could not take on the frames: the backend lent slot {index} "
+                        + $"where slot {received} belongs.");
                 }
                 descriptors[received] = descriptor;
             }
@@ -103,13 +103,15 @@ internal static class FrameDescriptors
             if (error is not (EAGAIN or EINTR))
             {
                 throw new BackendUnavailableException(
-                    $"The frames' descriptors could not be read: error {error}.");
+                    $"This window could not take on the frames: the read from the backend "
+                    + $"reported error {error}.");
             }
         }
 
         if (read != 1)
         {
-            throw new BackendUnavailableException("The backend closed the descriptor socket early.");
+            throw new BackendUnavailableException(
+                "This window could not take on the frames: the backend stopped lending them part way through.");
         }
 
         // One right per message, and it is a descriptor.
@@ -119,7 +121,8 @@ internal static class FrameDescriptors
         if ((long)message.ControlLength < ControlSpace || header->Level != SOL_SOCKET ||
             header->Type != SCM_RIGHTS)
         {
-            throw new BackendUnavailableException("The backend sent a frame slot with no descriptor.");
+            throw new BackendUnavailableException(
+                "This window could not take on the frames: the backend named a slot and lent nothing with it.");
         }
 
         return (payload[0], *(int*)(control + ControlDataOffset));
@@ -163,9 +166,9 @@ internal static class FrameDescriptors
 
     /// <summary>
     /// Control buffer's shape, <c>CMSG_SPACE(sizeof(int))</c> written out.
-    /// Computed from the pointer size rather than pinned to the 64-bit numbers: the header's first field is a
-    /// <c>size_t</c> and aligns to the same word, so the layout the kernel writes differs between a 64-bit and a
-    /// 32-bit build of this app.
+    /// Computed from the pointer size rather than pinned to the 64-bit numbers:
+    /// the header's first field is a <c>size_t</c> and aligns to the same word,
+    /// so the layout the kernel writes differs between a 64-bit and a 32-bit build of this app.
     /// </summary>
     private static readonly int ControlDataOffset = Align(IntPtr.Size + sizeof(int) + sizeof(int));
     private static readonly int ControlSpace = ControlDataOffset + Align(sizeof(int));

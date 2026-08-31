@@ -3,12 +3,12 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
-/// One reading of the running stream, composed from three states the backend reports: the publish state, the
-/// newest encoder sample and the relay snapshot.
+/// One reading of the running stream, composed from three states the backend reports: the publish state,
+/// the newest encoder sample and the relay snapshot.
 /// Record, so a pass over an unchanged reading compares equal and every card below leaves its widgets alone.
 ///
-/// <b>Figures are nullable, "not measured" being a state this screen shows.</b> It prints as
-/// <see cref="Figure.NoValue"/>; a zero is a measurement.
+/// <b>Figures are nullable, "not measured" being a state this screen shows.</b> It prints
+/// as <see cref="Figure.NoValue"/>, and a zero is a measurement.
 /// Three sources of absence arrive undistinguished, the reader's question being the same in all three: nothing
 /// publishing, no first packet muxed, or a sample carrying no value for the figure.
 /// What the screen draws is this reading with each gap filled from the last pass that measured it
@@ -17,14 +17,14 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 /// <b>Round trip and loss are per reader, on the legs the relay instruments, so neither has a stream-wide
 /// value.</b> <see cref="RttMs"/> and <see cref="LossPercent"/> are the worst reader's, labelled as such wherever
 /// they are drawn.
-/// A mean would be a figure no viewer is experiencing, and would average one struggling reader away.
+/// A mean would be a figure no viewer is experiencing and would average one struggling reader away.
 ///
 /// <b><see cref="CongestionAt"/> is permanently absent.</b> The relay states figures as they stand at each poll
 /// and marks no interval, so naming where a congestion window started would be a detection this shell performed
 /// and attributed to the backend.
-/// Kept and shown absent rather than dropped, on the rule that greys an option instead of removing it: an absent
-/// figure reads as unmeasured, a missing row as nothing to measure (<c>docs/field-availability.md</c>, "The
-/// rule").
+/// Kept and shown absent rather than dropped, on the rule that greys an option instead of removing it:
+/// an absent figure reads as unmeasured, a missing row as nothing to measure
+/// (<c>docs/field-availability.md</c>, "The rule").
 /// </summary>
 public sealed record BroadcastSnapshot
 {
@@ -47,8 +47,8 @@ public sealed record BroadcastSnapshot
 
     /// <summary>
     /// What ended the pipeline this relaunch follows, absent where nothing named it.
-    /// Read off the state rather than off the exit event, so a window that opened mid-backoff says why as well as
-    /// one that was listening when the pipeline died.
+    /// Read off the state rather than off the exit event, so a window that opened mid-backoff says why as well
+    /// as one that was listening when the pipeline died.
     /// </summary>
     public Text? RetryCause { get; init; }
 
@@ -67,9 +67,9 @@ public sealed record BroadcastSnapshot
     public double? Fps { get; init; }
 
     /// <summary>
-    /// Milliseconds this machine holds a frame between reading it off the screen and having it encoded and ready
-    /// to send, measured on the running pipeline over the last interval.
-    /// The one stage of the delay to a viewer this side both causes and can shorten, hence the figure the publish
+    /// ms this machine holds a frame between reading it off the screen and having it encoded and ready to send,
+    /// measured on the running pipeline over the last interval.
+    /// The one stage of a viewer's delay this side both causes and can shorten, hence the figure the publish
     /// screen promotes rather than the windows the transports hold packets for.
     /// Absent on an engine that measures none, and on the first sample of a run.
     /// </summary>
@@ -97,8 +97,8 @@ public sealed record BroadcastSnapshot
     /// SRT is the one leg the relay times, so a stream watched over anything else has viewers and no round trip,
     /// and this is what a sentence about an untimed figure names.
     ///
-    /// One comma-separated string rather than a list: this record's equality keeps an unchanged pass from
-    /// repainting, and a fresh list compares unequal every pass.
+    /// One comma-separated string rather than a list: this record's equality keeps an unchanged pass
+    /// from repainting, and a fresh list compares unequal every pass.
     /// </summary>
     public string Legs { get; init; } = "";
 
@@ -178,8 +178,8 @@ public sealed record BroadcastSnapshot
     /// Relay entry for one stream.
     /// Null on no snapshot, no stream, an unreachable relay, or no path by that name yet: a stream that has just
     /// started publishes before the relay's next poll sees it.
-    /// Every relay figure on this screen goes through here, so the viewer count, the rows under it and the
-    /// latency plot describe one path (<c>docs/development-principles.md</c>, "A fact lives in one table").
+    /// Every relay figure on this screen goes through here, so the viewer count, the rows under it and
+    /// the latency plot describe one path (<c>docs/development-principles.md</c>, "A fact lives in one table").
     /// </summary>
     public static RelayPath? PathOf(RelayStatus? relay, string stream)
     {
@@ -199,10 +199,7 @@ public sealed record BroadcastSnapshot
         return null;
     }
 
-    /// <summary>
-    /// Highest round trip on the path's roster, null where no reader on it is timed.
-    /// Worst rather than mean, for the reason the class comment gives.
-    /// </summary>
+    /// <summary>Highest round trip on the path's roster, null where no reader on it is timed.</summary>
     public static double? WorstRttMs(RelayPath? path) => Worst(path, reader => reader.HasRttMs ? reader.RttMs : null);
 
     /// <summary>Highest send-side loss on the path's roster, null where no reader states one.</summary>
@@ -230,7 +227,7 @@ public sealed record BroadcastSnapshot
             }
         }
 
-        return string.Join(", ", legs);
+        return string.Join(", ", legs.Select(Copy.Words.Transport));
     }
 
     /// <summary>
@@ -268,8 +265,8 @@ public sealed record BroadcastSnapshot
     /// <summary>Encoder's running time as the pill's zero-padded timer, the ellipsis before the first sample.</summary>
     /// <remarks>
     /// Hours are totalled rather than formatted.
-    /// The hh specifier is the hours component of a span, 0 to 23, and drops the days beside it, so a share left
-    /// running over a day would read 01:00:00 at the 25-hour mark and start the clock again.
+    /// The hh specifier is a span's hours component, 0..23, and drops the days beside it, so a share running
+    /// over a day would read 01:00:00 at the 25-hour mark and start the clock again.
     /// </remarks>
     private static string Clock(PublishStats? stats)
     {
