@@ -26,7 +26,7 @@ namespace ScreenShare.App.Features.Viewer.Tile.ViewModel;
 /// and where pipeline state is read from (<see cref="TilePipeline"/>).
 /// A second implementation would answer twice what a dropped frame is and where a lent handle goes back.
 /// </summary>
-public sealed class TileViewModel : Observable, IFrameSource
+public sealed partial class TileViewModel : Observable, IFrameSource
 {
     private readonly TileSource _source;
     private readonly IBackend _backend;
@@ -510,8 +510,15 @@ public sealed class TileViewModel : Observable, IFrameSource
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The pointer is followed on the same token, so a tile that stopped drawing stops asking
+    /// (<c>TilePointer.cs</c>).
+    /// </remarks>
     public Task<FrameChannel> OpenAsync(CancellationToken cancellation)
-        => _source.OpenAsync(_backend, cancellation);
+    {
+        FollowPointer(cancellation);
+        return _source.OpenAsync(_backend, cancellation);
+    }
 
     /// <inheritdoc />
     public void Report(TileReport report)
@@ -521,6 +528,8 @@ public sealed class TileViewModel : Observable, IFrameSource
         _dispatch(() =>
         {
             _report = report;
+            // The marker is placed against the picture's shape, which this report is what states.
+            Place();
             Changed?.Invoke();
         });
     }

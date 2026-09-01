@@ -15,22 +15,20 @@ import (
 
 // Reporting where the pointer is.
 //
-// The publish child's job and not the backend's: on the session this exists for, no other process
-// can ask for the position.
-// A Wayland client cannot read the pointer outside its own surfaces, and what knows is the cursor
-// metadata PipeWire carries beside each frame, readable only by the process holding the capture.
-// The X11 reader is the same job on a session that answers questions (internal/pointer).
+// One reading goes two ways.
+// A line on standard output reaches this machine's own screens, at the rate the source answers.
+// The stamp on each encoded frame reaches everybody else, at the frame rate, no leg over the relay
+// carrying a channel beside the picture (internal/framestamp).
 //
 // A position leaves on standard output beside the caps, under a prefix of its own.
 // One stream carrying three kinds of line keeps the child's contract to a pipe and three prefixes
 // rather than a socket per report, and the parent's reader skips a line it does not recognise.
-//
-// The rate is the reader's and not the pipeline's, the reason a position is sent rather than drawn:
-// it costs no frame, so it moves as fast as it is worth moving, and the moment on each line lets
-// a viewer hold it back to the frame it belongs to.
 
-// PointerPrefix leads the line one position is reported on: x, y, the moment in Unix nanoseconds,
-// and whether the pointer is over the captured surface at all.
+// PointerPrefix leads the line one position is reported on:
+// the fraction of the way across the picture and down it,
+// the moment in Unix nanoseconds,
+// and whether the pointer is over the captured picture at all.
+// A line: "screenshare-pointer 0.5 0.25 1700000000123456789 true".
 const PointerPrefix = "screenshare-pointer "
 
 // PointerFlag asks the runner for positions, as an argument after the subcommand (cmd/backend).
@@ -40,18 +38,13 @@ const PointerFlag = "--pointer"
 
 // reportPointer writes one position per tick until the context ends, on its own goroutine.
 //
-// A reader that will not answer ends the loop rather than writing nothing forever: a session
-// with no X server has no position to have, and the capture table refuses the mode on the backends
-// that read the screen through X anyway.
-func reportPointer(ctx context.Context, out io.Writer) {
+// The rate is the source's and not the pipeline's, this being the leg that does not pay a frame
+// for a position: it moves as fast as it is worth moving, and the moment on each line lets
+// a viewer hold it back to the frame it belongs to.
+// The stamp on each frame is the other leg and moves at the frame rate (stamp.go).
+func reportPointer(ctx context.Context, hold *pointerHold, out io.Writer) {
 	assert.IsNotNil(ctx, "a pointer report runs under a context")
 	assert.IsNotNil(out, "a pointer report is written to a writer")
-
-	reader, ok := pointer.NewX11()
-	if !ok {
-		return
-	}
-	defer reader.Close()
 
 	ticker := time.NewTicker(pointer.Interval)
 	defer ticker.Stop()
@@ -60,49 +53,54 @@ func reportPointer(ctx context.Context, out io.Writer) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p, answered := reader.Read()
+			at, answered := hold.spot()
 			if !answered {
-				return
+				continue
 			}
-			fmt.Fprintf(out, "%s%d %d %d %t\n",
-				PointerPrefix, p.X, p.Y, p.At.UnixNano(), p.Visible)
+			writePointer(out, at)
 		}
 	}
 }
 
+// writePointer renders one position onto the child's output.
+// Beside ParsePointer so the two spellings are one, and separate from the loop so a test can state
+// that they are.
+func writePointer(out io.Writer, at pointer.Spot) {
+	assert.IsNotNil(out, "a position is written to a writer")
+
+	fmt.Fprintf(out, "%s%g %g %d %t\n", PointerPrefix, at.X, at.Y, at.At.UnixNano(), at.Visible)
+}
+
 // ParsePointer reads one reported position back, false for a line that is not one.
-//
-// Beside the writer so the two spellings are one: the parent parses what this child writes, and
-// a format written in two places drifts the first time a field is added.
 //
 // A line that does not parse answers false rather than asserting.
 // The reader is pointed at a child's whole standard output, where an unrelated line is the ordinary
 // case rather than a broken contract.
-func ParsePointer(line string) (pointer.Position, bool) {
+func ParsePointer(line string) (pointer.Spot, bool) {
 	rest, ok := strings.CutPrefix(line, PointerPrefix)
 	if !ok {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
 	fields := strings.Fields(rest)
 	if len(fields) != 4 {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
 
-	x, err := strconv.Atoi(fields[0])
+	x, err := strconv.ParseFloat(fields[0], 64)
 	if err != nil {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
-	y, err := strconv.Atoi(fields[1])
+	y, err := strconv.ParseFloat(fields[1], 64)
 	if err != nil {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
 	nanos, err := strconv.ParseInt(fields[2], 10, 64)
 	if err != nil {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
 	visible, err := strconv.ParseBool(fields[3])
 	if err != nil {
-		return pointer.Position{}, false
+		return pointer.Spot{}, false
 	}
-	return pointer.Position{X: x, Y: y, At: time.Unix(0, nanos), Visible: visible}, true
+	return pointer.Spot{X: x, Y: y, At: time.Unix(0, nanos), Visible: visible}, true
 }

@@ -129,6 +129,7 @@ func (h *Host) snapshot() map[ID]State {
 			state.ToneMap = entry.decoder.ToneMap()
 			state.Volume, state.Muted, state.HasAudio = entry.decoder.Audio()
 			state.PeakDB, state.RMSDB, state.HasLevel = entry.decoder.Level()
+			state.Pointer, state.HasPointer = entry.decoder.Pointer()
 		}
 		out[id] = state
 	}

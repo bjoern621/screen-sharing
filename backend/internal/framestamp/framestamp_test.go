@@ -18,6 +18,9 @@ func TestUnitReadsBack(t *testing.T) {
 		PublishMs:     4_294_967_295,
 		PublishFrames: 123_456,
 		LinkMs:        65_535,
+		Pointer:       PointerHere,
+		PointerX:      PointerWhole,
+		PointerY:      1,
 	}
 
 	for _, c := range []Carriage{
@@ -44,6 +47,39 @@ func TestUnitReadsBack(t *testing.T) {
 		if got.LinkMs != want.LinkMs {
 			t.Errorf("%s/%s: read a window of %d ms, want %d", c.Media, c.Format, got.LinkMs, want.LinkMs)
 		}
+		if got.Pointer != want.Pointer || got.PointerX != want.PointerX || got.PointerY != want.PointerY {
+			t.Errorf("%s/%s: read pointer %d at %d,%d, want %d at %d,%d",
+				c.Media, c.Format, got.Pointer, got.PointerX, got.PointerY,
+				want.Pointer, want.PointerX, want.PointerY)
+		}
+	}
+}
+
+// A publish sending no position stamps no pointer,
+// which a viewer draws nothing for rather than drawing one at the picture's corner.
+func TestUnitOfAPublishSendingNoPointer(t *testing.T) {
+	unit, ok := Unit(h264("byte-stream"), Stamp{At: time.Now()})
+	if !ok {
+		t.Fatal("h264 carries no stamp")
+	}
+
+	got, _ := Read(unit)
+	if got.Pointer != PointerNone {
+		t.Errorf("read pointer %d, want %d", got.Pointer, PointerNone)
+	}
+}
+
+// A pointer off the captured surface is carried as away rather than at its last position,
+// a marker left against an edge standing there for as long as the pointer is gone.
+func TestUnitOfAPointerOffTheCapturedSurface(t *testing.T) {
+	unit, ok := Unit(h264("byte-stream"), Stamp{At: time.Now(), Pointer: PointerAway, PointerX: 900, PointerY: 900})
+	if !ok {
+		t.Fatal("h264 carries no stamp")
+	}
+
+	got, _ := Read(unit)
+	if got.Pointer != PointerAway {
+		t.Errorf("read pointer %d, want %d", got.Pointer, PointerAway)
 	}
 }
 

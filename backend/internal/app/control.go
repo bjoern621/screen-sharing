@@ -66,7 +66,11 @@ func (b controlBackend) CachedEncoders() encoders.Availability { return b.app.ca
 
 func (b controlBackend) AudioDevices() []platform.AudioDevice { return b.app.audioDevices() }
 
-func (b controlBackend) Pointer() (pointer.Position, bool) { return b.app.Pointer() }
+func (b controlBackend) Pointer() (pointer.Spot, bool) { return b.app.Pointer() }
+
+func (b controlBackend) StreamPointer(ref wire.StreamRef) (pointer.Spot, bool) {
+	return b.app.StreamPointer(StreamRef{Name: ref.StreamName, Transport: ref.Transport})
+}
 
 func (b controlBackend) PublishState() wire.PublishSnapshot {
 	return publishSnapshot(b.app.GetPublishState())

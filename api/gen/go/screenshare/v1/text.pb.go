@@ -563,11 +563,11 @@ const (
 	// beside the picture.
 	// TEXT_ARG_NAME_CAPTURE.
 	TextCode_TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA TextCode = 75
-	// The pointer's position reaches no viewer: nothing on the wire carries it and no viewer
-	// draws one, so a stream sending it would arrive with no pointer at all.
-	// A limit of this app rather than of the capture, hence a code of its own.
-	// No arguments.
-	TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED        TextCode = 76
+	// The position rides in the encoded frames,
+	// and this bitstream has no unit that carries one, so a viewer of this stream sees no pointer.
+	// A fact about the format rather than about the capture, hence a code of its own.
+	// TEXT_ARG_NAME_FORMAT.
+	TextCode_TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA  TextCode = 168
 	TextCode_TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER         TextCode = 81
 	TextCode_TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL   TextCode = 82
 	TextCode_TEXT_CODE_GST_NVENC_NO_RATE_BUFFER           TextCode = 83
@@ -631,11 +631,6 @@ const (
 	// TEXT_ARG_NAME_ENGINE names the engine, TEXT_ARG_NAME_OTHER_ENGINE the one that does
 	// carry it.
 	TextCode_TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE TextCode = 126
-	// The pointer position leaves the capture and reaches this machine's own screens, and no
-	// leg carries it over the relay, so somebody watching from another machine sees no
-	// pointer.
-	// No arguments.
-	TextCode_TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY TextCode = 127
 	// The platform serves this capture source and the engine behind this capture backend has
 	// nothing that opens it.
 	// TEXT_ARG_NAME_AUDIO names the source, TEXT_ARG_NAME_ENGINE the engine that cannot, and
@@ -790,7 +785,7 @@ var (
 		161: "TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION",
 		74:  "TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE",
 		75:  "TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA",
-		76:  "TEXT_CODE_CURSOR_METADATA_NOT_CARRIED",
+		168: "TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA",
 		81:  "TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER",
 		82:  "TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL",
 		83:  "TEXT_CODE_GST_NVENC_NO_RATE_BUFFER",
@@ -832,7 +827,6 @@ var (
 		124: "TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE",
 		125: "TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED",
 		126: "TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE",
-		127: "TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY",
 		128: "TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE",
 		130: "TEXT_CODE_PUBLISH_REFUSED",
 		131: "TEXT_CODE_NO_UPLINK_STATED",
@@ -921,7 +915,7 @@ var (
 		"TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION":            161,
 		"TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE":               74,
 		"TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA":            75,
-		"TEXT_CODE_CURSOR_METADATA_NOT_CARRIED":               76,
+		"TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA":         168,
 		"TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER":                81,
 		"TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL":          82,
 		"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER":                  83,
@@ -963,7 +957,6 @@ var (
 		"TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE":               124,
 		"TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED":               125,
 		"TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE":                126,
-		"TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY":                127,
 		"TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE":           128,
 		"TEXT_CODE_PUBLISH_REFUSED":                           130,
 		"TEXT_CODE_NO_UPLINK_STATED":                          131,
@@ -1338,7 +1331,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x86*\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xbc*\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1405,8 +1398,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1fTEXT_CODE_GOP_ABOVE_CODEC_LIMIT\x10\xa2\x01\x12-\n" +
 	"(TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION\x10\xa1\x01\x12)\n" +
 	"%TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE\x10J\x12,\n" +
-	"(TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA\x10K\x12)\n" +
-	"%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED\x10L\x12(\n" +
+	"(TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA\x10K\x120\n" +
+	"+TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA\x10\xa8\x01\x12(\n" +
 	"$TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER\x10Q\x12.\n" +
 	"*TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL\x10R\x12&\n" +
 	"\"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER\x10S\x12$\n" +
@@ -1447,8 +1440,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\"TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE\x10{\x12)\n" +
 	"%TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE\x10|\x12)\n" +
 	"%TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED\x10}\x12(\n" +
-	"$TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE\x10~\x12(\n" +
-	"$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY\x10\x7f\x12.\n" +
+	"$TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE\x10~\x12.\n" +
 	")TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE\x10\x80\x01\x12\x1e\n" +
 	"\x19TEXT_CODE_PUBLISH_REFUSED\x10\x82\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_NO_UPLINK_STATED\x10\x83\x01\x12&\n" +
@@ -1469,7 +1461,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\x12!\n" +
 	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\x12&\n" +
-	"!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY\x10\xa7\x01\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P*\x1bTEXT_CODE_COMPRESSION_RATIO**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY\x10\xa7\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once

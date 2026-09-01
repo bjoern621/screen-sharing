@@ -5,14 +5,21 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/cursor"
+	"bjoernblessin.de/screenshare/internal/framestamp"
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
 // cursorFacts is a configuration the pointer rules bind against.
-// They match on the capture backend and nothing else, so that is all a caller has to answer.
+//
+// The format is one a stamp is written into, so what the capture backend rows say is what these
+// answer: a format carrying no stamp refuses the mode whatever the capture does.
 func cursorFacts(capture string) rules.Facts {
-	return rules.Facts{rules.AxisCapture: rules.TextValue(capture)}
+	return rules.Facts{
+		rules.AxisCapture: rules.TextValue(capture),
+		rules.AxisFormat:  rules.TextValue("h264"),
+	}
 }
 
 // The rules and the table are one fact read two ways, over every backend and every mode.
@@ -23,15 +30,6 @@ func TestCursorRulesAnswerWhatTheTableServes(t *testing.T) {
 			served := CursorServed(capture, mode)
 			refused := !v.ValueEnabled(rules.AxisCursor, mode)
 
-			// Metadata is the one mode a backend serves and the app still refuses: the portal reports a
-			// position nothing here reads, which is a fact about this app rather than about that capture.
-			// Every other mode, on every other backend, is the table's answer alone.
-			if mode == cursor.Metadata && capture == "portal" {
-				if !refused {
-					t.Errorf("%s: the metadata mode is offered while nothing reads the capture's own pointer", capture)
-				}
-				continue
-			}
 			if served == refused {
 				t.Errorf("%s: the table serves %s=%v and the rules refuse=%v", capture, mode, served, refused)
 			}
@@ -76,31 +74,54 @@ func TestTheScanoutBackendCannotDrawThePointer(t *testing.T) {
 	}
 }
 
-// The portal carries the app's own limit alone: the capture does report a position, so a reader who
-// saw a "this backend has no pointer metadata" refusal there would go looking for a setting that
-// would not help.
-func TestThePortalCarriesOnlyTheAppsOwnLimit(t *testing.T) {
-	v := rules.EvaluateRules(cursorFacts("portal"), cursorRules())
+// A backend that reads a position states nothing against the mode.
+// The portal's cursor metadata and the X11 server's answer are two ways to the same reading, so
+// neither carries a refusal a reader would go looking for a setting over.
+func TestTheBackendsThatReadAPositionStateNothing(t *testing.T) {
+	for _, capture := range []string{"portal", "ximagesrc"} {
+		v := rules.EvaluateRules(cursorFacts(capture), cursorRules())
 
-	reasons := v.ValueReasons(rules.AxisCursor, cursor.Metadata)
-	if len(reasons) != 1 {
-		t.Fatalf("the portal's metadata refusal states one fact, got %d", len(reasons))
-	}
-	if got := reasons[0].GetCode(); got != screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED {
-		t.Errorf("the portal states %v, want the fact that nothing carries a pointer", got)
-	}
-
-	// The X11 backend serves the mode and states nothing: its display server answers any client asking
-	// where the pointer is, which is what the publish child reads there.
-	x11 := rules.EvaluateRules(cursorFacts("ximagesrc"), cursorRules())
-	if got := len(x11.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 0 {
-		t.Errorf("a backend whose display server answers states %d facts, want none", got)
+		if !v.ValueEnabled(rules.AxisCursor, cursor.Metadata) {
+			t.Errorf("%s refuses the mode its capture reads a position for", capture)
+		}
+		if got := len(v.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 0 {
+			t.Errorf("%s states %d facts against the mode, want none", capture, got)
+		}
 	}
 
 	// A backend with no position to report states its own fact, which is a different thing to fix than
-	// the app's.
+	// a format that cannot carry one.
 	kms := rules.EvaluateRules(cursorFacts("kmsgrab"), cursorRules())
 	if got := len(kms.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 1 {
 		t.Errorf("a backend with no pointer metadata states %d facts, want its own", got)
+	}
+}
+
+// The position reaches a viewer inside the encoded frames, so a format with no unit to carry one
+// refuses the mode however well the capture reads it.
+// Stated against the format rather than the capture:
+// what a reader changes to get a pointer is the format.
+func TestAFormatCarryingNoStampRefusesTheMode(t *testing.T) {
+	for _, format := range capabilities.Formats() {
+		facts := rules.Facts{
+			rules.AxisCapture: rules.TextValue("ximagesrc"),
+			rules.AxisFormat:  rules.TextValue(format),
+		}
+		v := rules.EvaluateRules(facts, cursorRules())
+
+		carried := framestamp.Carries(format)
+		if got := v.ValueEnabled(rules.AxisCursor, cursor.Metadata); got != carried {
+			t.Errorf("%s carries a stamp=%v and offers the metadata mode=%v", format, carried, got)
+		}
+		if carried {
+			continue
+		}
+		reasons := v.ValueReasons(rules.AxisCursor, cursor.Metadata)
+		if len(reasons) != 1 {
+			t.Fatalf("%s: the refusal states one fact, got %d", format, len(reasons))
+		}
+		if got := reasons[0].GetCode(); got != screensharev1.TextCode_TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA {
+			t.Errorf("%s states %v, want the fact that its bitstream carries no position", format, got)
+		}
 	}
 }

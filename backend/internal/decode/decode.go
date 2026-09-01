@@ -20,6 +20,7 @@ package decode
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/receive"
 )
 
@@ -92,6 +93,14 @@ type State struct {
 	PeakDB   float64
 	RMSDB    float64
 	HasLevel bool
+
+	// Where the publishing machine had the pointer on the newest stamped frame,
+	// and whether the frames carry one at all (receive/pointer.go).
+	// Beside Stats rather than in it: the position is a reading off the bitstream and not something
+	// this decode measured, and it is read at the rate a marker moves rather than the rate figures
+	// are shown at.
+	Pointer    pointer.Spot
+	HasPointer bool
 
 	Ended      bool
 	EndMessage string

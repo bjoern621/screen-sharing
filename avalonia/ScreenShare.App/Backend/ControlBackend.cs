@@ -450,11 +450,18 @@ public sealed class ControlBackend : IBackend
 
     /// <inheritdoc />
     public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        StreamRef? stream = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
     {
         await GreetAsync().ConfigureAwait(false);
 
-        using var call = _client.SubscribePointer(new SubscribePointerRequest(), cancellationToken: cancellation);
+        var request = new SubscribePointerRequest();
+        if (stream is not null)
+        {
+            request.Stream = stream;
+        }
+
+        using var call = _client.SubscribePointer(request, cancellationToken: cancellation);
 
         while (true)
         {

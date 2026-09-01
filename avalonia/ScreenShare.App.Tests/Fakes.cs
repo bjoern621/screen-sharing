@@ -248,8 +248,9 @@ internal sealed class DeferredBackend : IBackend
     public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAudioLevelsAsync(cancellation);
 
-    public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default)
-        => _seed.SubscribePointerAsync(cancellation);
+    public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        StreamRef? stream = null, CancellationToken cancellation = default)
+        => _seed.SubscribePointerAsync(stream, cancellation);
 
     /// <summary>Draft one held resolve was asked about, indexed in the order the resolves arrived.</summary>
     public Settings Draft(int resolve) => _held[resolve].Draft;
@@ -474,8 +475,9 @@ internal sealed class PublishingBackend : IBackend
     public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAudioLevelsAsync(cancellation);
 
-    public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default)
-        => _seed.SubscribePointerAsync(cancellation);
+    public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        StreamRef? stream = null, CancellationToken cancellation = default)
+        => _seed.SubscribePointerAsync(stream, cancellation);
 }
 
 /// <summary>

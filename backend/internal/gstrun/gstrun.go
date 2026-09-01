@@ -118,10 +118,13 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 		go serveControl(listener, pipeline, out)
 	}
 
-	// The reader runs on a clock of its own and ends with the context, so a position is something
-	// the child reports rather than something the pipeline carries.
+	// Attached before PLAYING, like the delay probe, so the first frame across the capture's pad
+	// is watched.
+	// The reading goes out twice: on its own clock to this machine, and on every encoded frame
+	// to everybody else (pointer.go).
+	var pointerAt *pointerHold
 	if options.Pointer {
-		go reportPointer(ctx, out)
+		pointerAt = watchPointer(ctx, pipeline)
 	}
 
 	// The probe goes on before PLAYING and the reporting after it, on a clock of its own like
@@ -136,7 +139,7 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 		// counting: the two stages of the path meet there rather than overlapping.
 		// It carries the same reading the report does, the only way it reaches a viewer of this
 		// stream on another machine.
-		stampFrames(pipeline, options.Delay, delay, window)
+		stampFrames(pipeline, options.Delay, delay, window, pointerAt)
 	}
 	if options.Shed != "" {
 		shed = watchShed(pipeline, options.Shed)
@@ -147,6 +150,9 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 	}
 	if delay != nil {
 		go reportDelay(ctx, pipeline, delay, shed, window, out)
+	}
+	if pointerAt != nil {
+		go reportPointer(ctx, pointerAt, out)
 	}
 
 	reported := false

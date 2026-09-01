@@ -53,6 +53,7 @@
     <StyleInclude Source="/Design/Text.axaml" />
     <StyleInclude Source="/Design/Surfaces.axaml" />
     <StyleInclude Source="/Design/Icons.axaml" />
+    <StyleInclude Source="/Design/Pointer.axaml" />
     <!--
       Last of the design styles: it overrides a control's own content while a call that
       control started is in flight (Controls/Pending/Pending.cs).

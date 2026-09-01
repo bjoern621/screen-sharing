@@ -231,6 +231,18 @@
       -->
       <tiles:StreamTile />
 
+      <!--
+        The publisher's pointer, which the frames of a stream sending its position do not carry
+        (docs/capture-architecture.md, "The pointer").
+        Over the picture and under the chrome: a marker that hid a menu would cost a reader the control.
+        The offsets are in this card's own pixels.
+      -->
+      <Canvas IsVisible="{Binding HasPointer}" ClipToBounds="True">
+        <Path Classes="pointer"
+              Canvas.Left="{Binding PointerLeft}"
+              Canvas.Top="{Binding PointerTop}" />
+      </Canvas>
+
       <!-- Why the tile is dark: nothing decoding, connecting, or a handle this renderer cannot open. -->
       <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
                            IsVisible="{Binding HasNotice}"

@@ -50,7 +50,7 @@ type Callbacks struct {
 	// instead of drawing it into the frames.
 	// It fires at the reader's own rate, faster than the frame rate, and never on any other mode or
 	// any engine whose child cannot report one (internal/pointer).
-	OnPointer func(pointer.Position)
+	OnPointer func(pointer.Spot)
 }
 
 // Publisher builds and runs the publish pipeline for a family of capture backends.

@@ -463,7 +463,8 @@ public sealed class Session
         {
             try
             {
-                await foreach (var at in _backend.SubscribePointerAsync(cancellation).ConfigureAwait(false))
+                await foreach (var at in _backend.SubscribePointerAsync(stream: null, cancellation)
+                                   .ConfigureAwait(false))
                 {
                     Meter(() => Pointer = at);
                 }

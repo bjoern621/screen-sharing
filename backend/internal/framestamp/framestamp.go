@@ -1,4 +1,5 @@
-// Package framestamp carries the moment a frame left its encoder inside the encoded frame itself.
+// Package framestamp carries what a frame left the publishing machine with inside the encoded frame
+// itself: the moment it left its encoder, and where the pointer was on it.
 //
 // A relay terminates one protocol and re-muxes per listener, so nothing about a leg survives
 // the hop and neither end can time the relay's own share.
@@ -6,6 +7,11 @@
 // the coded picture it was given, byte for byte.
 // A wall clock written into the picture reaches a viewer over any transport,
 // and the subtraction against it is the whole path between the two machines as one measurement.
+//
+// The pointer rides the same unit for the same reason, no leg carrying a channel beside the picture.
+// It moves at the frame rate there rather than at the rate it is read,
+// and it moves with the picture it was read over: a position in the frame it belongs to cannot lead
+// the picture a viewer is drawing it on.
 //
 // The codec's own user-data unit carries no picture data, so a decoder that does not know this app
 // skips it: an H.264 or H.265 unregistered SEI message.
@@ -16,6 +22,8 @@
 // A viewer of its own stream reads one clock and measures exactly.
 // Two machines measure to whatever their time synchronisation holds them to, and a negative result
 // is refused rather than shown as a path of no length (internal/receive, stampDelay).
+//
+// How a codec frames the unit is carriage.go, and where in a picture it goes is offset.go.
 package framestamp
 
 import (
@@ -24,26 +32,6 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 )
-
-// The media types whose bitstreams carry a user-data unit this writes into.
-const (
-	MediaH264 = "video/x-h264"
-	MediaH265 = "video/x-h265"
-)
-
-// Carriage is how a stream is framed where a unit is put into it, off that pad's caps.
-//
-// Alignment decides whether anything is written at all.
-// A unit prepended to a whole access unit sits ahead of that picture, where an SEI message belongs.
-// Prepended to a fragment it lands wherever the fragment does.
-// LengthSize is read only under a length-prefixed format,
-// and 4 is what H.264 and H.265 carry where caps state none.
-type Carriage struct {
-	Media      string
-	Format     string
-	Alignment  string
-	LengthSize int
-}
 
 // marker identifies this app's stamp inside a user-data unit,
 // the 16 bytes of the message's UUID field.
@@ -75,7 +63,33 @@ type Stamp struct {
 	// 0 for a leg stating none.
 	// No transport states a window of nothing, so 0 is absent rather than a reading.
 	LinkMs uint16
+	// Pointer says whether this frame carries a position at all,
+	// and whether the pointer was over the captured surface when it did.
+	Pointer PointerState
+	// PointerX and PointerY are where the pointer sat on this picture,
+	// in parts of PointerWhole across it and down it.
+	// A fraction rather than a pixel, so nothing that scales the picture on the way out or draws it
+	// at another size on the way in has to be known at either end.
+	// Read only under PointerHere.
+	PointerX, PointerY uint16
 }
+
+// PointerState is what a frame says about the pointer.
+//
+// Three answers rather than two.
+// A publish whose cursor mode draws the pointer into the frames or leaves it out sends no position,
+// which is a different thing from a pointer that has left the captured screen,
+// and both are different from a position to draw.
+type PointerState uint8
+
+const (
+	PointerNone PointerState = 0
+	PointerAway PointerState = 1
+	PointerHere PointerState = 2
+)
+
+// PointerWhole is the far edge of the picture, PointerX and PointerY being parts of it.
+const PointerWhole = 0xFFFF
 
 // The width of each field, in nibbles, in the order they are written.
 //
@@ -88,20 +102,19 @@ const (
 	publishMsNibbles     = 8
 	publishFramesNibbles = 8
 	linkNibbles          = 4
+	pointerStateNibbles  = 1
+	pointerAxisNibbles   = 4
 )
 
 // stampBytes is what the reading itself takes, the marker aside.
-const stampBytes = clockNibbles + publishMsNibbles + publishFramesNibbles + linkNibbles
+const stampBytes = clockNibbles + publishMsNibbles + publishFramesNibbles + linkNibbles +
+	pointerStateNibbles + 2*pointerAxisNibbles
 
 // nibbleBase is the value a nibble is carried above, keeping every encoded byte in 0x10..0x1F.
 const nibbleBase = 0x10
 
 // payloadSize is the whole user-data payload: what identifies the stamp, then the stamp.
 const payloadSize = len(marker) + stampBytes
-
-// startCode leads a unit in a byte-stream, the four-byte form so a reader needs no state to find
-// the unit's first byte.
-var startCode = []byte{0x00, 0x00, 0x00, 0x01}
 
 // unregisteredMessage is the SEI payload type an application writes its own bytes under.
 // An H.264 or H.265 decoder is required to skip it on a UUID it does not know.
@@ -112,36 +125,6 @@ const unregisteredMessage = 0x05
 // The one byte of a unit that may be zero-adjacent, and it is last, so nothing a reader matches
 // on sits behind it.
 const rbspTrailing = 0x80
-
-// headers is the codec's own unit header, everything ahead of the SEI message itself.
-//
-// H.264 spends one byte, H.265 two, the extra byte being the layer and temporal identifiers every
-// H.265 unit carries.
-// The types are the prefix SEI of each: 6 in H.264, 39 in H.265, carried as 39<<1 in the byte
-// the type shares with the layer id.
-var headers = map[string][]byte{
-	MediaH264: {0x06},
-	MediaH265: {0x4E, 0x01},
-}
-
-// alignmentAccessUnit is the buffer alignment a stamp is written under:
-// one buffer, one coded picture.
-const alignmentAccessUnit = "au"
-
-// lengthPrefixed are the stream formats framing each unit with its size rather than a start code,
-// spelled as the caps do.
-// H.264 states one and H.265 two, the pairs differing only in where the parameter sets sit,
-// which is no business of a unit prepended to a picture.
-var lengthPrefixed = map[string]bool{
-	"avc":  true,
-	"avc3": true,
-	"hvc1": true,
-	"hev1": true,
-}
-
-// defaultLengthSize is the length prefix size on caps that state none,
-// what both codecs' parsers write.
-const defaultLengthSize = 4
 
 // Unit is the framed user-data unit carrying s, ready to be put in front of an access unit carried
 // under c.
@@ -167,6 +150,9 @@ func Unit(c Carriage, s Stamp) ([]byte, bool) {
 	message = appendField(message, uint64(s.PublishMs), publishMsNibbles)
 	message = appendField(message, uint64(s.PublishFrames), publishFramesNibbles)
 	message = appendField(message, uint64(s.LinkMs), linkNibbles)
+	message = appendField(message, uint64(s.Pointer), pointerStateNibbles)
+	message = appendField(message, uint64(s.PointerX), pointerAxisNibbles)
+	message = appendField(message, uint64(s.PointerY), pointerAxisNibbles)
 	message = append(message, rbspTrailing)
 
 	unit, framed := frame(c, message)
@@ -177,152 +163,10 @@ func Unit(c Carriage, s Stamp) ([]byte, bool) {
 	// a stream nobody can measure, and by the time a viewer says so the frames are on the wire.
 	read, found := Read(unit)
 	assert.Assert(found && read.At.Equal(s.At) && read.PublishMs == s.PublishMs &&
-		read.PublishFrames == s.PublishFrames && read.LinkMs == s.LinkMs,
+		read.PublishFrames == s.PublishFrames && read.LinkMs == s.LinkMs &&
+		read.Pointer == s.Pointer && read.PointerX == s.PointerX && read.PointerY == s.PointerY,
 		"a written stamp reads back as what it carries", s, read)
 	return unit, true
-}
-
-// frame puts the stream's own framing in front of a unit: a start code, or the unit's size
-// in as many bytes as the caps declare.
-func frame(c Carriage, message []byte) ([]byte, bool) {
-	assert.Assert(len(message) > 0, "a framed unit has a body")
-
-	if !lengthPrefixed[c.Format] {
-		return append(append([]byte{}, startCode...), message...), true
-	}
-
-	size := c.LengthSize
-	if size <= 0 {
-		size = defaultLengthSize
-	}
-	// A prefix too narrow to state this unit's size would state a shorter one, and the bytes past it
-	// would be read as another unit.
-	if size < 4 && len(message) >= 1<<(8*size) {
-		return nil, false
-	}
-
-	out := make([]byte, size, size+len(message))
-	for i := range size {
-		out[size-1-i] = byte(len(message) >> (8 * i))
-	}
-	return append(out, message...), true
-}
-
-// appendField writes value as one byte per nibble, most significant first.
-func appendField(out []byte, value uint64, nibbles int) []byte {
-	assert.Assert(nibbles > 0 && nibbles <= 16, "a field is between one and sixteen nibbles", nibbles)
-
-	for i := range nibbles {
-		shift := 4 * (nibbles - 1 - i)
-		out = append(out, nibbleBase|byte(value>>shift&0xF))
-	}
-	return out
-}
-
-// readField is one field off the front of stamp, and false where any of its bytes is not a nibble
-// this wrote.
-func readField(stamp []byte, nibbles int) (uint64, bool) {
-	value := uint64(0)
-	for _, b := range stamp[:nibbles] {
-		if b&0xF0 != nibbleBase {
-			return 0, false
-		}
-		value = value<<4 | uint64(b&0xF)
-	}
-	return value, true
-}
-
-// pictureUnit reports whether a unit of this type carries part of a coded picture, per codec.
-//
-// H.264 numbers the picture types 1..5 in the low five bits of its header byte,
-// H.265 puts every one of them below 32 in the six bits above the header's low bit.
-// Everything else is a parameter set, a delimiter or a message about the picture,
-// which is what a stamp goes behind.
-var pictureUnit = map[string]func(header []byte) bool{
-	MediaH264: func(header []byte) bool {
-		t := header[0] & 0x1F
-		return t >= 1 && t <= 5
-	},
-	MediaH265: func(header []byte) bool {
-		return header[0]>>1&0x3F < 32
-	},
-}
-
-// Offset is where in frame a unit goes: behind the parameter sets and delimiters that open
-// an access unit, in front of the coded picture.
-//
-// The position the codecs give a prefix message, and the one that survives.
-// A parser meeting a stream for the first time discards whatever stands ahead of the parameter set
-// it needs to read the stream at all, so a stamp in front of one is dropped wherever a listener
-// starts reading.
-//
-// 0 where nothing can be read: a guessed offset into a framing this cannot walk would cut a unit
-// in half, and the front is at worst a stamp a parser drops.
-func Offset(c Carriage, frame []byte) int {
-	isPicture, carried := pictureUnit[c.Media]
-	if !carried {
-		return 0
-	}
-	if lengthPrefixed[c.Format] {
-		return prefixedOffset(c, frame, isPicture)
-	}
-	return streamOffset(frame, isPicture)
-}
-
-// streamOffset walks a byte-stream frame by its start codes, three or four bytes of which open
-// each unit.
-func streamOffset(frame []byte, isPicture func([]byte) bool) int {
-	for at := 0; at+3 < len(frame); {
-		if frame[at] != 0x00 || frame[at+1] != 0x00 {
-			return 0
-		}
-		// A four-byte start code is the three-byte one behind a leading zero,
-		// so the header is whichever byte follows the last zero of the code.
-		header := at + 3
-		if frame[at+2] == 0x00 {
-			header = at + 4
-		}
-		if header >= len(frame) {
-			return 0
-		}
-		if isPicture(frame[header:]) {
-			return at
-		}
-
-		next := bytes.Index(frame[header:], startCode[1:])
-		if next < 0 {
-			return 0
-		}
-		at = header + next
-		// The search matches a code's last three bytes, so a four-byte one starts a byte earlier.
-		if at > 0 && frame[at-1] == 0x00 {
-			at--
-		}
-	}
-	return 0
-}
-
-// prefixedOffset walks a frame whose units each state their own size.
-func prefixedOffset(c Carriage, frame []byte, isPicture func([]byte) bool) int {
-	size := c.LengthSize
-	if size <= 0 {
-		size = defaultLengthSize
-	}
-
-	for at := 0; at+size < len(frame); {
-		length := 0
-		for _, b := range frame[at : at+size] {
-			length = length<<8 | int(b)
-		}
-		if length <= 0 || at+size+length > len(frame) {
-			return 0
-		}
-		if isPicture(frame[at+size:]) {
-			return at
-		}
-		at += size + length
-	}
-	return 0
 }
 
 // Read is what frame was stamped with, and false for a frame nothing stamped.
@@ -352,7 +196,18 @@ func Read(frame []byte) (Stamp, bool) {
 	publishFrames, framesRead := readField(stamp, publishFramesNibbles)
 	stamp = stamp[publishFramesNibbles:]
 	link, linkRead := readField(stamp, linkNibbles)
-	if !read || !msRead || !framesRead || !linkRead {
+	stamp = stamp[linkNibbles:]
+	pointer, pointerRead := readField(stamp, pointerStateNibbles)
+	stamp = stamp[pointerStateNibbles:]
+	pointerX, xRead := readField(stamp, pointerAxisNibbles)
+	stamp = stamp[pointerAxisNibbles:]
+	pointerY, yRead := readField(stamp, pointerAxisNibbles)
+	if !read || !msRead || !framesRead || !linkRead || !pointerRead || !xRead || !yRead {
+		return Stamp{}, false
+	}
+	// A state no writer here spells is a marker that matched something this did not write,
+	// so the whole reading goes rather than the one field.
+	if pointer > uint64(PointerHere) {
 		return Stamp{}, false
 	}
 
@@ -361,5 +216,32 @@ func Read(frame []byte) (Stamp, bool) {
 		PublishMs:     uint32(publishMs),
 		PublishFrames: uint32(publishFrames),
 		LinkMs:        uint16(link),
+		Pointer:       PointerState(pointer),
+		PointerX:      uint16(pointerX),
+		PointerY:      uint16(pointerY),
 	}, true
+}
+
+// appendField writes value as one byte per nibble, most significant first.
+func appendField(out []byte, value uint64, nibbles int) []byte {
+	assert.Assert(nibbles > 0 && nibbles <= 16, "a field is between one and sixteen nibbles", nibbles)
+
+	for i := range nibbles {
+		shift := 4 * (nibbles - 1 - i)
+		out = append(out, nibbleBase|byte(value>>shift&0xF))
+	}
+	return out
+}
+
+// readField is one field off the front of stamp, and false where any of its bytes is not a nibble
+// this wrote.
+func readField(stamp []byte, nibbles int) (uint64, bool) {
+	value := uint64(0)
+	for _, b := range stamp[:nibbles] {
+		if b&0xF0 != nibbleBase {
+			return 0, false
+		}
+		value = value<<4 | uint64(b&0xF)
+	}
+	return value, true
 }

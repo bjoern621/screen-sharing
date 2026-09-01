@@ -1,6 +1,7 @@
 package decode
 
 import (
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/receive"
 )
 
@@ -12,6 +13,7 @@ type Decoder interface {
 	Stats() receive.Stats
 	Audio() (volume float64, muted bool, has bool)
 	Level() (peakDB, rmsDB float64, ok bool)
+	Pointer() (pointer.Spot, bool)
 	SetAudio(volume float64, muted bool)
 	Subscribe() Subscription
 	Stop() bool

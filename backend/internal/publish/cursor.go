@@ -5,7 +5,9 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/cursor"
+	"bjoernblessin.de/screenshare/internal/framestamp"
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/rules"
 )
@@ -43,8 +45,9 @@ var cursorServes = map[string][]string{
 	// for, and hidden is the only mode describing what it does.
 	"kmsgrab": {cursor.Hidden},
 
-	// The one backend reporting a pointer position instead of drawing it, what cursor_mode's metadata
-	// value selects (internal/portal).
+	// cursor_mode's metadata value sends the position beside each frame instead of drawing it,
+	// and pipewiresrc hands it on as a region of interest the publish child reads
+	// (internal/portal, gstrun/pointersource.go).
 	"portal": {cursor.Embedded, cursor.Hidden, cursor.Metadata},
 
 	// -capture_cursor on the ffmpeg side, capture-screen-cursor on the GStreamer one.
@@ -89,33 +92,27 @@ func cursorRules() []rules.Rule {
 		}
 	}
 
-	// The portal reports a pointer position nothing here reads: it rides in the cursor metadata
-	// PipeWire carries beside each frame, which the publish child would have to take off the stream
-	// itself rather than through pipewiresrc.
-	// Stated apart from the backend rows above, so a reader on the portal, where the capture does
-	// report a pointer, learns what is missing, and it binds on that backend alone because the X11 one
-	// reads a position of its own.
-	out = append(out, rules.Rule{
-		When:    map[string]rules.Match{rules.AxisCapture: rules.OneOf("portal")},
-		Verdict: rules.Refuse,
-		Field:   rules.AxisCursor,
-		Values:  rules.OneOf(cursor.Metadata),
-		Reason:  screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED,
-	})
-
-	// Where the mode is offered, it says how far the position travels: off the capture, across
-	// the control contract and onto this machine's own screens, what the preview draws.
-	// No leg carries it over the relay, so somebody watching from another machine sees no pointer.
+	// The position reaches a viewer inside the encoded frames, so a bitstream with no unit to write
+	// one into carries no pointer however well the capture reads it (internal/framestamp).
 	//
-	// A note and not a refusal, the mode doing what it says on the machine that picks it, and what it
-	// does not do being a fact about what viewers receive rather than about this capture.
-	// It binds wherever the mode is not already refused.
-	out = append(out, rules.Rule{
-		Verdict: rules.Note,
-		Field:   rules.AxisCursor,
-		Values:  rules.OneOf(cursor.Metadata),
-		Reason:  screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY,
-	})
+	// Stated apart from the backend rows above, the two sending a reader to different places:
+	// a capture with no position to report is answered by picking another capture,
+	// and a format that cannot carry one by picking another format.
+	// Derived from what framestamp writes rather than listed here: a format added to the capability
+	// table is refused until that package says it carries a stamp, where a list would silently offer
+	// the mode on it.
+	for _, format := range capabilities.Formats() {
+		if framestamp.Carries(format) {
+			continue
+		}
+		out = append(out, rules.Rule{
+			When:    map[string]rules.Match{rules.AxisFormat: rules.OneOf(format)},
+			Verdict: rules.Refuse,
+			Field:   rules.AxisCursor,
+			Values:  rules.OneOf(cursor.Metadata),
+			Reason:  screensharev1.TextCode_TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA,
+		})
+	}
 	return out
 }
 

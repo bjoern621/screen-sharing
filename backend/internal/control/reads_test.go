@@ -11,6 +11,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // probedBackend is a machine whose encoder probe has been taken:
@@ -33,7 +34,11 @@ func (p *probedBackend) Platform() platform.Info               { return platform
 func (p *probedBackend) Device() capabilities.Device           { return capabilities.Device{} }
 func (p *probedBackend) CachedEncoders() encoders.Availability { return p.probed }
 func (p *probedBackend) AudioDevices() []platform.AudioDevice  { return nil }
-func (p *probedBackend) Pointer() (pointer.Position, bool)     { return pointer.Position{}, false }
+func (p *probedBackend) Pointer() (pointer.Spot, bool) { return pointer.Spot{}, false }
+
+func (p *probedBackend) StreamPointer(wire.StreamRef) (pointer.Spot, bool) {
+	return pointer.Spot{}, false
+}
 
 // Encoders counts its calls, how a test says a read did not probe.
 // The split exists because reading the catalog may not start seconds of work,

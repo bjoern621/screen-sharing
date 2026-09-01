@@ -841,6 +841,7 @@ internal sealed class SeededBackend : IBackend
     /// the mode that sends no position.
     /// </summary>
     public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        StreamRef? stream = null,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         await Task.CompletedTask.ConfigureAwait(false);

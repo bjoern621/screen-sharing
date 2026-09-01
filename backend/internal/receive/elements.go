@@ -72,6 +72,11 @@ type decodeTrack struct {
 	publishFrames atomic.Uint64
 	publishLinkMs atomic.Uint64
 
+	// What the newest stamp said about the publisher's pointer, and when that frame was stamped
+	// (pointer.go).
+	pointerHeld atomic.Uint64
+	pointerAt   atomic.Int64
+
 	dec      gst.Element
 	factory  string
 	hardware bool
@@ -107,6 +112,9 @@ func (t *decodeTrack) takeStamp(buf *gst.Buffer) {
 	t.publishMs.Store(uint64(s.PublishMs))
 	t.publishFrames.Store(uint64(s.PublishFrames))
 	t.publishLinkMs.Store(uint64(s.LinkMs))
+	// Kept whatever the clocks say: where the pointer is on this picture is the publisher's own
+	// reading, and it holds however far apart the two machines' clocks are.
+	t.holdPointer(s)
 
 	spent := time.Since(s.At)
 	if spent < 0 {

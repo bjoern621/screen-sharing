@@ -60,7 +60,7 @@ func (w *linkWindow) read() uint16 { return uint16(w.ms.Load()) }
 // and again whenever the stream renegotiates, so the frames themselves cost a pointer read: caps
 // taken per frame would be one wrapped object per frame for a collection to find, the cost
 // internal/padprobe exists to keep off this path.
-func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, window *linkWindow) {
+func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, window *linkWindow, at *pointerHold) {
 	assert.Assert(element != "", "a stamp names the element it is written at")
 	assert.IsNotNil(window, "a stamp reads the leg's window from somewhere")
 
@@ -98,7 +98,7 @@ func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, 
 		if buffer == nil {
 			return gst.PadProbeOK
 		}
-		unit, carried := framestamp.Unit(*c, stampOf(probe, window))
+		unit, carried := framestamp.Unit(*c, stampOf(probe, window, at))
 		if !carried {
 			return gst.PadProbeOK
 		}
@@ -107,15 +107,19 @@ func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, 
 	})
 }
 
-// stampOf is what this frame carries out: the moment it left the encoder, and what this pipeline
-// has spent on every frame so far.
+// stampOf is what this frame carries out: the moment it left the encoder, what this pipeline
+// has spent on every frame so far, and where the pointer is.
 //
 // A probe this run carries none of reports no publishing stages, which is a stage nothing measured
 // and never a stage that cost nothing.
 // The running total is milliseconds where the probe counts nanoseconds, and it wraps at the width
 // the stamp carries it in, which a viewer sees as one interval it cannot divide.
-func stampOf(probe *pipedelay.Probe, window *linkWindow) framestamp.Stamp {
+//
+// The position is read here rather than held from the frame's capture: a repeated picture carries
+// where the pointer is now, and the pointer moves over a screen that has stopped changing.
+func stampOf(probe *pipedelay.Probe, window *linkWindow, at *pointerHold) framestamp.Stamp {
 	s := framestamp.Stamp{At: time.Now(), LinkMs: window.read()}
+	s.Pointer, s.PointerX, s.PointerY = stampPointer(at)
 	reading := probe.Read()
 	if reading.Frames == 0 {
 		return s
@@ -123,6 +127,29 @@ func stampOf(probe *pipedelay.Probe, window *linkWindow) framestamp.Stamp {
 	s.PublishMs = uint32(reading.Total / time.Millisecond)
 	s.PublishFrames = uint32(reading.Frames)
 	return s
+}
+
+// stampPointer is the pointer as one frame carries it, in parts of framestamp.PointerWhole.
+//
+// A run that reports no position stamps none, which is every cursor mode but the one that sends it.
+// The fraction is rounded to the nearest part, a truncation putting every position half a part
+// short of where it was read.
+func stampPointer(at *pointerHold) (framestamp.PointerState, uint16, uint16) {
+	spot, answered := at.spot()
+	if !answered {
+		return framestamp.PointerNone, 0, 0
+	}
+	if !spot.Visible {
+		return framestamp.PointerAway, 0, 0
+	}
+	return framestamp.PointerHere, wholeParts(spot.X), wholeParts(spot.Y)
+}
+
+// wholeParts is one axis of a fraction as parts of framestamp.PointerWhole.
+// A fraction outside the picture is not one a visible pointer has, so the ends are held to.
+func wholeParts(fraction float64) uint16 {
+	parts := math.Round(fraction * framestamp.PointerWhole)
+	return uint16(min(max(parts, 0), framestamp.PointerWhole))
 }
 
 // carriageOf is how a stream under these caps is framed, and false for caps describing nothing this

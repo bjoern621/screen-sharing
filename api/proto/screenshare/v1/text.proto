@@ -477,11 +477,14 @@ enum TextCode {
   // beside the picture.
   // TEXT_ARG_NAME_CAPTURE.
   TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA = 75;
-  // The pointer's position reaches no viewer: nothing on the wire carries it and no viewer
-  // draws one, so a stream sending it would arrive with no pointer at all.
-  // A limit of this app rather than of the capture, hence a code of its own.
-  // No arguments.
-  TEXT_CODE_CURSOR_METADATA_NOT_CARRIED = 76;
+  // The position rides in the encoded frames,
+  // and this bitstream has no unit that carries one, so a viewer of this stream sees no pointer.
+  // A fact about the format rather than about the capture, hence a code of its own.
+  // TEXT_ARG_NAME_FORMAT.
+  TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA = 168;
+
+  reserved 76;
+  reserved "TEXT_CODE_CURSOR_METADATA_NOT_CARRIED";
 
   // --- Where a publish engine departs from the mode table ------------------------
   //
@@ -562,11 +565,8 @@ enum TextCode {
   // TEXT_ARG_NAME_ENGINE names the engine, TEXT_ARG_NAME_OTHER_ENGINE the one that does
   // carry it.
   TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE = 126;
-  // The pointer position leaves the capture and reaches this machine's own screens, and no
-  // leg carries it over the relay, so somebody watching from another machine sees no
-  // pointer.
-  // No arguments.
-  TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY = 127;
+  reserved 127;
+  reserved "TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY";
   // The platform serves this capture source and the engine behind this capture backend has
   // nothing that opens it.
   // TEXT_ARG_NAME_AUDIO names the source, TEXT_ARG_NAME_ENGINE the engine that cannot, and

@@ -21,8 +21,20 @@ import (
 // so a 240 Hz pointer over a 30 fps stream is the win over drawing it into the picture.
 const pointerCadence = pointer.Interval
 
+// streamPointerCadence is how often a watched stream's pointer is read.
+//
+// Slower than the capture's own, because the reading is: the position rides in the frames
+// (internal/framestamp), so it changes once a frame however often it is asked for.
+// 16 ms is under the frame period of any stream this publishes, so nothing a reader could have
+// seen is stepped over, and it keeps a marker off one read of every decode's counters per 4 ms.
+const streamPointerCadence = 16 * time.Millisecond
+
 // SubscribePointer carries where the publishing machine's pointer is,
 // for as long as the shell holds the call.
+//
+// One method for this machine's own capture and for a stream it is watching,
+// the request naming which: the two are one reading over different legs,
+// and a shell drawing a marker over a picture asks the same question of both.
 //
 // A stream of its own for the reason the levels are one, and one degree more so:
 // folded into Subscribe it would push the whole publish state at pointer rate,
@@ -41,7 +53,14 @@ func (s *Server) SubscribePointer(req *screensharev1.SubscribePointerRequest, ou
 	assert.IsNotNil(out, "a pointer subscription writes to the client's stream")
 	assert.Assert(pointerCadence > 0, "the pointer ticks at a positive interval", pointerCadence)
 
-	ticker := time.NewTicker(pointerCadence)
+	read, cadence := s.backend.Pointer, pointerCadence
+	if ref := req.GetStream(); ref != nil {
+		stream := wire.StreamRefOf(ref)
+		read = func() (pointer.Spot, bool) { return s.backend.StreamPointer(stream) }
+		cadence = streamPointerCadence
+	}
+
+	ticker := time.NewTicker(cadence)
 	defer ticker.Stop()
 
 	// The last position sent, so an unmoved pointer sends nothing:
@@ -50,7 +69,7 @@ func (s *Server) SubscribePointer(req *screensharev1.SubscribePointerRequest, ou
 	// Three fields rather than the message, a message carrying a lock that copying it would copy.
 	// The moment of the reading is left out: what is compared is what a viewer draws from,
 	// and a pointer that has not moved has not moved however often it was read.
-	var lastX, lastY int32
+	var lastX, lastY float32
 	var lastVisible, sent bool
 
 	done := out.Context().Done()
@@ -61,7 +80,7 @@ func (s *Server) SubscribePointer(req *screensharev1.SubscribePointerRequest, ou
 			// No failure and nothing reported, as in Subscribe.
 			return nil
 		case <-ticker.C:
-			p, reporting := s.backend.Pointer()
+			p, reporting := read()
 			if !reporting {
 				continue
 			}

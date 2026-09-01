@@ -288,6 +288,36 @@ A format with no listener on the selected leg reports not-viewable, names the le
 
 Computed in Go beside the tables it derives from, reaching the shell as a `Form` statement like every other (`ipc-api.md`).
 
+## The decode host
+
+Every receive pipeline plays in a child process, one for all of them, spawned as another run of this executable (`internal/decode`, `backend decode-host`).
+The backend keeps the policy and holds no pipeline.
+
+A GPU reset is why.
+The kernel marks every context on the reset ring lost, the innocent ones as well as the guilty, and Mesa aborts a context that did not ask for robustness, which no libva and no GStreamer OpenGL context does.
+Whichever process was submitting dies where it stands.
+In the backend that costs the control socket, the group membership and the publish supervision along with the picture; in the child it costs the decodes, and the backend reports each one ending the way it reports a pipeline that stopped by itself.
+
+One child rather than one per stream, for the same reason: a ring reset takes the innocent contexts too, so a child per stream would abort together and buy nothing for the OpenGL context and the VA display each would hold.
+
+| Runs where | What |
+|---|---|
+| child | every `receive.Receiver`: watch streams, the broadcast preview, the monitor previews, and the export pools |
+| backend | which decodes exist, the settings they are built from, the states and events, and the registry probes `receive.Chains` and `receive.ToneMapping` answer |
+
+The probes stay in the backend because they read the element registry and submit nothing to the GPU, so they cost the process no exposure to a reset.
+
+**Pixels do not cross the seam.**
+A pool announces a socket the consumer dials for its descriptors, so the child binds that socket and the shell reads the handles from the child directly ("The frame channel").
+What crosses backend to child is the control calls, and child to backend the frame events, each a slot number and a serial.
+
+**The host owns which decodes exist.**
+`ReceiveState`, `MonitorPreviewState` and the stats poll read one snapshot of the host per pass rather than one call per figure.
+A decode that ended stays in the host's set carrying its reason until the backend stops it: an entry dropped where it ended would take the reason with it, and the reason is what the tile shows.
+
+The child ends when its control connection does, taking every pipeline to NULL first, and the backend waits for that before exiting.
+A host killed mid-teardown leaves a decoder on the device.
+
 ## The receive package
 
 `backend/internal/receive` owns everything between the relay and a decoded frame: the source fragment for the chosen watch leg (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), the decoder `decodebin` autoplugs, and the chain converting what comes out.
@@ -393,6 +423,18 @@ A compositor too slow to take a frame is invisible from this side: the backend s
 A field the transport's elements already report is one entry in `statSources` and one in the shell's table of what a counter means.
 A figure read off the pipeline is a field on `receive.Stats`, a field on `ReceiveStreamStats`, and the same table entry.
 A field with no entry renders as its key, which is what gets the entry written.
+
+### What a tile draws that the picture does not carry
+
+A publisher whose cursor mode sends the pointer instead of drawing it publishes frames with no mouse in them.
+The position rides in the coded picture beside the publishing clock (`internal/framestamp`), so the decode is what can answer for it and `receive.Pointer` is that answer.
+
+It reaches the shell on `SubscribePointer`, the request naming the stream, and the tile draws a marker over the picture (`Features/Viewer/Tile/ViewModel/TilePointer.cs`).
+Followed on the token the frame channel is opened on, so a tile that stopped drawing stops asking and a popped-out stream is followed by the window that draws it.
+The read is slower than the capture's own leg, at `streamPointerCadence`: the position changes once a frame however often it is asked for.
+
+The marker is placed on the picture and not on the card, the host letterboxing to the stream's shape, so a fraction of the card would drift into the bars.
+What is drawn is this app's arrow rather than the publisher's cursor: what crosses is a position, and neither capture backend's reader reaches the bitmap.
 
 ### What the path costs a frame
 

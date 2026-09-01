@@ -291,10 +291,10 @@ public sealed class PreviewViewModel : Observable
     public bool HasPointer { get => _hasPointer; private set => Set(ref _hasPointer, value); }
 
     /// <summary>
-    /// Where the marker sits over the picture, in the rendered card's own pixels.
-    /// The backend sends the position in the picture's pixels, so the one conversion is the fraction of the way
-    /// across times the size this card is drawn at.
-    /// Here and not in the view, which does not know the picture's own size.
+    /// Where the marker's tip sits over the picture, in the rendered card's own pixels.
+    /// The backend sends the position as a fraction of the picture, so the one conversion is that fraction
+    /// times the size this card is drawn at.
+    /// Here and not in the view, which does not know the size it is drawing at until it has arranged.
     /// </summary>
     public double PointerLeft { get => _pointerLeft; private set => Set(ref _pointerLeft, value); }
 
@@ -319,28 +319,19 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     public void Point(PointerPosition? at)
     {
-        var picture = Tile;
         var drawn = _pictureWidth > 0 && _pictureHeight > 0;
-        if (at is null || !at.Visible || picture is null || !drawn)
+        if (at is null || !at.Visible || !drawn)
         {
             HasPointer = false;
             return;
         }
 
-        if (picture.PictureWidth <= 0 || picture.PictureHeight <= 0)
-        {
-            HasPointer = false;
-            return;
-        }
-
-        // Centred on the position, the marker standing for a point rather than a box.
+        // No offset: the marker's tip is its origin, and the position is where the tip goes
+        // (Design/Pointer.axaml).
         HasPointer = true;
-        PointerLeft = (at.X * _pictureWidth / picture.PictureWidth) - (PointerSize / 2);
-        PointerTop = (at.Y * _pictureHeight / picture.PictureHeight) - (PointerSize / 2);
+        PointerLeft = at.X * _pictureWidth;
+        PointerTop = at.Y * _pictureHeight;
     }
-
-    /// <summary>Marker width in px, drawn at this size by the view and centred by this.</summary>
-    private const double PointerSize = 14;
 
     // --- Lifecycle ------------------------------------------------------------------
 

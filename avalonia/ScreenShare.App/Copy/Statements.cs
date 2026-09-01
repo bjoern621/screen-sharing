@@ -242,16 +242,12 @@ public static class Statements
                 + "draws the pointer later, so it never appears in the capture.",
 
             TextCode.CaptureHasNoCursorMetadata =>
-                $"{Words.Capture(a.Capture)} delivers the picture and nothing else. Only the desktop portal "
-                + "reports the pointer position separately from the frames.",
+                $"{Words.Capture(a.Capture)} delivers the picture and nothing else. "
+                + "The desktop portal and the X11 screen capture report where the pointer is.",
 
-            TextCode.CursorMetadataLocalOnly =>
-                "The pointer shows only in the preview on this computer. "
-                + "Viewers elsewhere see the picture without it.",
-
-            TextCode.CursorMetadataNotCarried =>
-                "This capture reports the pointer position separately, but the stream does not carry it. "
-                + "Viewers would see no pointer.",
+            TextCode.FormatCarriesNoCursorMetadata =>
+                $"{a.Format} carries the picture and nothing beside it, so viewers would see no pointer. "
+                + "H.264 and HEVC carry the position to them.",
 
             TextCode.CqAboveCodecScale =>
                 $"The quality scale of {a.Codec} ends at {a.CqMax} on {Words.Engine(a.Engine)}, so the slider "

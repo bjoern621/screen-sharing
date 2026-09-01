@@ -328,7 +328,7 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		},
 		// The position belongs to the run that read it, so it is dropped once that run is out of force,
 		// and a pointer never outlives the capture it was over.
-		OnPointer: func(p pointer.Position) {
+		OnPointer: func(p pointer.Spot) {
 			if !a.isCurrentRun(run) {
 				return
 			}

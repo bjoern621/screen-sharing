@@ -139,13 +139,20 @@ type Backend interface {
 	// A read and not a stream: the cadence belongs to the service that ticks it,
 	// not to the backend that measures.
 	AudioLevels() []wire.AudioLevel
-	// Pointer is where the publishing machine's pointer is at this instant,
+	// Pointer is where this machine's own capture has the pointer at this instant,
 	// and false where the publish in force reports none.
 	//
 	// That covers every cursor mode but the one sending the position instead of drawing it,
 	// and every engine whose child cannot read one.
 	// A read and not a stream, for the reason AudioLevels is one.
-	Pointer() (pointer.Position, bool)
+	Pointer() (pointer.Spot, bool)
+	// StreamPointer is where a watched stream's publisher has the pointer at this instant,
+	// and false where its frames carry none.
+	//
+	// Read off the frames rather than asked of anybody: the position rides in the bitstream,
+	// no leg over the relay carrying a channel beside the picture (internal/framestamp).
+	// A stream nothing is decoding reports none, as one whose publisher sends none does.
+	StreamPointer(ref wire.StreamRef) (pointer.Spot, bool)
 	// SubscribeFrames opens one consumer's view of a decode already running,
 	// and refuses where nothing is decoding the pair.
 	//

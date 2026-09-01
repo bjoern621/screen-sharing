@@ -58,17 +58,14 @@
         </Border>
 
         <!--
-          The pointer travels beside the picture rather than in it, so no route's frames carry one
+          The pointer travels beside the picture rather than in it, so the preview's frames carry none
           and the marker is drawn here (docs/capture-architecture.md, "The pointer").
           The offsets are in this card's own pixels.
         -->
         <Canvas IsVisible="{Binding HasPointer}" ClipToBounds="True">
-          <Ellipse Width="14" Height="14"
-                   Fill="{StaticResource AttentionBrush}"
-                   Stroke="{StaticResource ForegroundBrush}"
-                   StrokeThickness="2"
-                   Canvas.Left="{Binding PointerLeft}"
-                   Canvas.Top="{Binding PointerTop}" />
+          <Path Classes="pointer"
+                Canvas.Left="{Binding PointerLeft}"
+                Canvas.Top="{Binding PointerTop}" />
         </Canvas>
 
         <Panel Margin="8" VerticalAlignment="Bottom">

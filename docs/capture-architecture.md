@@ -259,17 +259,35 @@ Every backend serves `embedded` and `hidden` through a property of its own.
 Two facts are the reason the table exists.
 kmsgrab reads the scanout's primary plane and the pointer is a hardware plane the display composes over it, so that path cannot draw one at all and `hidden` is the only mode describing what it does.
 `metadata` needs a position something on the machine can read, which two rows have.
+Both are the GStreamer engine's, the publish child being what reports one.
 X11 draws the pointer into the image and answers any client asking where it is, which the mode reads on `ximagesrc` (`internal/pointer`).
-The portal's `cursor_mode` reports the position instead of drawing it.
+The portal's `cursor_mode` reports the position instead of drawing it, and `pipewiresrc` hands it on as a region of interest named `cursor`, carrying no cursor at all on a frame the pointer was not over.
 `x11grab` reads that same X screen and does not serve the mode: the position leaves on the publish child's own standard output, and the ffmpeg engine's child is ffmpeg.
 
-The portal's row is the one `metadata` is refused on (`TEXT_CODE_CURSOR_METADATA_NOT_CARRIED`).
-The position rides in the cursor metadata PipeWire carries beside each frame, which the publish child would have to take off the stream itself rather than through `pipewiresrc`.
+Which source answers is a table keyed by capture element (`gstrun/pointersource.go`), the same set the row above states read from the other side.
+Both land in one hold, as a fraction of the captured picture.
+A fraction because it is the one space both answer in: X11 reads against the display's root and the portal against the region it captures, and nothing downstream then needs the size anything was read or drawn at.
 
-Where the mode is offered it carries a note rather than a refusal (`TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY`), saying how far the position travels.
-It leaves the capture on the child's standard output (`gstrun/pointer.go`), crosses the control contract on a stream of its own (`SubscribePointer`) in the captured picture's own pixels (`App.Pointer`), and reaches this machine's screens, which is what the broadcast preview draws.
-No leg carries it over the relay, so somebody watching from another machine sees no pointer.
-A note because the mode does what it says on the machine that picks it, and what it does not do is a fact about what viewers receive rather than about this capture.
+## Where the position goes
+
+Two legs, from one reading.
+
+| Leg | Carriage | Rate |
+| --- | --- | --- |
+| this machine's screens | child's standard output, then `SubscribePointer` | the source's own, `pointer.Interval` |
+| every viewer | the encoded frames themselves (`internal/framestamp`) | the frame rate |
+
+The relay terminates one protocol and re-muxes per listener, so nothing beside the picture survives the hop and the bitstream is what does.
+The position rides the same unregistered SEI message the publishing clock does, one unit per access unit, which a decoder that does not know this app skips.
+It arrives with the picture it was read over, so a marker cannot lead the frame it belongs to.
+
+A viewer reads it off the frames it is decoding (`receive/pointer.go`) and the shell draws a marker over the tile (`Features/Viewer/Tile/ViewModel/TilePointer.cs`).
+The publishing machine's own preview draws the same marker from the faster leg (`Design/Pointer.axaml`).
+What both draw is this app's arrow, never the publisher's own cursor: what crosses is a position, the bitmap reaching neither backend's reader.
+
+H.264 and HEVC have that unit and the other formats have none, so `metadata` is refused on a format carrying no stamp (`TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA`).
+The refusal is derived from what `framestamp` writes rather than listed, so a format added to the capability table is refused until that package carries it.
+Stated against the format and not the capture, the two sending a reader to different places: a capture with no position to report is answered by picking another capture, and a bitstream that cannot carry one by picking another format.
 
 A monitor preview draws the pointer whatever the setting holds.
 A preview answers what a screen looks like so a reader can tell one from another, and two desktops often differ by nothing else.

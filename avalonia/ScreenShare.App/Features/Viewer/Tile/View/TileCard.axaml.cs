@@ -112,6 +112,19 @@ public partial class TileCard : UserControl
         }
     }
 
+    /// <summary>
+    /// Reports the size this card arranged at, in its own pixels.
+    ///
+    /// The pointer arrives as a fraction of the picture and is drawn in these, so the conversion needs both.
+    /// The view model reads the picture's shape off the frames, and this is the only source for the card's size.
+    /// </summary>
+    protected override Size ArrangeOverride(Size size)
+    {
+        var arranged = base.ArrangeOverride(size);
+        _watched?.SetPictureSize(arranged.Width, arranged.Height);
+        return arranged;
+    }
+
     /// <summary>Widens the meter's bar to the level, in pixels of this card.</summary>
     private void Draw()
     {

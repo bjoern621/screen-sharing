@@ -727,18 +727,25 @@ message SubscribeAudioLevelsRequest {}
 
 // Names nothing: one publish is in force at a time, so there is one pointer to report and
 // nothing to select between.
-message SubscribePointerRequest {}
+message SubscribePointerRequest {
+  // Which stream's pointer to follow, unset being this machine's own publish.
+  //
+  // One method for both, the two being the same reading over different legs:
+  // the publish reads its own capture,
+  // and a watched stream carries the position in its frames.
+  StreamRef stream = 1;
+}
 
 // Where the publishing machine's pointer was, and when.
 //
-// The coordinates are the captured picture's own, in the pixels the stream carries, with the
-// origin at its top left.
-// That is what makes them drawable without a viewer knowing anything about the publisher's
-// desktop: which screen is being read, how it is scaled and where it sits among the others
-// are all the publisher's facts.
+// The coordinates are fractions of the picture, from its top left,
+// so a viewer places one knowing nothing but the size it is drawing at.
+// Which screen is being read, how it is scaled and where it sits among the others
+// are all the publisher's facts, and a fraction survives every one of them.
 message PointerPosition {
-  int32 x = 1;
-  int32 y = 2;
+  // 0..1 across the picture and down it, read only where visible holds.
+  float x = 5;
+  float y = 6;
   // When the position was read, on the publishing machine's clock.
   //
   // It travels so a viewer can hold a position back to the frame it belongs to rather than
@@ -750,4 +757,7 @@ message PointerPosition {
   // A pointer that has left the screen is not at its last position, and drawing it there
   // would leave one stuck against an edge for as long as it is away.
   bool visible = 4;
+
+  // 1 and 2 were x and y in the captured picture's own pixels.
+  reserved 1, 2;
 }

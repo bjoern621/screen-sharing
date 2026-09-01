@@ -1,0 +1,31 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The marker drawn where a publishing machine's pointer is, over a picture that carries none
+    (docs/capture-architecture.md, "The pointer").
+
+    One rule for both surfaces that draw it, the broadcast preview and the viewer tile.
+    Two shapes would be two things a reader has to learn mean the same.
+
+    An arrow and not a dot, so it reads as somebody's pointer rather than as a highlight over the picture.
+    It is this app's arrow and never the publisher's own: what crosses is a position, the cursor's own bitmap
+    reaching neither capture backend's reader.
+
+    The tip is the origin of the shape, so a position places the marker with no offset:
+    an arrow points at its corner where a dot sits on its centre.
+
+    Filled and outlined, a marker over arbitrary video having no background to be legible against.
+  -->
+  <Style Selector="Path.pointer">
+    <Setter Property="Data">
+      <StreamGeometry>M0,0 L0,16.5 L4.2,12.6 L6.8,18.6 L9.5,17.4 L6.9,11.6 L12,11.4 Z</StreamGeometry>
+    </Setter>
+    <Setter Property="Fill" Value="{DynamicResource AttentionBrush}" />
+    <Setter Property="Stroke" Value="{DynamicResource ForegroundBrush}" />
+    <Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+
+</Styles>

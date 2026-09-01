@@ -122,6 +122,7 @@ public sealed class BroadcastPreviewTests
         }
 
         public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+            StreamRef? stream = null,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             await Task.CompletedTask.ConfigureAwait(false);

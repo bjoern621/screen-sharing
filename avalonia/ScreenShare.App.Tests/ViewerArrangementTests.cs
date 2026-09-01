@@ -189,8 +189,9 @@ public sealed class ViewerArrangementTests
         public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
             => _seed.SubscribeAudioLevelsAsync(cancellation);
 
-        public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default)
-            => _seed.SubscribePointerAsync(cancellation);
+        public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+            StreamRef? stream = null, CancellationToken cancellation = default)
+            => _seed.SubscribePointerAsync(stream, cancellation);
     }
 
     /// <summary>

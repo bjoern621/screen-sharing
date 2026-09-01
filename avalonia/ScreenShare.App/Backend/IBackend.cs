@@ -496,7 +496,7 @@ public interface IBackend
     IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default);
 
     /// <summary>
-    /// Where the publishing machine's pointer is, for as long as the caller holds the enumeration.
+    /// Where a publishing machine's pointer is, for as long as the caller holds the enumeration.
     ///
     /// A stream of its own for the reason the levels are one, and one degree more so: sending a position instead
     /// of drawing it into the picture costs no frame, so it moves at its own rate rather than the stream's.
@@ -506,5 +506,7 @@ public interface IBackend
     /// The mode can change under a subscription,
     /// and a shell that had to resubscribe would be one holding a pointer from the mode before.
     /// </summary>
-    IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default);
+    /// <param name="stream">Which watched stream to follow, null being this machine's own publish.</param>
+    IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        StreamRef? stream = null, CancellationToken cancellation = default);
 }

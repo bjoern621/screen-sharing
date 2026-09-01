@@ -22,7 +22,7 @@ import (
 //
 // A nil meter is a run nobody asked progress from, and a nil onPointer one that tracks no cursor.
 // Either still reports its caps: what the capture negotiated is not instrumentation.
-func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPointer func(p pointer.Position)) {
+func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPointer func(p pointer.Spot)) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
 	go func() {
