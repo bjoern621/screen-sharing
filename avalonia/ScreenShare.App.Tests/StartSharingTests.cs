@@ -162,7 +162,7 @@ public sealed class StartSharingTests
         Assert.NotEqual(start.Label, apply.Label);
     }
 
-    /// <summary>Applying restarts the stream, so copy reading as a seamless swap misleads.</summary>
+    /// <summary>Applying restarts the stream, so copy reading as a uninterrupted swap misleads.</summary>
     [Fact]
     public void TheApplyWordingSaysTheStreamRestarts()
     {

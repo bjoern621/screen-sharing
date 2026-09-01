@@ -304,7 +304,7 @@ internal sealed class SeededBackend : IBackend
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
         // Honoured rather than ignored, so an abandoned read takes the same path whichever implementation
-        // stands behind the seam.
+        // stands behind the boundary.
         return cancellation.IsCancellationRequested
             ? Task.FromCanceled<Settings>(cancellation)
             : Task.FromResult(Defaults());
@@ -379,12 +379,12 @@ internal sealed class SeededBackend : IBackend
             : Task.FromResult(Resolve(draft));
     }
 
-    // --- The rest of the seam -------------------------------------------------------
+    // --- The rest of the interface -------------------------------------------------------
     //
     // No pipeline, no relay and no child process stand behind these,
     // so each answers honestly rather than with a plausible figure.
     //
-    // One stand-in and not several, IBackend being one seam.
+    // One stand-in and not several, IBackend being one interface.
     // A partial implementation would break the compile of every test touching an unimplemented method,
     // for a reason unrelated to what it tests.
 

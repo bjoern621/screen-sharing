@@ -14,7 +14,7 @@ import (
 
 // Groups is the membership one scrape reads.
 // An interface rather than the registry, so a scrape is tested without a relay behind it,
-// the same seam the registry itself takes its relay through.
+// the same boundary the registry itself takes its relay through.
 type Groups interface {
 	Read() []membership.Reading
 	Tallies() membership.Tallies

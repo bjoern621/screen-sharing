@@ -4,7 +4,7 @@ namespace ScreenShare.App.Backend;
 
 /// <summary>
 /// Control plane as this shell sees it: reads that draw a screen, effects, and the stream saying what changed.
-/// Seam of <c>docs/ipc-api.md</c>.
+/// Boundary of <c>docs/ipc-api.md</c>.
 /// Which values a control offers, which are greyed and why, predicted cost, what is publishing, what the relay
 /// carries: all arrive already decided.
 /// Shell contributes layout, typography, colour, motion, input handling, accessibility and every word on screen.

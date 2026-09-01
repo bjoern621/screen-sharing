@@ -1,12 +1,12 @@
 // Package publish selects and supervises the pipeline that captures the screen and pushes
 // the encoded stream to the relay.
 //
-// The seam is the Publisher: the app starts and stops a Publisher and never names ffmpeg or
+// The boundary is the Publisher: the app starts and stops a Publisher and never names ffmpeg or
 // GStreamer.
 // A capture backend owns its whole pipeline behind that contract.
 // One publish engine drives the screen grabbers feeding a single ffmpeg process, the other drives
 // the capture backends where GStreamer captures, encodes and ships in one graph.
-// Both satisfy the same contract, so the lifecycle code above the seam is identical for either.
+// Both satisfy the same contract, so the lifecycle code above the boundary is identical for either.
 package publish
 
 import (
@@ -63,7 +63,7 @@ type Publisher interface {
 	// to one launch (preview.go).
 	Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error)
 	// Engine names the publish engine that runs the pipeline, "ffmpeg" or "gstreamer".
-	// The lifecycle code above the seam never reads it, and the settings form does: which rate-control
+	// The lifecycle code above the boundary never reads it, and the settings form does: which rate-control
 	// knobs reach the encoder differs per engine, and a control the engine ignores is greyed
 	// with that reason instead of silently doing nothing.
 	Engine() string

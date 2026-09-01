@@ -110,7 +110,7 @@ public sealed class BroadcastViewModel : Observable
         Stats = new HeaderStatsViewModel();
 
         // The one card here that asks the backend for anything.
-        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the seam,
+        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the boundary,
         // the running state and the leg a viewer receives on rather than the composed reading alone.
         Preview = new PreviewViewModel(backend, form, session, dispatch);
         Nudge = new NudgeViewModel();

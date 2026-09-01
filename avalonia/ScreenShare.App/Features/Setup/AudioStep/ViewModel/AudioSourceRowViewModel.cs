@@ -124,7 +124,7 @@ public sealed class AudioSourceRowViewModel : Observable
 
     /// <summary>
     /// Entry of the source control that empties this row, null where there is none to press.
-    /// The write goes through the control's own option, which is the seam the dropdown beside it writes through,
+    /// The write goes through the control's own option, which is the boundary the dropdown beside it writes through,
     /// so the row decides nothing the menu would not.
     /// </summary>
     private OptionViewModel? Removal()

@@ -24,7 +24,7 @@
   </UserControl.Styles>
 
   <!--
-    One gap for every seam in this column, and the same one the page is inset by, so the cards keep a rhythm
+    One gap for every join in this column, and the same one the page is inset by, so the cards keep a rhythm
     with the edge they stand against.
     The panel between the cards is what the footer under the rail is set off by too (Setup/View/SetupView.axaml).
 

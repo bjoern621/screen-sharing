@@ -75,7 +75,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
 | `Features/Shell/` | the window, title bar, shared nav strip, status band, and which destination is showing |
-| `Backend/` | the control-plane seam: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
+| `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
 | `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets |
 | `Features/Broadcast/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
@@ -212,7 +212,7 @@ The press reads that state once more on its own pass rather than trusting the ga
 **The word on the button says which it is, and what applying costs.**
 `Model/CommitCopy.cs` is one row per commit, holding the label and the two halves of the sentence the stream name sits in, read by the view model and bound whole rather than a ternary at the binding site.
 The apply row says in plain words that the stream restarts, because it does: both engines run a child built from an argv, so new settings tear the pipeline down and launch another, and every viewer loses the picture across the gap.
-The broadcast screen's quality track is greyed carrying that same fact (`Features/Broadcast/Nudge`), and a button promising a seamless change would be the one place in the app that lied.
+The broadcast screen's quality track is greyed carrying that same fact (`Features/Broadcast/Nudge`), and a button promising a uninterrupted change would be the one place in the app that lied.
 
 The relay half is the one state the shell reads from a poll it does not run.
 The backend polls for as long as it is up, records each snapshot and answers `GetRelayStatus` from it, its opening value being unreachable with no reason, the honest reading of a relay nobody has asked.
@@ -274,7 +274,7 @@ It sits in the rail because a preset is the whole way of publishing, which no st
 A preset is a `PublishSettings` and nothing else, so applying one replaces that group of the draft and leaves the relay and watch settings where they are (`docs/presets.md`).
 Nothing is committed by it: publish settings are staged until a commit carries them, so trying a preset out costs nothing and puts nothing on the air.
 
-The store is the one state on this seam that no event announces.
+The store is the one state on this boundary that no event announces.
 Presets are a file the backend does not run on, so a save or a delete is followed by a read rather than by patching the list, and the re-read is offered as a button: a preset another window saved is invisible here until someone asks.
 The built-in half needs none of that.
 It arrives on the form, as current as everything else the resolve answered with, and applying one reads the settings off the form the window holds rather than off the row that was rendered.

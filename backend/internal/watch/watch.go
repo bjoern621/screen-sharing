@@ -1,6 +1,6 @@
 // Package watch builds the viewer command that plays a stream back.
 //
-// The publish package's engine seam from the other side of the wire:
+// The publish package's engine boundary from the other side of the wire:
 // each viewer engine serializes a stream into its own command line,
 // asking the transport registry for the form it consumes.
 //

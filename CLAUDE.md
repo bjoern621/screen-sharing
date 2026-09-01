@@ -22,16 +22,16 @@ When a design decision is open, take the option that keeps these two. Do not tra
 # A file holds one job, in about 150 lines
 
 150 lines of code is the size a source file is written to, in Go as in C# and everything else here.
-It is a guideline, a prompt to look for the seam, not a ceiling a build enforces.
+It is a guideline, a prompt to look for the split, not a ceiling a build enforces.
 
 The count is the symptom and the separation is the rule.
-A file past it is read again for the second responsibility it took on, and the split follows that seam: the table and the code deriving from it, the parser and the argument builder consuming it, the render pass and the model it reads.
+A file past it is read again for the second responsibility it took on, and the split follows that boundary: the table and the code deriving from it, the parser and the argument builder consuming it, the render pass and the model it reads.
 A split on the count alone leaves two files a reader has to open together to follow one thought, which is worse than the long file it replaced.
 A long file holding one job stays one file.
 
 Logic feels the count hardest: a view model, a builder, a parser, a table consumer, anything holding a decision.
 An `.axaml` view feels it least, its length being layout rather than a second job.
-A view still splits into components where the tree holds two things a reader would look for separately, on the same seam argument.
+A view still splits into components where the tree holds two things a reader would look for separately, on the same argument.
 
 The same size governs what lives inside the file.
 One type per job, one function per step, and a name saying which, so a reader looking for one behaviour opens one file and stops there.
@@ -86,6 +86,10 @@ A comment states the constraint the code cannot show, and nothing else.
 A comment that restates the code is deleted rather than shortened.
 This governs `//`, `#`, `///`, `/** */`, XML doc comments and docstrings.
 Commit messages are prose and are not governed here, and Markdown pages take "Docs are short" instead.
+
+**"Seam" is not used, anywhere.**
+Where two parts meet is a boundary, and the line a file splits on is a split.
+A word a reader has to translate costs more than the sentence it shortened.
 
 **Whether a comment is needed at all is decided first.**
 A name that already says it takes no comment: `getPlayerGuid`, `isEmpty`, `maxRetries`.
@@ -168,7 +172,7 @@ A line that runs to three clauses is two sentences that have not been separated 
 
 **A page is written clipped, not in prose.**
 The register is "Comments" above, applied to a whole page: articles, copulas and self-reference go, and a fragment is a whole line.
-"The seam is the `publish.Publisher` interface" is "Seam: `publish.Publisher`".
+"The boundary is the `publish.Publisher` interface" is "Boundary: `publish.Publisher`".
 "which is what keeps a stream's look off the capture backend" is "so a stream's look stays off the capture backend".
 What never goes is the fact under the words, so a line that lost a constraint on the way to being shorter is reverted rather than kept.
 

@@ -90,7 +90,7 @@ internal sealed class DeferredBackend : IBackend
         return held.Answer.Task;
     }
 
-    // Only one method's timing is this stand-in's business, so the rest of the seam forwards to the seed.
+    // Only one method's timing is this stand-in's business, so the rest of the interface forwards to the seed.
     // Two sets of answers would be two fixtures to keep in step.
 
     public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)

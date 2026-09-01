@@ -19,7 +19,7 @@ The tile grid works on Windows and on Linux, the platforms whose frame channel l
 The macOS leg is unbuilt, and there a tile says so rather than falling back to a copy through system memory.
 The browser needs a browser, so it is the one that works with no ffmpeg and on the platform whose frame import is unbuilt.
 
-The capture and publish side is the mirror of this seam.
+The capture and publish side is the mirror of this boundary.
 See `capture-architecture.md`.
 
 The Avalonia shell is the only shell (`ipc-api.md`).
@@ -307,7 +307,7 @@ One child rather than one per stream, for the same reason: a ring reset takes th
 
 The probes stay in the backend because they read the element registry and submit nothing to the GPU, so they cost the process no exposure to a reset.
 
-**Pixels do not cross the seam.**
+**Pixels do not cross the boundary.**
 A pool announces a socket the consumer dials for its descriptors, so the child binds that socket and the shell reads the handles from the child directly ("The frame channel").
 What crosses backend to child is the control calls, and child to backend the frame events, each a slot number and a serial.
 

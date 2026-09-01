@@ -138,7 +138,7 @@ A departure that is not written down is a bug.
 ## Components
 
 One file, one responsibility.
-A file over roughly 150 lines is a prompt to look for the seam, not a hard error.
+A file over roughly 150 lines is a prompt to look for the split, not a hard error.
 
 A UI component is a directory or a small file set with the same shape each time:
 

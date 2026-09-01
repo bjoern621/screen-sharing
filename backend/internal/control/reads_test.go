@@ -81,7 +81,7 @@ func encoderOption(t *testing.T, form *screensharev1.Form, encoder string) *scre
 	return nil
 }
 
-// The seam between the probe and the screen, and the one place both halves show at once.
+// The boundary between the probe and the screen, and the one place both halves show at once.
 //
 // The probe knows an Intel encoder is absent, the form says so,
 // and ResolveForm is where the first reaches the second.

@@ -4,9 +4,9 @@ Publishing means capturing the screen, encoding it, pushing it to the relay.
 Capture methods need different machinery: a screen grabber feeding one ffmpeg process, or a desktop portal whose frames arrive over PipeWire and run through a separate media framework.
 One contract hides that, so the code that starts, supervises and stops a stream never names ffmpeg or GStreamer.
 
-## The seam
+## The boundary
 
-Seam: `publish.Publisher`.
+Boundary: `publish.Publisher`.
 A capture backend owns its whole pipeline behind it: capture, encode, mux, transport.
 Drawn there rather than at "ffmpeg input arguments", so a backend brings its own engine.
 
@@ -39,7 +39,7 @@ Both engines return a `publish.Handle`, and the app supervises every backend thr
 | `gpupath` | which capture backend and encoder family pairs hand frames over without a trip through system memory |
 | `portal` | the ScreenCast D-Bus handshake, returning the PipeWire remote fd and node id |
 | `transport` | the destination, and each engine's serialization of it |
-| `watch` | the viewer side of the same seam |
+| `watch` | the viewer side of the same boundary |
 | `capabilities` | the codec facts both engines and the UI share |
 
 The app layer knows nothing about how any backend captures or encodes.

@@ -19,7 +19,7 @@ import (
 
 // A GStreamer capture backend is the head of the publish pipeline: the elements producing raw
 // frames, up to and including the conversion that pins the encoder input.
-// The seam sits there, everything downstream of it being the same for all of them.
+// The boundary sits there, everything downstream of it being the same for all of them.
 //
 // The backends differ in more than an element name.
 // The portal one performs a D-Bus handshake first and hands the child a descriptor.

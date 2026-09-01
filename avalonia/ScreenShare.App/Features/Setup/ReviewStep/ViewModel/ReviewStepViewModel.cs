@@ -31,7 +31,7 @@ public sealed class ReviewStepViewModel : Observable
     /// <param name="goLive">
     /// What committing means, answering when the backend has answered.
     /// Owned above this view model: no publisher here,
-    /// and starting one is an effect on the control plane this step has no seam to.
+    /// and starting one is an effect on the control plane this step has no route to.
     /// </param>
     /// <param name="dispatch">UI loop the commit's answer is marshalled back to.</param>
     public ReviewStepViewModel(

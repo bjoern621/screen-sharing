@@ -308,7 +308,7 @@ public static class Words
     /// <summary>
     /// Render chains, named by where the frames are converted and what that says about their colour,
     /// the two halves of the choice.
-    /// The element names the backend builds each from stay behind the seam:
+    /// The element names the backend builds each from stay behind the boundary:
     /// a reader picks a place and a promise, not a pipeline.
     /// </summary>
     private static readonly Dictionary<string, string> RenderChains = new()

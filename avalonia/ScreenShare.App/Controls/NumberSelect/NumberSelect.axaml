@@ -33,7 +33,7 @@
   <!--
     A caret and no face: the value is already in the box beside it, and a second one would be
     the same figure twice.
-    The negative margin collapses the two 1px borders that would otherwise meet as a 2px seam.
+    The negative margin collapses the two 1px borders that would otherwise meet as a 2px line.
   -->
   <ControlTheme x:Key="NumberSelectCaret" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="CornerRadius" Value="{StaticResource RadiusControlTrailing}" />

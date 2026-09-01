@@ -13,7 +13,7 @@ namespace ScreenShare.App.Tests;
 /// Two pictures of the stream this machine is sending, and which of the two pays the relay.
 /// Local route: a copy the publish child writes to a loopback port, so no decode opens or closes,
 /// no reader slot is taken, and the viewer figures beside the card stay about viewers.
-/// End-to-end route: a decode of this machine's own stream off the relay, judged on the calls the seam
+/// End-to-end route: a decode of this machine's own stream off the relay, judged on the calls the boundary
 /// received rather than on the picture, a receive effect on the wrong route being invisible on screen.
 /// The lifecycle fails invisibly too: a tile rebuilt per pass restarts a frame subscription a second,
 /// and a decode let go of without a close leaves a reader on the relay for the life of the window.

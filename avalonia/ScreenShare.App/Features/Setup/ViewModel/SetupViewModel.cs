@@ -226,7 +226,7 @@ public sealed class SetupViewModel : Observable
         Audio = new AudioStepViewModel(Group(AudioLayout.GroupKey));
 
         // The pictures over the source step's controls.
-        // The screen it is told to pick goes through the seam every control writes through, so the grid
+        // The screen it is told to pick goes through the boundary every control writes through, so the grid
         // and the list beneath it are two ways to one value rather than two values.
         Screens = new ScreenPickerViewModel(
             backend, session, dispatch,
@@ -237,7 +237,7 @@ public sealed class SetupViewModel : Observable
         // and the reader may have typed another address since the pass that drew the button (Setup/RelayCheck).
         RelayCheck = new RelayCheckViewModel(backend, () => _form.Draft, dispatch);
 
-        // The rail, and the saved ways of publishing in it, handed the seams this flow reads
+        // The rail, and the saved ways of publishing in it, handed the boundaries this flow reads
         // and nothing of this flow's own: the store is the backend's and the draft is the window's,
         // so a card routed through here would be one more hop between a press and the state it changes.
         // The rail draws on every step, so a preset is offered wherever the reader stands

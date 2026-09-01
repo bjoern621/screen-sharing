@@ -8,7 +8,7 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Relay's own player page, opened in the machine's browser.
 /// What a browser does with an address is out of this shell's reach,
-/// so asserted is the seam: legs off the catalog, the row asking for the leg pressed, and a call on every press.
+/// so asserted is the boundary: legs off the catalog, the row asking for the leg pressed, and a call on every press.
 /// </summary>
 public sealed class ViewerBrowserTests
 {

@@ -51,7 +51,7 @@ public sealed class CostRailViewModel : Observable
 
     /// <param name="presets">
     /// Saved ways of publishing, drawn in this column.
-    /// Composed rather than owned: it reads the store and writes the draft through seams of its own,
+    /// Composed rather than owned: it reads the store and writes the draft through inputs of its own,
     /// and the rail decides only where it sits and renders it on every pass.
     /// </param>
     public CostRailViewModel(PresetsViewModel presets)

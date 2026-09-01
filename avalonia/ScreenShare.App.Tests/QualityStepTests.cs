@@ -14,7 +14,7 @@ namespace ScreenShare.App.Tests;
 /// Asserted through the properties the markup binds and against no value this module wrote:
 /// entries, labels, trailing notes and greying all arrive on the resolved form,
 /// so a shell inventing a list fails here rather than on a screen (<c>docs/ipc-api.md</c>, "The rule").
-/// Every test awaits, the seam being a round trip whose answer lands on a later pass.
+/// Every test awaits, the boundary being a round trip whose answer lands on a later pass.
 /// The stand-in answers from memory over an inline dispatcher,
 /// so skipping the wait asserts against a timing the real client does not have.
 /// </summary>
