@@ -1,15 +1,21 @@
 package app
 
 import (
-	"net"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// previewApp needs no relay, no child and no control socket:
-// under test is the pipeline the publish brings up inside this process.
+// What a test can hold the preview to, now that the pipeline itself runs in the decode host
+// (internal/decode).
+// Bringing one up takes a host child, and a host child is this executable spawned again, which under
+// a test binary is that binary running its own tests.
+// So what is asserted here is the part that answers before anything is opened: the guard against
+// a second launch, and a stop that names a state already holding.
+
+// previewApp needs no relay, no child and no control socket.
+// The decode client is left nil, which every path below returns before reaching.
 func previewApp() *App {
 	return &App{events: events.New(), settings: settings.Defaults()}
 }
@@ -31,75 +37,31 @@ func TestBringingTheLocalPreviewUpTwiceChangesNothing(t *testing.T) {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	first := a.startPreviewLocked(s)
-	if !first.Wanted() {
-		t.Skip("no local preview came up on this machine, so there is no lifecycle to hold")
-	}
-	running := a.preview
+	// The state a second launch meets, written rather than opened:
+	// what the guard answers from is the field, not the pipeline behind it.
+	running := &previewRun{port: 5004}
+	a.preview = running
 
 	second := a.startPreviewLocked(s)
-	if second != first {
-		t.Errorf("a second start moved the port from %d to %d", first.Port, second.Port)
+	if second.Port != running.port {
+		t.Errorf("a second start moved the port from %d to %d", running.port, second.Port)
 	}
 	if a.preview != running {
 		t.Error("a second start replaced the pipeline the first one built")
 	}
+}
+
+// A stop on a preview that is not running names a state that already holds,
+// the contract StopReceive keeps.
+func TestStoppingALocalPreviewThatIsNotRunning(t *testing.T) {
+	a := previewApp()
+
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
 
 	a.stopPreviewLocked()
 	if a.preview != nil {
-		t.Error("a stopped preview is still reported as running")
+		t.Error("stopping when nothing ran left a preview behind")
 	}
-	// A stop on a preview that is not running names a state that already holds,
-	// the contract StopReceive keeps.
 	a.stopPreviewLocked()
-}
-
-// A port left bound after a stop is one the next launch cannot be given.
-func TestTheLocalPreviewHoldsThePortItReportsAndReleasesIt(t *testing.T) {
-	a := previewApp()
-	s := previewSettings()
-
-	a.procMu.Lock()
-	leg := a.startPreviewLocked(s)
-	a.procMu.Unlock()
-
-	if !leg.Wanted() {
-		t.Skip("no local preview came up on this machine, so there is no port to hold")
-	}
-
-	snapshot := func() (port int, running bool) {
-		a.procMu.Lock()
-		defer a.procMu.Unlock()
-
-		preview := a.previewSnapshotLocked()
-		if preview == nil {
-			return 0, false
-		}
-		return preview.Port, true
-	}
-
-	port, running := snapshot()
-	if !running || port != leg.Port {
-		t.Fatalf("the state reports port %d running=%v, and the child was told %d", port, running, leg.Port)
-	}
-
-	addr := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: leg.Port}
-	if conn, err := net.ListenUDP("udp", addr); err == nil {
-		conn.Close()
-		t.Errorf("port %d is free while the preview is supposed to be receiving on it", leg.Port)
-	}
-
-	a.procMu.Lock()
-	a.stopPreviewLocked()
-	a.procMu.Unlock()
-
-	if _, running := snapshot(); running {
-		t.Error("the state reports a preview after it was stopped")
-	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		t.Errorf("port %d is still held after the preview stopped: %v", leg.Port, err)
-		return
-	}
-	conn.Close()
 }

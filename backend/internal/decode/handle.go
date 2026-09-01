@@ -15,7 +15,12 @@ type Handle struct {
 func (h *Handle) ToneMap() bool { return h.toneMap }
 
 // Stop closes the decode, and succeeds where it has already stopped.
-func (h *Handle) Stop() { h.client.Stop(h.id) }
+func (h *Handle) Stop() {
+	if h == nil {
+		return
+	}
+	h.client.Stop(h.id)
+}
 
 // SetAudio sets how loud the decode plays, and refuses a decode that is not open.
 func (h *Handle) SetAudio(volume float64, muted bool) error {

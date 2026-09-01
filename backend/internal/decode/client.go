@@ -29,6 +29,11 @@ var errShutDown = errors.New("the decode host is shut down")
 // The child is brought up on the first open and replaced on the next one after it exits, so a host
 // that aborted costs the decodes that were running and nothing else.
 // Every method is safe to call from any goroutine.
+//
+// A nil client answers errNoHost and stops nothing.
+// That is what a caller holding none can be told without spawning:
+// the child is this executable run again, which under a test binary is that binary running
+// its own tests.
 type Client struct {
 	// spawnMu serializes bringing the host up, so two callers meeting an absent host start one
 	// child rather than two.
@@ -72,6 +77,10 @@ func NewClient() *Client {
 // what was asked for.
 func (c *Client) Open(id ID, st receive.Stream, open receive.Open, ev Events) (*Handle, error) {
 	assert.Assert(id.Kind != 0, "an opened decode names what kind it is")
+
+	if c == nil {
+		return nil, errNoHost
+	}
 
 	c.mu.Lock()
 	if c.closed {
@@ -137,6 +146,9 @@ func (c *Client) Snapshot() map[ID]State {
 
 // forget drops one decode's callbacks, so a host exiting afterwards reports nothing about it.
 func (c *Client) forget(id ID) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	delete(c.events, id)
 	c.mu.Unlock()
@@ -151,6 +163,9 @@ func (c *Client) forget(id ID) {
 // A failure takes the connection down, so the next open spawns a host rather than writing into one
 // that is gone.
 func (c *Client) call(req request) (response, error) {
+	if c == nil {
+		return response{}, errNoHost
+	}
 	c.callMu.Lock()
 	defer c.callMu.Unlock()
 
