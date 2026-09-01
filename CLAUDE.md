@@ -19,6 +19,26 @@ When a design decision is open, take the option that keeps these two. Do not tra
 `avalonia/README.md` adds the layer rules for the shell; `docs/ipc-api.md` states what the shell may decide, which is nothing.
 `docs/domain-model.md` covers the codec and transport tables every consumer derives from.
 
+# A file holds one job, in about 150 lines
+
+150 lines of code is the size a source file is written to, in Go as in C# and everything else here.
+It is a guideline, a prompt to look for the seam, not a ceiling a build enforces.
+
+The count is the symptom and the separation is the rule.
+A file past it is read again for the second responsibility it took on, and the split follows that seam: the table and the code deriving from it, the parser and the argument builder consuming it, the render pass and the model it reads.
+A split on the count alone leaves two files a reader has to open together to follow one thought, which is worse than the long file it replaced.
+A long file holding one job stays one file.
+
+Logic feels the count hardest: a view model, a builder, a parser, a table consumer, anything holding a decision.
+An `.axaml` view feels it least, its length being layout rather than a second job.
+A view still splits into components where the tree holds two things a reader would look for separately, on the same seam argument.
+
+The same size governs what lives inside the file.
+One type per job, one function per step, and a name saying which, so a reader looking for one behaviour opens one file and stops there.
+
+The one length that is not a defect is a file whose length is data: a codec or transport table, a generated file, a test table with a row per case.
+Those grow by a row, and a row costs the reader nothing.
+
 # Test first where a test can fail first
 
 A change a test can express starts with that test.

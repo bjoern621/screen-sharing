@@ -12,6 +12,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/app"
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/reach"
@@ -37,6 +38,14 @@ func main() {
 	// Re-entry adds no second artifact to build and ship.
 	if len(os.Args) > 1 && os.Args[1] == publish.GstSubcommand {
 		os.Exit(runPipeline(os.Args[2:]))
+	}
+
+	// Every receive pipeline runs in one more run of this executable.
+	// A GPU reset aborts whichever process was submitting to the ring, so a decode here would cost
+	// the control socket and the publish supervision along with the picture (internal/decode).
+	if len(os.Args) > 1 && os.Args[1] == decode.Subcommand {
+		decode.Main(os.Args[2:])
+		return
 	}
 
 	// Dials, prints and exits, without bringing up the app it shares an executable with (check.go).

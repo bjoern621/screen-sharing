@@ -11,19 +11,20 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/colour"
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// StartReceive opens a decode of one stream on one leg, inside this process.
+// StartReceive opens a decode of one stream on one leg, on the decode host.
 // A decode already open with the tone mapping this call would build is success, not a second decode.
 //
 // StartWatch's counterpart, differing in where the frames end up.
 // A watch spawns a player window this process does not draw in;
-// a receive builds a GStreamer pipeline here, which the frame channel hands to the shell
-// (docs/viewer-architecture.md).
+// a receive builds a GStreamer pipeline whose frames the frame channel hands to the shell
+// (docs/viewer-architecture.md, "The decode host").
 //
 // A decode, never a tile.
 // Where the frames are drawn and beside which others is the shell's (docs/ipc-api.md).
@@ -114,7 +115,7 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 		Source:    joinSource(source),
 	}
 	open := receive.Open{Chain: s.Viewer.RenderChain, ToneMap: toneMap}
-	receiver, err := receive.New(stream, open, receive.Events{
+	receiver, err := a.decodes.Open(decode.StreamID(streamName, transportName), stream, open, decode.Events{
 		// A first frame moves what the state reports: the chain that ran, the memory the pads negotiated.
 		OnLive: a.emitReceiveState,
 		OnEnd: func(message string) {
@@ -151,7 +152,7 @@ func (a *App) receiving(ref StreamRef, toneMap bool) bool {
 // Out under the lock and stopped outside it, StopReceive's order:
 // a teardown blocks on the pipeline reaching NULL,
 // and every other method touching the receivers would wait behind it.
-func (a *App) replacedReceiver(ref StreamRef, toneMap bool) *receive.Receiver {
+func (a *App) replacedReceiver(ref StreamRef, toneMap bool) *decode.Handle {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
@@ -228,8 +229,7 @@ func (a *App) SetReceiveAudio(streamName, transportName string, volume float64, 
 	// Bounded rather than refused,
 	// so a slider that ran past its end is a value the backend brings back,
 	// rather than an error a reader has to understand.
-	receiver.SetAudio(min(max(volume, 0), 1), muted)
-	return nil
+	return receiver.SetAudio(min(max(volume, 0), 1), muted)
 }
 
 // AudioLevels is how loud every decode carrying audio is, at this instant.
@@ -238,19 +238,17 @@ func (a *App) SetReceiveAudio(streamName, transportName string, volume float64, 
 // A decode with no audio branch, or one whose branch has posted no measurement, has no entry:
 // absence and silence are different facts, and a floor invented here would erase the difference.
 func (a *App) AudioLevels() []wire.AudioLevel {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
+	states := a.decodes.Snapshot()
 
-	out := make([]wire.AudioLevel, 0, len(a.receivers))
-	for ref, receiver := range a.receivers {
-		peak, rms, ok := receiver.Level()
-		if !ok {
+	out := make([]wire.AudioLevel, 0, len(states))
+	for id, state := range states {
+		if id.Kind != decode.KindStream || state.Ended || !state.HasLevel {
 			continue
 		}
 		out = append(out, wire.AudioLevel{
-			Stream: wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
-			PeakDB: peak,
-			RMSDB:  rms,
+			Stream: wire.StreamRef{StreamName: id.Name, Transport: id.Transport},
+			PeakDB: state.PeakDB,
+			RMSDB:  state.RMSDB,
 		})
 	}
 	return out
@@ -266,6 +264,10 @@ func (a *App) receiveEnded(ref StreamRef, message string) {
 	_, present := a.receivers[ref]
 	delete(a.receivers, ref)
 	a.procMu.Unlock()
+
+	// The host keeps a decode that ended, carrying the reason, until it is stopped.
+	// This is what collects it, so the reason travels once and the set holds what is running.
+	a.decodes.Stop(decode.StreamID(ref.Name, ref.Transport))
 
 	if !present {
 		// A stop the user asked for takes the receiver out first and the teardown ends the bus watch,
@@ -286,9 +288,6 @@ func (a *App) receiveEnded(ref StreamRef, message string) {
 // so a state assembled from what a caller believed it started would report the chain asked for,
 // rather than the one that ran.
 func (a *App) ReceiveState() []wire.ReceiveStream {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-
 	// One read for every decode: what rolls an HDR stream down is the machine's answer,
 	// the same for all of them, and a tile reads it beside the stream it is deciding about.
 	// A missing element is named only where the offer cannot be taken,
@@ -297,23 +296,31 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 	// CanToneMap tells those two apart.
 	offer := receive.ToneMapping()
 
-	out := make([]wire.ReceiveStream, 0, len(a.receivers))
-	for ref, receiver := range a.receivers {
-		stats := receiver.Stats()
-		volume, muted, hasAudio := receiver.Audio()
+	// Read off the host rather than off the handles this process holds,
+	// the host being the one owner of which decodes are running.
+	// A decode that ended is left out: it carries its reason until receiveEnded collects it,
+	// and a tile shows what is running.
+	states := a.decodes.Snapshot()
+
+	out := make([]wire.ReceiveStream, 0, len(states))
+	for id, state := range states {
+		if id.Kind != decode.KindStream || state.Ended {
+			continue
+		}
+		stats := state.Stats
 		live := stats.Frames > 0
 		out = append(out, wire.ReceiveStream{
-			Stream:         wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
+			Stream:         wire.StreamRef{StreamName: id.Name, Transport: id.Transport},
 			Live:           live,
-			Failure:        a.receiveFailure(ref.Name, live),
+			Failure:        a.receiveFailure(id.Name, live),
 			Chain:          stats.Chain,
 			DecodeMemory:   stats.DecodeMemory,
 			RenderMemory:   stats.RenderMemory,
 			Decoder:        stats.Decoder,
 			Hardware:       stats.Hardware,
-			HasAudio:       hasAudio,
-			Volume:         volume,
-			Muted:          muted,
+			HasAudio:       state.HasAudio,
+			Volume:         state.Volume,
+			Muted:          state.Muted,
 			Transfer:       stats.Transfer,
 			HDR:            colour.IsHDR(stats.Transfer),
 			ToneMap:        stats.ToneMap,
@@ -350,7 +357,8 @@ func (a *App) receiveFailure(streamName string, live bool) *screensharev1.Text {
 //
 // Read back through ReceiveState rather than handed a set,
 // so what is announced is what a read would answer, not what a caller believed it had done.
-// It takes procMu, so a caller holding that lock defers this rather than calling it in place.
+// The read reaches the decode host, so a caller holding procMu defers this rather than calling it
+// in place and holding the lock across a round trip.
 func (a *App) emitReceiveState() {
 	a.emit(wire.ReceiveStateEvent(a.ReceiveState()))
 }

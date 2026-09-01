@@ -10,11 +10,11 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/control"
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/groupclient"
-	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -111,6 +111,11 @@ type App struct {
 	// and only the first report is kept: what follows a fatal is the shutdown.
 	fatal chan error
 
+	// The child every decode runs in, brought up on the first one and replaced after it exits.
+	// A GPU reset aborts whichever process was submitting to the ring, so a decode here would cost
+	// the control socket and every publish along with the picture (internal/decode).
+	decodes *decode.Client
+
 	procMu sync.Mutex
 	// Publish session in force, nil while nothing publishes.
 	// Carries the settings its pipeline was built from,
@@ -130,14 +135,14 @@ type App struct {
 	// never crossed the relay (preview.go).
 	preview  *previewRun
 	watchers map[StreamRef]*ffmpeg.Proc
-	// Decodes running inside this process, keyed as the watchers are, by a stream and its receiving leg:
+	// Decodes running on the host, keyed as the watchers are, by a stream and its receiving leg:
 	// the relay re-serves each stream on all its listeners,
 	// so one stream can be decoded over several at once (receive.go).
-	receivers map[StreamRef]*receive.Receiver
+	receivers map[StreamRef]*decode.Handle
 	// Screens being read for the setup wizard, keyed by the index the output is enumerated under.
 	// A map of their own rather than entries beside the decodes: an output names one, not a StreamRef
 	// (monitorpreview.go).
-	monitorPreviews map[int]*receive.Receiver
+	monitorPreviews map[int]*decode.Handle
 	// The synthetic set, one entry per slot,
 	// keyed by the slot number the stream is named after.
 	// An entry is a child that is publishing or a relaunch waiting to start one,
@@ -176,9 +181,10 @@ func New(version string) *App {
 		relayStop:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),
 		fatal:            make(chan error, 1),
+		decodes:          decode.NewClient(),
 		watchers:         map[StreamRef]*ffmpeg.Proc{},
-		receivers:        map[StreamRef]*receive.Receiver{},
-		monitorPreviews:  map[int]*receive.Receiver{},
+		receivers:        map[StreamRef]*decode.Handle{},
+		monitorPreviews:  map[int]*decode.Handle{},
 		testStreams:      map[int]*testStream{},
 	}
 }
@@ -254,43 +260,13 @@ func (a *App) Stop() {
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}
-	// The receive pipelines are the teardown this process waits on,
-	// stopped together rather than one after another.
-	//
-	// Each Stop blocks until its pipeline reaches NULL, bounded by receive's own timeout,
-	// so a row would bound this shutdown at that timeout times the number of pipelines.
-	// Together, the wait is the slowest pipeline's.
-	//
-	// Waiting at all is the point: the process exits next,
-	// and a pipeline still running then is torn down by the operating system with its threads wherever
-	// they happen to be, which on Windows leaves an unkillable process holding the control pipe.
-	// The count below says whether the exit about to happen is the clean one.
-	//
-	// The monitor previews join the group: receive pipelines keyed by an output rather than by a stream,
-	// stopped no differently (monitorpreview.go).
-	pipelines := make([]*receive.Receiver, 0, len(a.receivers)+len(a.monitorPreviews))
-	for _, receiver := range a.receivers {
-		pipelines = append(pipelines, receiver)
-	}
-	for _, receiver := range a.monitorPreviews {
-		pipelines = append(pipelines, receiver)
-	}
+	// Every decode goes with the host running them, which takes its pipelines to NULL before it
+	// exits and is waited for (internal/decode).
+	// The monitor previews and the local preview go with it too, being pipelines on the same host.
+	clear(a.receivers)
+	clear(a.monitorPreviews)
+	a.decodes.Close()
 
-	var stopping sync.WaitGroup
-	var running atomic.Int32
-	for _, receiver := range pipelines {
-		stopping.Add(1)
-		go func() {
-			defer stopping.Done()
-			if !receiver.Stop() {
-				running.Add(1)
-			}
-		}()
-	}
-	stopping.Wait()
-	if left := running.Load(); left > 0 {
-		logger.Warnf("%d receive pipeline(s) were still running at shutdown; the streams they name are in the lines above", left)
-	}
 	// The wanted count drops to zero with the children, so a relaunch pending behind a dead child
 	// cannot start a publisher into a process on its way out.
 	a.stopTestStreamsLocked()

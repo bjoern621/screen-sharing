@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -79,18 +80,25 @@ func (a *App) pollReceiveStats() {
 // sampleReceiveStats reads every running decode and derives the rates against the previous reading,
 // which it then replaces.
 //
-// procMu is held across the reads, as ReceiveState holds it:
-// stats are read off a running pipeline,
-// and a receiver a stop took out of the map meanwhile is one whose pipeline is being torn down.
+// One read of the host for the whole sample rather than one per decode:
+// a round trip per figure would be dozens where one does, and every reading in a sample would then
+// be taken at a different instant.
 //
-// Ended decodes drop out of previous here.
+// Decodes that stopped drop out of previous here.
 // Nothing else prunes it, and it would otherwise hold a reading per decode this process ever ran.
 func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.ReceiveStreamStats {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
+	states := a.decodes.Snapshot()
+
+	running := make(map[StreamRef]receive.Stats, len(states))
+	for id, state := range states {
+		if id.Kind != decode.KindStream || state.Ended {
+			continue
+		}
+		running[StreamRef{Name: id.Name, Transport: id.Transport}] = state.Stats
+	}
 
 	for ref := range previous {
-		if _, running := a.receivers[ref]; !running {
+		if _, live := running[ref]; !live {
 			delete(previous, ref)
 		}
 	}
@@ -98,11 +106,12 @@ func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.Re
 	// A budget's publishing stages are this machine's own leg,
 	// and belong to a decode only where that decode is of the stream this machine sends.
 	// Read once for the whole sample: a.run is the same run for every decode in it.
+	a.procMu.Lock()
 	published, publishing := a.publishedPathLocked()
+	a.procMu.Unlock()
 
-	out := make([]wire.ReceiveStreamStats, 0, len(a.receivers))
-	for ref, receiver := range a.receivers {
-		stats := receiver.Stats()
+	out := make([]wire.ReceiveStreamStats, 0, len(running))
+	for ref, stats := range running {
 		last, seen := previous[ref]
 		previous[ref] = stats
 
@@ -115,7 +124,7 @@ func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.Re
 		out = append(out, sample)
 	}
 
-	assert.Assert(len(out) == len(a.receivers), "a sample per running decode", len(out), len(a.receivers))
+	assert.Assert(len(out) == len(running), "a sample per running decode", len(out), len(running))
 	return out
 }
 

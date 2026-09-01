@@ -8,7 +8,7 @@
 // X11 hands any client the pointer's position on request, so the X11 capture backends read it here.
 // A Wayland client cannot ask: the protocol exposes no position outside a client's own surfaces.
 // There the answer rides in the cursor metadata PipeWire carries beside each frame,
-// readable only by the process holding the capture, so it is the publish child's job.
+// readable only by the process holding the capture, so it is taken off the frames (gstrun/pointer.go).
 package pointer
 
 import "time"
@@ -28,6 +28,27 @@ type Position struct {
 	// Visible reports whether the pointer is over the captured surface at all.
 	// A pointer that has left the screen is not at its last position, and drawing it there sticks one
 	// against an edge for as long as it is away.
+	Visible bool
+}
+
+// Spot is where the pointer is on the captured picture, as a fraction of it.
+//
+// A fraction and not a pixel, so nothing downstream needs the size anything was read or drawn at:
+// the publish scales the picture on the way out and a viewer draws it at a size of its own,
+// and a fraction survives both.
+// It is also the one space both capture backends can answer in.
+// X11 reports against the display server's root and the portal against the region it captures,
+// so a pixel crossing a process boundary would mean two things (gstrun/pointer.go).
+//
+// X and Y are 0..1 from the picture's top left, and are read only where Visible holds.
+type Spot struct {
+	X, Y float64
+	// At is when the position was read.
+	// It lets a viewer hold one back to the frame it belongs to rather than letting it lead the picture.
+	At time.Time
+	// Visible reports whether the pointer is over the captured picture at all.
+	// A pointer that has left is not at its last position,
+	// and drawing it there sticks one against an edge for as long as it is away.
 	Visible bool
 }
 

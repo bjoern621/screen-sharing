@@ -5,7 +5,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
-	"bjoernblessin.de/screenshare/internal/receive"
+	"bjoernblessin.de/screenshare/internal/decode"
 )
 
 // SubscribeFrames opens one consumer's view of a running decode's frames.
@@ -24,7 +24,7 @@ import (
 // Several consumers may subscribe to one decode, and each gets a pool of its own.
 // Two tiles on one stream are two copies on the GPU rather than one buffer with two owners,
 // which keeps a slow consumer from holding a slot the other one needs.
-func (a *App) SubscribeFrames(streamName, transportName string) (*receive.Subscription, error) {
+func (a *App) SubscribeFrames(streamName, transportName string) (decode.Subscription, error) {
 	assert.Assert(streamName != "", "a frame consumer names the stream it draws")
 	assert.Assert(transportName != "", "a frame consumer names the leg the stream is decoded from", streamName)
 
@@ -35,5 +35,5 @@ func (a *App) SubscribeFrames(streamName, transportName string) (*receive.Subscr
 	if !present {
 		return nil, fmt.Errorf("nothing is decoding %s over %s", streamName, transportName)
 	}
-	return receiver.Subscribe(), nil
+	return receiver.Subscribe()
 }

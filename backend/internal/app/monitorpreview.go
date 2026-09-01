@@ -7,6 +7,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/control"
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/receive"
@@ -81,7 +82,7 @@ func (a *App) StartMonitorPreview(monitor int) error {
 		return nil
 	}
 
-	receiver, err := receive.New(receive.Stream{
+	receiver, err := a.decodes.Open(decode.MonitorID(monitor), receive.Stream{
 		// What the receive package logs the pipeline under.
 		// A screen has no name on any relay, so the output it reads names it.
 		Name:      monitorName(monitor),
@@ -89,7 +90,7 @@ func (a *App) StartMonitorPreview(monitor int) error {
 		Source:    source,
 		// Nothing encoded these frames: no decoder to autoplug, and a screen carries no second track.
 		Raw: true,
-	}, receive.Open{Chain: chain}, receive.Events{
+	}, receive.Open{Chain: chain}, decode.Events{
 		// The first frame turns a preview from opening into live, which the state reports.
 		OnLive: a.emitMonitorPreviewState,
 		OnEnd: func(message string) {
@@ -132,20 +133,20 @@ func (a *App) StopMonitorPreview(monitor int) {
 // a pipeline that has produced no frame is still opening the screen,
 // and a state assembled from what a caller believed it started would report it live.
 func (a *App) MonitorPreviewState() []wire.PreviewedMonitor {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
+	// Read off the host, the one owner of which pipelines are running.
+	// A preview that ended is left out: it carries its reason until monitorPreviewEnded collects it.
+	states := a.decodes.Snapshot()
 
-	out := make([]wire.PreviewedMonitor, 0, len(a.monitorPreviews))
-	for monitor, receiver := range a.monitorPreviews {
-		assert.IsNotNil(receiver, "a previewed monitor holds the pipeline reading it", monitor)
+	out := make([]wire.PreviewedMonitor, 0, len(states))
+	for id, state := range states {
+		if id.Kind != decode.KindMonitor || state.Ended {
+			continue
+		}
 		out = append(out, wire.PreviewedMonitor{
-			Monitor: monitor,
-			Live:    receiver.Stats().Frames > 0,
+			Monitor: id.Monitor,
+			Live:    state.Stats.Frames > 0,
 		})
 	}
-
-	assert.Assert(len(out) == len(a.monitorPreviews),
-		"an entry per running preview", len(out), len(a.monitorPreviews))
 	return out
 }
 
@@ -156,7 +157,7 @@ func (a *App) MonitorPreviewState() []wire.PreviewedMonitor {
 // and a subscription that started one would be the frame channel deciding a screen be read.
 // A monitor nothing is previewing is a refusal rather than a wait,
 // and the preview state is what a shell reads to know whether to ask.
-func (a *App) SubscribeMonitorFrames(monitor int) (*receive.Subscription, error) {
+func (a *App) SubscribeMonitorFrames(monitor int) (decode.Subscription, error) {
 	a.procMu.Lock()
 	receiver, present := a.monitorPreviews[monitor]
 	a.procMu.Unlock()
@@ -164,10 +165,7 @@ func (a *App) SubscribeMonitorFrames(monitor int) (*receive.Subscription, error)
 	if !present {
 		return nil, fmt.Errorf("nothing is previewing monitor %d", monitor)
 	}
-
-	subscription := receiver.Subscribe()
-	assert.IsNotNil(subscription, "a running preview yields a subscription to its frames", monitor)
-	return subscription, nil
+	return receiver.Subscribe()
 }
 
 // previewingMonitor reads the running map, not anything a caller believed it started,
@@ -191,6 +189,10 @@ func (a *App) monitorPreviewEnded(monitor int, message string) {
 	_, present := a.monitorPreviews[monitor]
 	delete(a.monitorPreviews, monitor)
 	a.procMu.Unlock()
+
+	// The host keeps a pipeline that ended, carrying the reason, until it is stopped.
+	// This is what collects it, so the set holds what is running.
+	a.decodes.Stop(decode.MonitorID(monitor))
 
 	if !present {
 		// A stop the user asked for took the receiver out and announced the set,

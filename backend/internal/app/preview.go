@@ -6,6 +6,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -42,7 +43,7 @@ const previewLeg = "loopback RTP"
 // and one reporting against the preview that replaced it would say the running one had ended.
 type previewRun struct {
 	port     int
-	receiver *receive.Receiver
+	receiver *decode.Handle
 }
 
 // startPreviewLocked brings the preview up for a launching publish,
@@ -87,11 +88,11 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 	}
 
 	run := &previewRun{port: port}
-	receiver, err := receive.New(receive.Stream{
+	receiver, err := a.decodes.Open(decode.PreviewID(), receive.Stream{
 		Name:      s.Publish.Name,
 		Transport: previewLeg,
 		Source:    source,
-	}, receive.Open{Chain: s.Viewer.RenderChain}, receive.Events{
+	}, receive.Open{Chain: s.Viewer.RenderChain}, decode.Events{
 		// The first frame settles what the state reports: the chain that ran,
 		// the memory the pads negotiated.
 		// It rides the publish state, the preview being part of the publish.
@@ -146,6 +147,10 @@ func (a *App) previewEnded(run *previewRun, message string) {
 	a.preview = nil
 	a.procMu.Unlock()
 
+	// The host keeps a pipeline that ended, carrying the reason, until it is stopped.
+	// This is what collects it, so the set holds what is running.
+	a.decodes.Stop(decode.PreviewID())
+
 	logger.Warnf("the local preview on 127.0.0.1:%d ended: %s", run.port, message)
 	a.emitPublishState()
 }
@@ -163,7 +168,7 @@ func (a *App) previewSnapshotLocked() *wire.PreviewSnapshot {
 		return nil
 	}
 
-	stats := a.preview.receiver.Stats()
+	stats := a.decodes.Snapshot()[decode.PreviewID()].Stats
 	return &wire.PreviewSnapshot{
 		Port:         a.preview.port,
 		Live:         stats.Frames > 0,
@@ -182,7 +187,7 @@ func (a *App) previewSnapshotLocked() *wire.PreviewSnapshot {
 // and a subscription starting one would be the frame channel deciding a stream should be published.
 // Nothing publishing is a refusal rather than a wait,
 // and the publish state is what a shell reads to know whether to ask.
-func (a *App) SubscribePreviewFrames() (*receive.Subscription, error) {
+func (a *App) SubscribePreviewFrames() (decode.Subscription, error) {
 	a.procMu.Lock()
 	run := a.preview
 	a.procMu.Unlock()
@@ -190,5 +195,5 @@ func (a *App) SubscribePreviewFrames() (*receive.Subscription, error) {
 	if run == nil {
 		return nil, fmt.Errorf("nothing is publishing with a local preview")
 	}
-	return run.receiver.Subscribe(), nil
+	return run.receiver.Subscribe()
 }
