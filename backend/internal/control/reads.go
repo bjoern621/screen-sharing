@@ -98,6 +98,7 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 		Device:       s.backend.Device(),
 		Encoders:     s.backend.CachedEncoders(),
 		AudioDevices: s.backend.AudioDevices(),
+		Portal:       s.backend.PortalCapabilities(),
 	}
 	draft := wire.ToSettings(req.GetSettings())
 	return &screensharev1.ResolveFormResponse{Form: form.Resolve(deps, draft)}, nil

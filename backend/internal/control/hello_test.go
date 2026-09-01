@@ -20,6 +20,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -58,7 +59,8 @@ func (f *fakeBackend) Device() capabilities.Device                    { return c
 func (f *fakeBackend) Encoders(context.Context) encoders.Availability { return encoders.Availability{} }
 func (f *fakeBackend) CachedEncoders() encoders.Availability          { return encoders.Availability{} }
 func (f *fakeBackend) AudioDevices() []platform.AudioDevice           { return nil }
-func (f *fakeBackend) Pointer() (pointer.Spot, bool) { return pointer.Spot{}, false }
+func (f *fakeBackend) PortalCapabilities() portal.Capabilities        { return portal.Capabilities{} }
+func (f *fakeBackend) Pointer() (pointer.Spot, bool)                  { return pointer.Spot{}, false }
 
 func (f *fakeBackend) StreamPointer(wire.StreamRef) (pointer.Spot, bool) {
 	return pointer.Spot{}, false

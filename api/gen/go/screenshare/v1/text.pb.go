@@ -567,7 +567,13 @@ const (
 	// and this bitstream has no unit that carries one, so a viewer of this stream sees no pointer.
 	// A fact about the format rather than about the capture, hence a code of its own.
 	// TEXT_ARG_NAME_FORMAT.
-	TextCode_TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA  TextCode = 168
+	TextCode_TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA TextCode = 168
+	// The desktop portal on this machine offers no such pointer mode.
+	// The compositor behind the portal fills that list,
+	// so the same capture backend reaches three modes on one desktop and two on another,
+	// and a code of its own says which side to change.
+	// TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_CURSOR.
+	TextCode_TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE       TextCode = 169
 	TextCode_TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER         TextCode = 81
 	TextCode_TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL   TextCode = 82
 	TextCode_TEXT_CODE_GST_NVENC_NO_RATE_BUFFER           TextCode = 83
@@ -786,6 +792,7 @@ var (
 		74:  "TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE",
 		75:  "TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA",
 		168: "TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA",
+		169: "TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE",
 		81:  "TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER",
 		82:  "TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL",
 		83:  "TEXT_CODE_GST_NVENC_NO_RATE_BUFFER",
@@ -916,6 +923,7 @@ var (
 		"TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE":               74,
 		"TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA":            75,
 		"TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA":         168,
+		"TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE":              169,
 		"TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER":                81,
 		"TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL":          82,
 		"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER":                  83,
@@ -1331,7 +1339,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xbc*\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xe9*\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1399,7 +1407,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"(TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION\x10\xa1\x01\x12)\n" +
 	"%TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE\x10J\x12,\n" +
 	"(TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA\x10K\x120\n" +
-	"+TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA\x10\xa8\x01\x12(\n" +
+	"+TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA\x10\xa8\x01\x12+\n" +
+	"&TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE\x10\xa9\x01\x12(\n" +
 	"$TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER\x10Q\x12.\n" +
 	"*TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL\x10R\x12&\n" +
 	"\"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER\x10S\x12$\n" +

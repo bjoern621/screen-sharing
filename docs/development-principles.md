@@ -25,7 +25,7 @@ The two hold each other up.
 An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it.
 An operation that is idempotent can be called from a render pass, which lets that pass keep nothing of its own between runs.
 
-The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts stated once, files that hold one idea, and contracts that fail loudly.
+The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts stated once, facts read off the machine, files that hold one idea, and contracts that fail loudly.
 
 ## State is written explicitly and read continuously
 
@@ -134,6 +134,32 @@ A value cached at construction and never refreshed is the defect this removes.
 The one departure is written down where it happens.
 The shell's tile grid is shell state and not the backend's, because the contract describes no grid, and `backend/internal/app` has nothing to read one back from.
 A departure that is not written down is a bug.
+
+## A capability the machine decides is asked, never declared
+
+A table here states what this app can express.
+Whether the machine answers is the machine's own fact, so it is read off the machine rather than written down as a row.
+
+The test is whether two machines running this build can disagree.
+An ffmpeg build carrying no encoder, a GStreamer install registering no element, a compositor whose portal serves two cursor modes where another serves three: each is a reading, and a table claiming any of them offers a control that fails at launch.
+
+| Reading | Taken by |
+| --- | --- |
+| which codecs encode here, per publish engine | `encoders.Detect` |
+| which sink and render-chain elements this install registers | `gst-inspect-1.0 --exists` |
+| which cursor modes and source kinds the desktop portal serves | `portal.Detect`, off the ScreenCast capability properties |
+| which monitors, and which video driver an encode runs through | `display.List`, `gpu.Device` |
+| which devices each audio kind holds | `audiodev.Cached` |
+
+A reading travels as a field of `form.Deps` and greys through `form/availability.go`.
+It is never a rule: a rule is a compiled-in fact, so one machine's answer registered into the evaluator would be every machine's.
+
+**An unasked question withholds nothing.**
+The zero value of each reading above is a machine nothing probed, and it greys nothing.
+A form that has not been told is not a machine with nothing usable, and the failure at launch stays the answer until somebody asks.
+
+**Where nothing can be asked, the entry stays selectable and states what it needs.**
+kmsgrab needs a privilege this process either holds or dies at launch without, and no probe tells which in advance, so what it needs rides on the option as a note rather than as a greying (`publish/availability.go`, `grant`).
 
 ## Components
 

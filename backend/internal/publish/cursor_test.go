@@ -8,6 +8,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/framestamp"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
@@ -94,6 +95,37 @@ func TestTheBackendsThatReadAPositionStateNothing(t *testing.T) {
 	kms := rules.EvaluateRules(cursorFacts("kmsgrab"), cursorRules())
 	if got := len(kms.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 1 {
 		t.Errorf("a backend with no pointer metadata states %d facts, want its own", got)
+	}
+}
+
+// The portal's rows state what the ScreenCast call can express, and the compositor behind it states
+// what it answers, so the machine is asked before a mode is offered.
+func TestThePortalsPointerModesFollowTheCompositor(t *testing.T) {
+	served := portal.Capabilities{CursorModes: portal.CursorHidden | portal.CursorEmbedded}
+
+	if CursorServedHere(served, "portal", cursor.Metadata) {
+		t.Error("a mode this compositor refuses is offered on the portal backend")
+	}
+	for _, mode := range []string{cursor.Embedded, cursor.Hidden} {
+		if !CursorServedHere(served, "portal", mode) {
+			t.Errorf("%s is withheld on a compositor serving it", mode)
+		}
+	}
+
+	// The other backends read their own property and answer for themselves,
+	// so a portal mask says nothing about them.
+	if !CursorServedHere(served, "ximagesrc", cursor.Metadata) {
+		t.Error("the X11 backend is greyed by what the desktop portal serves")
+	}
+}
+
+// A machine nothing asked withholds nothing, so the option stays on offer
+// and the portal's own refusal is what the publish meets.
+func TestAnUnreadPortalMaskWithholdsNoPointerMode(t *testing.T) {
+	for _, mode := range cursor.Modes {
+		if !CursorServedHere(portal.Capabilities{}, "portal", mode) {
+			t.Errorf("%s is greyed on a machine nothing asked", mode)
+		}
 	}
 }
 

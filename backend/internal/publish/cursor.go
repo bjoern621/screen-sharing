@@ -62,6 +62,7 @@ func init() {
 	assert.Assert(len(cursorServes) == len(captureBackends),
 		"a capture backend states what it does with the pointer exactly once",
 		len(cursorServes), len(captureBackends))
+	assert.Assert(len(cursorServes[capturePortal]) > 0, "the portal backend has a pointer row", capturePortal)
 	for name, serves := range cursorServes {
 		_, ok := captureBackends[name]
 		assert.Assert(ok, "a backend with a pointer row is one the registry carries", name)
@@ -176,4 +177,26 @@ func portalCursor(mode string) portal.CursorMode {
 func CursorServed(capture, mode string) bool {
 	assert.Assert(cursor.Known(mode), "a pointer question names a mode the settings carry", mode)
 	return serves(capture, mode)
+}
+
+// capturePortal is the one backend whose pointer modes this machine answers for rather than
+// the table above.
+const capturePortal = "portal"
+
+// CursorServedHere reports whether this machine leaves a pointer mode reachable on a capture
+// backend, given what the desktop portal answered (internal/portal, Capabilities).
+//
+// The rows above state which modes a backend's interface can express,
+// which is a fact about the software this app drives.
+// Whether the ScreenCast call is answered is the compositor's, so it is asked rather than declared:
+// wlroots serves hidden and embedded where KWin serves all three, on one capture backend and one
+// table row.
+// Every other backend sets a property of its own and needs no asking.
+func CursorServedHere(caps portal.Capabilities, capture, mode string) bool {
+	assert.Assert(cursor.Known(mode), "a pointer question names a mode the settings carry", mode)
+
+	if capture != capturePortal {
+		return true
+	}
+	return caps.ServesCursor(portalCursor(mode))
 }

@@ -262,6 +262,8 @@ kmsgrab reads the scanout's primary plane and the pointer is a hardware plane th
 Both are the GStreamer engine's, the publish child being what reports one.
 X11 draws the pointer into the image and answers any client asking where it is, which the mode reads on `ximagesrc` (`internal/pointer`).
 The portal's `cursor_mode` reports the position instead of drawing it, and `pipewiresrc` hands it on as a region of interest named `cursor`, carrying no cursor at all on a frame the pointer was not over.
+Which modes that call answers for is the compositor's behind the portal rather than the interface's, so it is read off `AvailableCursorModes` before a mode is offered (`internal/portal`, `Capabilities`).
+A desktop serving hidden and embedded alone greys `metadata` on this backend and says which side has the limit, where the table row alone would offer it and `SelectSources` would refuse the publish.
 `x11grab` reads that same X screen and does not serve the mode: the position leaves on the publish child's own standard output, and the ffmpeg engine's child is ffmpeg.
 
 Which source answers is a table keyed by capture element (`gstrun/pointersource.go`), the same set the row above states read from the other side.
@@ -446,6 +448,7 @@ The sequence is `CreateSession`, `SelectSources` and `Start`, which pops the com
 
 `SelectSources` names both monitor and window as source kinds, and which one is shared is the picker's answer rather than a setting here.
 The compositor owns that choice and is the only side knowing which windows exist, so the monitor index is inapplicable on this backend.
+Both are narrowed to `AvailableSourceTypes` first: a kind the portal does not advertise fails the whole call, taking the kinds it does serve down with it.
 
 ### One consent per stream
 

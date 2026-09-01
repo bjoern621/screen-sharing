@@ -482,6 +482,12 @@ enum TextCode {
   // A fact about the format rather than about the capture, hence a code of its own.
   // TEXT_ARG_NAME_FORMAT.
   TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA = 168;
+  // The desktop portal on this machine offers no such pointer mode.
+  // The compositor behind the portal fills that list,
+  // so the same capture backend reaches three modes on one desktop and two on another,
+  // and a code of its own says which side to change.
+  // TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_CURSOR.
+  TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE = 169;
 
   reserved 76;
   reserved "TEXT_CODE_CURSOR_METADATA_NOT_CARRIED";

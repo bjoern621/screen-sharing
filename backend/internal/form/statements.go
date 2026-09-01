@@ -86,6 +86,7 @@ const (
 	audioDeviceNotEnumerated   = screensharev1.TextCode_TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED
 	audioTrackCodedAt          = screensharev1.TextCode_TEXT_CODE_AUDIO_TRACK_CODED_AT
 	vaapiCeilingBound          = screensharev1.TextCode_TEXT_CODE_VAAPI_CEILING_BOUND
+	portalServesNoCursorMode   = screensharev1.TextCode_TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE
 
 	streamIsPublic              = screensharev1.TextCode_TEXT_CODE_STREAM_IS_PUBLIC
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
@@ -111,6 +112,10 @@ func argCapture(v string) *screensharev1.TextArg {
 
 func argEngine(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE, v)
+}
+
+func argCursor(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_CURSOR, v)
 }
 
 func argOtherEngine(v string) *screensharev1.TextArg {

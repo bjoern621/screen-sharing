@@ -26,6 +26,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/pointer"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
@@ -67,6 +68,9 @@ type Backend interface {
 	// enumerated once and answered from memory after that.
 	// Read on a resolve for the reason CachedEncoders is: the enumeration is a subprocess.
 	AudioDevices() []platform.AudioDevice
+	// PortalCapabilities is what the desktop portal here serves, its cursor modes among them.
+	// One D-Bus round trip on the first call and memory after it, so a resolve takes it directly.
+	PortalCapabilities() portal.Capabilities
 	PublishState() wire.PublishSnapshot
 	// RelayStatus is the last snapshot the backend's own poll took, never a fresh fetch.
 	RelayStatus() relay.Status

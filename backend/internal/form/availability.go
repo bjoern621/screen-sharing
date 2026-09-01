@@ -775,12 +775,16 @@ func (av availability) tuneReason(value string) *screensharev1.Text {
 
 // cursorReason states why the selected capture backend does not serve a pointer mode.
 //
-// It reads the rules and nothing else, the whole fact being theirs:
-// what a backend does with the pointer is a per-backend table written as rules
+// Two sources, and the machine's is asked first.
+// What a backend does with the pointer is a per-backend table written as rules
 // (internal/publish/cursor.go), and the one limit that is this app's rather than any backend's,
-// that nothing carries a pointer position to a viewer, is a rule beside them.
-// Both bind on the metadata mode, and both cross.
+// that a bitstream carries no position, is a rule beside them.
+// The desktop portal's own list is neither: it is the compositor's answer, so no table here holds it
+// and a machine that refuses the mode outright is named ahead of a format a reader could change.
 func (av availability) cursorReason(value string) *screensharev1.Text {
+	if !publish.CursorServedHere(av.deps.Portal, av.s.Publish.Capture, value) {
+		return say(portalServesNoCursorMode, argCapture(av.s.Publish.Capture), argCursor(value))
+	}
 	if reasons := av.verdicts.ValueReasons(KeyCursor, value); len(reasons) > 0 {
 		return reasons[0]
 	}

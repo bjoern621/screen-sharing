@@ -21,6 +21,7 @@
 package portal
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -102,6 +103,15 @@ type Session struct {
 func Open(opts Options) (*Session, error) {
 	opts = opts.normalized()
 
+	// A source kind the portal does not advertise fails the whole SelectSources call, so the request
+	// is narrowed to what this portal serves rather than carrying a kind it refuses (Capabilities).
+	// Narrowing and not a substitution: which kinds are offered is the picker's business, and asking
+	// for a kind that is not there takes the ones that are down with it.
+	types := Cached(context.Background()).SourcesServed(opts.Types)
+	if types == 0 {
+		return nil, fmt.Errorf("the portal serves none of the source kinds this capture asks for")
+	}
+
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return nil, fmt.Errorf("connect session bus: %w", err)
@@ -123,7 +133,7 @@ func Open(opts Options) (*Session, error) {
 	session := dbus.ObjectPath(handle)
 
 	selectOpts := options{
-		"types":        dbus.MakeVariant(uint32(opts.Types)),
+		"types":        dbus.MakeVariant(uint32(types)),
 		"cursor_mode":  dbus.MakeVariant(uint32(opts.Cursor)),
 		"multiple":     dbus.MakeVariant(false),
 		"persist_mode": dbus.MakeVariant(uint32(2)), // persist until revoked, which issues a token

@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/netspeed"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -199,4 +200,14 @@ func openInShell(path string) error {
 // so the first resolve pays for it and none after it does.
 func (a *App) audioDevices() []platform.AudioDevice {
 	return audiodev.Cached(context.Background())
+}
+
+// portalCapabilities is what the desktop portal here serves: which pointer modes and source kinds
+// its ScreenCast interface answers for.
+//
+// The compositor's answer rather than the interface's, so a mode one desktop serves and another
+// refuses is greyed where it is refused instead of failing the publish (internal/portal).
+// One D-Bus round trip on the first call, on audioDevices' terms.
+func (a *App) portalCapabilities() portal.Capabilities {
+	return portal.Cached(context.Background())
 }

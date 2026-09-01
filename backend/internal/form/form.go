@@ -27,6 +27,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -53,6 +54,10 @@ type Deps struct {
 	// Empty is a sound server that answered nothing, and each kind then keeps its own default,
 	// the entry that needs no enumeration.
 	AudioDevices []platform.AudioDevice
+	// Portal is what the desktop portal on this machine serves, its cursor modes among them.
+	// The zero value is a machine nothing asked, which greys nothing,
+	// as an unprobed engine does.
+	Portal portal.Capabilities
 }
 
 // state is what availability decided about one field, in the treatments

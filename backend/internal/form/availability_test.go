@@ -9,9 +9,11 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -106,6 +108,9 @@ func availabilityCases() []availabilityCase {
 		Usable: map[string]map[string]bool{capabilities.EngineFfmpeg: {"hevc_nvenc": false}},
 	}
 
+	noPortalMetadata := linuxWayland
+	noPortalMetadata.Portal = portal.Capabilities{CursorModes: portal.CursorHidden | portal.CursorEmbedded}
+
 	// A pair no row carries, as a hand-edited file holds: the format is one the table produces
 	// and the encoder answers to nothing, so the draft names an encode that does not exist.
 	handEditedEncode := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
@@ -124,6 +129,8 @@ func availabilityCases() []availabilityCase {
 			availabilityDraft("x11grab", "libx264", "yuv420p", "srt")},
 		{"a machine with no NVIDIA encoder", noNvenc,
 			availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")},
+		{"a compositor whose portal reports no pointer position", noPortalMetadata,
+			availabilityDraft("portal", "libx264", "yuv420p", "rtsp")},
 		{"a capture backend from a hand-edited settings file", linuxX11,
 			availabilityDraft("no-such-capture", "libx264", "yuv420p", "srt")},
 		{"an encode from a hand-edited settings file", linuxX11, handEditedEncode},
@@ -166,6 +173,7 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 		KeyAudioSource:   platform.AudioSourceIDs(platform.Info{}),
 		KeyAudioCodec:    capabilities.AudioNames(),
 		KeyCaptureMemory: gpupath.Memories,
+		KeyCursor:        cursor.Modes,
 		// A watch leg is offered from the roster its receiver can reach,
 		// what the option list is built from and what the reasons are stated against.
 		KeyTileWatchTransport: transport.WatchNames(capabilities.EngineGst),
@@ -183,6 +191,37 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The portal's pointer modes belong to the compositor behind it, so the option follows what this
+// machine answered rather than what the capture backend's row can express.
+func TestThePointerModeFollowsWhatThePortalServes(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
+	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
+
+	if enabled, _ := optionState(deps, s, KeyCursor, cursor.Metadata, noEntry); !enabled {
+		t.Fatal("a machine nothing asked greys the mode")
+	}
+
+	deps.Portal = portal.Capabilities{CursorModes: portal.CursorHidden | portal.CursorEmbedded}
+	enabled, reason := optionState(deps, s, KeyCursor, cursor.Metadata, noEntry)
+	if enabled {
+		t.Fatal("a portal serving hidden and embedded alone still offers the metadata mode")
+	}
+	if got := reason.GetCode(); got != screensharev1.TextCode_TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE {
+		t.Errorf("the refusal states %v, want the portal's own list", got)
+	}
+	if enabled, _ := optionState(deps, s, KeyCursor, cursor.Embedded, noEntry); !enabled {
+		t.Error("a mode the portal serves is greyed along with the one it does not")
+	}
+
+	// The X11 backends read the position off the display server, so nothing the portal answered
+	// reaches them.
+	x11 := deps
+	if enabled, _ := optionState(x11, availabilityDraft("ximagesrc", "libx264", "yuv420p", "rtsp"),
+		KeyCursor, cursor.Metadata, noEntry); !enabled {
+		t.Error("the X11 backend is greyed by what the desktop portal serves")
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -34,6 +35,9 @@ func (p *probedBackend) Platform() platform.Info               { return platform
 func (p *probedBackend) Device() capabilities.Device           { return capabilities.Device{} }
 func (p *probedBackend) CachedEncoders() encoders.Availability { return p.probed }
 func (p *probedBackend) AudioDevices() []platform.AudioDevice  { return nil }
+func (p *probedBackend) PortalCapabilities() portal.Capabilities {
+	return portal.Capabilities{}
+}
 func (p *probedBackend) Pointer() (pointer.Spot, bool) { return pointer.Spot{}, false }
 
 func (p *probedBackend) StreamPointer(wire.StreamRef) (pointer.Spot, bool) {

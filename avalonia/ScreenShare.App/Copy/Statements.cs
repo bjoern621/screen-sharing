@@ -249,6 +249,10 @@ public static class Statements
                 $"{a.Format} carries the picture and nothing beside it, so viewers would see no pointer. "
                 + "H.264 and HEVC carry the position to them.",
 
+            TextCode.PortalServesNoCursorMode =>
+                $"{Words.Capture(a.Capture)} passes on the pointer position the desktop reports. "
+                + "This desktop reports none, so draw the pointer into the picture or leave it out.",
+
             TextCode.CqAboveCodecScale =>
                 $"The quality scale of {a.Codec} ends at {a.CqMax} on {Words.Engine(a.Engine)}, so the slider "
                 + "stops there. Each encoder has its own scale, and the same number means a different quality "
