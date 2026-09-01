@@ -19,7 +19,7 @@ The **Not** column lists the synonyms this repository refuses for the same thing
 | Term | Means | Not |
 | --- | --- | --- |
 | Capture backend | How frames leave the desktop, named as its own framework names the source (`x11grab`, `portal`, `d3d11screencapturesrc`, and the rest of `publish.Captures`). The user's first choice: it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source |
-| Publish engine | Media framework running capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend, never picked directly. | pipeline, publish path, portal path, media backend, capture engine |
+| Publish engine | Media framework running capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend. | pipeline, publish path, portal path, media backend, capture engine |
 | ffmpeg | The ffmpeg publish engine, and the executable. | FFmpeg, FFMPEG |
 | GStreamer | The GStreamer publish engine, driven as a `gst-launch-1.0` pipeline description. | gstreamer (in prose), Gstreamer, gst |
 | Element | One node in a GStreamer pipeline, e.g. `x264enc`. The unit a GStreamer capability gap names. | plugin (a plugin ships elements), filter, component |
@@ -134,7 +134,7 @@ The **Not** column lists the synonyms this repository refuses for the same thing
 | TS | Transport Stream | Short form of MPEG-TS, also the packet unit that `alignment=7` groups seven of per SRT datagram. |
 | IVF | Indeo Video Format | Minimal container carrying a bitstream with one length-and-timestamp header per frame and nothing about colour, which is why the colorimetry tests decode through it. |
 | WebM | (no expansion) | Matroska subset restricted to royalty-free codecs, the container name browsers associate with VP8 and VP9. |
-| HLS | HTTP Live Streaming | Segment-and-playlist protocol the relay serves and does not ingest, so it is a watch leg and never a publish one. |
+| HLS | HTTP Live Streaming | Segment-and-playlist protocol the relay serves, so it is a watch leg only. |
 | RTMP | Real-Time Messaging Protocol | TCP protocol carrying FLV, the one broadcast tools speak. |
 | E-RTMP | Enhanced RTMP | Extension adding codec tags past FLV's H.264, which is what carries H.265, AV1 and VP9 over RTMP here. |
 | FLV | Flash Video | The container RTMP carries, whose original tag set is H.264 and AAC. |

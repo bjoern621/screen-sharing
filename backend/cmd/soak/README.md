@@ -33,7 +33,7 @@ MediaMTX reads each address off the environment, so the configuration stays the 
 MTX_SRTADDRESS=:18890 MTX_RTSPSADDRESS=:18554 MTX_RTMPSADDRESS=:11936 MTX_APIADDRESS=127.0.0.1:19997 task relay
 ```
 
-## It runs beside the app, never inside it
+## It runs beside the app
 
 `scripts/env.sh` moves four things, and every one of them is needed:
 
@@ -121,7 +121,7 @@ codec joining the domain joins this check with it.
 
 ## What a leak is read off
 
-The backend process alone, never the tree.
+The backend process alone.
 A tree figure moves by hundreds of megabytes and a hundred threads depending on whether a pipeline
 happened to be up at the moment of the reading, and a leak is what the parent does not give back once
 every child is gone.
@@ -143,7 +143,7 @@ threshold answers yes or no, and a leak hunt needs the figure.
 The settings are the whole draft, so a finding is reproduced by starting one publish on them.
 The seed and the iteration replay the walk that reached it.
 
-A finding is a claim, not a verdict.
-Every one of these has to be held against the product before it is believed: the ones that turned out
-to be the probe's own were a ramp measuring the machine's recovery, descriptors belonging to the
-publishers a ramp had just started, and a relay port the walk had moved.
+Every finding is held against the product before it is believed.
+The ones that turned out to be the probe's own were a ramp measuring the machine's recovery,
+descriptors belonging to the publishers a ramp had just started,
+and a relay port the walk had moved.

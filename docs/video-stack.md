@@ -413,13 +413,13 @@ TURN relays the media when no direct path survives, at the cost of carrying all 
 
 **HLS** publishes a playlist of segments over ordinary HTTP.
 Its latency is structural: a player needs several segments buffered, so the floor is a multiple of the segment duration until low-latency HLS splits segments into parts.
-It is a delivery format rather than an ingest one, so a watch leg here and never a publish one.
+It is a delivery format, so a watch leg here only.
 
 **MoQ** carries a stream as tracks of objects a subscriber asks for, over QUIC.
 Each track is its own stream, so a loss stalls that track and nothing else, where TCP holds up everything queued behind a lost segment.
 A browser reaches it over WebTransport and decodes with WebCodecs.
 Its session is HTTP/3, which is UDP and so passes no ordinary reverse proxy.
-It is a delivery format here like HLS, a watch leg and never a publish one.
+It is a delivery format here like HLS, a watch leg only.
 
 **Jitter buffer.**
 Every receiver holds a queue absorbing the variance in packet arrival, and its depth is a direct latency cost.

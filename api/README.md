@@ -28,7 +28,7 @@ api/
 ```
 
 The `.proto` files carry the reasoning.
-A message comment says why the shape is what it is, never what the fields are named.
+A message comment says why the shape is what it is.
 
 ## Generating
 

@@ -1,7 +1,7 @@
 # Field availability: hide vs disable
 
 A settings field can become inapplicable to the current combination of capture backend, codec, publish transport and mode.
-Two treatments express that, and the choice between them is a fixed rule, not a per-field judgement.
+Two treatments express that, and the choice between them is a fixed rule.
 A third form covers the neighbouring case, a field that stays applicable but means something else.
 
 **Every "reason" on this page is a fact, not a sentence.**
@@ -151,7 +151,7 @@ A zero is a measurement.
 `0.00 % loss` says the relay watched this viewer and saw nothing go missing.
 `…` says nobody looked.
 A screen that printed the second as the first would certify every link it had never measured, the failure this rule exists to prevent.
-So the rule is that presence decides, not value (`design-language.md`, "Wording").
+So the rule is that presence decides (`design-language.md`, "Wording").
 
 **The row stays.**
 A figure a reader is looking for reads as unmeasured.
@@ -208,7 +208,6 @@ A hidden field removes noise that would teach nothing, so a backend implementati
 
 ## Where the rules live
 
-Disable reasons are derived, never hand-set per field.
 `form/availability.go` produces the greyings and the notes from the capability table, the domain tables and the engine rules, the same source `form/repair.go` repairs settings from, so a disabled option and its replacement cannot disagree.
 Where a dimension has nothing legal left, the repair picks nothing and the field stays disabled with its reason, rather than holding a value the same evaluation greys.
 See `domain-model.md` for the capability and domain tables, and `ipc-api.md` for why the reason crosses as a code and the sentence is the shell's.

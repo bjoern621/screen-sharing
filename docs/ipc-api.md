@@ -13,7 +13,7 @@ This page states the rule it encodes and what each side owes.
 Without exception:
 
 - Every value a control offers comes from the backend. Codecs, pixel formats, rate-control modes, transports, capture backends, frame rates, output resolutions, audio codecs, encoder presets, frame-memory values, monitors, watch legs. No shell holds a list of its own.
-- Every greyed option and disabled field is decided in Go and arrives decided, with a **code** naming why. The four treatments in `field-availability.md` follow from the tables, not from a shell's judgement.
+- Every greyed option and disabled field is decided in Go and arrives decided, with a **code** naming why. The four treatments in `field-availability.md` follow from the tables.
 - Every derived figure comes from the backend: the bitrate estimate, the headroom against the uplink, the command preview.
 - Every piece of state is read from the backend or received on its event stream. A shell caches nothing across a change notification.
 - **Every word on screen is the shell's.** Labels, help text, option names, the paragraph behind a choice, the sentence in place of a greyed entry, how a unit is spelled and where it sits. Written where the layout is, keyed by the identifiers the backend sends (`text.proto`).
@@ -118,7 +118,7 @@ It evaluates no rule, and writes every word.
 `publish.encoder`, `viewer.render_chain`, `relay.host`.
 The key is the shell's only handle on where a value is written.
 A bare name across three messages would need a lookup to say which descriptor it meant, which is one rule stated twice.
-One resolve over all three also keeps a cross-message greying possible: a tile leg that cannot carry the publish codec is one call's answer, not two calls compared by a shell.
+One resolve over all three also keeps a cross-message greying possible: a tile leg that cannot carry the publish codec is greyed inside that one call, the comparison done before a shell ever sees it.
 
 Three messages because they answer to different owners.
 `PublishSettings` is what a preset copies between machines (`presets.md`).
@@ -162,7 +162,7 @@ Both ends run gRPC over that stream, Go with a custom dialer and .NET with `Sock
 
 **Frames do not cross this API.**
 The frame channel is a second gRPC service on the same socket, carrying handle metadata and release-backs.
-Pixels live in shared GPU memory the handle names and never enter a message.
+Pixels live in shared GPU memory the handle names.
 One socket avoids reinventing framing, versioning and cancellation for a metadata stream, and changes nothing about the rule.
 
 `FrameService` has one method, and its shape is the protocol.
@@ -188,7 +188,7 @@ A synthetic transport entry would tell every consumer of that table that some pr
 A relay decode: `StartReceive`.
 The publish preview: the publish itself, the loopback port having to be in the child's argv, so there is no `StartPreview` for a shell to call.
 A monitor preview: `StartMonitorPreview`.
-All three the same division: the frame channel finds a picture or is refused with `FAILED_PRECONDITION`, and never starts one.
+All three the same division: the frame channel finds a picture or is refused with `FAILED_PRECONDITION`.
 What tells a shell there is one to ask for is a state it reads first: `PublishState.Live.preview`, present exactly while a preview runs and carrying the port and what the pipeline turned out to be, and `MonitorPreviewState`.
 
 **The monitor preview is an effect and the publish preview is not, and the difference is who owns the pipeline.**
@@ -232,13 +232,13 @@ Reading `UNAVAILABLE` as absence turns a relay that refused a publish into a sen
 
 **An unreachable relay is not a call failure.**
 `GetRelayStatus` succeeds and returns a snapshot whose `reachable` is false, carrying the reason.
-"The relay is down" is a thing the screen says, not a thing the call failed at.
+The screen renders that reason as "The relay is down."
 
 The same holds one level down.
 A path's `reader_roster` is joined from the per-protocol connection lists, one call each.
 A list that refuses leaves its readers named with every figure absent rather than failing the snapshot: the relay answered the question the snapshot is about, and a listener switched off has no list at all.
 So `reachable` states whether the relay answered, and presence on each figure states whether that figure was measured.
-Two facts, never collapsed into one.
+Two facts, kept separate.
 
 ## Events
 

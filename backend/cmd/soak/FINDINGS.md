@@ -151,7 +151,7 @@ Each of these reproduced against the product and no longer does. What answers it
   running. The check renders both drafts through `ResolveForm` now and expects a refusal only where
   the commands differ.
 - `stop_failed`, `child_leaked`, `cycle_memory` and `rpc.resolve_failed` entries carrying
-  `context canceled` are the probe being stopped mid-stream to swap binaries, not the backend.
+  `context canceled` are the probe being stopped mid-stream to swap binaries.
 - A slider's stops are the round figures inside its band plus both ends, not a grid counted off the
   floor, so a 20 ms floor stepping by 50 stops on 20, 50, 100 and reaches 8000
   (`avalonia/.../Fields/ViewModel/FieldViewModel.cs`, `Ticks`). A probe writing between two stops

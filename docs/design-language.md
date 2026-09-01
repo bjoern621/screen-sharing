@@ -236,6 +236,7 @@ Lowercase is reserved for figures, which are identifiers rather than prose: stat
 A stream, a viewer, a window, watching, sharing.
 Broadcast television has a term of art for most of these and every one loses to the plain word.
 The test is whether a reader would have to be taught it: `program`, `on air`, `bug`, `lower third` and `take` all fail, and not one names something this product cannot already say.
+The machine the app runs on is `this computer` wherever a surface names it.
 
 `Sharing` is the state's name on every surface that has one: the pill in the nav strip, the pill on the broadcast header, the badge over the preview.
 The controls that enter and leave it are `Start sharing` and `Stop sharing`, so button and state say one word rather than one saying `Go live` and the other answering `On air`.

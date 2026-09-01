@@ -37,7 +37,7 @@ The probe already opens a VA device per codec, which is where a range would be r
 **Built.** A repeated list of `{source, device, gain, mute}`, addressed by indexed keys (`publish.audio_sources[2].gain`), so every existing control kind edits an entry and a statement lands on one entry rather than on the whole control.
 The reasoning moved to `domain-model.md`, "The second-track capture sources".
 
-The list grows through the settings, not through an effect: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to none takes one off.
+The list grows through the settings: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to none takes one off.
 Both are ordinary writes through ordinary controls, so a shell decides nothing about the list's shape.
 
 Two tracks were rejected on carriage, and the sources mix into one.
@@ -154,7 +154,7 @@ A field nobody filled in is a stream nobody restricted, and a group key that cam
 
 **Relay auth is JWT** through `authJWTJWKS`, so the relay makes no call per connection.
 Tokens are short and validated at connect, and a live connection survives expiry.
-So withholding one reaches the next connection and never the one in progress, which is why membership is a lease enforced by closing what a lapsed member holds.
+So withholding one reaches only the next connection, which is why membership is a lease enforced by closing what a lapsed member holds.
 
 **Every leg is encrypted.** A reverse proxy fronts everything, including the API, with the relay's own listeners on loopback, and ACME lives in the proxy because MediaMTX has no ACME of its own.
 SRT is the one exception: UDP with no TLS, taking a passphrase per path prefix.
@@ -218,7 +218,7 @@ Rotation is not what removes somebody, and neither is expiry.
 Both leave a live connection alone, so what a member who left keeps is exactly what they already hold, and closing it is the only thing that takes it away.
 
 Membership is a presence lease a member's own app states and refreshes, on the loop that already polls the relay.
-Enforcing it lists every connection under the group's prefix and closes the ones no live member holds, which takes a member's own connections and never another group's.
+Enforcing it lists every connection under the group's prefix and closes the ones no live member holds, which takes only a member's own connections.
 It is stated rather than stepped, so a second run over unchanged leases does nothing and it is safe on every statement of presence and on every read.
 
 A member is told from another by the token's subject: `POST /tokens` takes a member secret beside the group key, and the subject becomes that secret's keyed digest under the group key rather than the group's own id.

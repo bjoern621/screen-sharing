@@ -114,7 +114,7 @@ One input variant: `Controls/NumberSelect`, the number box and the button glued 
 One menu variant: `SelectMenuItem` in `Controls/Select`, adding what picking a row does and whether it can be picked.
 A variant that restates the template is a second control, and two of them drift.
 
-A flag is the switch in `Controls/Toggle`, never a `CheckBox`.
+A flag is the switch in `Controls/Toggle`.
 
 ### This module is a display
 
@@ -175,7 +175,7 @@ The client asks for the probe behind the handshake and raises `IBackend.Changed`
 The setup flow re-reads, and the codecs this machine cannot run come back greyed with what is missing.
 Nothing about which codecs those are reaches this module.
 
-**A backend that is not running is a sentence, not a gap.**
+**A backend that is not running prints a sentence.**
 The reads throw `BackendUnavailableException`, the flow shows its message above the steps with a "look again" button, and no form is invented meanwhile.
 No timer behind that button, so an absent socket is not hammered for as long as the window is open.
 
@@ -383,7 +383,7 @@ So a button that looks busy is a call really in flight, and the shell cannot ask
 The decision: **MVVM as Avalonia means it, not as it is usually written.**
 Compiled bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them produces bad Avalonia code.
 What is dropped is the habit of letting handlers poke individual properties.
-Every write goes through the one render function, so the binding layer is a transport and never a second definition of what the window looks like.
+Every write goes through the one render function, so the binding layer carries its output to the view.
 
 ## The viewer's arrangement
 
@@ -411,13 +411,13 @@ Solving against whatever each pass was given solves two different boxes, picks t
 Which window a tile is drawn in is a separate fact, which lets three windows be fullscreen on three monitors at once, a state a single app-wide fullscreen could not express.
 Folding either into the enum gives one field two meanings.
 
-**Fullscreen gives the screen to the stream, not to the app.**
+**Fullscreen gives the screen to the stream.**
 The window fills the monitor and everything else comes off it: rail, grid, settings panel, and the shell's three bands, bound to the same fact the viewer holds (`ShellViewModel.HasChrome`).
 What is left is one picture at its stream's own shape on black, letterboxed by the same solver that arranges a single tile in a cell.
 Escape ends it, and the window returns to the state it was in rather than to a normal one, a maximised window that came back restored having lost a state the reader chose.
 A fullscreen the desktop put the window in is left alone: the pass only gives back what it took.
 
-**Windows are reconciled, not opened by an event.**
+**A pass reconciles which windows are open.**
 The view model names the streams that should be in windows of their own.
 `ViewerView.axaml.cs` runs a pass that opens, closes and re-states windows until that is true.
 Running it twice with unchanged state does nothing, the same apply discipline everything else follows.

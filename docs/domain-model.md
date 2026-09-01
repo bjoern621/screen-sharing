@@ -161,7 +161,7 @@ A screen share is normally several sources at once, so `settings.Publish.AudioSo
 One track and not several is carriage, not preference: RTMP carries one audio track and the relay re-serves every ingest on all listeners, so a two-track stream would be unplayable on the narrowest leg while the form said it published.
 
 Each entry is addressed by an indexed key (`publish.audio_sources[2].gain`) so every control kind the form has edits a list item and a statement lands on one entry rather than on the control.
-The list grows through the settings, not through an effect: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to the absent one takes an entry off on the next repair.
+The list grows through the settings: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to the absent one takes an entry off on the next repair.
 Ordinary writes through ordinary controls, which keeps a shell from deciding anything about the list's shape.
 
 Gain carries presence, zero being a level and not an absence: a source turned all the way down is silent, and an entry nobody set a level on is at unity.

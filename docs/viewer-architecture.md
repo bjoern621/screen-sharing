@@ -35,7 +35,7 @@ Each names its own protocol, MediaMTX re-serving every ingested stream on all it
 A stream published over SRT is watched over RTSP by one viewer and over WHEP by another, at once.
 
 The two legs are not one list of protocols, and a leg is not one list either.
-HLS is served and never ingested, so it is a watch leg alone.
+HLS is served, so it is a watch leg alone.
 RTMP takes four formats in and hands one back.
 WebRTC ingest is narrower than WHEP playback, and narrower on one publish engine than the other.
 Each transport declares a carriage per leg and per engine beside the code serializing it (`transport.Formats`), and every rule offering or refusing a protocol reads the entry for the leg and engine it means.
@@ -64,7 +64,6 @@ A running pipeline keeps what it was built with.
 Both receivers are built when opened and neither takes a value back, so a leg or chain changed here reaches the next decode rather than the one on screen.
 `ApplyToStream` is a separate method on the publish side for that reason.
 
-An SRT latency window is a request, not a result.
 SRT negotiates one delay per direction in the handshake and takes the larger of the two sides' values, so a link is never faster than the peer's setting.
 MediaMTX exposes no SRT latency option and runs on its library's 120 ms default, the floor of both hops against it: 400 ms is honoured, 60 ms comes back as 120.
 The relay's `/v3/srtconns/list` reports both directions of both hops.
@@ -125,7 +124,7 @@ H.264 is the exception, its High 10 implemented by too few generations to declar
 Full chroma and RGB reach silicon in HEVC alone, through the Range Extensions profiles NVDEC and Intel's decoder carry and Mesa's VA drivers and DXVA do not.
 4:2:2 divides one step narrower: libavcodec decodes it in both H.26x formats, and Intel's HEVC decoder is the one hardware element that does, NVDEC implementing the 4:4:4 Range Extensions profiles without the 4:2:2 one.
 H.264 has no hardware 4:4:4 anywhere, no vendor having implemented High 4:4:4 Predictive, which is also why lossless H.264 is a software decode everywhere: the mode exists only in that profile.
-AV1 and VP9 are the same story in their own profiles, hardware decoding profile 0 and 2 and never the full-chroma ones.
+AV1 and VP9 are the same story in their own profiles, hardware decoding profile 0 and 2.
 
 Audio follows the path.
 A player plays the second track the mux carries.
@@ -147,7 +146,7 @@ Idempotent like the rest of the contract, and held rather than dropped when it a
 What it became is reported back on `ReceiveStream` (`has_audio`, `volume`, `muted`), letting two shells agree about one decode's loudness instead of each remembering what it last sent.
 
 `level` is measured **before** `volume`, and the order is the point: measured after, a muted stream would meter as silent and a reader could not see it had started making noise again.
-The meter shows what the stream carries, never what the speakers were given.
+The meter shows what the stream carries.
 Its readings leave on `SubscribeAudioLevels`, a stream of its own rather than an event kind: the event stream carries whole states when something changed, a level changes continuously, and folding it in would push the receive state at metering rate and re-render every consumer for a figure none of them reads.
 One tick is fifteen a second and carries the whole set.
 A decode with no audio track has no entry, a silent one reads negative infinity, drawn as no meter and as an empty meter.
@@ -194,7 +193,7 @@ A format one engine's encoder will not take carries a `Gap` on the row, so the v
 Which of them a capture backend can publish is the form's question.
 4:2:2 is the two software H.26x rows' alone, through x264's High 4:2:2 and x265's Main 4:2:2 10: no hardware encoder here has an entrypoint for it, and the royalty-free formats have no 4:2:2 profile a fast encoder implements.
 
-Whether a GPU runs any of them is the driver's answer, not the table's.
+Whether a GPU runs any of them is the driver's answer, the table stating only what a row could carry.
 `encoders.Detect` probes each per publish engine, test-encoding on the ffmpeg engine and querying the plugin registry for the GStreamer element, and the form greys what this machine refuses on the selected capture backend.
 
 Two families have no GStreamer element at all, the only gaps taking a whole family off an engine.
@@ -205,7 +204,7 @@ On an AMD or Intel card the same silicon is reachable through the VAAPI rows.
 
 ## Which protocol carries which format
 
-The reason a format is in or out belongs to the protocol and to the engine's muxer or source element, never to the encoder that produced the bitstream (`transport.Formats`).
+The reason a format is in or out belongs to the protocol and to the engine's muxer or source element (`transport.Formats`).
 A cell reading none is an engine with no serialization for that leg, the capability interface absent with it.
 
 | Transport | ffmpeg publish | GStreamer publish | Player watch | Tile watch | Browser watch |
@@ -240,7 +239,7 @@ HLS on a tile is the one cell that differs by engine, carrying no audio at all, 
 Three rules fall out of the table:
 
 - A codec no transport publishes cannot be published at all: `transport.ValidatePublish` rejects the combination before an encoder is built, and names the transports that would have carried it on the running engine.
-- What a viewer may receive over is the watch entry for its engine, never the publish one.
+- What a viewer may receive over is the watch entry for its engine.
   An SRT viewer opened on a VP9 stream would connect and receive nothing, so `WatchNamesFor` narrows the choice per stream and per engine.
 - A publish leg the two engines carry differently is the capture backend's business as much as the transport's, the backend fixing the engine.
   Publishing VP9 over WebRTC therefore means a GStreamer capture backend and no other.
@@ -267,7 +266,7 @@ HLS asks the relay first, and what it asks about is where the segments are (`tra
 The master playlist names one media playlist per rendition, under a session MediaMTX mints per reader, and that address is answered 401 without it.
 So the session cannot be written down and the master is read to learn it.
 
-**What is opened is the video media playlist, never the master.**
+**What is opened is the video media playlist.**
 A stream carrying sound is announced as an audio rendition beside the video one, and `hlsdemux2` stalls before the first frame of a master that names one, where libavformat plays the same stream.
 Opening the video rendition steps around it, at the price of the leg: the audio segments are never fetched, so an HLS tile is silent whatever the stream carries.
 That is the WebRTC tile's trade in another protocol, and a stream whose sound matters is watched over a leg that carries it.
@@ -275,7 +274,7 @@ That is the WebRTC tile's trade in another protocol, and a stream whose sound ma
 **A playlist whose muxer has just started carries `EXT-X-GAP` placeholders in place of segments.**
 RFC 8216 has a client skip them; `hlsdemux2` downloads one, is answered 401, and fails the pipeline.
 So the resolve reads through until a segment that is not a gap is in the playlist, and hands over a source only then.
-The wait is bounded and a relay still serving gaps at the end of it is a refusal naming the playlist, not a tile that hangs.
+The wait is bounded and a relay still serving gaps at the end of it is a refusal naming the playlist.
 
 The credential rides as userinfo on the source address, which is the one form `souphttpsrc` sends: a launch line sets no header, and the segment requests inherit it (`transport/credential.go`).
 
@@ -283,7 +282,7 @@ The credential rides as userinfo on the source address, which is the one form `s
 
 A tile decodes whatever the machine's GStreamer decodes, so the leg is the only gate.
 The verdict asks the transport table whether a receiving pipeline is served the codec's format over `tile_watch_transport`.
-It reads the GStreamer watch entry and never the publish one, the two being separate sets: a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
+It reads the GStreamer watch entry, kept separate from the publish one: a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
 A format with no listener on the selected leg reports not-viewable, names the leg as the reason, and names the protocols that would carry it.
 
 Computed in Go beside the tables it derives from, reaching the shell as a `Form` statement like every other (`ipc-api.md`).
@@ -411,7 +410,7 @@ Folding it into the state event would push everything a tile knows at sampling r
 The interval is the difference between two readings of the pipeline's own uptime rather than the ticker's period, so a tick the scheduler held back divides a real delta by the time that really passed.
 A rate carries presence and is absent on the first sample of a run, and on the first after a rebuild: a decode with one reading has no rate, and a zero there would say a stream is arriving at nothing.
 
-**The counters cross as identifiers and figures, never as prose.**
+**The counters cross as identifiers and figures.**
 `backend/internal/receive/statsources.go` says which elements keep counters worth reading and which fields to take, and stops there.
 The element's own field name (`packets-received-lost`, `rtx-success-count`) is what reaches a shell, and what it is called on screen is the shell's (`ipc-api.md`, and `api/proto/screenshare/v1/text.proto`).
 A shell with no word for a key shows the key.
@@ -537,7 +536,7 @@ A pool is re-announced whenever the size moves, which is three texture allocatio
 A shell whose grid rearranges moves every tile's exact size, so it rounds each ask up onto a ladder of heights and sends it only once the size has held still for a quarter of a second.
 Most rearrangements then ask for the size already in force and cost nothing.
 What is paid is a tile between two rungs drawing frames slightly larger than it needs, a resample the GPU was doing anyway.
-A subscription names a decode that already exists and never opens one, the two staying separate being what lets a decode outlive every window drawing it.
+A subscription names a decode that already exists, the two staying separate being what lets a decode outlive every window drawing it.
 The publish's local preview is the second kind of decode a subscription may name, holding to the same rule from the other side: what opens it is the publish, and the frame channel finds one or is refused.
 
 ### What the broadcast preview draws
@@ -645,7 +644,7 @@ A transport without a URL watch form (WebRTC, whose playback is the WHEP exchang
 
 Five files, no frame channel, and it outlives a shell crash, which is why it is a permanent path rather than a stopgap.
 
-A viewer is identified by stream name and transport together, not by name alone, the relay re-serving each ingested stream on all its listeners and one stream being open over several transports at once.
+A viewer is identified by stream name and transport together, the relay re-serving each ingested stream on all its listeners and one stream being open over several transports at once.
 
 Two rendering differences matter when choosing between the engines.
 ffplay is pinned to the SDL X11/XWayland backend, whose window a compositor renders reliably where the SDL Wayland backend may not.

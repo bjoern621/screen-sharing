@@ -90,7 +90,7 @@ The app's own code stays Apache-2.0 either way, a spawned program and a loaded l
 
 ## Screen-capture privileges on Linux
 
-The capture backend, not the app, decides whether elevated privileges are required.
+The capture backend decides whether elevated privileges are required.
 
 | Backend | Session | Privilege |
 |---------|---------|-----------|

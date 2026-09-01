@@ -11,7 +11,7 @@ Neither is traded for brevity, for a round trip, or for a shorter diff.
 
 **Idempotent** means an operation is safe to run twice.
 Applying, syncing, reconciling and asking the backend for something are all repeatable: the second run with unchanged input changes nothing, creates nothing and restarts nothing.
-A call names the state it wants true, not the transition it wants performed, so a second call means nothing rather than meaning it again.
+A call names the state it wants true, not the transition it wants performed, so a second call means nothing.
 The caller then never has to know what has already happened.
 A step that cannot be repeated forces every caller to track whether it ran, and a caller whose answer went missing has nothing left to do but wait.
 

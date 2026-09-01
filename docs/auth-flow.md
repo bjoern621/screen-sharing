@@ -28,7 +28,7 @@ sequenceDiagram
 ```
 
 groupd is never called per connection.
-The relay holds the key set ahead of the handshake and refreshes it on a timer, so a connection is checked by arithmetic and never by a round trip.
+The relay holds the key set ahead of the handshake and refreshes it on a timer, so a connection is checked by arithmetic.
 
 ## Watch
 
@@ -51,7 +51,7 @@ sequenceDiagram
 ```
 
 The viewer never reaches the relay API.
-Filtering happens at groupd, so a listing carries one group and never all of them.
+Filtering happens at groupd, so a listing carries one group.
 
 ## Outsider knows the path
 

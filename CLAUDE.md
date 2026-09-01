@@ -5,7 +5,7 @@ Read the relevant page before guessing.
 "Docs are short" below is the shape every page under it takes.
 
 `docs/development-principles.md` governs the shape of every change: explicit state writes and continuous reads, one render function per component, idempotent apply paths, and preconditions, postconditions and invariants asserted with `bjoernblessin.de/go-utils/util/assert`.
-It outranks brevity and convenience. Read it before writing code, not after.
+It outranks brevity and convenience. Read it before writing code.
 
 # Idempotent and stateless
 
@@ -117,7 +117,7 @@ A sample value fixes the shape in fewer characters than a sentence about it, and
 - Good: `// ms, 1..60000.`
 
 **The language's own comment convention comes first.**
-Clipping happens inside that shape and never replaces it.
+Clipping happens inside that shape.
 Where the convention demands a word the rules above would cut, the convention wins.
 - Go: a doc comment starts with the identifier it documents. `// StartReceive opens decode for stream. Already open is success.`
 - C#: XML doc comments, `<summary>`, `<param>`, `<returns>`, one clipped line each.
@@ -127,7 +127,7 @@ Where the convention demands a word the rules above would cut, the convention wi
 
 **Wrap at a sentence end, never mid-sentence.**
 A source line holds one sentence, however short that leaves the line.
-A sentence too long for the file's width breaks after a comma or before a conjunction ("and", "or", "but", "so"), never mid-clause, and a continuation line never starts a new sentence.
+A sentence too long for the file's width breaks after a comma or before a conjunction ("and", "or", "but", "so"), and a continuation line never starts a new sentence.
 A diff then shows the sentence that changed rather than a reflowed block, and a sentence that ran away shows up as a line that ran away.
 
 **A touched comment is rewritten in the same change.**
@@ -188,7 +188,7 @@ Name a file, a symbol or a config key and let it answer "what is set".
 The page answers "why it is shaped that way".
 
 **Every fact stays.**
-Volume is the defect, never detail.
+Volume is the defect.
 What goes is the second telling, the transition sentence, the recap, the adjective, the "Overview" that previews the page.
 A page that got shorter by dropping a constraint got worse.
 
@@ -200,7 +200,7 @@ State the invariant that produces the fact instead.
 Re-read it and find the cut, every time, not only when it reads badly.
 "It already reads fine" is not an outcome of the pass.
 
-# Every word states what is, never what changed
+# Every word states the present
 
 What a thing replaced, what it used to be, what is planned for it and what building it was like are **changelog voice**.
 A commit message and a PR description are where that belongs, being the two things whose subject is a change.
@@ -285,7 +285,6 @@ A task that looks like it wants isolation is one to say so about, not to isolate
 Never move the mouse, click, type into windows, or otherwise control the desktop/app UI. No `computer` tool, no automation scripts (AutoHotkey, PowerShell SendKeys, xdotool, nircmd), no browser-pane clicking to operate the app.
 
 A screenshot is asked for only where the work cannot go on without seeing the screen: a bug that reproduces on screen and nowhere else, a layout whose next edit depends on how the last one landed, a state no log or test reports.
-It is a debugging instrument, not a closing ritual.
 
 A finished change is reported as finished.
 What it does, what was built and tested, and what a reader would notice in the app if they look.
