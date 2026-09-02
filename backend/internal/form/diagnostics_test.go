@@ -328,3 +328,46 @@ func TestTheSameDraftWarnsTheSameWayTwice(t *testing.T) {
 		}
 	}
 }
+
+// diagnosticTestSaid is the diagnostic carrying one statement, and nil where the list carries none.
+func diagnosticTestSaid(
+	diags []*screensharev1.Diagnostic, code screensharev1.TextCode,
+) *screensharev1.Diagnostic {
+	for _, w := range diags {
+		if codeOf(w.GetText()) == code {
+			return w
+		}
+	}
+	return nil
+}
+
+// A quality target the ceiling cannot pay for is a control that moves and changes nothing:
+// the rate stops at the ceiling and the picture softens instead.
+// Which figure holds it is the one thing the screen cannot show by itself,
+// the prediction beside the control reading the same at every target above it.
+func TestAQualityTargetHeldByTheCeilingIsStated(t *testing.T) {
+	d := diagnosticTestDeps()
+	s := diagnosticTestStream()
+	s.Publish.Mode = "crf"
+	s.Publish.Cq = 5
+	s.Publish.MaxrateM = 20
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
+
+	held := diagnostics(d, s, estimate(d, s))
+	said := diagnosticTestSaid(held, ceilingHoldsQuality)
+	if said == nil {
+		t.Fatalf("diagnostics = %v, and a 20 Mbit/s ceiling holds a target priced at 69.7", held)
+	}
+	if said.GetFieldKey() != KeyMaxrateM {
+		t.Errorf("the statement anchors on %q, and the ceiling is the figure that moves it", said.GetFieldKey())
+	}
+	if !publishable(held) {
+		t.Error("a target the ceiling holds is a stream that runs, softer than the target asks")
+	}
+
+	// The same draft under a ceiling it fits, where the target buys what it asks for.
+	s.Publish.MaxrateM = 200
+	if free := diagnostics(d, s, estimate(d, s)); diagnosticTestSaid(free, ceilingHoldsQuality) != nil {
+		t.Errorf("diagnostics = %v, and a 200 Mbit/s ceiling holds nothing back", free)
+	}
+}

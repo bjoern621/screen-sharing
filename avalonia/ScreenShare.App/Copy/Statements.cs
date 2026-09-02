@@ -544,6 +544,11 @@ public static class Statements
             TextCode.NoPictureToPrice =>
                 "No prediction is possible from these settings.",
 
+            TextCode.CeilingHoldsQuality =>
+                $"This quality target is predicted to need about {Decimal(a.BitrateMbps)} Mbit/s, above the "
+                + $"{Number(a.MaxrateMbps)} Mbit/s ceiling. The encoder stops at the ceiling and softens the "
+                + "picture instead, so a higher target changes nothing. Raise the ceiling to let it spend more.",
+
             // Presets.
 
             // The sentence names the preset although it prints under the row that already does, so it still says

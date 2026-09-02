@@ -30,10 +30,9 @@ namespace ScreenShare.App.Backend;
 /// <see cref="Sync"/> is <b>idempotent</b>: a draft still equal to the one last asked about asks nothing,
 /// so a render pass reconciles unconditionally.
 /// <b>One resolve is out at a time</b>, and the answer asks for whatever the draft has become since:
-/// a slider dragged across its range writes a step per pointer move,
-/// and a round trip per step is a socket carrying answers about drafts the reader passed through,
-/// all but the last of them dropped on arrival.
-/// The reader waits one round trip either way, so the ones in between buy nothing.
+/// a slider dragged across its range writes a step per pointer move and costs a round trip per answer
+/// rather than one per step.
+/// Each answer describes a value the reader passed through, which is what prices a control as it is moved.
 /// And <b>the latest answer wins</b>: each resolve carries a request number,
 /// an answer nothing is waiting for is dropped rather than drawn over a newer draft's form,
 /// and an answer about a draft the reader has moved off is drawn without being taken back into the draft.
@@ -93,7 +92,7 @@ public sealed class FormSession
     /// <summary>Held while a resolve is out, so two never overlap.</summary>
     private bool _resolving;
 
-    /// <summary>Held while the reader has a control's thumb, so the draft moves and nothing is asked.</summary>
+    /// <summary>Held while the reader has a control's thumb, so a repair waits for the release.</summary>
     private bool _sweeping;
 
     /// <summary>
@@ -253,13 +252,6 @@ public sealed class FormSession
             return;
         }
 
-        // A value under a thumb the reader has not let go of is not one to ask about: every step of the sweep
-        // would be a question about a configuration passed through on the way somewhere (Sweeping).
-        if (_sweeping)
-        {
-            return;
-        }
-
         // Copied because the controls write the draft in place: the live instance would let the next keystroke
         // change the message mid-send, and leave the answer describing settings nobody asked about.
         var draft = _draft.Clone();
@@ -269,16 +261,17 @@ public sealed class FormSession
 
     /// <summary>
     /// States whether the reader is holding a control's thumb.
-    /// A sweep writes a value per pointer move, and every one of them but the last is a configuration on the way
-    /// to another, so the draft takes them and the backend is asked once, when the thumb is let go.
+    /// A sweep writes a value per pointer move and every one of them is asked about,
+    /// the round-trip guard above coalescing the burst into one question per answer,
+    /// so every figure the form carries is priced for the value under the thumb
+    /// (<c>docs/settings-editing.md</c>).
     ///
     /// <b>Names the state rather than the edge</b>, so a control reporting the same one twice changes nothing and
     /// a widget that lost the pointer can say so without knowing whether it already had
     /// (<c>docs/development-principles.md</c>, "Idempotency").
     ///
-    /// What the reader sees while it holds is the draft: the figure beside a control is printed from the value
-    /// the control carries, and the greyings around it are the last answer's until this ends
-    /// (<c>docs/settings-editing.md</c>).
+    /// What it holds back is the repair: a draft the backend walked to a legal value is adopted on the release,
+    /// taking it mid-gesture being what would drag the thumb out from under the pointer.
     /// </summary>
     public void Sweeping(bool sweeping)
     {
@@ -286,9 +279,27 @@ public sealed class FormSession
 
         if (!sweeping)
         {
+            AdoptHeld();
             Sync();
             Announce();
         }
+    }
+
+    /// <summary>
+    /// Takes the repair the last answer carried and the sweep held back.
+    /// The answer describes the draft as it stands,
+    /// so nothing here moves the reader off a value they are still holding:
+    /// a newer draft means a resolve is out, and its own answer lands with the repair.
+    /// </summary>
+    private void AdoptHeld()
+    {
+        if (_resolving || _form is null || _draft is null || !_draft.Equals(_asked))
+        {
+            return;
+        }
+
+        _draft = _form.Settings.Clone();
+        _asked = _form.Settings;
     }
 
     /// <summary>
@@ -759,7 +770,10 @@ public sealed class FormSession
         // A control moved while the answer was out holds a value newer than the repaired one, and adopting here
         // would drag the reader back to where the pointer was a round trip ago.
         // The form is drawn either way, being the newest answer there is, and Settle asks about the newer draft.
-        if (_draft is null || _draft.Equals(_asked))
+        //
+        // A held thumb is the same case held open: the reader is on a value they have not settled on,
+        // so the repair waits for the release (AdoptHeld).
+        if (!_sweeping && (_draft is null || _draft.Equals(_asked)))
         {
             _draft = form.Settings.Clone();
             _asked = form.Settings;

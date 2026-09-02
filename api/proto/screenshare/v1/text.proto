@@ -622,6 +622,10 @@ enum TextCode {
   // These settings resolve to no picture the prediction can be priced from.
   // No arguments.
   TEXT_CODE_NO_PICTURE_TO_PRICE = 136;
+  // Quality target prices above the ceiling the encode is held to,
+  // so the rate stops at the ceiling and the picture softens instead.
+  // TEXT_ARG_NAME_BITRATE_MBPS carries the price, TEXT_ARG_NAME_MAXRATE_MBPS the ceiling.
+  TEXT_CODE_CEILING_HOLDS_QUALITY = 170;
 
   // 137 said in a sentence what Estimate.raw_mbps and Estimate.bitrate_mbps say as figures,
   // so a surface showing both had the pair twice.

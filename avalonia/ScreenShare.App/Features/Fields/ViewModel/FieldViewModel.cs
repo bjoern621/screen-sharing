@@ -44,7 +44,7 @@ public sealed class FieldViewModel : Observable
     /// <summary>
     /// Reports that the reader has this control's thumb and has not let go.
     /// The one fact about a gesture that leaves this layer,
-    /// and it leaves because a value under a moving thumb is not one to ask the backend about
+    /// and it leaves because a repair answered under a moving thumb waits for the release
     /// (<see cref="IsSweeping"/>).
     /// </summary>
     private readonly Action<bool> _sweep;
@@ -197,10 +197,11 @@ public sealed class FieldViewModel : Observable
     /// True while the reader is holding this control's thumb.
     /// Written by the widget, a gesture being the view's to know and nobody else's (<c>Controls/FieldSlider</c>).
     ///
-    /// What it buys: the value under a moving thumb reaches the draft and nothing else.
-    /// The resolve waits for the thumb to be let go,
-    /// so a sweep across a range costs one round trip instead of one per step (<c>docs/settings-editing.md</c>).
-    /// The number beside the control follows the thumb regardless,
+    /// What it buys: a repair answered mid-gesture is adopted on the release rather than under the pointer
+    /// (<c>docs/settings-editing.md</c>).
+    /// Every value the thumb passes over is asked about, so the price and the greyings follow the gesture,
+    /// one round trip behind.
+    /// The number beside the control follows the thumb itself,
     /// printed from what this holds rather than from the last answer.
     /// </summary>
     public bool IsSweeping

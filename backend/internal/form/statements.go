@@ -97,6 +97,7 @@ const (
 	fpsAboveRefresh        = screensharev1.TextCode_TEXT_CODE_FPS_ABOVE_REFRESH
 	monitorNotPriced       = screensharev1.TextCode_TEXT_CODE_MONITOR_NOT_PRICED
 	noPictureToPrice       = screensharev1.TextCode_TEXT_CODE_NO_PICTURE_TO_PRICE
+	ceilingHoldsQuality    = screensharev1.TextCode_TEXT_CODE_CEILING_HOLDS_QUALITY
 	settingsStoreUnreadble = screensharev1.TextCode_TEXT_CODE_SETTINGS_STORE_UNREADABLE
 	presetStoreUnreadable  = screensharev1.TextCode_TEXT_CODE_PRESET_STORE_UNREADABLE
 )

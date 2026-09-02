@@ -106,19 +106,7 @@ var estimateChromas = map[string]estimateChromaCost{
 // The rest of the form still resolves, the summary carries no estimate,
 // and a diagnostic says the picture has no size.
 func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
-	m, found := estimateMonitor(d, s)
-	if !found || m.Width <= 0 || m.Height <= 0 || s.Publish.Fps <= 0 {
-		return nil
-	}
-	chroma, known := estimateChromas[s.Publish.Chroma]
-	if !known {
-		return nil
-	}
-
-	pixelRate := float64(m.Width) * float64(m.Height) * float64(s.Publish.Fps)
-	raw := pixelRate * chroma.rawBpp / 1e6
-
-	coded, priced := estimateCoded(s, pixelRate, raw, chroma)
+	price, raw, priced := estimatePrice(d, s)
 	if !priced {
 		return nil
 	}
@@ -128,10 +116,11 @@ func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
 	// the stored copy is repaired on read (settings.migratePublish) and this is what covers the rest.
 	// Answering no estimate is what the rest of this function already does for an input
 	// it cannot price, and the summary reads the same either way.
-	if coded < 0 {
+	if price < 0 {
 		return nil
 	}
 
+	coded := estimateHeldToCeiling(s, price)
 	est := &screensharev1.Estimate{
 		BitrateMbps:  coded,
 		RawMbps:      raw,
@@ -143,6 +132,43 @@ func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
 	assert.Assert(est.GetHeadroomMbps() == float64(s.Publish.UplinkMbps)-est.GetBitrateMbps(),
 		"the headroom is what the stated uplink has left over", est.GetHeadroomMbps())
 	return est
+}
+
+// estimatePrice is what the picture costs at these settings, in Mbit/s,
+// with the raw rate the capture produces beside it.
+// False where an input either figure rests on is unresolved, which is what withholds the prediction.
+//
+// The price before any ceiling.
+// The prediction and both ends of the spread are each held to the ceiling separately,
+// so the figure all three are held from is derived once, here.
+func estimatePrice(d Deps, s settings.Settings) (coded, raw float64, priced bool) {
+	m, found := estimateMonitor(d, s)
+	if !found || m.Width <= 0 || m.Height <= 0 || s.Publish.Fps <= 0 {
+		return 0, 0, false
+	}
+	chroma, known := estimateChromas[s.Publish.Chroma]
+	if !known {
+		return 0, 0, false
+	}
+
+	pixelRate := float64(m.Width) * float64(m.Height) * float64(s.Publish.Fps)
+	raw = pixelRate * chroma.rawBpp / 1e6
+
+	coded, priced = estimateCoded(s, pixelRate, raw, chroma)
+	if !priced {
+		return 0, 0, false
+	}
+	return coded, raw, true
+}
+
+// estimateHeldToCeiling holds one rate to what the encode is bounded by.
+// A picture priced above the ceiling is coded at the ceiling and softer,
+// so every figure describing the coded rate passes through here.
+func estimateHeldToCeiling(s settings.Settings, mbps float64) float64 {
+	if ceiling, bounded := estimateQualityCeiling(s); bounded && mbps > ceiling {
+		return ceiling
+	}
+	return mbps
 }
 
 // estimateCoded prices the coded rate in Mbit/s for the rate-control mode in force,
@@ -196,14 +222,7 @@ func estimateConstantQuality(s settings.Settings, pixelRate float64, chroma esti
 	}
 
 	bpp := estimateAnchorBpp * math.Pow(2, (estimateAnchorCq-cq)/estimateCqStep) * efficiency * chroma.weight
-	coded := pixelRate * bpp / 1e6
-
-	// A ceiling is where the encoder stops spending: a picture the quality target prices above
-	// it is coded at the ceiling and softer.
-	if ceiling, bounded := estimateQualityCeiling(s); bounded && coded > ceiling {
-		return ceiling, true
-	}
-	return coded, true
+	return pixelRate * bpp / 1e6, true
 }
 
 // estimateQualityCeiling is the ceiling a constant-quality encode is held to,
@@ -221,23 +240,25 @@ func estimateQualityCeiling(s settings.Settings) (float64, bool) {
 // estimateSpread is what content can move the rate to, either side of the prediction and in Mbit/s,
 // and false for a mode with no second figure to state.
 //
-// It is derived from the estimate rather than priced again, so the spread
+// It rests on the figure the prediction does, so the spread
 // and the prediction cannot disagree about what the settings produce.
 // The high end is what a diagnostic is priced from, the drop on a line sized for the average
 // being the transport's rather than the encoder's.
-func estimateSpread(s settings.Settings, est *screensharev1.Estimate) (low, high float64, spreads bool) {
+func estimateSpread(d Deps, s settings.Settings, est *screensharev1.Estimate) (low, high float64, spreads bool) {
 	if est == nil {
 		return 0, 0, false
 	}
 	switch s.Publish.Mode {
 	case capabilities.ModeCrf:
-		low, high := est.GetBitrateMbps()*estimateMotionLow, est.GetBitrateMbps()*estimateMotionHigh
-		// The burst stops where the encoder does:
-		// motion past the ceiling is answered by softening rather than by spending.
-		if ceiling, bounded := estimateQualityCeiling(s); bounded && high > ceiling {
-			high = ceiling
+		// Priced from the picture and held to the ceiling at each end.
+		// A prediction the ceiling holds says nothing about what a still desktop costs,
+		// so two fifths of it would name a rate this encode never produces.
+		price, _, priced := estimatePrice(d, s)
+		if !priced {
+			return 0, 0, false
 		}
-		return low, high, true
+		return estimateHeldToCeiling(s, price*estimateMotionLow),
+			estimateHeldToCeiling(s, price*estimateMotionHigh), true
 	case capabilities.ModeLossless:
 		return est.GetRawMbps() * estimateLosslessLow, est.GetRawMbps() * estimateLosslessHigh, true
 	case capabilities.ModeVbr:

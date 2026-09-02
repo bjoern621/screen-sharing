@@ -229,3 +229,58 @@ func TestTheSameDraftPredictsTheSameFigureTwice(t *testing.T) {
 		t.Errorf("one draft predicted %v and then %v", first, second)
 	}
 }
+
+// A ceiling is where the encoder stops spending, so a quality target priced above it
+// is coded at the ceiling and softer.
+func TestTheCeilingHoldsAQualityTargetPricedAboveIt(t *testing.T) {
+	s := estimateTestStream()
+	s.Publish.Cq = 5
+	s.Publish.MaxrateM = 20
+
+	est := estimate(estimateTestDeps(), s)
+	if est == nil {
+		t.Fatal("a monitor this machine has and a codec the table holds yield a prediction")
+	}
+	if !estimateTestClose(est.GetBitrateMbps(), 20) {
+		t.Errorf("bitrate = %v, want the 20 Mbit/s ceiling", est.GetBitrateMbps())
+	}
+}
+
+// The spread is what content moves the rate to, so both ends are priced from the picture
+// and then held to the ceiling.
+// An end taken from the held prediction instead prices a still desktop at two fifths of the ceiling,
+// which is a rate this encode never produces.
+//
+// The prices below are the anchor's 8.70912 Mbit/s at eighteen quantizer points of headroom,
+// so 69.67296 Mbit/s, spread over 0.4 and 2.5.
+func TestTheSpreadIsPricedFromThePictureAndHeldToTheCeiling(t *testing.T) {
+	const price = 8.70912 * 8
+
+	cases := map[string]struct {
+		ceiling   int
+		low, high float64
+	}{
+		"no ceiling at all":              {ceiling: 0, low: price * estimateMotionLow, high: price * estimateMotionHigh},
+		"a ceiling under the moving end": {ceiling: 40, low: price * estimateMotionLow, high: 40},
+		"a ceiling under the still end":  {ceiling: 20, low: 20, high: 20},
+	}
+	for name, want := range cases {
+		t.Run(name, func(t *testing.T) {
+			d := estimateTestDeps()
+			s := estimateTestStream()
+			s.Publish.Cq = 5
+			s.Publish.MaxrateM = want.ceiling
+
+			low, high, spreads := estimateSpread(d, s, estimate(d, s))
+			if !spreads {
+				t.Fatal("a constant-quality encode spreads with what is on screen")
+			}
+			if !estimateTestClose(low, want.low) {
+				t.Errorf("low = %v, want %v", low, want.low)
+			}
+			if !estimateTestClose(high, want.high) {
+				t.Errorf("high = %v, want %v", high, want.high)
+			}
+		})
+	}
+}

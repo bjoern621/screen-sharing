@@ -19,7 +19,7 @@ The window opens on the stored settings, read once, and edits that copy.
 | Reader does | Call | Cadence |
 |---|---|---|
 | Picks an entry, flips a switch, steps a slider by key | `ResolveForm` | Per change, one in flight at a time |
-| Sweeps a slider's thumb | `ResolveForm` | On letting go |
+| Sweeps a slider's thumb | `ResolveForm` | Per pointer move, one in flight at a time |
 | Types in a text box | `ResolveForm` | On leaving the box |
 | Presses a group's save | `SaveSettings` | Per press |
 | Presses publish | `StartPublish` | Per press |
@@ -57,18 +57,25 @@ A control takes a value off the form only where that form answers for the draft 
 Outside that window the two disagree, the reader having moved since the question went out.
 A repair therefore lands on the answer that carries it, which is what moves a thumb the backend walked to a legal value.
 
-The greyings, the ranges and the entries around the control are the last answer's throughout.
-A sweep holds them for the length of the gesture, and the release brings them up to date.
+The greyings, the ranges, the entries and the price beside them are the form's.
+Each is the newest answer's, one round trip behind the thumb.
 
-## A sweep is one value, held
+## A sweep asks, and holds the repair
 
-A thumb under the reader's pointer writes a value per pointer move.
-Each of them is a configuration passed through on the way to the one they stop on.
-The draft takes all of them, and the backend is asked about the last.
+A thumb under the reader's pointer writes a value per pointer move,
+and every one of them is a draft to ask about.
+One question is out at a time,
+so the answers arrive for values the reader passed through
+and the last is about where they stopped.
+That is what prices a quality target while it is being chosen.
+
+The repair is the one answer a sweep holds.
+A draft the backend walked to a legal value is adopted on the release,
+taking it mid-gesture being what would pull the thumb out from under the pointer.
 
 The gesture is the view's to know.
 The widget reports taking the thumb and letting it go, and reports letting go for a pointer taken away by something else.
-A draft is therefore never left holding a question the reader has stopped asking.
+A repair is therefore never left held by a gesture the reader has ended.
 
 A key press is not a sweep, being a settled value the moment it happens.
 

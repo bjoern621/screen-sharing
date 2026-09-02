@@ -682,6 +682,10 @@ const (
 	// These settings resolve to no picture the prediction can be priced from.
 	// No arguments.
 	TextCode_TEXT_CODE_NO_PICTURE_TO_PRICE TextCode = 136
+	// Quality target prices above the ceiling the encode is held to,
+	// so the rate stops at the ceiling and the picture softens instead.
+	// TEXT_ARG_NAME_BITRATE_MBPS carries the price, TEXT_ARG_NAME_MAXRATE_MBPS the ceiling.
+	TextCode_TEXT_CODE_CEILING_HOLDS_QUALITY TextCode = 170
 	// Why a stream a reader was watching or publishing stopped.
 	// Numbered from 144, the run after 137 belonging to the groups below.
 	//
@@ -860,6 +864,7 @@ var (
 		134: "TEXT_CODE_FPS_ABOVE_REFRESH",
 		135: "TEXT_CODE_MONITOR_NOT_PRICED",
 		136: "TEXT_CODE_NO_PICTURE_TO_PRICE",
+		170: "TEXT_CODE_CEILING_HOLDS_QUALITY",
 		144: "TEXT_CODE_GROUP_MEMBERSHIP_LAPSED",
 		145: "TEXT_CODE_GROUP_NAME_TAKEN",
 		146: "TEXT_CODE_GROUP_NAME_MISSING",
@@ -991,6 +996,7 @@ var (
 		"TEXT_CODE_FPS_ABOVE_REFRESH":                         134,
 		"TEXT_CODE_MONITOR_NOT_PRICED":                        135,
 		"TEXT_CODE_NO_PICTURE_TO_PRICE":                       136,
+		"TEXT_CODE_CEILING_HOLDS_QUALITY":                     170,
 		"TEXT_CODE_GROUP_MEMBERSHIP_LAPSED":                   144,
 		"TEXT_CODE_GROUP_NAME_TAKEN":                          145,
 		"TEXT_CODE_GROUP_NAME_MISSING":                        146,
@@ -1357,7 +1363,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xe9*\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x8f+\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1475,7 +1481,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_BURST_ABOVE_UPLINK\x10\x85\x01\x12 \n" +
 	"\x1bTEXT_CODE_FPS_ABOVE_REFRESH\x10\x86\x01\x12!\n" +
 	"\x1cTEXT_CODE_MONITOR_NOT_PRICED\x10\x87\x01\x12\"\n" +
-	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12&\n" +
+	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12$\n" +
+	"\x1fTEXT_CODE_CEILING_HOLDS_QUALITY\x10\xaa\x01\x12&\n" +
 	"!TEXT_CODE_GROUP_MEMBERSHIP_LAPSED\x10\x90\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_GROUP_NAME_TAKEN\x10\x91\x01\x12!\n" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +

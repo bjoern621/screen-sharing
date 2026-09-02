@@ -321,6 +321,12 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
+    /// Quantizer a first start opens on,
+    /// and the point the seeded prediction is anchored at (<see cref="Priced"/>).
+    /// </summary>
+    private const int AnchorCq = 19;
+
+    /// <summary>
     /// Settings a first start opens on, from Go <c>settings.Defaults</c> including its per-platform capture
     /// backend.
     /// </summary>
@@ -347,7 +353,7 @@ internal sealed class SeededBackend : IBackend
             Chroma = "gbrp",
             ColorRange = "pc",
             Fps = 60,
-            Cq = 19,
+            Cq = AnchorCq,
             BitrateMbps = 150,
             MaxrateMbps = 200,
             VbvMs = 0,
@@ -853,7 +859,7 @@ internal sealed class SeededBackend : IBackend
         {
             Command = "",
             CommandError = "no backend behind this shell yet, so no command was rendered",
-            Estimate = new Estimate { BitrateMbps = 11.8, RawMbps = 3110.4, HeadroomMbps = settings.Publish.UplinkMbps - 11.8 },
+            Estimate = Priced(settings),
         };
 
         if (settings.Publish.UplinkMbps < form.Summary.Estimate.BitrateMbps)
@@ -870,6 +876,26 @@ internal sealed class SeededBackend : IBackend
 
         Assert.That(form.Groups.Count == Groups().Count, "a resolved group per seeded group", form.Groups.Count);
         return form;
+    }
+
+    /// <summary>
+    /// What the draft is predicted to cost, moving with the quantizer:
+    /// six points halve or double the rate,
+    /// the anchor the real model prices from (<c>backend/internal/form/estimate.go</c>).
+    /// The seeded quantizer sits at the anchor, so a draft nobody edited prices at the figure below.
+    ///
+    /// A constant would let a screen claim to follow a control it never reads.
+    /// </summary>
+    private static Estimate Priced(Settings settings)
+    {
+        var coded = 11.8 * Math.Pow(2, (AnchorCq - settings.Publish.Cq) / 6.0);
+
+        return new Estimate
+        {
+            BitrateMbps = coded,
+            RawMbps = 3110.4,
+            HeadroomMbps = settings.Publish.UplinkMbps - coded,
+        };
     }
 
     /// <summary>

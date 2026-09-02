@@ -57,7 +57,8 @@ func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*sc
 		out = append(out, diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, "", say(publishRefused)))
 	}
 	out = append(out, diagnosticsAboutTheAudience(s)...)
-	out = append(out, diagnosticsAboutTheLine(s, est)...)
+	out = append(out, diagnosticsAboutTheLine(d, s, est)...)
+	out = append(out, diagnosticsAboutTheCeiling(d, s)...)
 	out = append(out, diagnosticsAboutTheCapture(d, s)...)
 	out = append(out, diagnosticsAboutTheViewer(s)...)
 	out = append(out, diagnosticsAboutThePrediction(d, s, est)...)
@@ -118,7 +119,7 @@ func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnosti
 // Neither end of this failure announces itself: a stream the line cannot carry is not encoded
 // smaller, the send queue grows, the transport drops what it cannot ship,
 // and the viewer sees a stall rather than a lower quality.
-func diagnosticsAboutTheLine(s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
+func diagnosticsAboutTheLine(d Deps, s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
 	if s.Publish.UplinkMbps <= 0 {
 		return []*screensharev1.Diagnostic{
 			diagnosticFor(screensharev1.Severity_SEVERITY_INFO, KeyUplinkMbps, say(noUplinkStated)),
@@ -140,7 +141,7 @@ func diagnosticsAboutTheLine(s settings.Settings, est *screensharev1.Estimate) [
 	// and the modes that spread are the ones whose prediction is an average.
 	// The anchor is the control that sets the burst rather than the uplink,
 	// that being the end the user moves.
-	low, high, spreads := estimateSpread(s, est)
+	low, high, spreads := estimateSpread(d, s, est)
 	if !spreads || high <= float64(s.Publish.UplinkMbps) {
 		return out
 	}
@@ -150,6 +151,27 @@ func diagnosticsAboutTheLine(s settings.Settings, est *screensharev1.Estimate) [
 		say(burstAboveUplink,
 			argLowMbps(low), argHighMbps(high), argUplinkMbps(s.Publish.UplinkMbps), argMode(s.Publish.Mode))))
 	return out
+}
+
+// diagnosticsAboutTheCeiling says when a quality target buys nothing.
+// The picture prices above the ceiling the encode is held to, so the target moves and the rate stops:
+// motion and detail past it are answered by softening rather than by spending.
+//
+// A warning, the stream being one that runs, at a quality the target overstates.
+// The anchor is the ceiling, that being the figure whose move changes the answer.
+func diagnosticsAboutTheCeiling(d Deps, s settings.Settings) []*screensharev1.Diagnostic {
+	ceiling, bounded := estimateQualityCeiling(s)
+	if !bounded {
+		return nil
+	}
+	price, _, priced := estimatePrice(d, s)
+	if !priced || price <= ceiling {
+		return nil
+	}
+	return []*screensharev1.Diagnostic{
+		diagnosticFor(screensharev1.Severity_SEVERITY_WARNING, KeyMaxrateM,
+			say(ceilingHoldsQuality, argBitrateMbps(price), argMaxrateMbps(int(ceiling)))),
+	}
 }
 
 // diagnosticsAboutTheCapture says where this machine gives the pipeline less than the settings ask.

@@ -252,6 +252,13 @@ internal sealed class DeferredBackend : IBackend
     /// <summary>Draft one held resolve was asked about, indexed in the order the resolves arrived.</summary>
     public Settings Draft(int resolve) => _held[resolve].Draft;
 
+    /// <summary>
+    /// What the backend walks a draft to before answering about it, null for one taking drafts as they come.
+    /// The real one repairs a value no rule allows (<c>backend/internal/form/repair.go</c>),
+    /// and a repair landing while the reader holds a thumb is what a sweep has to survive.
+    /// </summary>
+    public Action<Settings>? Repairs { get; set; }
+
     public bool IsCancelled(int resolve) => _held[resolve].Cancellation.IsCancellationRequested;
 
     /// <summary>
@@ -261,7 +268,10 @@ internal sealed class DeferredBackend : IBackend
     public async Task AnswerAsync(int resolve)
     {
         var held = _held[resolve];
-        var form = await _seed.ResolveFormAsync(held.Draft);
+        var asked = held.Draft.Clone();
+        Repairs?.Invoke(asked);
+
+        var form = await _seed.ResolveFormAsync(asked);
 
         Answers.Now(() => held.Answer.SetResult(form));
     }

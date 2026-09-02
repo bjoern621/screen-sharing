@@ -12,8 +12,8 @@ namespace ScreenShare.App.Controls;
 ///
 /// A sweep writes a value per pointer move,
 /// and each of them is a configuration passed through on the way to the one the reader stops on.
-/// Whoever holds the draft reads <see cref="Sweeping"/> to take the values
-/// and ask about the last of them (<c>Backend/FormSession.cs</c>, <c>docs/settings-editing.md</c>).
+/// Whoever holds the draft reads <see cref="Sweeping"/> to hold a repair back until the release
+/// (<c>Backend/FormSession.cs</c>, <c>docs/settings-editing.md</c>).
 ///
 /// The look is the plain slider's: this adds a reading and no chrome,
 /// so it takes the theme keyed on <see cref="Slider"/> rather than carrying one of its own.

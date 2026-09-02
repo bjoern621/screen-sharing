@@ -38,11 +38,13 @@ public sealed class SweepTests
         => panel.Viewer.Watch.Group.Fields.Single(field => field.Key == key);
 
     /// <summary>
-    /// The whole of the sweep: the draft follows the thumb, the figure beside it follows the draft,
-    /// and the backend is asked once, about the value the reader stopped on.
+    /// The whole of the sweep: the draft follows the thumb, the backend is asked as it moves,
+    /// and each answer is followed by a question about wherever the thumb has reached by then.
+    /// Every figure the form carries is priced for a value the reader is passing through,
+    /// which is what the panel beside the control is for.
     /// </summary>
     [Fact]
-    public async Task ASweepAsksNothingUntilTheThumbIsLetGo()
+    public async Task ASweepIsAskedAboutWhileTheThumbIsDown()
     {
         var panel = await PanelAsync();
         var latency = Field(panel, Latency);
@@ -52,18 +54,71 @@ public sealed class SweepTests
         latency.Slide = 3000;
         latency.Slide = 4000;
 
-        Assert.Equal(1, panel.Backend.Resolves);
-        Assert.Equal("4000", latency.Readback);
-
-        latency.IsSweeping = false;
-
         Assert.Equal(2, panel.Backend.Resolves);
-        Assert.Equal(4000, panel.Backend.Draft(1).Viewer.SrtWatchLatencyMs);
+        Assert.Equal(2000, panel.Backend.Draft(1).Viewer.SrtWatchLatencyMs);
+        Assert.Equal("4000", latency.Readback);
 
         await panel.Backend.AnswerAsync(1);
 
+        Assert.Equal(3, panel.Backend.Resolves);
+        Assert.Equal(4000, panel.Backend.Draft(2).Viewer.SrtWatchLatencyMs);
+
+        await panel.Backend.AnswerAsync(2);
+        latency.IsSweeping = false;
+
+        Assert.Equal(3, panel.Backend.Resolves);
         Assert.Equal(4000, (int)latency.Slide);
         Assert.Equal("4000", latency.Readback);
+    }
+
+    /// <summary>
+    /// A repair is the one answer a sweep holds back: adopting it would walk the thumb
+    /// out from under the pointer mid-gesture.
+    /// It lands on the release, so the reader ends on the value the backend allows.
+    /// </summary>
+    [Fact]
+    public async Task ARepairAnsweredDuringASweepLandsOnTheRelease()
+    {
+        var panel = await PanelAsync();
+        var latency = Field(panel, Latency);
+        panel.Backend.Repairs = settings => settings.Viewer.SrtWatchLatencyMs = 1000;
+
+        latency.IsSweeping = true;
+        latency.Slide = 4000;
+        await panel.Backend.AnswerAsync(1);
+        panel.Viewer.Apply();
+
+        Assert.Equal(4000, (int)latency.Slide);
+
+        latency.IsSweeping = false;
+        panel.Viewer.Apply();
+
+        Assert.Equal(1000, (int)latency.Slide);
+    }
+
+    /// <summary>
+    /// What the reader is watching while they sweep: the price of the value under the thumb,
+    /// which is the backend's answer and nothing this side derives (<c>docs/ipc-api.md</c>, "The rule").
+    /// </summary>
+    [Fact]
+    public async Task TheCostFollowsTheThumb()
+    {
+        var backend = new DeferredBackend();
+        var flow = Flows.Setup(backend);
+        await backend.AnswerAsync(0);
+
+        // Constant quality is the mode whose rate the quantizer prices.
+        flow.Quality.Mode!.Options.Single(option => option.Value == "crf").Choose.Execute(null);
+        await backend.AnswerAsync(1);
+
+        var quantizer = flow.Quality.Quantizer!;
+        var priced = flow.Rail.Bitrate;
+
+        quantizer.IsSweeping = true;
+        quantizer.Slide -= 6;
+        await backend.AnswerAsync(2);
+
+        Assert.NotEqual(priced, flow.Rail.Bitrate);
     }
 
     /// <summary>
@@ -85,7 +140,9 @@ public sealed class SweepTests
 
         Assert.NotEqual(started, latency.Slide);
         Assert.Equal(5000, (int)latency.Slide);
-        Assert.Equal(1, panel.Backend.Resolves);
+
+        // The write asked, and the two render passes over its unanswered form asked nothing.
+        Assert.Equal(2, panel.Backend.Resolves);
     }
 
     /// <summary>
