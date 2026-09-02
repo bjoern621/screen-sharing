@@ -52,6 +52,8 @@ BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(gstreamer-pbutils-1.0)
 BuildRequires:  pkgconfig(egl)
 BuildRequires:  desktop-file-utils
+# magick draws the icon down to the sizes hicolor's index declares (%%install).
+BuildRequires:  ImageMagick
 
 # Capture, encode, publish and the single-stream viewer.
 # The paths rather than a package name,
@@ -141,8 +143,15 @@ chmod 755 %{buildroot}%{_bindir}/screenshare-avalonia
 
 install -Dm 644 packaging/linux/screen-sharing.desktop \
   %{buildroot}%{_datadir}/applications/%{appname}.desktop
-install -Dm 644 build/appicon.png \
-  %{buildroot}%{_datadir}/icons/hicolor/1024x1024/apps/%{appname}.png
+# The master is 1024px and hicolor's index declares 48 through 512.
+# A size the index does not name is a directory no lookup walks,
+# so an icon installed at 1024 alone is one a launcher answers with its placeholder.
+for size in 48 64 128 256 512; do
+  install -dm 755 %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps
+  magick build/appicon.png -resize ${size}x${size} \
+    %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/%{appname}.png
+  chmod 644 %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/%{appname}.png
+done
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{appname}.desktop
@@ -153,7 +162,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{appname}.desktop
 %{_bindir}/screenshare-avalonia
 %{appdir}/
 %{_datadir}/applications/%{appname}.desktop
-%{_datadir}/icons/hicolor/1024x1024/apps/%{appname}.png
+%{_datadir}/icons/hicolor/*/apps/%{appname}.png
 
 # No %%changelog section.
 # The one rpm would carry is the git history,

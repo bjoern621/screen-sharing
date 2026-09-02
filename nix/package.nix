@@ -18,6 +18,7 @@
   pkg-config,
   ffmpeg-full,
   gst_all_1,
+  imagemagick,
   glib-networking,
   libnice,
   pipewire,
@@ -103,6 +104,16 @@ let
   ];
 
   gstPluginPath = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
+
+  # The icon sizes hicolor's index declares, which are the ones a lookup walks.
+  # Every Linux channel installs the same set, so a menu draws one icon whichever built it.
+  iconSizes = [
+    48
+    64
+    128
+    256
+    512
+  ];
 
   # The monitor enumerators, which are Linux session tools and have no counterpart elsewhere.
   # pipewire carries pw-dump, which the audio device list subscribes to for the daemon's
@@ -263,14 +274,24 @@ symlinkJoin {
     shell
   ];
 
+  nativeBuildInputs = [ imagemagick ];
+
   # The join puts both binaries in one bin directory, the layout the shell's lookup expects.
   # The desktop entry is what a menu launch goes through, and every Linux channel installs it,
   # so a menu shows the same app whichever built it.
   postBuild = ''
     install -Dm444 ${../packaging/linux/screen-sharing.desktop} \
       $out/share/applications/screen-sharing.desktop
-    install -Dm444 ${../build/appicon.png} \
-      $out/share/icons/hicolor/1024x1024/apps/screen-sharing.png
+
+    # The master is 1024px and hicolor's index declares 48 through 512.
+    # A size the index does not name is a directory no lookup walks,
+    # so an icon installed at 1024 alone is one a launcher answers with its placeholder.
+    for size in ${lib.concatStringsSep " " (map toString iconSizes)}; do
+      dir=$out/share/icons/hicolor/''${size}x''${size}/apps
+      mkdir -p $dir
+      magick ${../build/appicon.png} -resize ''${size}x''${size} $dir/screen-sharing.png
+      chmod 444 $dir/screen-sharing.png
+    done
 
     install -Dm444 ${../LICENSE} $out/share/licenses/screen-sharing/LICENSE
     install -Dm444 ${../THIRD-PARTY-NOTICES.md} \

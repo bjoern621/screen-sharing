@@ -51,7 +51,8 @@ depends=(
 # The development files are in the same packages as the runtime,
 # so what the cgo build compiles against comes from depends.
 # Only the two toolchains are build-only.
-makedepends=('go' 'dotnet-sdk-10.0')
+# imagemagick draws the icon down to the sizes hicolor's index declares (package()).
+makedepends=('go' 'dotnet-sdk-10.0' 'imagemagick')
 # No split debug package.
 # Half of what is installed here is a .NET publish output carrying no DWARF to split out,
 # and the Fedora spec disables its debuginfo package for the same reason.
@@ -110,8 +111,15 @@ package() {
 
   install -Dm644 packaging/linux/screen-sharing.desktop \
     "$pkgdir/usr/share/applications/$pkgname.desktop"
-  install -Dm644 build/appicon.png \
-    "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/$pkgname.png"
+  # The master is 1024px and hicolor's index declares 48 through 512.
+  # A size the index does not name is a directory no lookup walks,
+  # so an icon installed at 1024 alone is one a launcher answers with its placeholder.
+  for size in 48 64 128 256 512; do
+    install -dm755 "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps"
+    magick build/appicon.png -resize "${size}x${size}" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
+    chmod 644 "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
+  done
   install -Dm644 docs/install.md \
     "$pkgdir/usr/share/doc/$pkgname/install.md"
 

@@ -1,9 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name=Screen Sharing
+GenericName=Screen Sharing
 Comment=Self-hosted group screen sharing
 Exec=screenshare-avalonia
 Icon=screen-sharing
 Terminal=false
 Categories=AudioVideo;Video;
+Keywords=share;sharing;screen;desktop;cast;stream;streaming;broadcast;present;presentation;meeting;call;remote;viewer;relay;
 StartupNotify=true
+StartupWMClass=screenshare-avalonia
