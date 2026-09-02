@@ -24,7 +24,7 @@ type Refused struct {
 }
 
 // Refuse builds a Refused carrying the sentence the user reads.
-// The wording stays the backend's: this side decides the code, never the words.
+// The wording stays the backend's, and this side adds the code.
 func Refuse(format string, args ...any) error {
 	assert.Assert(format != "", "a refusal says what it refused")
 

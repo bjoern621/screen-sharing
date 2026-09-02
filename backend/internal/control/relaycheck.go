@@ -16,7 +16,7 @@ import (
 // Unlike them it is not refused beside a live stream,
 // a handshake per leg competing with nothing the stream is spending.
 //
-// A relay that answers nothing is a response and never a status (docs/ipc-api.md, "Errors"):
+// A relay that answers nothing is a response (docs/ipc-api.md, "Errors"):
 // every leg comes back with its own verdict,
 // and "the relay is down" is a thing the screen says rather than a thing the call failed at.
 //

@@ -9,15 +9,13 @@ namespace ScreenShare.App.Copy;
 /// Nothing here decides what is legal or what exists,
 /// and a value the backend stops sending stops being looked up (<c>docs/ipc-api.md</c>).
 ///
-/// Three rules hold across the whole file.
-///
 /// <b>An unknown identifier answers with itself.</b>
 /// A backend newer than this build names codecs this table has not heard of,
 /// and <c>av1_qsv</c> on screen is one a reader can still pick, search for and report.
-/// A missing word is a defect and not a failure, so it renders rather than asserting.
+/// A missing word is a defect this table can fix, so it renders rather than asserting.
 ///
 /// <b>Short here, long in <see cref="Descriptions"/>.</b>
-/// Everything here fits a dropdown row, a chip and a step strip: a name, never a sentence.
+/// Every entry is a name at the width of a dropdown row, a chip or a step strip.
 ///
 /// <b>The identifier is kept wherever the reader meets it again.</b>
 /// A pixel format reads <c>yuv420p · 4:2:0</c>,
@@ -38,7 +36,7 @@ public static class Words
     /// <summary>
     /// Video coding formats, named the way a viewer's decoder settings name them.
     /// Both halves of an H.26x name are kept, the ITU spelling and the ISO one,
-    /// which of the two a reader has met before not being knowable from here.
+    /// a reader having met either.
     /// </summary>
     private static readonly Dictionary<string, string> Formats = new()
     {
@@ -288,8 +286,8 @@ public static class Words
     /// <summary>
     /// Built-in presets, named for what each puts first.
     /// A preset is a promise about the picture rather than a set of values,
-    /// so a name says what is asked for and never which encoder answers,
-    /// that being this machine's and differing on the next (<c>docs/presets.md</c>).
+    /// so a name says what is asked for.
+    /// The encoder answering is this machine's and differs on the next (<c>docs/presets.md</c>).
     /// </summary>
     private static readonly Dictionary<string, string> Presets = new()
     {
@@ -306,10 +304,10 @@ public static class Words
     };
 
     /// <summary>
-    /// Render chains, named by where the frames are converted and what that says about their colour,
+    /// Render chains, named by where the frames are converted and what that says about their color,
     /// the two halves of the choice.
-    /// The element names the backend builds each from stay behind the boundary:
-    /// a reader picks a place and a promise, not a pipeline.
+    /// The element names the backend builds each from stay behind the boundary,
+    /// so a reader picks a place and a promise.
     /// </summary>
     private static readonly Dictionary<string, string> RenderChains = new()
     {
@@ -336,9 +334,8 @@ public static class Words
     };
 
     /// <summary>
-    /// Transfer characteristics a decode reports, under the names a reader meets them by,
-    /// not the standards' own.
-    /// The HDR curves are why the table exists: a tile says which curve it draws, what to do about it differing.
+    /// Transfer characteristics a decode reports, under the names a reader meets them by.
+    /// The HDR curves are why the table exists: a tile says which curve it draws.
     /// PQ is absolute and mastered for a bright display, HLG relative and degrades into a standard one on its own.
     /// </summary>
     private static readonly Dictionary<string, string> Transfers = new()
@@ -371,7 +368,7 @@ public static class Words
 
     /// <summary>
     /// Same two names for the enum a catalog row carries, where a statement carries the identifier.
-    /// An unset engine answers with an empty string, which the caller leaves out of a name rather than prints.
+    /// An unset engine answers empty, which the caller leaves out of a name.
     /// </summary>
     public static string Engine(Api.V1.Engine engine) => engine switch
     {
@@ -426,8 +423,8 @@ public static class Words
 
     /// <summary>
     /// Name of a built-in preset.
-    /// Not <see cref="Effort"/>, which is what x264 calls a preset:
-    /// that is a settings value on a ladder, this a way of publishing that is applied and never stored.
+    /// <see cref="Effort"/> holds what x264 calls a preset:
+    /// a settings value on a ladder, where this is a way of publishing the form applies to the draft.
     /// </summary>
     public static string Preset(string id) => Look(Presets, id);
 
@@ -443,8 +440,7 @@ public static class Words
 
     /// <summary>
     /// A list of names as a sentence reads it: "a", "a and b", "a, b or c".
-    /// The joining word is the caller's,
-    /// a list of things that all hold and a list of things to choose between being one list read two ways.
+    /// Joining word is the caller's: "and" where every item holds, "or" where one is picked.
     /// </summary>
     public static string List(IEnumerable<string> names, string last = "or")
     {

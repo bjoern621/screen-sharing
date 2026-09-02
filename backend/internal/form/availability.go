@@ -98,7 +98,6 @@ var availabilityRules = map[string]func(availability) state{
 	// a user on SRT has no reason to read what the RTMP listener's port means.
 	KeyName:      func(availability) state { return availabilityLive() },
 	KeyRelayHost: func(availability) state { return availabilityLive() },
-	// A reading and never a control.
 	// Encryption follows the relay's address and is stored nowhere (settings.Relay.Tls),
 	// so there is nothing here to set: the box says what the connection does,
 	// and the field above it is what changes the answer.
@@ -132,7 +131,7 @@ var availabilityRules = map[string]func(availability) state{
 	KeyCapture:   func(availability) state { return availabilityLive() },
 
 	KeyFps: func(availability) state { return availabilityLive() },
-	// The pointer greys per entry and never as a control: every backend serves at least one mode.
+	// The pointer greys per entry, the control itself staying live: every backend serves at least one mode.
 	KeyCursor: func(availability) state { return availabilityLive() },
 
 	// The pixel format carries a note about the viewer's machine (decodeNote)
@@ -1177,7 +1176,7 @@ func (av availability) encoderColourReason() *screensharev1.Text {
 // decodeNote states what decoding this stream costs a viewer,
 // nil for a codec the table does not carry.
 //
-// A note and never a block: every format has a software decoder,
+// A note, because every format has a software decoder,
 // so the choice is between a viewer's GPU and a viewer's cores.
 // Where some hardware decodes the pair the statement names those decode families,
 // which ones they are being the whole point of the choice.

@@ -48,7 +48,7 @@ The group service that signs its tokens can mint one for any group.
                     └───────────────────────────────────────┘
 ```
 
-## What crosses the internet, and what does not
+## What crosses the internet
 
 Exposed are the legs no reverse proxy can carry, and the one port that is the proxy.
 Every one is encrypted by something of its own, since none is behind the certificate on 443.
@@ -56,10 +56,12 @@ Every one is encrypted by something of its own, since none is behind the certifi
 RTSP and RTMP are not HTTP, so each terminates TLS in the relay itself, on a listener of its own.
 The certificate is the proxy's, handed to the relay by the deployment rather than issued a second time.
 An encrypted RTSP session carries its RTP interleaved in that connection.
-RTSPS wraps the control channel alone, so media over UDP would travel beside it in the clear, and TCP is the encrypted session's only lower transport rather than its slower one.
+RTSPS wraps the control channel alone, so media over UDP would travel beside it in the clear.
+TCP is the encrypted session's only lower transport rather than its slower one.
 
 SRT is UDP with no TLS at all, so what protects it is a passphrase rather than a certificate, one per path prefix.
-A group's passphrase derives from its group key on both ends, so nobody sets or sees one: the app keys its legs with it, and the group service writes the same derivation into the relay's path configuration (`backend/internal/groupsvc`).
+A group's passphrase derives from its group key on both ends, so nobody sets or sees one.
+The app keys its legs with it, and the group service writes the same derivation into the relay's path configuration.
 The public prefix has no key to derive from and takes a well-known value spelled in the app and the relay configuration alike, as public as the audience it keys.
 A publish whose stored group key will not read back derives nothing, and an encrypted relay refuses that leg rather than sending it in the clear.
 
@@ -75,32 +77,37 @@ Its session is a CONNECT over HTTP/3, which a proxy listening on TCP 443 never s
 TCP for the player page, UDP for the WebTransport session, one number for both.
 TLS is not optional there either, WebTransport refusing a plaintext listener.
 
-That listener carries two certificates, and a deployment configures one of them.
+Everything else is HTTP and answers on 443 under one certificate.
+
+## Two certificates on the MoQ listener
+
+A deployment configures one of the two.
 
 The page over TCP is ordinary TLS, validated against a CA like any other site.
 It takes the proxy's certificate, handed over the way RTSPS and RTMPS take it, and shows an interstitial without one.
 `moqServerCert` and `moqServerKey` name it, and a host points them at the pair it already has through `MTX_MOQSERVERCERT` and `MTX_MOQSERVERKEY`.
 The override is what keeps the path out of a config file every deployment reads.
 
-The session over UDP is pinned instead: the page reads the listener's SHA-256 off `/fingerprint` and passes it in `serverCertificateHashes`, which is how a browser accepts a certificate no CA vouches for.
+The session over UDP is pinned instead: the page reads the listener's SHA-256 off `/fingerprint` and passes it in `serverCertificateHashes`.
+That is how a browser accepts a certificate no CA vouches for.
 Pinning bounds what that certificate may be, since nothing can revoke one: no RSA key, and no validity longer than 14 days.
 MediaMTX therefore generates it rather than taking it from configuration, ECDSA P-256 rotated inside the window, and there is nothing here to renew.
 
-Everything else is HTTP and answers on 443 under one certificate.
+## What answers on loopback alone
 
-Loopback-only are the relay's API and the group service.
+The relay's API and the group service.
 The cleartext RTSP and RTMP listeners are not bound at all: the relay sets `strict` on both, so there is nothing on those ports to reach rather than something a firewall is hiding.
 The API is not a member's endpoint: a group token grants publishing and reading under one prefix and names no API action, so an exposed API would refuse every caller it could reach.
 Reading it takes an operator's own token and a tunnel, which `bruno/README.md` covers.
 
 The port numbers live in `deploy/mediamtx-groups.yml` and the routing in `deploy/Caddyfile`.
 Those two files are what every relay obeys, a deployment and a development machine alike.
-This page is the reason they are shaped that way.
 
 ## Checking a relay
 
 A check dials every leg the settings address and reports what each one answered.
-The app draws it under the connection step's controls, on the settings on screen; `backend check-relay` runs the same check over the stored ones and prints them.
+The app draws it under the connection step's controls, on the settings on screen.
+`backend check-relay` runs the same check over the stored ones and prints them.
 
 ```
 ✓  groups  https://relay.example/jwks.json  200 OK                                    64ms
@@ -109,7 +116,7 @@ The app draws it under the connection step's controls, on the settings on screen
 –  api                                      answers on the relay's own machine alone
 ```
 
-Each leg is dialled where the transport that carries it says its listener answers (`transport.Listener`), so a check reaches what a stream reaches.
+Each leg is dialled where the transport that carries it says its listener answers, so a check reaches what a stream reaches.
 A port the relay does not bind is a cross here rather than a publish that waits out its connect window.
 
 Each is asked in its own protocol, an open socket proving nothing on its own.
@@ -118,7 +125,7 @@ RTSP answers `OPTIONS`, SRT answers the induction handshake that precedes any st
 A dash is a leg this deployment addresses nowhere, and is no failure: the relay binds its API to loopback, so it is dialled on the relay's own machine and reported unasked anywhere else.
 The command's exit status is 1 where a leg that was dialled did not answer.
 
-A relay that answers on nothing is a response and never a failed call: every leg comes back with its own verdict, which is what `CheckRelay` carries (`docs/ipc-api.md`, "Errors").
+A relay that answers on nothing still comes back as a response, every leg carrying its own verdict, which is what `CheckRelay` returns (`docs/ipc-api.md`, "Errors").
 
 ## Who holds what
 
@@ -144,10 +151,10 @@ Where the token rides is the protocol's answer rather than a choice:
 | HLS, WebRTC, MoQ | an `Authorization` header |
 
 The HTTP legs read no query at all, so an address is not a form any of them takes.
-A player page is the exception that makes: handed to a browser, which sets no header of its own.
+A player page is the exception: it is handed to a browser, which sets no header of its own.
 The token goes in the address as the Basic password under an arbitrary user, `https://jwt:<token>@relay:8892/<path>/`.
 The GStreamer RTSP reader is the other exception, taking it as the session's password instead, because it addresses each track at the SDP's control attribute and loses a query on the way.
-`backend/internal/transport/credential.go` states each, and `docs/plan.md` covers the group model in full.
+Each transport states its own credential form, and `plan.md` covers the group model in full.
 
 Every named relay carries a group service, and its address follows the relay's: the proxy's own name off a trusted network, `http://<host>:9443` where this network reaches the relay directly (`settings.Relay.GroupService`).
 A machine that has named no relay has nothing to ask, so it holds no token, derives no prefix and builds bare names.

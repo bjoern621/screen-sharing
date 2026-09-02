@@ -107,4 +107,4 @@ A leaked group key lasts until the group draws a new one, which is `POST /groups
 A leaked member secret on its own buys nothing: every route that takes one takes the group key beside it.
 The relay and groupd see plaintext throughout, since nothing here is end to end.
 
-`network-architecture.md` covers who holds what, and `backend/internal/groupsvc` is the service itself.
+`network-architecture.md` covers who holds what.

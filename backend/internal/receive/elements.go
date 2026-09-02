@@ -205,7 +205,7 @@ func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 	// The other end of the same element,
 	// so the two counts bracket it and their difference is what it took in and never handed on.
 	// Read as a rate rather than as a total, a decoder holding a few frames at all times
-	// at a constant depth: it cancels between two readings and would stand as a permanent discard
+	// at a constant depth: it cancels between two readings and would read as a permanent discard
 	// count in a running total (internal/app, discardedOf).
 	if out := e.GetStaticPad("src"); out != nil {
 		out.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {

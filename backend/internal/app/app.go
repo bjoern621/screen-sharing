@@ -65,7 +65,7 @@ type App struct {
 	relayLast atomic.Pointer[relay.Status]
 	// Presence this machine last stated, and the group the service answered with (members.go).
 	// Written by the relay poll and read wherever a stopped stream has to say whether membership
-	// stopped it, so it is held whole, never behind a lock a failure path would wait on.
+	// stopped it, so it is held whole, readable on a failure path with nothing to wait on.
 	members atomic.Pointer[membership]
 	// relayPollOnce starts the poll that keeps relayLast fresh, relayStopOnce ends it, and both guard
 	// relayStop, which the loop selects on.
@@ -94,7 +94,7 @@ type App struct {
 	// whatever its first run produced (system.go).
 	encodersMu sync.Mutex
 	// Probe result, nil until a probe has finished without being cancelled.
-	// Read atomically: a form resolve takes what is there and never waits,
+	// Read atomically: a form resolve takes what is there without blocking,
 	// while a caller needing the answer waits behind encodersMu (system.go).
 	encoders atomic.Pointer[encoders.Availability]
 

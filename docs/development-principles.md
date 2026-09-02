@@ -17,15 +17,16 @@ A step that cannot be repeated forces every caller to track whether it ran, and 
 
 **Stateless** means nothing keeps a copy of a fact.
 One owner holds each piece of state, and everything else derives what it needs from that owner at the moment it needs it.
-A render function writes the whole component from the model, a consumer reads the one table rather than restating the rule at its own site, an effect answers empty and the state arrives read back off the thing that owns it.
+A render function writes the whole component from the model.
+A consumer reads the one table rather than restating the rule at its own site.
+An effect answers empty and the state arrives read back off the thing that owns it.
 Each fact then has one definition.
-A second copy (cached at construction, restated per site, or remembered from what a caller believed it had just done) drifts from the first, and the two disagree without either being wrong.
+A second copy (cached at construction, restated per site, or remembered from what a caller believed it had just done) drifts from the first,
+and the two disagree without either being wrong.
 
 The two hold each other up.
 An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it.
 An operation that is idempotent can be called from a render pass, which lets that pass keep nothing of its own between runs.
-
-The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts stated once, facts read off the machine, files that hold one idea, and contracts that fail loudly.
 
 ## State is written explicitly and read continuously
 
@@ -34,15 +35,16 @@ A write is a named method on that owner, and nothing outside it assigns the fiel
 A reader never keeps a copy: it reads through on demand, or re-reads the owner on every change notification.
 
 The failure this removes is two copies of one fact drifting apart.
-A view that caches `stream.Transport` at construction and never refreshes it keeps naming the old transport after a leg change, and nothing in the type system says so.
+A view that caches `stream.Transport` at construction and never refreshes it keeps naming the old transport after a leg change,
+and nothing in the type system says so.
 
 Rules:
 
 - A field on a view that mirrors a model field is a defect, unless it is a widget handle or a cache the render function refills on every pass.
-- A model exposes accessors, not its slice.
+- A model hands out accessors, and the slice behind them stays private.
   `Session.Stream(i)` is read through.
   A view that stores the result must refresh it from the same accessor when the model says it changed.
-- State that must survive a restart is written through a store, not reconstructed from widgets.
+- State that must survive a restart is written through a store, the widgets being a view of it.
 - An observer that ignores a change kind is silently stale.
   Handle every kind or assert on the ones that cannot occur.
 
@@ -77,7 +79,7 @@ Where a subtree is small, clear-then-fill beats an incremental patch: it is idem
 Where an operation is expensive, the guard belongs inside it.
 `Attach(p)` with the player already attached returns without renegotiating, rather than asking every caller to check first.
 
-### Effects across a process boundary
+## Effects across a process boundary
 
 An effect on the control contract names the state it wants, and a request for a state that already holds succeeds.
 `StartReceive` on a decode that is already open is not a second decode and is not an error.
@@ -85,35 +87,38 @@ An effect on the control contract names the state it wants, and a request for a 
 `StartPublish` naming the pipeline that is already publishing is the same case, backoff and all.
 Each of them is the state the caller asked for, and it is true.
 
-The state is read before the request is validated, and the order is not an economy.
+The state is read before the request is validated.
 A precondition moves under a state that already holds: the relay reports a format the running decode's leg stopped carrying, or the settings the viewer was opened on changed.
 A validation placed first would refuse a repeat on behalf of a state it was never asked to establish.
 
-The reason is the answer, not the effect.
+What idempotency protects here is the answer.
 A shell that sent a call and did not hear back cannot tell "not done" from "done, answer lost", and the only move that resolves it is asking again.
-A method that refuses a repeat takes that move away and leaves the caller waiting on an answer that is not coming, a control that never comes back rather than one that failed.
+A method that refuses a repeat takes that move away and leaves the caller waiting on an answer that is not coming,
+a control that never comes back rather than one that failed.
 
-What a repeat is not is a second, different request.
+A second, different request is not a repeat.
 `StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path.
 `ApplyToStream` names a transition on purpose, and a second one is a second restart.
 
 The third departure is the handful of effects that end in a program this process does not own: `OpenLog`, `OpenLogsFolder` and `OpenInBrowser` hand a path or an address to the desktop.
-A second call opens a second window, because there is no state to read back that would say the first one is still there: the browser owns the tab, the file manager owns its window, and neither reports.
-An effect of this kind states no state and is offered as an action rather than as something with a tick beside it, so the departure stays visible in the interface instead of only in the code.
+A second call opens a second window, because there is no state to read back that would say the first one is still there:
+the browser owns the tab, the file manager owns its window, and neither reports.
+An effect of this kind states no state and is offered as an action rather than as something with a tick beside it,
+so the departure stays visible in the interface instead of only in the code.
 
 Those are the departures, and each is written down where it happens.
-The sentence a timed-out call shows is worded against them.
 
 Every call over the socket is bounded.
-An unbounded call turns a lost answer into a permanent wait, and on a local socket "no answer" means the other side died, wedged or lost the connection, all facts worth showing rather than waiting through.
-The bound belongs on the channel, in one place, and not at each call site: a rule applied per call site holds only where somebody remembered it.
+An unbounded call turns a lost answer into a permanent wait,
+and on a local socket "no answer" means the other side died, wedged or lost the connection, all facts worth showing rather than waiting through.
+The bound belongs on the channel, in one place: a rule applied per call site holds only where somebody remembered it.
 
 A failure that says the backend went quiet says what is and is not known about the attempt, and says that anything naming a state is safe to ask for again.
 That sentence is truthful only because those effects are idempotent, and it says "naming a state" rather than "every call" because of the departures above.
 
 ## Stateless
 
-Three shapes carry the paradigm, one idea in three costumes, each stated in full elsewhere on this page.
+The paradigm takes three shapes.
 
 **A pass keeps nothing between runs.**
 A render function writes every property the component can show, including the off branch, so the pass by itself defines the view and is free to run at any time.
@@ -122,26 +127,28 @@ Neither works from a diff it was handed, unless the diff is genuinely what the p
 A diff is a fact somebody had to keep between two moments, and the pass that needs one has state in it.
 
 **A fact lives in one table.**
-Static knowledge (which transports carry which formats, which chain a platform renders through, what a row shows) is a table every consumer reads, never a `switch` restated at each site.
+Static knowledge (which transports carry which formats, which chain a platform renders through, what a row shows) is a table every consumer reads,
+so a new consumer is a read rather than another `switch`.
 `docs/domain-model.md` covers the codec and transport tables.
 The render chains in `backend/internal/receive/chains.go` are the same shape.
 
 **A reader reads through.**
 Nothing here reports what a caller believed it had just done.
-An effect answers empty and the state arrives on the event stream, read back off the thing that owns it: the receive state is assembled from the running pipelines, the viewer roster from the processes, the relay snapshot from the poll.
-A value cached at construction and never refreshed is the defect this removes.
+An effect answers empty and the state arrives on the event stream, read back off the thing that owns it:
+the receive state is assembled from the running pipelines, the viewer roster from the processes, the relay snapshot from the poll.
 
 The one departure is written down where it happens.
 The shell's tile grid is shell state and not the backend's, because the contract describes no grid, and `backend/internal/app` has nothing to read one back from.
 A departure that is not written down is a bug.
 
-## A capability the machine decides is asked, never declared
+## Capabilities the machine decides
 
 A table here states what this app can express.
 Whether the machine answers is the machine's own fact, so it is read off the machine rather than written down as a row.
 
 The test is whether two machines running this build can disagree.
-An ffmpeg build carrying no encoder, a GStreamer install registering no element, a compositor whose portal serves two cursor modes where another serves three: each is a reading, and a table claiming any of them offers a control that fails at launch.
+An ffmpeg build carrying no encoder, a GStreamer install registering no element, a compositor whose portal serves two cursor modes where another serves three:
+each is a reading, and a table claiming any of them offers a control that fails at launch.
 
 | Reading | Taken by |
 | --- | --- |
@@ -156,15 +163,16 @@ It is never a rule: a rule is a compiled-in fact, so one machine's answer regist
 
 **An unasked question withholds nothing.**
 The zero value of each reading above is a machine nothing probed, and it greys nothing.
-A form that has not been told is not a machine with nothing usable, and the failure at launch stays the answer until somebody asks.
+An unasked question is a different state from a machine that answered "nothing usable", and the failure at launch stays the answer until somebody asks.
 
 **Where nothing can be asked, the entry stays selectable and states what it needs.**
-kmsgrab needs a privilege this process either holds or dies at launch without, and no probe tells which in advance, so what it needs rides on the option as a note rather than as a greying (`publish/availability.go`, `grant`).
+kmsgrab needs a privilege this process either holds or dies at launch without, and no probe tells which in advance,
+so what it needs rides on the option as a note rather than as a greying (`publish/availability.go`, `grant`).
 
 ## Components
 
 One file, one responsibility.
-A file over roughly 150 lines is a prompt to look for the split, not a hard error.
+A file over roughly 150 lines is a prompt to look for the split.
 
 A UI component is a directory or a small file set with the same shape each time:
 
@@ -178,7 +186,7 @@ A UI component is a directory or a small file set with the same shape each time:
 Construction, rendering, input wiring and formatting are four responsibilities.
 A file that does all four is the shape this rule exists to break up.
 
-Static facts belong in a table, not in a `switch` spread through the logic.
+The data file is where a component's static facts go.
 `platform.AudioSources` is the pattern: one row per capture source, read by the form, the repair and both publish engines instead of each restating what a machine can capture.
 
 ## Contracts
@@ -190,19 +198,21 @@ A group key another process sent that will not parse is an error.
 An index a widget computed wrong is an assert.
 
 `logger.Errorf` ends the process through `log.Fatalf`, and `logger.Panicf` panics.
-Both are hard stops, and neither reports a failure the app continues past: the code after such a call is unreachable, including the code that would have carried the reason to the user.
+Both are hard stops, and neither reports a failure the app continues past:
+the code after such a call is unreachable, including the code that would have carried the reason to the user.
 An Umgebungsfehler takes `logger.Warnf` and whatever the surrounding code already does to surface it.
 `Errorf` also fixes the exit status at 1, so a process that owes its caller a different one writes to `os.Stderr` and calls `os.Exit` itself.
 
 **Preconditions** go at the top of the function, before any work.
-A function asserts every parameter it cannot safely take garbage on: an index, a pointer or interface it will dereference, a callback it will call, a slice it will index, an enum value it will dispatch on, and any relation between two parameters.
+A function asserts every parameter it cannot safely take garbage on:
+an index, a pointer or interface it will dereference, a callback it will call, a slice it will index, an enum value it will dispatch on, and any relation between two parameters.
 
 ```go
 assert.Assert(fromPos >= 0 && toPos >= 0, "both streams hold a slot in the display order", fromPos, toPos)
 ```
 
 **Postconditions** go before the return, and state what the caller is now entitled to assume.
-They matter most where a function's result feeds an assert somewhere else: the producing side should fail, not the consumer three layers away.
+They matter most where a function's result feeds an assert somewhere else: without one, the frame that stops is the consumer three layers away.
 
 **Invariants** are asserted where they are relied on and after every mutation that could break them.
 Asserting a permutation only on the path that builds it leaves the paths that reshuffle it unchecked.
@@ -211,14 +221,14 @@ Asserting a permutation only on the path that builds it leaves the paths that re
 Every `switch` over a closed internal enum has a `default: assert.Never("unexpected <thing>", int(v))`, and every map lookup over one asserts its `ok`.
 Adding an enum value then fails at the sites that forgot it, instead of falling through in silence.
 
-### Message style
+## Assertion message style
 
-An assertion message is a present-tense sentence stating the invariant that holds, not the failure that occurred.
+An assertion message is a present-tense sentence stating the invariant that holds.
 
 - Lowercase, no trailing period.
 - Subject is the domain role: `a spotlit stream`, `the display order`, `a coalescer`.
 - Verb is simple present and active: `is`, `holds`, `covers`, `needs`, `yields`, `belongs to`.
-- The offending values ride in the trailing varargs, never in the sentence.
+- The offending values ride in the trailing varargs, so the sentence stays constant.
 
 ```go
 assert.Assert(s.spot == noSpot || s.at(s.spot).state.Watched(), "a spotlit stream is watched", s.spot)

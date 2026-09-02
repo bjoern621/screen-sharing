@@ -84,7 +84,7 @@
             No span label beside this caption: these points are relay snapshots, and the poll
             interval they arrive on is not on the contract.
           -->
-          <TextBlock Grid.Column="0" Classes="caption" Text="Worst viewer: round trip &amp; loss" VerticalAlignment="Bottom" />
+          <TextBlock Grid.Column="0" Classes="caption" Text="Worst viewer: round trip and loss" VerticalAlignment="Bottom" />
         </Grid>
 
         <Border Classes="plot">

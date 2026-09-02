@@ -3,25 +3,26 @@ syntax = "proto3";
 // The screen-sharing control plane, version 1.
 //
 // Everything a shell needs to draw the product and to act on it crosses this package.
-// A shell holds no domain knowledge of its own: it draws what these messages describe and
-// calls the methods control.proto declares (docs/ipc-api.md).
+// A shell holds no domain knowledge of its own:
+// it draws what these messages describe and calls the methods control.proto declares
+// (docs/ipc-api.md).
 package screenshare.v1;
 
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// Settings is every user-controllable aspect of the product, and the only settings shape on
-// the wire: the same message is read back, edited, resolved into a form and saved.
+// Settings is every user-controllable aspect of the product,
+// and the only settings shape on the wire:
+// the same message is read back, edited, resolved into a form and saved.
 //
-// Three groups because they answer to different owners: the relay's address is one machine's
-// deployment, what this machine publishes is one publisher's choice, and how it watches is one
-// viewer's.
+// Grouped by who owns the answer: the relay's address is one machine's deployment,
+// what this machine publishes is one publisher's choice, and how it watches is one viewer's.
 //
 // A shell never constructs one from nothing.
-// It takes a draft from GetSettings or from a preset, changes the field the user moved, and
-// sends the whole message back.
-// Which values a field may take is not encoded here: it depends on the other fields, and Form
-// is where that answer lives.
+// It takes a draft from GetSettings or from a preset,
+// changes the field the user moved, and sends the whole message back.
+// Which values a field may take is not encoded here:
+// it depends on the other fields, and Form is where that answer lives.
 message Settings {
   RelaySettings relay = 1;
   PublishSettings publish = 2;
@@ -29,9 +30,10 @@ message Settings {
 }
 
 // A field key is the field name this file spells, under the name Settings gives its group:
-// "relay.host", "publish.codec", "viewer.render_chain".
-// The qualification makes a key an address rather than a hint, and lets two groups carry the
-// same field name without the two ever being confused (docs/domain-model.md).
+// "relay.host", "publish.format", "viewer.render_chain".
+// The qualification makes a key an address rather than a hint,
+// and lets two groups carry the same field name without the two ever being confused
+// (docs/domain-model.md).
 
 // RelaySettings is where the relay is and which of its listeners are on which port.
 //
@@ -46,45 +48,49 @@ message RelaySettings {
   int32 webrtc_port = 5;
   int32 rtmp_port = 6;
   int32 hls_port = 7;
-  // TCP and UDP port of the relay's Media-over-QUIC listener, which serves the player page over
-  // HTTP/2 and the WebTransport session over HTTP/3 on the same number.
+  // TCP and UDP port of the relay's Media-over-QUIC listener,
+  // which serves the player page over HTTP/2
+  // and the WebTransport session over HTTP/3 on the same number.
   //
   // Kept even where `tls` is set, unlike the ports above.
-  // WebTransport refuses a plaintext listener and no reverse proxy carries it, so the relay
-  // terminates this leg itself on a port of its own in every deployment
+  // WebTransport refuses a plaintext listener and no reverse proxy carries it,
+  // so the relay terminates this leg itself on a port of its own in every deployment
   // (docs/network-architecture.md).
   int32 moq_port = 11;
-  // This relay's HTTP legs are reached through a TLS reverse proxy, under one name on the standard
-  // port, rather than on listeners of the relay's own.
+  // This relay's HTTP legs are reached through a TLS reverse proxy,
+  // under one name on the standard port, rather than on listeners of the relay's own.
   //
-  // One flag rather than a scheme per listener: the proxy terminates for the relay and for the
-  // group service alike, so the ports above name direct listeners that are part of no address
-  // while this is set.
+  // One flag rather than a scheme per listener:
+  // the proxy terminates for the relay and for the group service alike,
+  // so the ports above name direct listeners that are part of no address while this is set.
   //
-  // It does not say whether the connection is encrypted. RTSP, RTMP and MoQ terminate TLS at the
-  // relay itself wherever it runs, so those legs are encrypted whichever way this reads.
+  // It does not say whether the connection is encrypted.
+  // RTSP, RTMP and MoQ terminate TLS at the relay itself wherever it runs,
+  // so those legs are encrypted whichever way this reads.
   //
-  // <b>A reading and not a setting.</b> The backend derives it from `host` and stores it nowhere,
-  // so it crosses outward to be shown and is ignored coming back: a relay across a network somebody
-  // else operates is reached through a proxy, and one on this machine or this network directly.
-  // A shell that sent a value here would be answering a question this side already answered, and
-  // the two would disagree the moment the host was edited.
+  // The backend derives it from `host` and stores it nowhere,
+  // so it crosses outward to be shown and is ignored coming back:
+  // a relay across a network somebody else operates is reached through a proxy,
+  // and one on this machine or this network directly.
+  // A shell that sent a value here would be answering a question this side already answered,
+  // and the two would disagree the moment the host was edited.
   bool tls = 10;
-  // The secret whose possession is membership of a group, as the key service handed it over.
+  // Secret whose possession is membership of a group, as the key service handed it over.
   // Empty is a machine that has joined none.
   //
-  // A group is a path prefix, so this decides where every stream of this machine lives on that
-  // relay, and the relay's own per-path permissions do the enforcing.
-  // It sits with the relay rather than with the publish because it is a property of that
-  // deployment, which is what keeps a preset from carrying one: applying a preset must not move
-  // a machine between groups.
+  // A group is a path prefix,
+  // so this decides where every stream of this machine lives on that relay,
+  // and the relay's own per-path permissions do the enforcing.
+  // It sits with the relay rather than with the publish, being a property of that deployment,
+  // so a preset carries none: applying a preset must not move a machine between groups.
   string group_key = 8;
-  // What this machine calls itself in the group above: claimed on the first join, shown beside
-  // every stream it publishes, and read by no other member as identity.
+  // What this machine calls itself in the group above:
+  // claimed on the first join, shown beside every stream it publishes,
+  // and read by no other member as identity.
   //
-  // Empty is a machine that has been given no name. Joining a group asks for one, a name being
-  // claimed first-come inside a group, so there is nothing to fill this with that another member
-  // may not already hold.
+  // Empty is a machine that has been given no name.
+  // Joining a group asks for one, a name being claimed first-come inside a group,
+  // so there is nothing to fill this with that another member may not already hold.
   string display_name = 12;
 
   // The SRT passphrase crosses the contract nowhere:
@@ -95,26 +101,27 @@ message RelaySettings {
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded.
-// A preset is one of these and nothing else: neither where the relay is nor how this machine
-// watches is part of a saved configuration.
+// A preset is one of these and nothing else,
+// so the relay's address and this machine's watch settings stay out of a saved configuration.
 message PublishSettings {
-  // The stream's path on the relay, which is what a viewer asks for.
+  // Stream's path on the relay, and what a viewer asks for.
   string name = 1;
 
-  // The publish leg, publisher to relay, keyed as the transport registry names it: "srt",
-  // "rtsp", "rtmp", "webrtc".
+  // Publish leg, publisher to relay, keyed as the transport registry names it:
+  // "srt", "rtsp", "rtmp", "webrtc".
   string publish_transport = 10;
   // The encode, as the two questions it is: which bitstream, and what produces it.
   //
-  // format is what every viewer has to decode and what a transport carries, so it survives a
-  // machine that cannot run the encoder it was picked beside.
-  // encoder is this machine's half, at the grain a picker offers one: a family wherever that
-  // family is one encoder, and the library where several share a family ("nvenc", "x264",
-  // "svt-av1").
+  // format is what every viewer has to decode and what a transport carries,
+  // so it survives a machine that cannot run the encoder it was picked beside.
+  // encoder is this machine's half, at the grain a picker offers one:
+  // a family wherever that family is one encoder,
+  // and the library where several share a family ("nvenc", "x264", "svt-av1").
   //
-  // The pair addresses one row of the codec table (catalog.proto, VideoCodec), which is the codec
-  // an encode runs as. Neither field derives the other, and a pair no row carries is greyed on
-  // both controls rather than stored as a third value.
+  // The pair addresses one row of the codec table (catalog.proto, VideoCodec),
+  // which is the codec an encode runs as.
+  // Neither field derives the other,
+  // and a pair no row carries is greyed on both controls rather than stored as a third value.
   string format = 41;
   string encoder = 42;
   // Rate control: cbr, vbr, abr, crf or lossless.
@@ -124,104 +131,109 @@ message PublishSettings {
   // pc or tv, ignored for gbrp, which is full range by construction.
   string color_range = 14;
   int32 fps = 15;
-  // The constant-quality target crf mode aims at.
-  // Lower keeps more detail, and the scale it counts on is the codec's, so the ceiling is a
-  // per-codec fact the catalog carries rather than a constant.
+  // Constant-quality target crf mode aims at.
+  // Lower keeps more detail, and the scale it counts on is the codec's,
+  // so the ceiling is a per-codec fact the catalog carries rather than a constant.
   int32 cq = 16;
-  // bitrate_mbps is the target the three bitrate modes aim at, maxrate_mbps the burst ceiling
-  // vbr may rise to above it.
+  // bitrate_mbps is the target the bitrate modes aim at,
+  // maxrate_mbps the burst ceiling vbr may rise to above it.
   int32 bitrate_mbps = 17;
   int32 maxrate_mbps = 18;
   // Sizes the rate buffer for cbr and vbr, in milliseconds.
   // Zero is the encoder's own default rather than no buffer.
   int32 vbv_ms = 19;
-  // The keyframe interval in frames.
+  // Keyframe interval in frames.
   // Zero is auto, which every builder reads as twice the frame rate.
   int32 gop = 20;
-  // The reorder depth, lossy modes only.
+  // Reorder depth, lossy modes only.
   // Buys compression with latency.
   int32 bframes = 21;
-  // effort is the step this encoder works at on its own speed-against-quality ladder, and tune
-  // what it optimizes for.
-  // Both take the encoder's own identifiers, x264's "slow", SVT-AV1's "9", NVENC's "p7", never
-  // a scale normalized across codecs, which would move the user's choice on a codec change.
-  // Two fields because a live encode drops the lookahead and the reordering a quality one
-  // keeps, whatever effort it spends.
+  // effort is the step this encoder works at on its own speed-against-quality ladder,
+  // and tune what it optimizes for.
+  // Both take the encoder's own identifiers: x264's "slow", SVT-AV1's "9", NVENC's "p7".
+  // No scale is normalized across codecs,
+  // so a step carried across a codec change would land on a different real setting.
+  // Two fields because a live encode drops the lookahead and the reordering a quality one keeps,
+  // whatever effort it spends.
   // An encoder with no such ladder greys the control rather than ignoring a value.
   string effort = 22;
   string tune = 39;
 
-  // The capture backend, a row of the capture list in catalog.proto.
+  // Capture backend, a row of the capture list in catalog.proto.
   // It decides the publish engine, which many other fields' availability hangs off.
   string capture = 23;
   // What the second track is mixed from, in the order a form draws them.
   // An empty list is a stream with no second track.
   //
-  // The entries mix into one track, which is carriage rather than preference: RTMP carries one
-  // audio track and the relay re-serves every ingest on all of its listeners, so a two-track
-  // stream would be unplayable on the narrowest leg while the form said it published.
+  // The entries mix into one track, which is carriage rather than preference:
+  // RTMP carries one audio track and the relay re-serves every ingest on all of its listeners,
+  // so a two-track stream would be unplayable on the narrowest leg
+  // while the form said it published.
   //
-  // Which kinds exist is the platform's question (catalog.proto, audio_sources); which codec
-  // the mixed track is coded in is audio_codec below.
+  // Which kinds exist is the platform's question (catalog.proto, audio_sources).
+  // Which codec the mixed track is coded in is audio_codec below.
   repeated AudioSource audio_sources = 40;
   string audio_codec = 25;
-  // The kmsgrab DRM download strategy: auto, vaapi, vulkan or none.
-  // A knob of the kmsgrab scanout path and of nothing else, so the form hides it rather than
-  // greying it under every other backend.
+  // kmsgrab DRM download strategy: auto, vaapi, vulkan or none.
+  // A knob of the kmsgrab scanout path and of nothing else,
+  // so the form hides it rather than greying it under every other backend.
   string drm_map = 26;
-  // The display output to capture, as the index the monitor list carries.
+  // Display output to capture, as the index the monitor list carries.
   int32 monitor = 27;
   // Where the frames reach the encoder: auto, gpu, gpu-encoder-color or system.
-  // Which of them a selection may take is decided by the capture backend and the encoder
-  // family together, which is the one constraint neither end declares alone.
+  // The capture backend and the encoder family together decide which of them a selection may take,
+  // the one constraint neither end declares alone.
   string capture_memory = 28;
 
   // This leg's SRT retransmit window.
-  // The watch leg has its own (ViewerSettings), and glass-to-glass delay is the sum of the two
-  // plus encode and decode: the two hops are independent SRT links, each holding packets for
-  // its own window.
+  // The watch leg has its own (ViewerSettings),
+  // and glass-to-glass delay is the sum of the two plus encode and decode:
+  // the two hops are independent SRT links, each holding packets for its own window.
   int32 srt_publish_latency_ms = 29;
 
-  // The RTP lower transport of this leg: "tcp" interleaves every track over the connection the
-  // session already holds, "udp" negotiates a port pair per track.
-  // The watch leg names its own, because the two cross different networks and it is the network
-  // that decides whether a port pair survives.
+  // RTP lower transport of this leg:
+  // "tcp" interleaves every track over the connection the session already holds,
+  // "udp" negotiates a port pair per track.
+  // The watch leg names its own, because the two cross different networks,
+  // and the network decides whether a port pair survives.
   string rtsp_publish_protocol = 31;
 
-  // The upload capacity the user says this machine has.
-  // Nothing is enforced against it: it is what the warnings in Form.summary are weighed
-  // against, and MeasureUplink replaces the guess with a measurement.
+  // Upload capacity the user says this machine has.
+  // Nothing is enforced against it: the warnings in Form.summary are weighed against it,
+  // and MeasureUplink replaces the guess with a measurement.
   int32 uplink_mbps = 34;
 
-  // The picture the encoder is fed, as "1920x1080", and empty where the capture's own size
-  // reaches the encoder unscaled.
+  // Picture the encoder is fed, as "1920x1080",
+  // and empty where the capture's own size reaches the encoder unscaled.
   // One field rather than a width and a height, because the two are only ever legal in pairs,
   // and a string because the legal values are a list the backend generates.
   string output_resolution = 37;
 
   // What the pointer does in the captured frames: "embedded" draws it into the picture,
-  // "hidden" leaves it out, "metadata" sends its position beside the stream for a viewer to
-  // draw itself.
-  // Which values a capture backend serves is the backend's own fact, so the form greys the rest
-  // with what each one is missing.
+  // "hidden" leaves it out,
+  // "metadata" sends its position beside the stream for a viewer to draw itself.
+  // Which values a capture backend serves is the backend's own fact,
+  // so the form greys the rest with what each one is missing.
   string cursor = 38;
 
-  // 2 to 9 were the relay host and its listeners, and 30, 32, 33, 35 and 36 the watch leg's own
-  // knobs, kept out of reach so a field of this group never lands on a number an older build
-  // read as a relay port or a watch leg.
+  // 2 to 9 were the relay host and its listeners,
+  // and 30, 32, 33, 35 and 36 the watch leg's own knobs.
+  // An older build read those numbers as a relay port or a watch leg,
+  // so no field of this group lands on one.
   //
   // "transport" and "enc_preset" are reserved for the renames above rather than for removals:
-  // the fields are publish_transport and effort on the same numbers, and a build that still
-  // spells either the old way should fail to compile rather than to parse.
+  // the fields are publish_transport and effort on the same numbers,
+  // and a build that still spells either the old way should fail to compile rather than to parse.
   //
-  // 24 was "audio", one source name where the field is a list, and the two shapes are not
-  // readable as each other: a build holding the old field would read the first byte of a
-  // repeated message as a string.
+  // 24 was "audio", one source name where the field is a list,
+  // and the two shapes are not readable as each other:
+  // a build holding the old field would read the first byte of a repeated message as a string.
   //
-  // 11 was "codec", one encoder name for what format and encoder now carry between them. It is
-  // held out of reach rather than renamed onto one of them, both being narrower than it was: a
-  // build sending "hevc_nvenc" into either field would name a format nothing produces or an
-  // encoder no family answers to.
+  // 11 was "codec", one encoder name for what format and encoder carry between them.
+  // It is held out of reach rather than renamed onto one of them,
+  // both being narrower than it was:
+  // a build sending "hevc_nvenc" into either field
+  // would name a format nothing produces or an encoder no family answers to.
   reserved 2 to 9, 11, 24, 30, 32, 33, 35, 36;
   reserved
     "audio",
@@ -243,75 +255,79 @@ message PublishSettings {
     "grid_transport";
 }
 
-// ViewerSettings is how this machine watches, which is independent of what it publishes: the
-// relay re-serves every ingested stream on all its listeners, so a viewer receives over a leg
-// chosen here rather than over the one a stream arrived on.
+// ViewerSettings is how this machine watches, which is independent of what it publishes:
+// the relay re-serves every ingested stream on all its listeners,
+// so a viewer receives over a leg chosen here rather than over the one a stream arrived on.
 //
-// The tile's leg is the only one stored. An external player and a browser page are opened per
-// press on the leg the reader picked from the roster, so neither has a setting to keep
-// (docs/viewer-architecture.md).
+// The tile's leg is the only one stored.
+// An external player and a browser page are opened per press,
+// on the leg the reader picked from the roster,
+// so neither has a setting to keep (docs/viewer-architecture.md).
 message ViewerSettings {
-  // 1 was "player_watch_transport", a stored leg for external players. They are opened per
-  // press on a leg named in the call, so the value decided nothing about which players run.
+  // 1 was "player_watch_transport", a stored leg for external players.
+  // They are opened per press on a leg named in the call,
+  // so the value decided nothing about which players run.
   reserved 1;
   reserved "player_watch_transport";
 
-  // The leg a receive pipeline decodes from, which also reaches WHEP, whose playback is an
-  // exchange rather than an address.
+  // Leg a receive pipeline decodes from,
+  // which also reaches WHEP, whose playback is an exchange rather than an address.
   string tile_watch_transport = 2;
 
-  // The RTP lower transport of the watch leg, "tcp" or "udp".
+  // RTP lower transport of the watch leg, "tcp" or "udp".
   // Both receivers read it: a player passes it to libavformat, a receive pipeline to rtspsrc.
   string rtsp_watch_protocol = 3;
-  // The watch leg's SRT retransmit window, the second half of the pair PublishSettings holds
-  // the first of.
+  // The watch leg's SRT retransmit window,
+  // the second half of the pair PublishSettings holds the first of.
   int32 srt_watch_latency_ms = 4;
 
-  // Sizes a receive pipeline's jitter buffer in milliseconds, and reaches the tile alone: an
-  // external player buffers by reorder queue rather than by time, which is not the same knob
-  // under another name.
+  // Sizes a receive pipeline's jitter buffer in milliseconds, and reaches the tile alone:
+  // an external player buffers by reorder queue rather than by time,
+  // which is not the same knob under another name.
   int32 rtsp_watch_latency_ms = 5;
 
-  // The elements a receive pipeline converts decoded frames with, one of the chains the form
-  // offers.
-  // One value for every tile rather than one per stream, because a chain falls back where a
-  // driver cannot run it and that is a property of the machine
+  // Elements a receive pipeline converts decoded frames with, one of the chains the form offers.
+  // One value for every tile rather than one per stream,
+  // because a chain falls back where a driver cannot run it,
+  // and that is a property of the machine
   // (docs/viewer-architecture.md, "The receive package").
   string render_chain = 6;
 }
 
 // AudioSource is one thing the second track is mixed from.
 //
-// A kind is declared, since the machine either serves desktop audio or it does not; what is
-// inside a kind is enumerated, since an output and a running application are things a
-// machine has rather than things a table can list.
+// A kind is declared, the set being the same on every machine of one operating system.
+// What is inside a kind is enumerated,
+// since an output and a running application are things a machine has
+// rather than things a table can list.
 //
-// An entry is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
-// entry's gain, so every control kind the form already has edits a list item and a statement
-// lands on one entry rather than on the whole control (form.proto).
+// An entry is addressed by an indexed key:
+// "publish.audio_sources[2].gain" names the third entry's gain,
+// so every control kind the form already has edits a list item,
+// and a statement lands on one entry rather than on the whole control (form.proto).
 message AudioSource {
-  // The kind, a row of the platform's own source table (catalog.proto, audio_sources).
+  // Kind, a row of the platform's own source table (catalog.proto, audio_sources).
   string source = 1;
-  // Which device or application inside that kind, as the enumeration of the kind names it, and
-  // empty for the kind's own default: the default output's monitor, the default input.
-  // A selection the enumeration stops reporting stays on the list with a note, the way a
-  // monitor index no enumeration reported does, since an application that is not running may be
-  // running when the stream starts.
+  // Which device or application inside that kind, as the enumeration of the kind names it,
+  // and empty for the kind's own default: the default output's monitor, the default input.
+  // A selection the enumeration stops reporting stays on the list with a note,
+  // the way a monitor index no enumeration reported does,
+  // since an application that is not running may be running when the stream starts.
   string device = 2;
   // What this source contributes, in percent, where 100 is unity.
-  // Applied to the pipeline that is already running, so moving it costs nobody watching a
-  // reconnect (form.proto, Field.live).
-  // Presence, because zero is a level and not an absence: a source turned all the way down is
-  // silent, and an entry nobody has set a level on is at unity.
+  // Applied to the pipeline that is already running,
+  // so moving it costs nobody watching a reconnect (form.proto, Field.live).
+  // Optional because zero is a level: a source turned all the way down is silent,
+  // and an entry nobody has set a level on is at unity.
   optional int32 gain = 3;
-  // Silences this source without taking it off the list, so a source is turned off and back on
-  // without the entry, its device and its gain being lost.
+  // Silences this source without taking it off the list,
+  // so a source is turned off and back on without the entry, its device and its gain being lost.
   bool mute = 4;
 }
 
 // Preset is a named PublishSettings the user saved.
-// The settings travel whole rather than as a diff against the defaults, so applying one is an
-// assignment and not a merge whose result depends on what the form held first.
+// The settings travel whole rather than as a diff against the defaults,
+// so applying one assigns the whole group, whatever the form held first.
 message Preset {
   string name = 1;
   PublishSettings settings = 2;

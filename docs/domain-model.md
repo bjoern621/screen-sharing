@@ -1,77 +1,98 @@
 # Domain model as tables of facts
 
-Codec, pixel format and rate-control mode are not free-form strings scattered through the code.
-Each is a table of facts, and every rule is derived from those tables rather than restated.
+Codec, pixel format and rate-control mode are each a table of facts, and every rule derives from those tables rather than restating them.
 One definition governs the encoder, the settings form, the bitrate estimate and the viewability verdict.
 
 ## The problem it removes
 
 A codec carries many rules: which family it runs on, which pixel formats it encodes, which transport carries it, how efficient it is, which viewer decodes it.
 Written imperatively they spread across files and drift.
-The failure mode is two encodings of one constraint: the form greys an option while the normalizer still lets the value through.
+The failure is two encodings of one constraint: the form greys an option while the normalizer still lets the value through.
 
 ## Where each fact lives
 
 | Table | Holds, per row |
 | --- | --- |
-| `capabilities/capabilities.go` | per codec: the bitstream it produces, what produces it, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer and bitrate targets count on, all per publish engine |
-| `capabilities/audio.go` | per audio codec: the element each engine codes it with, the sample rate the branch resamples to, the bitrate |
-| `platform/audio.go` | per second-track source: the operating systems whose sessions serve it, what serves it on each, what one that does not is missing |
-| `gpupath/gpupath.go` | per capture backend and encoder family: whether frames reach the encoder without a trip through system memory, and what carries them |
-| `capabilities/decoders.go` | per decoder element: the pixel formats it decodes and what bounds that list |
-| `transport/*.go` | per protocol, leg and engine: the video formats and audio codecs that engine puts through that leg, declared beside the code serializing it |
+| codecs | the bitstream a codec produces, what produces it, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer and bitrate targets count on, all per publish engine |
+| audio codecs | the element each engine codes it with, the sample rate the branch resamples to, the bitrate |
+| second-track sources | the operating systems whose sessions serve a source, what serves it on each, and what one that does not is missing |
+| capture and family pairs | whether frames reach the encoder without a trip through system memory, and what carries them |
+| decoders | the pixel formats a decoder takes, and what bounds that list |
+| carriage | per protocol, leg and engine: the video formats and audio codecs that engine puts through that leg |
 
-`capabilities/decoders.go` describes the viewers, not this machine.
+The decoder table describes the machines watching.
 A stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing restricts a choice.
 The form reads it to say what a pixel format costs a viewer: every format has a software decoder, so the choice is a viewer's GPU against a viewer's cores.
 
-### The encode is two fields
+## The encode is two fields
 
-A draft carries a format and an encoder, never a codec.
+A draft carries a format and an encoder.
 Format is what every viewer decodes and what a transport carries.
-Encoder is what produces it here, at the grain a picker offers one: the family wherever that family is one encoder, and the library where several share a family (`x264`, `svt-av1`).
-`capabilities.Row` is the row that pair addresses, and `settings.Publish.Codec` derives the name every engine, probe and log line spells.
+Encoder is what produces it here, at the grain a picker offers one: the family wherever that family is one encoder, and the library where several share a family.
 
-Neither field derives the other, so the row is stored nowhere.
-The grid is sparse: AMD's runtime codes no VP9, so that pair names no row and the encoder control greys it with the formats that encoder does produce.
+Neither field derives the other, so the pair is stored nowhere.
+The grid is sparse: one vendor's runtime codes no VP9, so that pair names no row and the encoder control greys it with the formats that encoder does produce.
 
 Two controls because the two answers move separately.
 An encoder this machine cannot run moves the encoder alone, so a bitstream survives a card that is not there.
 One field naming the whole encode has a single list to walk, and its first entry that runs decides the bitstream as a side effect.
 
+| Codec | Chromas |
+|---|---|
+| H.264, NVENC | yuv444p, yuv420p |
+| HEVC, NVENC | gbrp, yuv444p, yuv420p, p010le |
+| AV1, NVENC | yuv420p, p010le |
+| H.264, x264 | yuv444p, yuv422p, yuv420p, p010le |
+| HEVC, x265 | gbrp, yuv444p, yuv422p, yuv420p, p010le |
+| VP9, libvpx | gbrp, yuv444p, yuv420p, p010le |
+| VP8, libvpx | yuv420p |
+| AV1, libaom | gbrp, yuv444p, yuv420p, p010le |
+| AV1, SVT | yuv420p, p010le |
+| AV1, rav1e | yuv444p, yuv420p, p010le |
+| VAAPI and QSV rows | yuv420p, and p010le on HEVC and AV1 |
+| AMF and Vulkan rows | yuv420p, and p010le on HEVC and AV1 |
+
+The chroma column is the union over the two publish engines, a format one engine's encoder will not take carrying a gap on the row, so the viewer side sees every chroma a stream may arrive in.
+4:2:2 is the two software H.26x rows' alone: no hardware encoder here has an entrypoint for it, and the royalty-free formats have no 4:2:2 profile a fast encoder implements.
+
+Two families have no GStreamer element at all, the only gaps taking a whole family off an engine.
+One builds its device layer for Windows only; the other takes images on a device no capture backend on that engine produces.
+On an AMD or Intel card the same silicon is reachable through the VAAPI rows.
+
+Whether a GPU runs any of them is the driver's answer, the table stating only what a row could carry, and a probe per engine greys what this machine refuses.
+
+## What a gap is
+
 The two engines wrap different encoder implementations, so a pixel format, colour range, rate-control mode or whole codec can be one engine's and not the other's.
-Each difference is a `Gap` naming engine, option, value and reason, rather than a row narrowed to what both manage.
-An option one engine reaches stays offered on that engine's capture backends and greys with the element's own limit on the other, so the form says "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
+Each difference is a gap naming engine, option, value and reason, rather than a row narrowed to what both manage.
+An option one engine reaches stays offered on that engine's capture backends and greys with the element's own limit on the other.
+The form then says "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
 
-A gap takes one value of one option away, and `capabilities.Options` is which options exist.
-Lookup, validator and frontend read that list rather than a field per axis, so an option becomes gappable by being named there, given a refusal phrase, and carried in `settings.Publish.CapabilityOptions`.
-A gap naming no option takes the codec off that engine entirely, no value reaching an encoder that is not there.
-Gap values are the settings' own: the option is a settings field name and the value one that field takes, so a gap and the control it greys are one identifier on both sides of the wire.
+A gap takes one value of one option away, and a list of options is what exists to be gapped.
+Lookup, validator and frontend read that list rather than a field per axis.
+A gap naming no option takes the codec off that engine entirely.
+Gap values are the settings' own, so a gap and the control it greys are one identifier on both sides of the wire.
 
-### What the installed driver gets wrong
+## What the installed driver gets wrong
 
-A `Gap` is what an encoder cannot do, and holds wherever the app runs.
-What one driver gets wrong is a `DriverDefect`, and holds only while that driver sits under the encoder.
+A gap is what an encoder cannot do, and holds wherever the app runs.
+What one driver gets wrong is a driver defect, and holds only while that driver sits under the encoder.
 
 A defect names the driver, the option and value it withholds, optionally the adapter models carrying it, and the release that fixes it.
-`internal/gpu` reads the identity out of the VA driver's own vendor string once per process, and the rows match it on the `gpu.driver`, `gpu.model` and `gpu.driver_version` axes.
-A machine that named no driver carries no defect, and a release nobody read keeps one.
+The identity is read out of the driver's own vendor string once per process, and the rows match on driver, model and version.
+A machine naming no driver carries no defect, and a driver whose release version went unread keeps one.
 
-Written down rather than probed, because trying it is the damage: `av1_vaapi` under constant bitrate hangs radeonsi's video block, and a probe would establish that by resetting the graphics device.
-So the engine-scoped lookups (`OptionGap`, `Reaches`) keep answering what the encoder implements on any machine, and a defect reaches a form and a publish through the evaluator alone.
-`Codec.WithheldByDriver` is the question they do not answer.
+Written down rather than probed, because trying it is the damage: one format under constant bitrate hangs an open-source driver's video block, and a probe would establish that by resetting the graphics device.
+So the engine-scoped lookups keep answering what the encoder implements on any machine, and a defect reaches a form and a publish through the evaluator alone.
 
-### One evaluator, and what a gap is
+## One evaluator
 
-A `Gap` and a numeric ceiling are how a codec's limits are *written*, on the row they belong to.
-They are not what anything *reads*.
-`capabilities/rules.go` turns each into a rule in `backend/internal/rules`, and every consumer asks that evaluator: the greying, the ends a numeric control is offered between, the repair, and `capabilities.Validate`'s refusal.
+A gap and a numeric ceiling are how a codec's limits are written, on the row they belong to.
+Each becomes a rule, and every consumer asks that evaluator: the greying, the ends a numeric control is offered between, the repair, and the refusal.
 
 A gap can only name a codec, an engine, an option and a value.
 A fact about a capture backend and a codec together, or a codec and the platform, has no row to sit on.
 Such a fact takes a table of its own with a consumer written against it, and that consumer restates part of an answer the gap mechanism already knows how to give.
-The ceilings show the cost.
-`CqMax` and `BitrateLimitM` are columns, and a form narrowing a control by them beside a validator refusing a value by them makes the range a slider offers and the range a publish accepts two answers derived from one fact, free to gate on different things.
 
 A rule is a row:
 
@@ -82,176 +103,192 @@ A rule is a row:
 - the fact behind it, as a code
 
 One axis makes it broad, five make it surgical, so "no VP8 encoder has a colour range field" and "this codec on this capture backend on this engine alone" are one shape.
-An axis is declared once, with what it reads as and the argument a statement carries it under.
-A reason is assembled from the axes it matched, so a row states which fact it is and never which words carry it.
+A reason is assembled from the axes it matched, so a row states which fact it is.
 
-Rules are declared where the fact lives and registered into the one evaluator, which keeps `transport` declaring its carriage beside the code that serializes it.
-Only verdicts cross the wire.
-Rules and axis vocabulary stay in Go (`ipc-api.md`).
+Rules are declared where the fact lives and registered into the one evaluator, which keeps each transport declaring its carriage beside the code serializing it.
+Only verdicts cross the wire; rules and axis vocabulary stay in the backend.
 
-### The two ladders
+## The two ladders
 
-How hard an encoder works and what it works towards are two settings, `publish.effort` and `publish.tune`, and each codec's row declares its own ladder for both (`capabilities/ladders.go`).
+How hard an encoder works and what it works towards are two settings, and each codec's row declares its own ladder for both.
 
-Steps are the encoder's own identifiers: x264 counts in names, SVT-AV1 in numbers to 13, NVENC p1 to p7.
-No scale is normalized across codecs: a number carried across a codec change lands on a different real setting than the one held.
-So a step off the selected codec's ladder is reset to the one that codec's row declares for the mode, never mapped by position, and the field is named in the repaired list so the change is readable.
+Steps are the encoder's own identifiers: one counts in names, another in numbers to 13, another p1 to p7.
+No scale is normalized across codecs, so a number carried across a codec change lands on a different real setting than the one held.
+A step off the selected codec's ladder is reset to the one that codec's row declares for the mode, and the field is named in the repaired list so the change is readable.
 
 Two fields rather than one: a live encode drops the lookahead and frame reordering a quality encode keeps, whatever effort it spends.
 
 A row states where each mode starts on its ladder, and which modes pin the step instead of starting on it.
-A pin is a fact about the encoder, not the mode: NVENC fixes its preset in CBR because a low-latency preset is what lets it hold a constant rate, and x264 in that mode takes whatever step it is given.
+A pin is a fact about the encoder: one vendor fixes its preset under constant bitrate because a low-latency preset is what lets it hold a constant rate.
 The form greys a pinned control and names the step in force, and both builders spend the declared step, so the sentence cannot name one the encode is not running.
 
-Both builders read the row through `Codec.ResolveSteps`, keeping a stream's look off the capture backend that produced it: one library through two bindings encodes alike.
+## How each engine spells a step
+
+Both builders read the row through one resolver, keeping a stream's look off the capture backend that produced it: one library through two bindings encodes alike.
 Each engine still owns the spelling, and the spellings differ more than the option name does.
-ffmpeg says `-preset` where the x264 element says `speed-preset`.
-That element splits x264's tune list across `tune` and `psy-tune`.
-The x265 element's tune enum starts at `ssim` rather than at no tuning, so the untuned step is stated there by number.
-The nvcodec elements spell the NVENC tunes in full words where the row uses the SDK's abbreviations.
+One says preset where the other says speed-preset.
+One element splits a tune list across two properties.
+Another's tune enum starts at a metric rather than at no tuning, so the untuned step is stated there by number.
 The empty step is the one answer every builder shares: pass no such option at all.
+
 A step the row does not declare is refused rather than forwarded, so a settings file that never went through the form fails naming the control rather than inside an encoder's error path.
 
-A row declaring no ladder is an encoder with no such knob, which greys the control naming that codec.
-Either ladder can be absent alone: the Vulkan rows tune and take no effort step, so each control asks about its own.
-
-What a tune step is differs by vendor, and the row states the vendor's own vocabulary rather than a shared one.
-x264 and x265 name what the picture is or what the decoder needs, NVIDIA and Vulkan the delay to hold, the AV1 and VP encoders a score to maximise or the judgement weighing what the eye sees, and QSV the scenario the session is for.
-Where one engine's wrapper has no such knob the steps are gapped there rather than dropped from the row, so the option stays on the engine that reaches it: libaom takes a tune on ffmpeg where `av1enc` exposes none, and oneVPL's scenario reaches Intel's runtime through ffmpeg's `-scenario` and no qsv element property.
+What a tune step is differs by vendor, and the row states the vendor's own vocabulary.
+Two name what the picture is or what the decoder needs, two the delay to hold, others a score to maximise, and one the scenario the session is for.
+Where one engine's wrapper has no such knob the steps are gapped there rather than dropped from the row, so the option stays on the engine that reaches it.
 
 A knob one engine spends and the other does not is a departure rather than a gap, the control being the same control on both.
-VAAPI is the case: its rows declare the seven target usages the `va` elements take, and ffmpeg's `-quality` counts over the range the installed driver reports, measured 0..32 on Mesa's radeonsi against oneVPL's 1..7 on Intel's.
-One step carried across would spend a different amount of work per engine and per card, so the ffmpeg builder spends none and the form greys the control there with that reason (`form.availabilityEngineRules`).
+VAAPI is the case: its rows declare seven target usages, where the other engine counts over the range the installed driver reports, measured 0..32 on one driver against 1..7 on another.
+One step carried across would spend a different amount of work per engine and per card, so one builder spends none and the form greys the control there with that reason.
 
-Some rows declare no ladder at all, each for its own reason.
+## Rows with no ladder
+
+A row declaring no ladder is an encoder with no such knob, which greys the control naming that codec.
+Either ladder can be absent alone: the Vulkan rows tune and take no effort step.
+
 No VA profile carries a tuning hint, so the VAAPI rows tune for nothing.
-AMF declares effort and no tune though the API has a usage hint, because this app pins it: a low-latency usage drops the IDR period and leaves a late subscriber no recovery point.
+AMF declares effort and no tune though the API has a usage hint, because this app pins it: a low-latency usage drops the keyframe period and leaves a late subscriber no recovery point.
 VideoToolbox declares neither, the framework taking no preset and no tuning hint, and what stands in for both is the realtime flag every mapping sets.
 
+## The two audio settings
+
 Audio is two settings against two tables, source and codec answering different questions.
-Which sources exist is the platform's answer, the `Audio` field, a row of `platform.AudioSources`.
-Which codec the track is coded in is the engine's and the leg's, `AudioCodec`, a row of `capabilities.AudioCodecs`.
-That row states the element each engine codes it with, the sample rate and the bitrate, so both engines build their branch from one declaration instead of a hardcoded element list each.
+Which sources exist is the platform's answer.
+Which codec the track is coded in is the engine's and the leg's, and that row states the element each engine codes it with, the sample rate and the bitrate.
 
-### The second-track capture sources
+### The capture sources
 
-A row of `platform/audio.go` names the settings value, the operating systems whose sessions serve it, what serves it on each, and what one that does not is missing.
+A row names the settings value, the operating systems whose sessions serve it, what serves it on each, and what one that does not is missing.
 
-It differs per platform because the engines do, so it is not a list of strings.
-On a PulseAudio or PipeWire session both open desktop audio as the monitor of the default sink, ffmpeg `-f pulse -i` and GStreamer `pulsesrc device=`.
-The name they open it by is `platform.AudioMonitorDevice`, one constant for both: two spellings of one server's name are two things able to disagree about which device a stream records.
-On Windows the GStreamer engine opens the default render device's loopback through `wasapi2src`, which takes no handle for it, and ffmpeg has no WASAPI input at all.
-macOS serves nothing, reading what it plays needing a CoreAudio process tap or ScreenCaptureKit audio that neither engine has an element for.
+It differs per platform because the engines do.
+On a Linux sound session both engines open desktop audio as the monitor of the default sink, under one shared device name: two spellings of one server's name are two things able to disagree about which device a stream records.
+On Windows one engine opens the default render device's loopback and the other has no input for it at all.
+macOS serves nothing, reading what it plays needing a process tap neither engine has an element for.
 Each refusal names what that machine is missing rather than saying "Linux only": a user who reads why macOS cannot do it cannot act on why Windows cannot.
 
-Which engine opens a source is a second question and is answered where the capture backends are (`publish.AudioAvailable`), a backend fixing the engine.
-Both places a source is one engine's are on that table: a program's own output is a PipeWire node only `pipewiresrc` opens, and Windows audio is WASAPI only `wasapi2src` reads.
-The element each kind opens on each platform is `publish.gstAudioElements`, keyed by the platform because the elements are the platform's and no element spans both.
+Which engine opens a source is a second question, answered where the capture backends are, a backend fixing the engine.
+Both places a source is one engine's are on that table.
 
-The lookup is a table read: the same `platform.Info` yields the same ordered list every call, so a form may resolve on every keystroke without paying for it.
-
-**A kind is declared and what is inside it is enumerated**, which is why they are two controls and two answers.
-Whether a machine serves desktop audio at all is this table's.
-Which outputs a machine plays into no table can hold, so `backend/internal/audiodev` reads them off the sound server, once, cached for the process lifetime and read back separately from the call that takes it: the division the encoder probe makes, for the same reason.
+**A kind is declared and what is inside it is enumerated**, so they are two controls and two answers.
+Whether a machine serves desktop audio at all is the table's.
+Which outputs a machine plays into no table can hold, so they are read off the sound server once and cached for the process lifetime.
 A kind with nothing enumerated still has one thing in it: its own default, which is what an entry naming no device takes.
-A selection the enumeration stops reporting stays on the list with a note rather than being dropped, the way a monitor index does: an application not running now may be running when the stream starts.
+A selection the enumeration stops reporting stays on the list with a note rather than being dropped, the way a monitor index does: an application that is not running may be running when the stream starts.
 
-**The second track is a list.**
-A screen share is normally several sources at once, so `settings.Publish.AudioSources` is a repeated `{source, device, gain, mute}` and the entries mix into one track.
-One track and not several is carriage, not preference: RTMP carries one audio track and the relay re-serves every ingest on all listeners, so a two-track stream would be unplayable on the narrowest leg while the form said it published.
+### The second track is a list
 
-Each entry is addressed by an indexed key (`publish.audio_sources[2].gain`) so every control kind the form has edits a list item and a statement lands on one entry rather than on the control.
-The list grows through the settings: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to the absent one takes an entry off on the next repair.
-Ordinary writes through ordinary controls, which keeps a shell from deciding anything about the list's shape.
+A screen share is normally several sources at once, so the setting is a repeated source, device, gain and mute, and the entries mix into one track.
+Carriage forces one track: RTMP carries one audio track and the relay re-serves every ingest on all listeners, so a two-track stream would be unplayable on the narrowest leg while the form said it published.
 
-Gain carries presence, zero being a level and not an absence: a source turned all the way down is silent, and an entry nobody set a level on is at unity.
+Each entry is addressed by an indexed key, so every control kind the form has edits a list item and a statement lands on one entry rather than on the control.
+The list grows through the settings: the form draws one row past the end, and picking a kind on it is the write that adds the entry.
+Setting a kind back to the absent one takes an entry off on the next repair.
+
+Gain carries presence, zero being a level: a source turned all the way down is silent, and an entry nobody set a level on is at unity.
 Without presence the two would be one value and the entry a reader creates would arrive silent.
 Mute is a level too, the mixer multiplying by zero, which keeps unmuting a write to a running pipeline rather than a rebuild of the audio graph, and makes a list of nothing but muted sources still carry a track.
 
-Every consumer reads those rows.
-The catalog carries what this machine serves.
-The form offers every declared source, greys the ones the machine does not serve with the row's own sentence (`field-availability.md`), and notes what serves each of the others here.
-The repair walks a stranded entry onto the first source those rows leave standing, which for a machine serving none is the absent one, and an entry left there is one the repair takes off the list.
-`settings.AudioSource` spells the absent source by reading the table's constant rather than typing `"none"` again.
-So the list a form offers and the list a machine serves are two projections of one table.
-
-The engines read them through one derivation rather than each with a table of its own.
+The engines read those rows through one derivation rather than each with a table of its own.
 An engine builds its arguments from the settings alone and names no operating system, which lets a Windows pipeline be rendered and tested on Linux and makes the displayed command the one the publish button starts.
-Which OS a capture backend runs on is `publish.captureNeeds`' column, so `publish.AudioAvailable` is the only place a backend is turned into a platform and the source table asked.
-A refused publish carries the same sentence the greyed option does.
 
-Which protocol carries a codec is not a column here.
-A protocol carries a bitstream format, so each transport declares its own carriage (`transport.Formats`) and both directions read it: the publish entry validates a publish command, the watch entry answers what a viewer may receive over that leg (`viewer-architecture.md`).
-A carriage is per leg and per engine and names video formats and audio codecs together, what a listener carries as a bitstream and as a second track being one fact about that listener.
+## Which protocol carries which format
+
+A protocol carries a bitstream format, so each transport declares its own carriage and both directions read it.
+The publish entry validates a publish command, and the watch entry answers what a viewer may receive over that leg.
+
+| Transport | ffmpeg publish | GStreamer publish | Player watch | Tile watch | Browser watch |
+|---|---|---|---|---|---|
+| SRT | h264, hevc | h264, hevc | h264, hevc | h264, hevc | none |
+| RTSP | all five | all five | all five | all five | none |
+| RTMP | h264, hevc, av1, vp9 | none | h264 | h264 | none |
+| WebRTC | h264 | h264, vp9, vp8 | none | h264, vp9, vp8 | h264, vp9, vp8 |
+| HLS | none | none | h264, hevc, av1, vp9 | h264, hevc, av1, vp9 | h264, hevc, av1, vp9 |
+| MoQ | none | none | none | none | all five |
+
+Why each row is shaped that way:
+
+- **SRT.** MPEG-TS registers a stream type for the two H.26x formats and for none of the others, and both engines write and read the same stream types.
+- **RTSP.** RTP has a payload format for every video format and both audio codecs here, and both engines implement all of them, which is why RTSP is the fallback the other refusals point at.
+- **RTMP.** One muxer writes the enhanced tags the relay ingests where the other writes the legacy ones alone, so there is no GStreamer publish form, and both watch cells sit on legacy-tag parsers.
+- **WebRTC.** One muxer writes a single H.264 track and has no payloader for anything else, where the other payloads whatever the session negotiates.
+  Playback is an exchange rather than an address, so no player opens it.
+- **HLS.** The relay segments and serves HLS and ingests nothing over it, so the watch cells are the segment formats its muxer cuts.
+  A tile opens the video rendition, which is why that leg carries no audio.
+- **MoQ.** The relay packages every ingested format into tracks and ingests nothing over it, so it is the widest watch leg and a browser's alone: no other reader here has anything to open it with.
+
+The browser column is what the relay's page serves rather than what a browser decodes.
+Which formats a given build has a decoder for is that browser's fact and no table here can hold it, so a narrower entry would refuse a page that would have played.
+
 The engine axis exists because a single list per leg would state the narrower of the two: the engine carrying more would be refused a format it serializes correctly, with no reason any form could give.
-WebRTC is where they part, publishing H.264 on ffmpeg and H.264, VP8 and VP9 on GStreamer.
-`transport.Register` holds a stated carriage and its serialization capability to each other, so an entry can neither offer a leg it cannot build nor build one no caller may reach.
-Adding a transport is one file in `transport` and no edit to the codec table.
 
-The encoder reads this table directly.
-Each builder keys family-wide behaviour off a table the row's `Family` indexes (`familyMappings`, `hwSurfaces`, `gstFamilyLimits`, `gstFamilyChromaFormats`) rather than off a per-family flag or a codec-name suffix, so a family gains a behaviour by gaining an entry.
-`capabilities.Validate` rejects a codec, option value or quantizer the table forbids, reading every option in `Options` the same way.
-Both engines call it, naming themselves, so neither path accepts what the other rejects and a gap belonging to one engine binds only there.
-The second track is validated twice beside it: `capabilities.ValidateAudio` for a codec the engine cannot code, `transport.ValidatePublishAudio` for one the leg does not carry.
-Two refusals because the fix differs: another capture backend for the first, another codec or leg for the second.
-The same table reaches the shell in the `Catalog`, so what the encoder rejects is what the form greys.
-The decode table travels beside it and feeds a note on the pixel-format control rather than a greying, a decoder the viewer lacks being a cost and not an illegal combination.
+Audio is carried per protocol: WebRTC carries Opus alone, RTMP AAC alone, and the rest carry both.
+HLS on a tile carries none.
 
-Which engine runs a capture backend is a publish-layer fact and the catalog carries it too.
-It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
+Two formats the relay would negotiate over WebRTC are missing all the same.
+It refuses H.265 there for any stream carrying B-frames, a property of the encode unknowable for a stream this app did not produce.
+An AV1 track negotiates and then yields no picture, which takes it off the publish cells too: a leg nothing can read back is not a leg.
 
-`gpupath/gpupath.go` is a table of pairs rather than of codecs, the one constraint neither end declares alone.
-Whether captured frames reach the encoder without a trip through system memory depends on backend and family together: the portal capture shares device memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
-A `Gap` cannot express that, being a fact about one codec, so the pairs are their own table and the catalog carries it whole.
-Each engine holds its half beside its builder (`gstGpuMemories`, `gpuConverts`), and a row whose engine half is missing is asserted rather than filled in, the alternative being a memory the elements do not carry (`capture-architecture.md`, "Frame memory").
+Rules falling out of the table:
 
-Heuristics live in Go, and the words do not live here at all.
-`ipc-api.md` settles that: a shell shows what the backend describes, so greyings, predictions and option lists sit beside the tables they derive from, and every label, tooltip and refusal sentence is written where the layout is, keyed by the identifiers this model already uses.
+- A codec no transport publishes cannot be published at all, and the refusal names the transports that would have carried it on the running engine.
+- What a viewer may receive over is the watch entry for its engine, so the choice is narrowed per stream and per engine.
+- A publish leg the two engines carry differently is the capture backend's business as much as the transport's, the backend fixing the engine.
 
-The engine rules are the same split.
-Per engine and control, a rule states where a builder departs from the mode table, dropping a knob the mode uses or forwarding one it marks unused.
-Each mirrors a branch of `encoderArgs` or `gstEncoder` and carries a code rather than a sentence.
+Which rate-control modes a row offers is not uniform, and a gap naming the mode carries it.
+Lossless is the mode that goes missing: three encoders code bit-exact, one does so through one engine and not the other, and no AV1, VP8, VAAPI, AMF or Vulkan encoder does at all.
+
+## The backend and family pair
+
+Whether captured frames reach the encoder without a trip through system memory depends on capture backend and encoder family together, and on neither alone.
+The portal capture shares device memory with a VAAPI encoder and not with a software one, and that VAAPI encoder shares none with an X11 grab.
+A gap cannot express that, being a fact about one codec, so the pairs are their own table and the catalog carries it whole.
+Each engine holds its half beside its builder, and a row whose engine half is missing is asserted rather than filled in.
+
+## Rules in the backend, words in the shell
+
+A shell shows what the backend describes, so greyings, predictions and option lists sit beside the tables they derive from.
+Every label, tooltip and refusal sentence is written where the layout is, keyed by the identifiers this model already uses.
+
+Per engine and control, a rule states where a builder departs from the mode table, dropping a knob the mode uses or forwarding one it marks unused, and carries a code rather than a sentence.
+
+## A dropped knob and a gapped mode
 
 A dropped knob and a mode the encoder cannot run are two facts, and the line between them is what the mode still is without the knob.
-A rule here withholds a knob the mode can do without: still that mode, with one field greyed.
-Where the knob defines the mode, withholding it leaves the other mode under the first one's name, so the capability table gaps the mode instead and the form offers the mode that describes the encode.
-Constrained VBR is the case: without a ceiling it is ABR, so encoders taking no ceiling gap `vbr` rather than greying `maxrateM`.
+A rule withholds a knob the mode can do without: still that mode, with one field greyed.
+Where the knob defines the mode, withholding it leaves the other mode under the first one's name, so the table gaps the mode instead.
+Constrained VBR is the case: without a ceiling it is ABR, so encoders taking no ceiling gap the mode rather than greying the ceiling.
 
 Constant quality is the other side of the same fact.
-A quality target spends what the picture costs, so `maxrateM` is the one control that bounds it, and the encode is still constant quality without one.
-That makes it a greyed field rather than a mode gap: `capabilities.QualityCeiling` states per codec and engine whether the element holds a quality target inside a rate buffer, and `publish.RateCeilingMbps` is the one answer to "what is this encode held to" that the plot's rule, the prediction and the encoder all read.
+A quality target spends what the picture costs, so the ceiling is the one control that bounds it, and the encode is still constant quality without one.
+That makes it a greyed field rather than a mode gap.
 
 ## What derives from the tables
 
 | Consumer | Reads them for |
 | --- | --- |
-| `form/availability.go` | greying an option the rules refuse, and greying a rate-control field unless the mode uses it, the codec's encoder has it and the engine forwards it |
-| `form/repair.go` | walking an illegal combination to the first legal value, leaving it standing where the walk finds none |
-| `form/estimate.go` | the pre-publish bitrate prediction, from coding efficiency and chroma weight |
-| `form/options.go` | the option lists, so a control cannot offer a value the tables do not define |
-| the viewability verdict | what the transport table gives a receiving pipeline over the selected tile watch leg (`viewer-architecture.md`) |
-| the preset search | the configuration a preset applies here, over the codecs declared and the capture backends the platform runs (`presets.md`) |
-
-The facts a resolve is evaluated against are assembled in `form/facts.go`, the layer holding both the draft and the machine's answers.
-The rules package holds neither, being what every domain package registers into.
+| availability | greying an option the rules refuse, and greying a rate-control field unless the mode uses it, the codec's encoder has it and the engine forwards it |
+| repair | walking an illegal combination to the first legal value, leaving it standing where the walk finds none |
+| the estimate | the pre-publish bitrate prediction, from coding efficiency and chroma weight |
+| the option lists | so a control cannot offer a value the tables do not define |
+| the viewability verdict | what the carriage gives a receiving pipeline over the selected tile watch leg |
+| the preset search | the configuration a preset applies here (`presets.md`) |
 
 Greying and repair read one source, so a greyed option and its replacement always agree.
 That holds only while every value the repair can pick satisfies the rules the availability pass greys by, so a dimension with nothing legal left keeps the value it has rather than taking one from outside them.
-The field then carries its reason and the publish refuses with it: one answer from both sides, rather than a form offering what the encoder rejects.
+The field then carries its reason and the publish refuses with it, one answer from both sides.
 
 ## Adding a codec, chroma or mode
 
 Add the row.
 Dropdowns, constraints, estimate and verdict follow with no further edits.
-Where the engines disagree, the row states the wider fact and carries a `Gap` for the engine that lacks it.
+Where the engines disagree, the row states the wider fact and carries a gap for the engine that lacks it.
 Narrowing the row instead takes the capability away from the engine that has it, with no reason shown anywhere.
-Where one driver miscodes what the encoder does implement, the row carries a `DriverDefect` instead, so the value stays offered on every driver that runs it.
-The shell owes the new value a name and nothing else, and a value it has no name for renders as the raw identifier: honest, visible, and still a defect (`ipc-api.md`).
+Where one driver miscodes what the encoder does implement, the row carries a driver defect instead, so the value stays offered on every driver that runs it.
+
+The shell owes the new value a name and nothing else, and a value it has no name for renders as the raw identifier: honest, visible, and still a defect.
 Nothing can fall through a shell's runtime default, no shell holding a table to fall through.
 
 ## What stays imperative
 
-The model governs domain rules, not effects.
-Process supervision, event subscriptions, relay polling and the one-time encoder probe stay in the Go process layer.
-A table describes what is true.
-It does not run a child process or subscribe to a stream.
+Process supervision, event subscriptions, relay polling and the one-time encoder probe stay in the process layer.
+The model governs domain rules, and a table describes what is true.

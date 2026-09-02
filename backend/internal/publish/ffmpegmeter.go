@@ -68,7 +68,7 @@ func (m *ffmpegMeter) port() string {
 }
 
 // count takes the child's connection and drains it.
-// The payload is a copy of what the encoder produced, so it is weighed and discarded, never read.
+// The payload is a copy of what the encoder produced, so it is weighed and discarded.
 //
 // The listener closes on the first connection, a run making exactly one.
 // Left open, a later run's slave could land on this port and have its bytes counted against the run

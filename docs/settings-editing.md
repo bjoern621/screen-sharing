@@ -1,13 +1,14 @@
 # Editing a setting
 
 The draft belongs to the shell.
-Nothing a reader moves reaches the backend as a setting until they say so, and what does cross while they edit is one read that stores nothing.
+Nothing a reader moves reaches the backend as a setting until they say so.
+What crosses while they edit is one read that stores nothing.
 
 ## Who holds what
 
 | Fact | Owner | Lifetime |
 |---|---|---|
-| Draft, the settings being edited | Shell, one per window (`Backend/FormSession.cs`) | Until the window closes |
+| Draft, the settings being edited | Shell, one per window | Until the window closes |
 | Form: which controls exist, which entries are greyed, the ends of a range, what a configuration costs | Backend, answered per draft (`ResolveForm`) | Replaced by the next answer |
 | Stored settings | Backend, on disk | Until a write replaces them |
 
@@ -38,20 +39,21 @@ The encoder probe is taken once and read from memory, the monitor enumeration an
 
 A write while an answer is out does not start a second call.
 The answer lands, and where the draft has moved since, one more resolve asks about what the reader is holding now.
-A slider dragged across its range therefore costs a round trip per answer instead of one per pointer move, and the reader waits the same round trip either way.
+A slider dragged across its range therefore costs a round trip per answer rather than one per pointer move.
+The reader waits the same round trip either way.
 
 The same shape holds for the write half: one `SaveSettings` is out at a time, and the newest draft is the one that lands.
 
-An answer describing a draft the reader has already left is drawn, being the newest answer there is, and is not taken back into the draft.
-Adopting it would drag a control back to where the pointer was a round trip ago.
+An answer describing a draft the reader has already left is still drawn, being the newest answer there is.
+The draft does not take it back, since adopting it would drag a control back to where the pointer was a round trip ago.
 
-## What the reader sees between the two
+## What the reader sees while an answer is out
 
 A control shows what it holds, and the figure beside it is printed from that.
 So a number follows the thumb, and it is right in the window between a move and the form that confirms it.
 
-A control takes a value off the form only where that form answers for the draft as it stands (`FormSession.IsAnswered`).
-The window where it does not is exactly the window where the two disagree, and the reader is the one who moved.
+A control takes a value off the form only where that form answers for the draft as it stands.
+Outside that window the two disagree, the reader having moved since the question went out.
 A repair therefore lands on the answer that carries it, which is what moves a thumb the backend walked to a legal value.
 
 The greyings, the ranges and the entries around the control are the last answer's throughout.
@@ -59,10 +61,14 @@ A sweep holds them for the length of the gesture, and the release brings them up
 
 ## A sweep is one value, held
 
-A thumb under the reader's pointer writes a value per pointer move, and each of them is a configuration passed through on the way to the one they stop on.
-The draft takes all of them, the backend is asked about the last (`Controls/Sweep/SweepSlider.cs`).
+A thumb under the reader's pointer writes a value per pointer move.
+Each of them is a configuration passed through on the way to the one they stop on.
+The draft takes all of them, and the backend is asked about the last.
 
-The gesture is the view's to know: the widget reports taking the thumb and letting it go, and reports letting go for a pointer taken away by something else, so a draft cannot be left holding a question the reader has stopped asking.
+The gesture is the view's to know.
+The widget reports taking the thumb and letting it go, and reports letting go for a pointer taken away by something else.
+A draft is therefore never left holding a question the reader has stopped asking.
+
 A key press is not a sweep, being a settled value the moment it happens.
 
 ## Staged and applied
@@ -70,5 +76,5 @@ A key press is not a sweep, being a settled value the moment it happens.
 A group is staged unless the form marks it `applied`.
 
 Staged is the default: the draft carries the change and a commit is what stores it.
-Applied is for settings the backend reads on a schedule of its own rather than being handed them, the relay's address being the case that exists.
-Which is which is the form's to say, never the shell's (`ipc-api.md`).
+Applied is for settings the backend reads on a schedule of its own, the relay's address among them.
+The form says which, and the shell reads the mark (`ipc-api.md`).

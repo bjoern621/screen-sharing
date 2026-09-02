@@ -7,11 +7,12 @@ source "$here/env.sh"
 
 mkdir -p "$SOAK_ROOT/bin"
 
-# A first run publishes to a relay on this machine rather than to whatever the defaults name: the
-# probe starts streams unattended, and the streams of an unattended probe belong on loopback.
-# The ports are the offset ones README.md names, so a relay somebody else started keeps its own, and
-# each names the listener that relay actually binds: RTSP and RTMP terminate TLS, so those two are
-# the encrypted listeners (deploy/mediamtx-groups.yml).
+# A first run publishes to a relay on this machine rather than to whatever the defaults name:
+# the probe starts streams unattended,
+# and the streams of an unattended probe belong on loopback.
+# The ports are the offset ones README.md names, so a relay somebody else started keeps its own,
+# and each names the listener that relay actually binds:
+# RTSP and RTMP terminate TLS, so those two are the encrypted listeners (deploy/mediamtx-groups.yml).
 #
 # No group key: a key is drawn by the group service rather than written down, so the probe publishes
 # under the prefix anybody may watch, and its SRT legs carry the public prefix's well-known

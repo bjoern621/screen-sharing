@@ -37,7 +37,7 @@ func (a *App) startRelayPoll() {
 // The first fetch precedes the first tick,
 // so a shell connecting just after startup reads a real answer rather than the opening value.
 //
-// The wait comes after the fetch, never around it,
+// The wait comes after the fetch,
 // so a fetch outrunning the interval slows the loop down,
 // instead of piling requests onto a host that is not answering.
 //

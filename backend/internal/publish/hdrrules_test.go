@@ -8,13 +8,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// The engine that cannot read what it captured says so where a reader is reaching for the format an
-// HDR surface rides in.
+// The engine that cannot read what it captured says so
+// where a reader is reaching for the format an HDR surface rides in.
 //
-// A note and never a refusal, because a refusal needs a fact and that fact is what the engine
-// cannot establish: a running ffmpeg tells its caller what it is encoding and never what it read.
-// The note is what tells the reader before the stream goes out, rather than a viewer whose picture
-// is wrong telling them after.
+// A note, because a refusal needs a fact and that fact is what the engine cannot establish:
+// a running ffmpeg tells its caller what it is encoding, with nothing said about what it read.
+// The note is what tells the reader before the stream goes out,
+// rather than a viewer whose picture is wrong telling them after.
 func TestTheEngineThatCannotReadTheSurfaceSaysSo(t *testing.T) {
 	for _, tc := range []struct {
 		engine string

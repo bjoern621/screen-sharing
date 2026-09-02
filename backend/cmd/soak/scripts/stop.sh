@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Ends the loops, the probes and the backend of this root, and nothing else.
 #
-# Everything is matched on SOAK_ROOT rather than on a process name: a second root can be running its
-# own pair, and a shell's backend is never one of these whatever it is called.
+# Everything is matched on SOAK_ROOT rather than on a process name:
+# a second root can be running its own pair,
+# and a shell's backend is never one of these whatever it is called.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/env.sh"

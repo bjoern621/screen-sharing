@@ -1,5 +1,5 @@
-// Package gpu reports the video driver an encode runs through: which implementation, which adapter
-// it drives, and which release it is.
+// Package gpu reports the video driver an encode runs through: which implementation,
+// which adapter it drives, and which release it is.
 //
 // Answers the one question a driver-scoped capability gap asks:
 // whether this machine runs a driver whose defect the codec table records
@@ -22,8 +22,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 )
 
-// vainfoExe prints what libva's vaQueryVendorString answered, which is the one string every VA
-// driver fills in.
+// vainfoExe prints what libva's vaQueryVendorString answered,
+// which is the one string every VA driver fills in.
 const vainfoExe = "vainfo"
 
 // readTimeout bounds the read: vainfo opens the display and initializes the driver,

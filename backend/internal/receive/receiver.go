@@ -103,8 +103,7 @@ type Open struct {
 // of the caller's own guards it itself.
 type Events struct {
 	// OnLive fires once, on the first decoded frame out of the sink.
-	// Not a transport
-	// coming up.
+	// Not a transport coming up.
 	OnLive func()
 	// OnAudio fires once, when the stream turns out to carry audio and the branch
 	// is playing.

@@ -1,6 +1,6 @@
 # screen-sharing
 
-Self-hosted, high-quality group screen sharing for trusted friends.
+Self-hosted group screen sharing for trusted friends.
 
 Relay = **MediaMTX**.
 Transports = **SRT**, **RTSP**, **RTMP**, **WebRTC** (WHIP in, WHEP out), **HLS** (watch only).
@@ -28,7 +28,6 @@ Nothing else to launch.
 
 ## The relay
 
-Streams do not travel between machines directly.
 Every publisher sends to one relay and every viewer reads from it.
 So one machine everybody can reach runs MediaMTX and the group service that signs the tokens it checks: a VPS, a box on the LAN, a host on a Tailscale network.
 
@@ -36,8 +35,8 @@ So one machine everybody can reach runs MediaMTX and the group service that sign
 task relay
 ```
 
-Both of them, on this machine, from `deploy/mediamtx-groups.yml`: the configuration a deployment runs.
-A self-signed certificate is drawn where none is there, so the encrypted listeners come up on a machine that has no certificate of its own.
+Starts both on this machine, from `deploy/mediamtx-groups.yml`: the configuration a deployment runs.
+A self-signed certificate is drawn where none is there, so the encrypted listeners come up on a machine carrying none.
 Serves SRT (8890/udp), RTSPS (8322), RTMPS (1936), HLS, WebRTC and MoQ (8892 tcp+udp), plus the API on 9997.
 The binaries come from the flake's dev shell on Linux and macOS.
 Windows has no such shell and runs `pwsh scripts/relay.ps1`, which fetches MediaMTX on first run.
@@ -52,13 +51,13 @@ Friend B         ──SRT──┘                            HLS/WebRTC/MoQ fo
 
 [`docs/network-architecture.md`](docs/network-architecture.md) states why the relay is there at all, and which legs cross the internet.
 
-## Bandwidth reality
+## Bandwidth
 
 - **Upload** = sum of the publish bitrates.
 - **Download** = sum of the bitrates being watched.
-- Relay egress = publishers x viewers x bitrate, which scales fast.
+- Relay egress = publishers x viewers x bitrate.
 
-A modest 40 to 80 Mbps HEVC 4:4:4 already beats Discord, and the rate goes up where few are watching.
+40 to 80 Mbps HEVC 4:4:4 beats Discord, and the rate goes up where few are watching.
 
 ## Repository layout
 
@@ -89,5 +88,5 @@ Recipes are in `packaging/` and `nix/`.
 ## License
 
 Apache-2.0 ([`LICENSE`](LICENSE)).
-The Windows archive additionally carries ffmpeg and the GStreamer runtime, which stay under their own GPL and LGPL terms.
+The Windows archive also carries ffmpeg and the GStreamer runtime, which stay under their own GPL and LGPL terms.
 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) states what every artifact ships and where its source is.

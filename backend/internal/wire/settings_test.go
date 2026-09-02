@@ -11,7 +11,6 @@ import (
 // populatedSettings is a settings.Settings with every field set,
 // each to a value no other field holds.
 //
-// Distinctness is the point of the fixture, not tidiness.
 // The failure this conversion has is not a field left out, which shows up as a zero,
 // but a field mapped to its twin: BitrateM written into maxrate_mbps,
 // the publish RTSP protocol read back out of the watch one,

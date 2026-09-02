@@ -7,8 +7,7 @@ package receive
 
 // pixel_shape takes a raw video format name, e.g. "Y444_10LE", and fills in bit depth per
 // component and the two chroma subsampling factors.
-// Factor 1 is full chroma resolution
-// on that axis.
+// Factor 1 is full chroma resolution on that axis.
 // 0 where this GStreamer build knows no such name.
 static int pixel_shape(const char *name, int *depth, int *h_sub, int *v_sub) {
 	GstVideoFormat fmt = gst_video_format_from_string(name);

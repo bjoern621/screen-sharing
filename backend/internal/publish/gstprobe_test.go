@@ -22,9 +22,9 @@ func probeSettings() settings.Settings {
 	return s
 }
 
-// The probe pipeline is a wire format like the encoder mappings themselves: an element name or a
-// property this builder gets wrong is a measurement that fails where the publish it predicts would
-// have run.
+// The probe pipeline is a wire format like the encoder mappings themselves:
+// an element name or a property this builder gets wrong
+// is a measurement that fails where the publish it predicts would have run.
 // So both ends of the content range are launched for real.
 func TestGstEncodeProbeAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
@@ -70,8 +70,8 @@ func TestGstProbeCeilingAgainstGstLaunch(t *testing.T) {
 }
 
 // The probe times the encoder, so the generator sits on a thread of its own.
-// Serialised behind it, the reading is the sum of the two and the encoder is priced with its
-// instrument.
+// Serialised behind it, the reading is the sum of the two,
+// and the encoder is priced with its instrument.
 func TestGstEncodeProbeDecouplesTheGenerator(t *testing.T) {
 	args, err := GstEncodeProbe(probeSettings(), 320, 240, 2, true)
 	if err != nil {
@@ -119,8 +119,9 @@ func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 }
 
 // A device path's encoder is a different element reading a different memory.
-// Generated frames start in system memory where a captured one is already on the device, so the
-// family's upload sits between the generator and the conversion: without it the first link fails,
+// Generated frames start in system memory where a captured one is already on the device,
+// so the family's upload sits between the generator and the conversion:
+// without it the first link fails,
 // and the measurement is missing exactly where the publish it predicts runs fastest.
 func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 	s := gstD3d11Stream()
@@ -153,8 +154,8 @@ func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 
 // The transport is no part of what an encoder costs, so a leg that cannot carry the codec leaves
 // the measurement alone.
-// Refusing here would answer a question about this CPU with a fact about a protocol, and take the
-// probe off the form exactly where a user is picking a way out of the refusal.
+// Refusing here would answer a question about this CPU with a fact about a protocol,
+// and take the probe off the form exactly where a user is picking a way out of the refusal.
 func TestGstEncodeProbeIgnoresTheTransport(t *testing.T) {
 	s := probeSettings()
 	s.Publish.Transport = "hls"
@@ -212,8 +213,9 @@ func TestGstProbePatternsDiffer(t *testing.T) {
 	}
 }
 
-// A combination the form lets a user start and the probe refuses keeps its cost invisible until the
-// frames are already being discarded, which is the case the probe exists for.
+// A combination the form lets a user start and the probe refuses
+// keeps its cost invisible until the frames are already being discarded,
+// which is the case the probe exists for.
 //
 // buildPipeline deciding a combination is publishable is the whole precondition, so a codec, chroma
 // or mode added anywhere below it is covered here without being named.

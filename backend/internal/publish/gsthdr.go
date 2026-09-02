@@ -64,7 +64,7 @@ func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPoin
 	<-done
 }
 
-// Whether a capture is HDR is the surface's property and never a value a user picks.
+// Whether a capture is HDR is the surface's property.
 //
 // The transfer characteristic the capture negotiated decides it, so the verdict is read off
 // the caps the pipeline reports rather than off a settings field: no Linux interface answers what

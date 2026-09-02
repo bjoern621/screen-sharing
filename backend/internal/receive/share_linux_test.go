@@ -23,8 +23,7 @@ import (
 // viewer is the native player.
 
 // The size the test frames are decoded at.
-// Small: what is under test is the export and not
-// the scaler.
+// Small: what is under test is the export and not the scaler.
 const (
 	probeWidth  = 320
 	probeHeight = 240

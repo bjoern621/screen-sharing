@@ -299,7 +299,7 @@ func presenceTaken(id string, answer groupclient.Membership) membership {
 // keeps the relay token minted on the identity it holds,
 // and states the presence the loop states every pass anyway.
 // The identity file states the name the group took,
-// so it is written where the claim holds and never before:
+// so it is written once the claim holds:
 // a refused name would otherwise be what this machine states presence under on every later pass.
 // A name another member holds is a Refused, carried as INVALID_ARGUMENT (control/refusal.go);
 // an identity drawn by that same call goes with it,

@@ -16,8 +16,8 @@ import (
 // and the only one two sides that disagree about the contract can both still understand.
 // So a major this build does not implement is FAILED_PRECONDITION,
 // with both numbers in the sentence rather than a field that silently arrives empty.
-// A shell told which major each side is on can say so to the user;
-// one handed a response it half understands cannot.
+// A shell told which major each side is on can say so to the user.
+// One handed a response it half understands cannot.
 //
 // A shell naming no major sends zero, which is not this build's and is refused the same way.
 // The field exists so the version is settled explicitly,
@@ -32,7 +32,7 @@ func (s *Server) Hello(ctx context.Context, req *screensharev1.HelloRequest) (*s
 
 	if req.GetProtocolMajor() != ProtocolMajor {
 		return nil, failedPrecondition(
-			"this backend implements control protocol major %d and the shell was built against major %d; both sides have to be on the same major",
+			"this backend implements control protocol major %d and the shell was built against major %d. Both sides have to be on the same major",
 			ProtocolMajor, req.GetProtocolMajor())
 	}
 

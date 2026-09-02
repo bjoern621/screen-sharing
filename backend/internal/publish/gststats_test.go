@@ -14,8 +14,8 @@ import (
 // gst-launch prints.
 // The first line has no predecessor, so only the cumulative figures are set and every per-interval
 // one is marked unmeasured.
-// The second carries the deltas, measured against the wall clock: 30 frames and 250 kB in half a
-// second is 60 fps at 4 Mbps.
+// The second carries the deltas, measured against the wall clock:
+// 30 frames and 250 kB in half a second is 60 fps at 4 Mbps.
 // This pipeline carries no rate probe, so the capture rate stays unmeasured throughout rather than
 // reading as a zero rate.
 func TestGstMeterSamples(t *testing.T) {
@@ -251,9 +251,10 @@ func TestGstMeterCaptureRateIsZeroWithoutTheProbe(t *testing.T) {
 }
 
 // The same divergence against a running pipeline rather than synthetic lines.
-// A source producing five pictures a second behind an imagefreeze paced to thirty is the portal
-// path's shape: the encoder emits thirty, the screen produced five, and only the probe ahead of the
-// pacer tells the two apart.
+// A source producing five pictures a second behind an imagefreeze paced to thirty
+// is the portal path's shape:
+// the encoder emits thirty, the screen produced five,
+// and only the probe ahead of the pacer tells the two apart.
 func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -387,7 +388,7 @@ func TestGstMeterTransitIsPerInterval(t *testing.T) {
 	if !got[0].Missing.TransitMs {
 		t.Errorf("the first sample times %v ms, want it unmeasured", got[0].TransitMs)
 	}
-	// 600 ms across 30 frames, and never the run's 900 across 90.
+	// 600 ms across 30 frames, where the run holds 900 across 90.
 	if got[1].Missing.TransitMs || math.Abs(got[1].TransitMs-20) > 0.001 {
 		t.Errorf("transit = %v ms (missing %v), want 20 over the interval",
 			got[1].TransitMs, got[1].Missing.TransitMs)

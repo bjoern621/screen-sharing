@@ -1,11 +1,11 @@
-// Package colour reads the transfer characteristic out of a colorimetry and says which curves
-// are HDR (docs/video-stack.md, "The transfer functions").
+// Package colour reads the transfer characteristic out of a colorimetry
+// and says which curves are HDR (docs/video-stack.md, "The transfer functions").
 //
 // Read on three sides: publish narrows encoder input to the capture's colour,
 // the backend refuses an HDR capture in an eight-bit format,
 // and a receive pipeline decides whether a stream needs tone mapping.
-// A second spelling of "which part of the colorimetry is the transfer" would let one side call
-// a surface HDR while another coded it as something else.
+// A second spelling of "which part of the colorimetry is the transfer" would let one side call a surface HDR
+// while another coded it as something else.
 //
 // Converts nothing.
 // What a chain does about an HDR stream: internal/receive.
@@ -23,8 +23,8 @@ import "strings"
 // A number for one form and a nick for the other would make every comparison between them false.
 //
 // Every string is legal input.
-// An unrecognised value is answered with itself: a colorimetry this table does not know is a fact
-// about GStreamer's enum, not a bug here.
+// An unrecognised value is answered with itself:
+// a colorimetry this table does not know is a fact about GStreamer's enum.
 func TransferOfColorimetry(value string) string {
 	if value == "" {
 		return ""
@@ -53,15 +53,14 @@ const (
 
 // IsHDR reports whether a transfer characteristic is one of the HDR curves.
 //
-// No transfer is standard range, never "probably HDR".
+// An unrecognised or ambiguous transfer reads as standard range, never guessed HDR.
 // Guessing upward is the worse failure: the tag travels with the stream, every viewer trusts it,
 // and the picture is wrong on all of them.
 func IsHDR(transfer string) bool {
 	return transfer == TransferPQ || transfer == TransferHLG
 }
 
-// namedTransfers is the transfer behind each colorimetry name GStreamer prints in place of the four
-// components.
+// namedTransfers is the transfer behind each colorimetry name GStreamer prints in place of the four components.
 var namedTransfers = map[string]string{
 	"bt601":      "bt601",
 	"bt709":      "bt709",

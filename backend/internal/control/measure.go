@@ -22,8 +22,8 @@ import (
 // and the code is FAILED_PRECONDITION, in the terms of the contract's table:
 // the request is well formed and the world is not ready for it.
 //
-// The publish state decides, not a flag of this package's own,
-// which leaves a pipeline waiting out a retry backoff on the refused side.
+// The publish state decides, which leaves a pipeline waiting out a retry backoff
+// on the refused side.
 // That is still the stream the user asked for and it returns by itself,
 // so a measurement started in the gap would be running when it does.
 
@@ -32,7 +32,7 @@ import (
 func (s *Server) MeasureUplink(ctx context.Context, req *screensharev1.MeasureUplinkRequest) (*screensharev1.MeasureUplinkResponse, error) {
 	if s.backend.PublishState().Publishing() {
 		return nil, failedPrecondition(
-			"a stream is publishing, and an uplink measurement would compete with it for the line; stop the stream to measure")
+			"a stream is publishing, and an uplink measurement would compete with it for the line. Stop the stream to measure")
 	}
 
 	mbps, err := s.backend.MeasureUplink(ctx)
@@ -57,7 +57,7 @@ func (s *Server) MeasureEncodeRate(ctx context.Context, req *screensharev1.Measu
 
 	if s.backend.PublishState().Publishing() {
 		return nil, failedPrecondition(
-			"a stream is publishing, and an encode-rate measurement would compete with it for the encoder; stop the stream to measure")
+			"a stream is publishing, and an encode-rate measurement would compete with it for the encoder. Stop the stream to measure")
 	}
 
 	rate, err := s.backend.MeasureEncodeRate(ctx, draft)

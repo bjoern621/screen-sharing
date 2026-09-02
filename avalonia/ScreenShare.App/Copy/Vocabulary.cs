@@ -10,7 +10,7 @@ namespace ScreenShare.App.Copy;
 /// <c>auto</c> under the frame path and <c>auto</c> under the download route are different entries.
 /// A control added to the contract is a row here and a change nowhere else.
 ///
-/// Two entries need more than their own value and both read the catalog:
+/// An entry needing more than its own value reads the catalog:
 /// a capture backend takes the engine that reads it, and a monitor the size and refresh rate at that index.
 /// The catalog is absent until the first read lands, so every method answers without one:
 /// a screen falls back to its index, which is what the backend called it.
@@ -132,7 +132,7 @@ public sealed class Vocabulary
     /// Rate this encode is held to, null where it is held to none.
     /// Read off the ceiling control the backend offered rather than off the settings value beside it:
     /// whether a ceiling reaches the encoder is the mode's and the element's answer,
-    /// and the form states it by offering the field or greying it (<c>docs/field-availability.md</c>).
+    /// and the form states it by offering the field or graying it (<c>docs/field-availability.md</c>).
     /// A control the form withheld says nothing here, so the line never names a bound nothing is holding.
     /// </summary>
     private static double? CeilingOf(FieldGroup group)

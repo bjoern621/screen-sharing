@@ -25,10 +25,11 @@ Module path drops the directory name: `bjoernblessin.de/screenshare`, so no impo
 ## Two binaries, one module
 
 The two land on different machines and ship as different packages (`nix/package.nix`, `nix/groupd.nix`).
-That separation is the `cmd/` directories, not a module boundary.
+That separation is the `cmd/` directories.
 
 One module, because what they share is a contract rather than convenience code.
-`internal/group` derives a stream's path prefix from the group key, and both sides run that derivation: the backend for the prefix it publishes under, the service for the prefix it grants a token on.
+`internal/group` derives a stream's path prefix from the group key, and both sides run that derivation.
+The backend takes the prefix it publishes under, the service the prefix it grants a token on.
 Two implementations of one hash issue a member a token for a path nobody publishes to.
 `internal/token` is the same for the token the relay verifies.
 

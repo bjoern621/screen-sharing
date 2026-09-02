@@ -62,7 +62,7 @@ type Backend interface {
 	Encoders(ctx context.Context) encoders.Availability
 	// CachedEncoders is what the probe found, and the zero value where nothing has probed.
 	// A form resolves on every keystroke and a probe takes seconds, so a resolve reads what is known:
-	// an unprobed engine is one nothing is greyed on, not one with nothing usable.
+	// an unprobed engine is one nothing is greyed on, so its options stay offered.
 	CachedEncoders() encoders.Availability
 	// AudioDevices is what this machine offers inside each audio kind,
 	// enumerated once and answered from memory after that.
@@ -72,7 +72,7 @@ type Backend interface {
 	// One D-Bus round trip on the first call and memory after it, so a resolve takes it directly.
 	PortalCapabilities() portal.Capabilities
 	PublishState() wire.PublishSnapshot
-	// RelayStatus is the last snapshot the backend's own poll took, never a fresh fetch.
+	// RelayStatus is the last snapshot the backend's own poll took.
 	RelayStatus() relay.Status
 	// Watching lists the external viewers open.
 	Watching() []wire.StreamRef
@@ -80,7 +80,7 @@ type Backend interface {
 	// remembered: the chain that ran is not always the one asked for.
 	ReceiveState() []wire.ReceiveStream
 	// TestStreamState is the synthetic set: how many publishers are alive,
-	// not the count asked for once one dies on its own, and a row per slot the set holds.
+	// dropping one that died on its own, and a row per slot the set holds.
 	// One read for both, a count answered apart from the rows being a second answer to one question.
 	TestStreamState() (running int, slots []wire.TestStreamSlot)
 	// MembersState is who this machine shares a group with, as the presence loop last read it.
@@ -127,7 +127,7 @@ type Backend interface {
 	StopWatch(ref wire.StreamRef)
 	// StartReceive opens a decode for one stream on one leg inside the backend,
 	// and StopReceive closes one.
-	// The tile path's counterpart of the two above, and what they open is a decode and never a tile.
+	// The tile path's counterpart of the two above, and what they open is a decode.
 	//
 	// toneMap rolls an HDR stream down into the range a standard display shows.
 	// The rung is an element in the pipeline, so a decode already open on the other answer is rebuilt
@@ -140,15 +140,14 @@ type Backend interface {
 	// branch, so a per-window volume would be several controls over one element.
 	SetReceiveAudio(ref wire.StreamRef, volume float64, muted bool) error
 	// AudioLevels is how loud every decode carrying audio is at this instant.
-	// A read and not a stream: the cadence belongs to the service that ticks it,
-	// not to the backend that measures.
+	// A read rather than a stream: the cadence belongs to the service that ticks it.
 	AudioLevels() []wire.AudioLevel
 	// Pointer is where this machine's own capture has the pointer at this instant,
 	// and false where the publish in force reports none.
 	//
 	// That covers every cursor mode but the one sending the position instead of drawing it,
 	// and every engine whose child cannot read one.
-	// A read and not a stream, for the reason AudioLevels is one.
+	// A read, for the reason AudioLevels is one.
 	Pointer() (pointer.Spot, bool)
 	// StreamPointer is where a watched stream's publisher has the pointer at this instant,
 	// and false where its frames carry none.
@@ -173,8 +172,7 @@ type Backend interface {
 	SubscribePreviewFrames() (FrameStream, error)
 	// StartMonitorPreview reads one of this machine's screens into a picture the frame channel hands
 	// over, and StopMonitorPreview closes one.
-	// The wizard's counterpart of the receive pair, and what they open is a screen capture,
-	// never a tile.
+	// The wizard's counterpart of the receive pair, and what they open is a screen capture.
 	// An index no output is enumerated under comes back as a Refused, as StartWatch's missing leg does.
 	StartMonitorPreview(monitor int) error
 	StopMonitorPreview(monitor int)

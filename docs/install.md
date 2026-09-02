@@ -4,7 +4,7 @@ The downloads are on the [releases page](https://github.com/bjoern621/screen-sha
 Nix builds from the flake and downloads nothing.
 
 The app is one window with two programs behind it: a headless backend that captures, encodes, publishes and decodes, and the shell in front of it.
-Opening the shell starts the backend, so there is one thing to launch and nothing to start in a particular order.
+Opening the shell starts the backend, so there is one thing to launch.
 
 Streams do not travel between machines directly.
 Every publisher sends to one relay and every viewer reads from it, so somebody has to be running a relay before anything is watchable ("The relay").
@@ -82,7 +82,7 @@ tar xf screen-sharing-<version>-linux-x64.tar.gz
 ./screen-sharing-<version>-linux-x64/screenshare-avalonia
 ```
 
-Debian and Ubuntu package no `gst-plugins-rs`, so the WebRTC transports are absent there for the same reason they are on Fedora.
+Debian and Ubuntu package no `gst-plugins-rs` either, so the WebRTC transports are absent there too.
 
 ## The relay
 
@@ -99,7 +99,8 @@ task relay
 
 `deploy/mediamtx-groups.yml` is the configuration that starts, with the group service beside it.
 The relay checks a token on every connection against the key set that service publishes, so a relay without it serves nobody.
-A self-signed certificate is drawn into `dev-relay/` where none is there, and its path and the read hook's are handed to MediaMTX as environment overrides, so the file itself is the one a deployment reads.
+A self-signed certificate is drawn into `dev-relay/` where none is there.
+Its path and the read hook's are handed to MediaMTX as environment overrides, so the file itself is the one a deployment reads.
 
 It opens:
 
@@ -114,7 +115,7 @@ It opens:
 | API | 9997 |
 
 HLS, WebRTC and the API answer on loopback, a deployment reaching them through the reverse proxy in `deploy/Caddyfile` under one name on 443.
-MoQ is the exception the relay names out loud: no proxy carries WebTransport, so the relay answers that port directly and a watcher's network has to pass both sides of it.
+MoQ is the exception: no proxy carries WebTransport, so the relay answers that port directly and a watcher's network has to pass both sides of it.
 `docs/network-architecture.md` covers which leg is encrypted with what, and `backend check-relay` says which of them a given machine is answering on.
 
 The binaries come from the flake's dev shell on Linux and macOS.
@@ -122,13 +123,14 @@ Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, whic
 
 ## Capturing a Wayland desktop
 
-`x11grab`, the default capture backend on Linux, sees only XWayland windows in a Wayland session, not the desktop.
-Two backends capture it properly:
+`x11grab`, the default capture backend on Linux, sees only XWayland windows in a Wayland session.
+Two backends capture the desktop properly:
 
 - The desktop portal, through PipeWire, which asks for the surface in a dialog and needs no privilege.
   It runs on the GStreamer publish engine.
 - `kmsgrab`, which reads the scanout framebuffer straight from DRM and needs `CAP_SYS_ADMIN`.
-  That capability is close to root and belongs on a dedicated ffmpeg copy rather than on `/usr/bin/ffmpeg`, which is what the NixOS module builds and what `docs/packaging.md` describes for everyone else.
+  That capability is close to root and belongs on a dedicated ffmpeg copy rather than on `/usr/bin/ffmpeg`.
+  The NixOS module builds that copy, and `docs/packaging.md` describes it for everyone else.
 
 ## Where settings are kept
 

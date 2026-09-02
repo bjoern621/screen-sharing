@@ -39,8 +39,8 @@ func newHarness(t *testing.T) *harness {
 	h.host = NewHost(h.build)
 	go h.host.Serve(listener)
 
-	// The socket is set rather than spawned for: the contract under test is what crosses it, and
-	// a real child would need a GPU to open anything on.
+	// Socket dialed directly: the contract under test is what crosses it, and a real child would
+	// need a GPU to open anything on.
 	h.client = &Client{
 		dir:    t.TempDir(),
 		socket: socket,

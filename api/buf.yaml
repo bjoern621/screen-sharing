@@ -7,24 +7,25 @@ lint:
   use:
     - STANDARD
   except:
-    # A response message is named for the state it carries, not for the method that
-    # returned it, in the four cases where that state also travels on the event stream:
-    # GetPublishState and the publish_state event answer with the same PublishState, and
-    # the same holds for RelayStatus, ViewerState and TestStreamState. Two names for one
-    # shape is the drift this contract exists to prevent, so the rule that would demand
-    # them is off - for those four and nothing else. Every other read is wrapped, so a
-    # response can grow a field the state itself has no business carrying.
+    # A response message is named for the state it carries,
+    # not for the method that returned it,
+    # in the four cases where that state also travels on the event stream:
+    # GetPublishState and the publish_state event answer with the same PublishState,
+    # and the same holds for RelayStatus, ViewerState and TestStreamState.
+    # Two names for one shape is the drift this contract exists to prevent,
+    # so the rule that would demand them is off for those four.
+    # Every other read is wrapped,
+    # so a response can grow a field the state itself has no business carrying.
     - RPC_RESPONSE_STANDARD_NAME
-    # GetReceiveState answers with ReceiveState for the same reason: the read and the
-    # receive_state event carry one shape.
+    # GetReceiveState answers with ReceiveState for the same reason:
+    # the read and the receive_state event carry one shape.
 
 breaking:
   use:
     - FILE
-  # Nothing is excepted here, and the commits that would have needed an exception did
-  # not take one. Splitting StreamSettings into RelaySettings, PublishSettings and
-  # ViewerSettings renamed fields in place, and dropping the stored player watch leg
-  # deleted one, both of which buf reports; each report was read and accepted rather
-  # than configured away. The reasoning and the fact that it ends at the first release
-  # are in docs/ipc-api.md, "Versioning"; an except entry here would have outlived the
-  # commit it was for.
+  # Nothing is excepted.
+  # A report buf raises is read and accepted rather than configured away,
+  # so a renamed field and a deleted one both land in the review.
+  # An except entry outlives the commit it is written for,
+  # and the reasoning, with the release the rule starts at,
+  # is in docs/ipc-api.md, "Versioning".

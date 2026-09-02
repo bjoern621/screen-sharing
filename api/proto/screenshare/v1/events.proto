@@ -9,29 +9,31 @@ import "screenshare/v1/text.proto";
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// Server push for what a shell did not do itself: a stop pressed in another window, a
-// pipeline that failed by itself, a viewer somebody closed, a finished encoder probe.
+// Server push for what a shell did not do itself:
+// a stop pressed in another window, a pipeline that failed by itself,
+// a viewer somebody closed, a finished encoder probe.
 //
 // Each event carries the whole state rather than a change to it.
-// A shell draws what arrives instead of merging it into what it held, so a repeat costs
-// nothing and a reconnect is repaired by reading state.
+// A shell draws what arrives instead of merging it into what it held,
+// so a repeat costs nothing and a reconnect is repaired by reading state.
 //
 // No effect's reply reports the state it produced.
-// The matching event does, and a caller waits for it like any other reader, which is what
-// stops the window that acted and the window that watched from drawing different things.
+// The matching event does, and a caller waits for it like any other reader.
+// That is what keeps the window that acted and the window that watched drawing one thing.
 // Every effect on ControlService is answered by a state event.
 
 // How a child process ended.
 message ExitInfo {
   // Failure text, empty after a clean exit.
-  // Prose for a person, never matched against.
+  // Prose for a person, drawn as it stands.
   string message = 1;
   // Whole run log on disk, reached through OpenLog instead of by opening the path.
   // Rotation is the backend's, so a path held here may name a file already moved.
   string log_path = 2;
   // What ended the run, in this app's vocabulary, absent where nothing here names it.
-  // Beside message rather than in place of it: the child's own words are data and stay raw
-  // (text.proto), and the statement is the half a reader can act on.
+  // Beside message rather than in place of it:
+  // the child's own words are data and stay raw (text.proto),
+  // and the statement is the half a reader can act on.
   Text cause = 3;
 }
 
@@ -52,14 +54,14 @@ message ViewerState {
 message TestStreamState {
   int32 running_count = 1;
   // A row per slot the set holds, alive or not.
-  // running_count says how many are up and nothing about which, so a slot that died is visible
-  // here alone.
+  // running_count says how many are up and nothing about which,
+  // so a slot that died is visible here alone.
   repeated TestStreamSlot slots = 2;
 }
 
 // One slot of the synthetic set.
 //
-// The slot is the identity and the child is not: a slot names its stream and picks its pattern,
+// A slot names its stream and picks its pattern,
 // so a relaunch comes back as the row the roster already shows.
 message TestStreamSlot {
   // Position in the set, counting from zero.
@@ -73,21 +75,21 @@ message TestStreamSlot {
   int32 attempt = 4;
   // Why the slot carries no publisher, absent while one is running.
   Text cause = 5;
-  // The child's own last words, raw and never matched against (text.proto).
+  // The child's own last words, raw and drawn as they stand (text.proto).
   string message = 6;
   // Whole run log on disk, reached through OpenLog.
   string log_path = 7;
 }
 
 // Held settings moved behind this shell's back.
-// No values ride along, leaving one way to learn them: read the settings, resolve the
-// form again.
+// No values ride along, leaving one way to learn them:
+// read the settings, resolve the form again.
 message SettingsChanged {}
 
 // A decode ended, and why.
 //
-// Carries no log path, where a publish exit and a viewer exit do: a decode is backend
-// code rather than a child process, and owns no run log to open.
+// Carries no log path, where a publish exit and a viewer exit do:
+// a decode is backend code rather than a child process, and owns no run log to open.
 message ReceiveExit {
   StreamRef stream = 1;
   // Worded by the pipeline itself.
@@ -98,78 +100,78 @@ message ReceiveExit {
 
 // One decode, described by what its pipeline turned out to be.
 //
-// Below live everything is measured, not requested, and none of it echoes ViewerSettings:
-// element gaps push a chain down to a fallback, and silicon decoders download their own
-// frames.
+// Below live everything is measured, and none of it echoes ViewerSettings:
+// element gaps push a chain down to a fallback, and silicon decoders download their own frames.
 message ReceiveStream {
   // Stream name plus receiving leg, the identity StreamRef exists for.
   StreamRef stream = 1;
   // A decoded frame reached the end of the pipeline.
-  // False while connecting, and false on something arriving that cannot be decoded, where
-  // the fields below stay empty for want of a negotiation.
+  // False while connecting, and false on something arriving that cannot be decoded,
+  // where the fields below stay empty for want of a negotiation.
   bool live = 2;
 
   // Render chain actually built, which a fallback can move away from ViewerSettings.
   string chain = 3;
   // Memory features negotiated at each end: decoder output pad, then sink input pad.
-  // Read together they expose a download or an upload in between, which is the test a
-  // chain claiming to hold frames on the device faces.
+  // Read together they expose a download or an upload in between,
+  // which is the test a chain claiming to hold frames on the device faces.
   // Empty until both pads negotiate.
   string decode_memory = 4;
   string render_memory = 5;
 
   // Element decodebin settled on, plus whether silicon ran it.
-  // hardware locates the decoding only, never the frames afterwards, and decode_memory
-  // covers those.
+  // hardware locates the decoding only,
+  // and decode_memory covers the frames afterwards.
   string decoder = 6;
   bool hardware = 7;
 
   // An audio pad appeared on the decoder and the branch behind it was built.
-  // Nothing accepts a volume before that, so a tile with no meter and no slider beats one
-  // offering a slider wired to nothing.
+  // Nothing accepts a volume before that,
+  // so a tile with no meter and no slider beats one offering a slider wired to nothing.
   bool has_audio = 8;
-  // Last values SetReceiveAudio was given, kept whether or not a branch exists to apply
-  // them to.
-  // An audio pad arriving later picks them up, which takes the ordering out of the
-  // caller's hands.
-  // Read back from here rather than remembered per caller, so two shells never disagree
-  // about how loud one decode is.
+  // Last values SetReceiveAudio was given, kept whether or not a branch exists to apply them to.
+  // An audio pad arriving later picks them up,
+  // which takes the ordering out of the caller's hands.
+  // Read back from here rather than remembered per caller,
+  // so two shells never disagree about how loud one decode is.
   //
   // volume is linear gain from zero, with one meaning untouched.
-  // muted stays separate from a volume of zero so that unmuting restores the chosen level
-  // instead of silence.
+  // muted stays separate from a volume of zero,
+  // so that unmuting restores the chosen level instead of silence.
   double volume = 9;
   bool muted = 10;
 
   // Transfer characteristic of the decoded frames, spelled as GStreamer spells it:
   // "bt709", "smpte2084", "arib-std-b67".
   // Empty until the decoder's pad negotiates.
-  // hdr judges that curve, and only the two carrying range past a standard display turn
-  // it true, whatever primaries any of them arrive with.
+  // hdr judges that curve,
+  // and only the two carrying range past a standard display turn it true,
+  // whatever primaries any of them arrive with.
   //
   // Two fields for two questions.
-  // A verdict gates what a viewer may be offered and stays with the backend, as verdicts
-  // do.
-  // A characteristic is an identifier put in front of a reader, and naming the curve is
-  // the shell's word to choose.
+  // A verdict gates what a viewer may be offered and stays with the backend, as verdicts do.
+  // A characteristic is an identifier put in front of a reader,
+  // and naming the curve is the shell's word to choose.
   string transfer = 11;
   bool hdr = 12;
 
   // The rung rolling HDR down into standard-display range was built into this decode,
   // StartReceive being where that choice enters.
-  // Built, not requested: without the element a machine builds the pipeline anyway, and
-  // the tile then reports the picture in front of the reader.
+  // Reports what was built: without the element a machine builds the pipeline anyway,
+  // and the tile then reports the picture in front of the reader.
   bool tone_map = 13;
-  // Whether any element on this machine rolls the range down, plus the first one missing
-  // from the registry.
+  // Whether any element on this machine rolls the range down,
+  // plus the first one missing from the registry.
   //
-  // Machine-wide facts on a per-decode message, because a tile decides its offer while
-  // reading a decode: the choice lives per tile and in memory, no settings field holds
-  // it, and a second call would answer one question.
+  // Machine-wide facts on a per-decode message,
+  // because a tile decides its offer while reading a decode:
+  // the choice lives per tile and in memory, no settings field holds it,
+  // and a second call would answer one question.
   //
-  // tone_map_missing stays empty both where the rung works and where the platform names
-  // no rung, and can_tone_map separates the two: an undeclared rung leaves nothing to
-  // install, and the two readings lead somebody to different actions.
+  // tone_map_missing stays empty both where the rung works and where the platform names no rung,
+  // and can_tone_map separates the two:
+  // an undeclared rung leaves nothing to install,
+  // and the two readings lead somebody to different actions.
   bool can_tone_map = 14;
   string tone_map_missing = 15;
 
@@ -185,14 +187,14 @@ message ReceiveState {
 // One counter, named as its element names it.
 //
 // key is a GStreamer stats field: "packets-received-lost", "rtx-success-count".
-// It crosses untranslated, since the element owns what a counter is called and a shell
-// owns what it reads as (text.proto).
-// An unrecognised key is drawn as itself, which leaves a reader a row to search rather
-// than a row that disappeared.
+// It crosses untranslated,
+// since the element owns what a counter is called and a shell owns what it reads as (text.proto).
+// An unrecognised key is drawn as itself,
+// which leaves a reader a row to search rather than a row that disappeared.
 //
 // value arrives as a double whatever the element's own type was.
-// Counts, rates and millisecond figures are all these elements keep, and none climbs into
-// the range where a double loses a digit.
+// Counts, rates and millisecond figures are all these elements keep,
+// and none climbs into the range where a double loses a digit.
 message ReceiveStatValue {
   string key = 1;
   double value = 2;
@@ -200,8 +202,8 @@ message ReceiveStatValue {
 
 // Counters belonging to one element.
 //
-// The leg decides which elements a pipeline holds: an SRT leg counts through srtsrc, an
-// RTSP leg through the jitterbuffers inside rtspsrc.
+// The leg decides which elements a pipeline holds:
+// an SRT leg counts through srtsrc, an RTSP leg through the jitterbuffers inside rtspsrc.
 // factory gives the kind and element separates two of that kind, which muxed RTSP needs:
 // a jitterbuffer per track, each losing packets on its own.
 message ReceiveStatGroup {
@@ -210,42 +212,41 @@ message ReceiveStatGroup {
   repeated ReceiveStatValue values = 3;
 }
 
-// One sample off one running decode: the arriving stream, the decoder's output, the
-// sink's disposal of it, the pipeline's timing, and the counters the leg's own elements
-// keep.
+// One sample off one running decode:
+// the arriving stream, the decoder's output, the sink's disposal of it,
+// the pipeline's timing, and the counters the leg's own elements keep.
 //
-// A sample rather than a state, which is the entire reason ReceiveStream is a separate
-// message.
-// What a decode is settles at build time and moves only when the pipeline does, so it is
-// announced on that move.
-// What a decode is doing never settles and has to be read off the running pipeline on the
-// backend's clock, as PublishStats is read off the encoder.
+// A sample rather than a state, which is the entire reason ReceiveStream is a separate message.
+// What a decode is settles at build time and moves only when the pipeline does,
+// so it is announced on that move.
+// What a decode is doing never settles,
+// and has to be read off the running pipeline on the backend's clock,
+// as PublishStats is read off the encoder.
 //
-// Anything unnegotiated arrives as zero or empty, to be drawn as unknown rather than as a
-// measurement.
-// The rates use presence instead, being byte and frame deltas across two samples that a
-// first sample has nothing to subtract from: absence reads as not yet measured, where a
-// zero would claim a decode is receiving nothing.
+// Anything unnegotiated arrives as zero or empty,
+// to be drawn as unknown rather than as a measurement.
+// The rates use presence instead,
+// being byte and frame deltas across two samples that a first sample has nothing to subtract from:
+// absence reads as unmeasured, where a zero would claim a decode is receiving nothing.
 //
-// Rates are divided here and not per shell, as RelayStatus divides its own: per-reader
-// intervals would let one decode read two ways in two windows.
+// Rates are divided here and not per shell, as RelayStatus divides its own:
+// per-reader intervals would let one decode read two ways in two windows.
 message ReceiveStreamStats {
   // Stream name plus receiving leg, the identity StreamRef exists for.
   StreamRef stream = 1;
 
   // --- Arriving, off the video decoder's input pad
 
-  // GStreamer's name for the encoded stream, e.g. "H.265 (Main 4:4:4 profile)", with the
-  // caps name standing in wherever it has no name.
-  // A raw string and not a Text: outside this app's vocabulary, drawn as it stands, never
-  // matched against (text.proto).
+  // GStreamer's name for the encoded stream, e.g. "H.265 (Main 4:4:4 profile)",
+  // with the caps name standing in wherever it has no name.
+  // A raw string and not a Text: outside this app's vocabulary, drawn as it stands (text.proto).
   string codec_description = 2;
   // The codec's own words for what the stream was encoded at.
   string profile = 3;
   string level = 4;
   // Totals over the encoded stream since the pipeline started.
-  // keyframes counts the ones decodable from cold, and a long gap between those is what a
-  // late viewer waits through.
+  // keyframes counts the ones decodable from cold,
+  // and a long gap between those is what a late viewer waits through.
   uint64 video_bytes = 5;
   uint64 video_frames = 6;
   uint64 keyframes = 7;
@@ -258,19 +259,19 @@ message ReceiveStreamStats {
 
   // --- The decoded picture, off the video decoder's output pad
 
-  // Size out of the decoder, which is the encoded size and not whatever a tile scaled it
-  // to.
+  // Size out of the decoder, the encoded size rather than whatever a tile scaled it to.
   int32 width = 11;
   int32 height = 12;
   // GStreamer's name for the raw format, e.g. "Y444_10LE".
   // depth is bits per component and subsampling the chroma sampling in J:a:b notation.
-  // Both are derived from the format instead of travelling beside it, so neither can
-  // contradict it.
+  // Both are derived from the format instead of travelling beside it,
+  // so neither can contradict it.
   string pixel_format = 13;
   int32 depth = 14;
   string subsampling = 15;
-  // Full colour description off the caps, with transfer lifted out of it as the part a
-  // viewer acts on, split for ReceiveStream's reason.
+  // Full colour description off the caps,
+  // with transfer lifted out of it as the part a viewer acts on,
+  // split for ReceiveStream's reason.
   string colorimetry = 16;
   string transfer = 17;
   string chroma_site = 18;
@@ -284,8 +285,8 @@ message ReceiveStreamStats {
   // --- Decode and render
 
   // Element decodebin settled on, plus whether silicon ran it.
-  // ReceiveStream's pair under a second owner, since counters named without their element
-  // are half a diagnosis.
+  // ReceiveStream's pair under a second owner,
+  // since counters named without their element are half a diagnosis.
   string decoder = 23;
   bool hardware = 24;
   // Memory features negotiated at each end: decoder output pad, then sink input pad.
@@ -293,15 +294,13 @@ message ReceiveStreamStats {
   string decode_memory = 25;
   string render_memory = 26;
   // Render chain actually built, which a fallback can move away from the viewer settings.
-  // Its promises about colour and about the memory it works in follow from which chain it
-  // is, so the identifier travels alone, and the pair above measures those promises.
+  // Its promises about colour and about the memory it works in follow from which chain it is,
+  // so the identifier travels alone, and the pair above measures those promises.
   string chain = 27;
-  // The rung rolling HDR down was built into this pipeline, so this reports what ran and
-  // not what was requested.
+  // The rung rolling HDR down was built into this pipeline, so this reports what ran.
   bool tone_map = 28;
   // Format and colorimetry the sink accepts, at the size it accepts them.
-  // That size parts from the decoded one wherever the chain scaled towards the drawing
-  // tile.
+  // That size parts from the decoded one wherever the chain scaled towards the drawing tile.
   string render_format = 29;
   string render_colorimetry = 30;
   int32 render_width = 31;
@@ -312,10 +311,11 @@ message ReceiveStreamStats {
   uint64 frames = 33;
   uint64 rendered = 34;
   uint64 dropped = 35;
-  // Frames per second the decoder took in and never handed on, which is the shedding that
-  // holds a live stream on the clock when the chain is short of the rate it is sent.
-  // A rate and no running total: a decoder holds a constant few frames at any moment, and
-  // that depth cancels between two readings where it would stand as a permanent count.
+  // Frames per second the decoder took in without handing on,
+  // the shedding that holds a live stream on the clock
+  // when the chain is short of the rate it is sent.
+  // A rate and no running total: a decoder holds a constant few frames at any moment,
+  // and that depth cancels between two readings where a total would carry it for good.
   // Absent on the first sample of a run, as every other rate here is.
   optional double discarded_fps = 51;
   // Measured off the sink across the last interval.
@@ -324,25 +324,26 @@ message ReceiveStreamStats {
   // --- Timing
 
   // The pipeline calls itself live, as every relay leg is.
-  // Catching up by pausing is closed to a live pipeline, so anything it cannot decode in
-  // time is dropped.
+  // Catching up by pausing is closed to a live pipeline,
+  // so anything it cannot decode in time is dropped.
   bool live = 37;
   // Bounds the latency query came back with.
-  // Absent while no query is answered, before the pipeline reaches a state that gives the
-  // question an answer.
+  // Absent while no query is answered,
+  // before the pipeline reaches a state that gives the question an answer.
   optional double latency_min_ms = 38;
   optional double latency_max_ms = 39;
   // Running time reached by the pipeline.
-  // A stall freezes it while uptime_sec goes on climbing beside it, which is what makes
-  // the stall visible.
+  // A stall freezes it while uptime_sec goes on climbing beside it,
+  // which is what makes the stall visible.
   optional double position_sec = 40;
   // Wall clock since the pipeline started.
   double uptime_sec = 41;
 
   // --- Audio
   //
-  // Zero and empty until the audio branch exists, which reads differently from a stream
-  // that is merely quiet: ReceiveStream.has_audio answers whether a track is there.
+  // Zero and empty until the audio branch exists,
+  // which reads differently from a stream that is merely quiet:
+  // ReceiveStream.has_audio answers whether a track is there.
 
   string audio_codec_description = 42;
   string audio_decoder = 43;
@@ -356,82 +357,91 @@ message ReceiveStreamStats {
 
   // An entry per element of this pipeline whose counters are worth reading.
   // The leg picks them: SRT reports its link, RTSP a jitterbuffer per track.
-  // A leg counting nothing contributes no group at all, never an empty one.
+  // A leg counting nothing contributes no group at all.
   repeated ReceiveStatGroup groups = 49;
 
   // --- What the path costs a frame
 
-  // The stages between a screen somewhere and this window, as far as this machine can
-  // measure them.
-  // Always set, since a decode always measures its own pipeline; which stages inside it
-  // carry a figure is DelayBudget's own answer.
+  // The stages between a screen somewhere and this window,
+  // as far as this machine can measure them.
+  // Always set, since a decode always measures its own pipeline.
+  // Which stages inside it carry a figure is DelayBudget's own answer.
   DelayBudget delay = 50;
 }
 
 // What each stage of the path between a screen and a window costs a frame, in milliseconds.
 //
-// Every stage carries presence, because which of them are measurable depends on what the
-// stream carries rather than on the moment: a viewer measures its own leg and its own
-// pipeline, and reads the publishing machine's stages off the pictures it sent.
-// An absent stage is one nothing measured, never a stage that cost nothing.
+// Every stage carries presence:
+// which of them are measurable depends on what the stream carries rather than on the moment.
+// A viewer measures its own leg and its own pipeline,
+// and reads the publishing machine's stages off the pictures it sent.
+// An absent stage is one nothing measured.
 //
-// What crosses a relay is the coded picture, a re-mux being no re-encode, so the publisher
-// writes into each one what only it can know: the moment it finished encoding, and its own
-// running readings of the stages ahead of the wire.
-// path_ms is the subtraction against that moment, spanning both legs and the relay over any
-// transport, and relay_ms is what it leaves once the legs' own windows come off.
+// What crosses a relay is the coded picture, a re-mux being no re-encode,
+// so the publisher writes into each one what only it can know:
+// the moment it finished encoding,
+// and its own running readings of the stages ahead of the wire.
+// path_ms is the subtraction against that moment,
+// spanning both legs and the relay over any transport,
+// and relay_ms is what it leaves once the legs' own windows come off.
 message DelayBudget {
-  // Capture to the encoded stream leaving the publishing pipeline: converting, encoding and
-  // parsing, measured against that pipeline's own clock.
+  // Capture to the encoded stream leaving the publishing pipeline:
+  // converting, encoding and parsing, measured against that pipeline's own clock.
   //
-  // Measured on the machine holding the screen, and read here off either of two sources: its
-  // own run where this machine is that machine, and otherwise the clock stamped into each
-  // coded picture, which is what carries it over a relay.
+  // Measured on the machine holding the screen, and read here off either of two sources:
+  // its own run where this machine is that machine,
+  // and otherwise the clock stamped into each coded picture,
+  // which is what carries it over a relay.
   // Absent on a stream this machine neither publishes nor can read a stamp out of.
   optional double publish_ms = 1;
-  // The delivery window the publishing leg settled on with the relay: the delay every
-  // packet is held for so a lost one has room to arrive again.
-  // Reaches a viewer the same two ways publish_ms does, and is absent on a publishing
-  // transport that states no window.
+  // The delivery window the publishing leg settled on with the relay:
+  // the delay every packet is held for so a lost one has room to arrive again.
+  // Reaches a viewer the same two ways publish_ms does,
+  // and is absent on a publishing transport that states no window.
   optional double publish_link_ms = 2;
-  // The same window on this reading leg, held by the transport before the pipeline is
-  // handed a packet at all.
-  // SRT is the leg that states one; a leg that buffers inside the pipeline instead reports
-  // that buffering under present_ms, where the pipeline's own latency query answers for it.
+  // The same window on this reading leg,
+  // held by the transport before the pipeline is handed a packet at all.
+  // SRT is the leg that states one.
+  // A leg that buffers inside the pipeline instead reports that buffering under present_ms,
+  // where the pipeline's own latency query answers for it.
   optional double watch_link_ms = 3;
-  // The publishing machine's encoder handing a frame over to this machine's decoder being
-  // handed the same frame: the two legs and the relay between them, as one measurement.
+  // From the publishing machine's encoder handing a frame over,
+  // to this machine's decoder being handed the same frame:
+  // the two legs and the relay between them, as one measurement.
   //
-  // Measured rather than derived, off a clock written into the coded picture, so it is
-  // present on somebody else's stream and over every transport.
-  // Absent on a codec with no unit to carry a clock, on a stream this app did not publish,
-  // and where the two machines' clocks disagree enough to put the encoder ahead of the
-  // decoder.
+  // Measured rather than derived, off a clock written into the coded picture,
+  // so it is present on somebody else's stream and over every transport.
+  // Absent on a codec with no unit to carry a clock,
+  // on a stream this app did not publish,
+  // and where the two machines' clocks disagree enough to put the encoder ahead of the decoder.
   //
-  // relay_ms and total_ms are both taken off it, and it is what the panel draws neither of
-  // the two windows on top of. A reader may draw it or not, this stating what was measured
-  // rather than what a panel has room for.
+  // relay_ms and total_ms are both taken off it,
+  // and it is what the panel draws neither of the two windows on top of.
+  // A reader may draw it or not,
+  // this stating what was measured rather than what a panel has room for.
   optional double path_ms = 8;
   // What the relay itself spent, which is path_ms less the two legs' own windows.
-  // Present exactly where all three of those are: a leg stating no window leaves the relay's
-  // share inside path_ms rather than derived from a figure that is not there.
+  // Present exactly where all three of those are:
+  // a leg stating no window leaves the relay's share inside path_ms,
+  // rather than derived from a figure that is not there.
   optional double relay_ms = 9;
-  // The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
-  // and the queues between them, measured.
+  // The source of this leg stamping a frame to the sink taking it:
+  // depacketizing, decoding and the queues between them, measured.
   optional double receive_ms = 4;
-  // The worst that same stage has cost any one frame since this decode started, which never
-  // comes down.
-  // receive_ms is a mean over the interval between two samples and holds steady while single
-  // frames run long, so the worst single frame is the reading that says whether a decode has
-  // ever been short of the rate it is sent, rather than short on average.
+  // The worst that same stage has cost any one frame since this decode started,
+  // which never comes down.
+  // receive_ms is a mean over the interval between two samples,
+  // and holds steady while single frames run long,
+  // so the worst single frame says whether a decode has ever been short of the rate it is sent,
+  // rather than short on average.
   optional double receive_peak_ms = 7;
-  // What the sink still holds a frame for after it arrives, so that it is drawn at the
-  // moment the pipeline's latency window puts it.
-  // Work and wait together are that window, which is why a receive_ms rising to meet it is
-  // a decode about to start dropping frames.
+  // What the sink still holds a frame for after it arrives,
+  // so that it is drawn at the moment the pipeline's latency window puts it.
+  // Work and wait together are that window,
+  // which is why a receive_ms rising to meet it is a decode about to start dropping frames.
   optional double present_ms = 5;
-  // The stages above that carry a figure, added up, counting path_ms in place of the three
-  // stages it spans wherever it is present.
+  // The stages above that carry a figure, added up,
+  // counting path_ms in place of the three stages it spans wherever it is present.
   // A floor where it is not: the relay's own share is then in the path and in no measurement,
   // and a publisher on another machine takes the first stage out of reach as well.
   // Absent where no stage was measured at all.
@@ -441,62 +451,65 @@ message DelayBudget {
 // One sample across every decode.
 //
 // Whole per tick, like every state here, so an ended decode drops out by not appearing.
-// The set of decodes stays ReceiveState's answer; this reports their behaviour, joined on
-// the key.
+// The set of decodes stays ReceiveState's answer.
+// This reports their behaviour, joined on the key.
 message ReceiveStats {
   repeated ReceiveStreamStats streams = 1;
 }
 
 // One monitor being read into pictures the frame channel can hand over.
 //
-// Far shorter than ReceiveStream, missing exactly what a decode has and a screen grab
-// lacks: no encoder produced these frames, leaving no decoder to name and no silicon
-// verdict, and no protocol carried them, leaving no leg.
+// Far shorter than ReceiveStream, missing exactly what a decode has and a screen grab lacks:
+// no encoder produced these frames, leaving no decoder to name and no silicon verdict,
+// and no protocol carried them, leaving no leg.
 message PreviewedMonitor {
   // Enumeration index of the output, and the whole identity.
   int32 monitor = 1;
   // A frame reached the end of the pipeline.
-  // Before that the capture element is still opening the screen, and a consumer
-  // subscribing in the meantime waits instead of being refused.
+  // Before that the capture element is still opening the screen,
+  // and a consumer subscribing in the meantime waits instead of being refused.
   bool live = 2;
 }
 
 // Every monitor under preview.
 //
-// The full set, like every state here, so the shell that asked for a preview and the
-// shell that did not learn it the same way.
-// Also what a restarted shell converges against: a preview outlives the window that
-// wanted it, as a decode does, and the set is where the next shell finds the ones nobody
-// draws.
+// The full set, like every state here,
+// so the shell that asked for a preview and the shell that did not learn it the same way.
+// Also what a restarted shell converges against:
+// a preview outlives the window that wanted it, as a decode does,
+// and the set is where the next shell finds the ones nobody draws.
 message MonitorPreviewState {
   repeated PreviewedMonitor monitors = 1;
 }
 
 // Who this machine shares a group with.
 //
-// A reading rather than a list somebody keeps: every member's own app states its presence, the
-// lease lapses where it stops being stated, and a member who left drops out by not appearing.
+// A reading rather than a list somebody keeps:
+// every member's own app states its presence,
+// the lease lapses where it stops being stated,
+// and a member who left drops out by not appearing.
 message MembersState {
   repeated Member members = 1;
   // Why the group service refused this machine's presence, absent where it took it.
   // A refusal is what leaves the list empty on a group that has members in it.
   Text refusal = 2;
-  // This machine is in the group, so its presence is stated on every pass and the relay carries
-  // what it publishes.
+  // This machine is in the group,
+  // so its presence is stated on every pass and the relay carries what it publishes.
   // Quitting keeps it, and leaving clears it.
   bool joined = 3;
-  // A connection list the relay serves would not answer, so every member's publishing reads false
-  // because nothing said otherwise rather than because nothing is being sent.
+  // A connection list the relay serves would not answer,
+  // so every member's publishing reads false because nothing said otherwise,
+  // rather than because nothing is being sent.
   bool publishing_unread = 4;
 }
 
 // One member of the group.
 message Member {
-  // Derived from a secret only that member holds, which is what makes it an identity nobody else
-  // can state.
+  // Derived from a secret only that member holds,
+  // which is what makes it an identity nobody else can state.
   string member_id = 1;
   // What that member calls itself, claimed per group and held by the first claim.
-  // Never an identity: the id says who a member is, whoever ends up holding the name.
+  // The id says who a member is, whoever ends up holding the name.
   string display_name = 2;
   // The relay is carrying a stream from this member.
   bool publishing = 3;
@@ -506,12 +519,12 @@ message Member {
 
 // Names one Event payload, for a shell after a subset.
 //
-// An enum instead of the oneof's field names as strings, since a name typed into a
-// request is a name somebody can misspell.
+// An enum instead of the oneof's field names as strings,
+// since a name typed into a request is a name somebody can misspell.
 enum EventKind {
   // Absent.
-  // Naming it refuses the subscription instead of serving everything: a request that
-  // failed to say what it wanted asked for nothing.
+  // Naming it refuses the subscription instead of serving everything:
+  // a request that failed to say what it wanted asked for nothing.
   EVENT_KIND_UNSPECIFIED = 0;
   EVENT_KIND_PUBLISH_STATE = 1;
   EVENT_KIND_PUBLISH_STATS = 2;
@@ -536,10 +549,10 @@ enum EventKind {
 
 message Event {
   // Counts what this subscription has been sent, starting at one.
-  // Stamped per subscriber and not per broker, because filtered kinds never reach a
-  // subscription that named its own: a broker-wide number would skip on every event some
-  // filter dropped, and that skip cannot be told from the one a reader falling behind
-  // leaves.
+  // Stamped per subscriber and not per broker,
+  // because filtered kinds never reach a subscription that named its own:
+  // a broker-wide number would skip on every event some filter dropped,
+  // and that skip cannot be told from the one a reader falling behind leaves.
   // Whole states make a gap harmless, and still worth noticing.
   uint64 sequence = 1;
 
@@ -556,8 +569,9 @@ message Event {
     ExitInfo publish_exit = 4;
 
     // A relay snapshot on the backend's poll interval.
-    // Pushed instead of polled per shell, which keeps the byte-delta bitrates divided by
-    // one steady interval rather than by each shell's cadence.
+    // Pushed instead of polled per shell,
+    // which keeps the byte-delta bitrates divided by one steady interval
+    // rather than by each shell's cadence.
     RelayStatus relay_status = 5;
 
     // Every open external viewer, on each open and close.
@@ -567,27 +581,26 @@ message Event {
     // This one carries the cause and that viewer's log.
     ViewerExit viewer_exit = 6;
 
-    // Every decode, on each start, stop and newly learnt fact about one: a first frame, a
-    // fallback chain, a memory feature its pads settled on.
-    // viewer_state's counterpart on the receiving side, and it describes decodes rather
-    // than tiles, since arranging what arrives is the shell's and appears on no message
-    // here.
+    // Every decode, on each start, stop and newly learnt fact about one:
+    // a first frame, a fallback chain, a memory feature its pads settled on.
+    // viewer_state's counterpart on the receiving side, and it describes decodes rather than tiles,
+    // since arranging what arrives is the shell's and appears on no message here.
     ReceiveState receive_state = 15;
     // One decode is gone.
     // Which decodes remain comes on the state event.
     ReceiveExit receive_exit = 16;
-    // A sample across every running decode on the backend's own interval, roughly one a
-    // second, and silence while nothing decodes.
+    // A sample across every running decode on the backend's own interval,
+    // roughly one a second, and silence while nothing decodes.
     //
     // Split from receive_state exactly as publish_stats splits from publish_state.
-    // Merged, the whole receive state would travel at sampling rate and every consumer
-    // would re-render for counters most of them never draw.
+    // Merged, the whole receive state would travel at sampling rate,
+    // and every consumer would re-render for counters most of them never draw.
     ReceiveStats receive_stats = 18;
 
     // Every monitor under preview, on each open, close and first frame.
-    // No exit event accompanies it, unlike the two above: an ended preview leaves the set,
-    // and beyond the screen no longer being read there is nothing to report, no log to
-    // open, no viewer to account for, no retry to explain.
+    // No exit event accompanies it, unlike the two above:
+    // an ended preview leaves the set and has nothing else to report,
+    // no log to open, no viewer to account for, no retry to explain.
     MonitorPreviewState monitor_preview_state = 17;
 
     // Count of live synthetic publishers, on every change.
@@ -596,25 +609,26 @@ message Event {
     ExitInfo test_stream_exit = 9;
 
     // Who this machine shares a group with, on every presence the group service answers.
-    // The whole membership, so a shell draws the group rather than merging arrivals and
-    // departures into what it held.
+    // The whole membership,
+    // so a shell draws the group rather than merging arrivals and departures into what it held.
     MembersState members_state = 19;
 
     // The whole reference set again, once the encoder probe has filled in.
-    // The catalog travels rather than the probe result alone, because a shell holding a
-    // catalog has nowhere to merge half a state into.
+    // The catalog travels rather than the probe result alone,
+    // because a shell holding a catalog has nowhere to merge half a state into.
     Catalog catalog = 14;
 
     SettingsChanged settings_changed = 10;
   }
 
   // 7 and 8 were grid_state and grid_exit, covering a GTK4 grid window.
-  // No surface on this contract holds a grid: arranging what a viewer receives belongs to
-  // the shell, and was never reported from here.
+  // No surface on this contract holds a grid:
+  // arranging what a viewer receives belongs to the shell.
   //
   // 11 was show_settings, an ask for a shell to raise its own configuration surface.
-  // Its only producer was a tray menu the shell now owns, so it asked a shell to act on
-  // its own behalf, and it was the single payload here that asked instead of reporting.
+  // Its only producer was a tray menu the shell owns,
+  // so it asked a shell to act on its own behalf,
+  // and it was the single payload here that asked instead of reporting.
   reserved 7, 8, 11;
   reserved "grid_state", "grid_exit", "show_settings";
 }

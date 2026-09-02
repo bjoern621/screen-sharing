@@ -1,7 +1,7 @@
 # The video stack
 
 A screen share crosses every layer of the video field: a compositor's buffer, a colour transform, an encoder's rate control, a bitstream, a container, a network protocol, a decoder, a render chain, a monitor.
-This page gives the relationships: what each thing sits between, what it constrains, what it costs, what breaks when it disagrees with its neighbour.
+Each stage sits between two others, constrains both, costs something, and breaks the picture in its own way when it disagrees with a neighbour.
 The subject is the field rather than this repository.
 Where the app takes a position, the section says so and names the page holding it.
 
@@ -104,9 +104,9 @@ A scanout or duplication backend answers at any rate.
 Hence two rates per publish: the capture rate is how often the screen produced a picture, the encoded rate how often the encoder emitted one.
 On a static screen the first falls to zero and the second holds, the encoder repeating the newest frame.
 Those repeats are *duplicated* frames.
-Frames thrown away for arriving faster than the output rate are *dropped* frames, and the two counts mean opposite things.
+Frames thrown away for arriving faster than the output rate are *dropped* frames.
 
-A backend emitting nothing while nothing moves also stalls a clock derived from its buffers, a real failure mode (`capture-architecture.md`).
+A backend emitting nothing while nothing moves also stalls a clock derived from its buffers (`capture-architecture.md`).
 
 **Permission.**
 X11 and KMS grant capture by access to the server or the device node.
@@ -115,7 +115,7 @@ A second run skips the picker where the session is still held, and where a compo
 
 **What comes out.**
 A desktop is composited in full-range RGB.
-Every YUV format below is a smaller container, so conversion is where a screen share first loses something.
+Every YUV format below holds less, so conversion is where a screen share first loses something.
 It is lossless only at 4:4:4 full range.
 
 ## Frame memory
@@ -138,9 +138,8 @@ flowchart TB
     end
 ```
 
-The pairing decides which happens, and neither end decides alone.
-A portal capture shares device memory with a VAAPI encoder and not with a software one.
-A VAAPI encoder shares it with the portal capture and not with an X11 grab.
+The pairing decides which happens.
+A portal capture shares device memory with a VAAPI encoder and not with a software one, and that VAAPI encoder shares none with an X11 grab.
 The fact is therefore a table of pairs (`gpupath`), for the reason `domain-model.md` gives.
 
 | Handle | Platform | What it is |
@@ -157,15 +156,14 @@ The fact is therefore a table of pairs (`gpupath`), for the reason `domain-model
 **VPP** is the driver's fixed-function scale, format and colour conversion block, reached as `vapostproc`, `scale_vaapi`, `vpp_qsv` or `d3d11convert`.
 Where a GPU path exists the next section's conversion runs there, and the picture never leaves the device.
 
-A GPU path is not automatically faster.
 A discrete card holds capture and encode on one device only if the capture came from that device, which on a laptop with an integrated display controller it often did not.
 
 ## Conversion
 
-Conversion rewrites four components, each a separate decision with a separate cost.
+Each component conversion rewrites is a separate decision with a separate cost.
 
 **Colour model.**
-Codecs code Y'CbCr, not RGB, because luma carries almost all the detail the eye resolves and the two colour-difference channels can be coded coarsely.
+Codecs code Y'CbCr because luma carries almost all the detail the eye resolves and the two colour-difference channels can be coded coarsely.
 The conversion is a 3x3 matrix, and *which* matrix is a coefficient set named by a standard: BT.601, BT.709, BT.2020.
 The wrong one at either end tilts hues without changing brightness much, the most common cross-standard mistake because the pixel format label does not carry the matrix.
 
@@ -181,12 +179,12 @@ The *identity* matrix is the escape hatch: coding G, B and R into the three chan
 
 For camera content the loss is close to invisible.
 For a desktop it is not: text is a high-frequency edge between two saturated colours, and 4:2:0 gives red-on-black or blue-on-white text visible fringing at the stroke.
-A screen-sharing app therefore cares about 4:4:4 where a video-on-demand service does not.
+Screen content is why 4:4:4 is worth its rate here.
 
 **Chroma siting** says where a subsampled chroma sample sits relative to its luma samples: co-sited with the left luma column, or halfway between.
 Mismatched siting shifts colour by half a pixel, seen as a coloured edge on one side of high-contrast text.
 
-**Bit depth.** 8, 10 or 12 bits per component, covered under "Bit depth".
+**Bit depth.** 8, 10 or 12 bits per component ("Bit depth").
 
 **Range.**
 Full range spends every code value on picture: 0 to 255 at 8 bits.
@@ -207,9 +205,9 @@ Three things get conflated under one word, and the rest of the stack depends on 
 | Encoder | one *implementation* that produces that format | `libx264`, `hevc_nvenc`, `svtav1enc` |
 | Encoder family | the *silicon and API* an encoder runs on | software, NVENC, VAAPI, QSV, AMF, V4L2 M2M, MPP, Vulkan Video |
 
-A codec is what the viewer must understand.
-An encoder is what the publisher happens to run, and two encoders of one codec produce different pictures at the same bitrate while remaining equally decodable.
-A family is a property of the machine, and the axis a capability probe answers.
+The viewer must understand the codec.
+Two encoders of one codec produce different pictures at the same bitrate while remaining equally decodable.
+The family is a property of the machine, and the axis a capability probe answers.
 
 ### Families
 
@@ -227,7 +225,7 @@ A family is a property of the machine, and the axis a capability probe answers.
 | Media Foundation, DXVA2, D3D11VA, D3D12 Video | Windows | whatever the driver exposes | the OS-level wrappers |
 
 One physical encoder block is reachable through more than one API, so "VAAPI against QSV" on an Intel machine is a choice of API and not of hardware.
-A fixed-function block implements its profiles in silicon, so a hardware encoder's gaps are not a software limitation and no driver update adds 4:2:2 to a block with no entrypoint for it.
+A fixed-function block implements its profiles in silicon, so no driver update adds 4:2:2 to a block with no entrypoint for it.
 
 ### Inside the encoder
 
@@ -250,7 +248,7 @@ flowchart TD
     REFBUF -.->|"the next frame's inter prediction"| PRED
 ```
 
-The reconstruction path exists because the encoder must predict from exactly what the decoder will have, not from the source.
+The reconstruction path exists because prediction has to run on exactly what the decoder will have, which quantization has already changed.
 An encoder therefore contains a decoder, and a filter-chain bug desynchronizes the two into drifting artifacts rather than a clean failure.
 
 | Codec | Block unit | Entropy coder | Loop filters |
@@ -287,7 +285,7 @@ A live screen share usually refuses that trade, which is what the "low latency" 
 A **profile** is a subset of the codec's tools, and it gates chroma and bit depth.
 A chroma choice is therefore not a free parameter.
 4:4:4 in H.264 exists only in High 4:4:4 Predictive, which almost no fixed-function decoder implements.
-Lossless H.264 lives in that same profile, and is a software decode everywhere.
+Lossless H.264 lives in that same profile.
 
 | Codec | 4:2:0 8-bit | 10-bit | 4:2:2 | 4:4:4 |
 | --- | --- | --- | --- | --- |
@@ -324,10 +322,9 @@ The **keyframe interval** sets the periodic spike, an I-frame costing several ti
 CQ scales are not comparable across encoders: the H.26x encoders count to 51, libvpx and the software AV1 encoders to 63, and some expose a raw quantizer index to 127 or 255.
 A number carried across a codec change lands on a different real setting, so this app resets rather than remaps (`domain-model.md`, "The two ladders").
 
-**Effort** (the preset ladder) and **tune** are separate settings.
-Effort says how much CPU or how many passes to spend for the same target.
-Tune says what to spend it towards: latency, still-image detail, a metric, or grain retention.
-They are separate because a live encode drops lookahead and frame reordering whatever effort it spends.
+**Effort** (the preset ladder) says how much CPU or how many passes to spend for the same target.
+**Tune** says what to spend it towards: latency, still-image detail, a metric, or grain retention.
+The two are separate settings because a live encode drops lookahead and frame reordering whatever effort it spends.
 
 ## The bitstream
 
@@ -384,7 +381,7 @@ H.264 and HEVC have published RFCs.
 The VP9 and AV1 payload formats are drafts, so some muxers refuse them without an explicit opt-in.
 
 **Mux** combines elementary streams into a container, **demux** splits them back, **remux** rewraps into a different container without re-encoding.
-None of the three touches the coded pictures, which is how a relay re-serves one ingest on several protocols without decoding.
+None of the three touches the coded pictures.
 
 ## Transport
 
@@ -427,13 +424,11 @@ Too shallow for the network drops frames, too deep adds delay nobody asked for.
 
 ## The relay
 
-A relay ingests once and serves many.
-The important property is what it does *not* do: no decode, no re-encode, no change to the bitstream.
+A relay ingests once and serves many, passing the bitstream through: no decode, no re-encode, no rewrite.
 The codec, profile, chroma, bit depth and colour description a publisher chose therefore reach every viewer unchanged.
 
 What it changes is the carriage.
-Re-serving one ingest on several protocols makes the publish leg and the watch leg independent choices.
-It also means the narrowest listener bounds what a stream may contain: a format one protocol has no mapping for cannot be watched over it, however well it was published.
+Re-serving one ingest on several protocols makes the publish leg and the watch leg independent choices, and the narrowest listener bounds what a stream may contain: a format one protocol has no mapping for cannot be watched over it, however well it was published.
 Carriage is therefore stated per protocol and per leg rather than per codec (`viewer-architecture.md`, "Which protocol carries which format").
 
 ## Decode
@@ -445,7 +440,7 @@ The profile the publisher chose is what decides, the practical consequence of th
 
 **Error concealment** is what a decoder does with a missing reference: hold the last good picture, interpolate, or stop and request a keyframe.
 The third shows as a freeze until the next IDR arrives.
-That request travels on the transport's back channel, so loss recovery is a WebRTC feature and not an SRT one.
+That request travels on the transport's back channel, so it reaches a WebRTC publisher and no SRT one.
 
 ## The render chain
 
@@ -461,16 +456,15 @@ flowchart LR
 ```
 
 The chain moves the frame to memory the sink can read, converts Y'CbCr to what the sink takes, and applies matrix and range.
-What it does *not* do, on every chain in reach, is convert the transfer function.
-A frame carrying a PQ curve therefore arrives at a window that treats it as sRGB, and the picture is wrong until something rolls the range down.
-That something is **tone mapping**, a stage of its own rather than part of conversion.
+No chain in reach converts the transfer function.
+A frame carrying a PQ curve therefore arrives at a window that treats it as sRGB, and the picture is wrong until **tone mapping** rolls the range down.
 
 The last hop belongs to the compositor: present time, vsync, and the monitor's own transform.
 A frame presented between refreshes is a tear, and a queue that presents late is judder no encoder setting fixes.
 
 ## Colour, in full
 
-Colour is four independent components plus a range flag, and nearly every colour bug is exactly one of them disagreeing across a boundary.
+Colour is four independent components.
 
 | Component | Says | Fixes |
 | --- | --- | --- |
@@ -479,8 +473,7 @@ Colour is four independent components plus a range flag, and nearly every colour
 | Matrix | the coefficients turning RGB into Y'CbCr | hue |
 | Range | which code values are picture | black level and white level |
 
-They are orthogonal.
-A stream can be BT.2020 primaries with a BT.709 matrix, or sRGB transfer at limited range, and the combination is legal where it is unusual.
+They are orthogonal: a stream can be BT.2020 primaries with a BT.709 matrix, or sRGB transfer at limited range, and the combination is legal where it is unusual.
 "BT.709" is therefore ambiguous in conversation: the recommendation defines primaries, a transfer function and a matrix, and a tool may mean any one of them.
 
 ### The standards
@@ -497,13 +490,13 @@ A stream can be BT.2020 primaries with a BT.709 matrix, or sRGB transfer at limi
 **sRGB against BT.709 is the trap.**
 The two share primaries and a matrix and differ only in the transfer curve, small in the numbers and clearly visible on screen.
 A desktop is authored in sRGB, so a sink assuming BT.709 shows it washed out.
-That is a transfer mismatch and not a range one, fixed by stating the transfer rather than by adjusting levels.
+That is a transfer mismatch and not a range one, fixed by stating the transfer.
 
 ### The transfer functions
 
 An **OETF** maps scene light to a code value, at the camera.
 An **EOTF** maps a code value to displayed light, at the monitor.
-An **OOTF** is the end-to-end result of both, deliberately not the identity: a picture shown in a dim room needs more contrast than it had in the scene to look the same.
+An **OOTF** is the end-to-end result of both, and it is not the identity: a picture shown in a dim room needs more contrast than it had in the scene to look the same.
 
 ```mermaid
 flowchart LR
@@ -521,14 +514,14 @@ flowchart LR
 | HLG (ARIB STD-B67) | display-referred | the display's own | relative | the lower half tracks a gamma curve |
 | Linear | neither | unbounded | none | what compositing works in |
 
-**PQ is absolute and HLG is relative**, and that difference decides everything downstream.
+**PQ is absolute and HLG is relative.**
 A PQ picture shown untouched on a 400-nit display is wrong by the ratio between the format's 10000 nits and the display's peak, and the failure is loud.
-An HLG picture shown untouched is approximately right, its lower range tracking an ordinary gamma curve, the property it was designed around.
+An HLG picture shown untouched is approximately right, its lower range tracking an ordinary gamma curve.
 
 ### Tone mapping
 
 Tone mapping compresses a source's luminance range into what a display can show.
-The naive alternatives both fail: clipping loses everything above the display's peak, and scaling linearly darkens the whole picture.
+Clipping the range instead loses everything above the display's peak, and scaling it linearly darkens the whole picture.
 
 ![A PQ source rolled onto a 100-nit display: clipping flattens everything above the peak, while the BT.2390 curve stays linear below the knee and approaches the peak asymptotically](tone-mapping.svg)
 
@@ -537,7 +530,7 @@ The source axis is drawn with even spacing per labelled step rather than to scal
 **BT.2390** defines the reference method: a linear segment up to a knee, then a Hermite roll-off reaching the display's peak asymptotically, so highlights compress and mid-tones do not move.
 **BT.2408** fixes where diffuse white sits in an HDR signal, which is what the knee is placed relative to.
 
-Tone mapping is not colour conversion, and a converter that changes the transfer function is no substitute.
+A converter that changes the transfer function is no substitute for that roll-off.
 Normalizing PQ against the format's 10000 nits rather than the display's peak produces a picture at a fraction of the input code value.
 A darker picture is not a tone map (`viewer-architecture.md`, "Tone mapping").
 
@@ -562,7 +555,8 @@ HDR states absolute luminance, or a curve the display scales, and reaches an ord
 | MaxFALL | the brightest frame average |
 
 The metadata is advisory: it tells a display what the content was graded on so it can map to its own capability.
-Losing it does not break decoding, it removes what a good tone map would have used.
+Losing it breaks no decode.
+It removes what a good tone map would have used.
 
 HDR is why a source needs more than 8 bits: the same 256 code values stretched over a hundred times the luminance range put visible steps in every gradient.
 
@@ -614,24 +608,11 @@ The stages worth attacking first are the ones measured in frames: reordering, lo
 
 ### Measuring it rather than adding it up
 
-The table above is a model, and the app reports measurements against it.
-A tile's stats panel carries a delay block with a row per stage, and the publish screen promotes the one stage the sending machine causes.
+The table above is a model, and the app measures against it rather than deriving from it.
+A wall-clock reading of what a stage cost is something a setting cannot give:
+an SRT window is a request the peer can raise, and a lookahead depth is frames until something times them.
 
-| Row | Comes from | Covers |
-| --- | --- | --- |
-| Capture and encode | the publish pipeline's own clock, at the encoded-frame counter | capture, conversion, encode, parse |
-| Publisher to relay | the publish transport's negotiated delivery window | the outbound link |
-| Through the relay | the timed way here, less the two windows | terminate and re-mux |
-| Relay to here | the watch transport's negotiated delivery window | the inbound link |
-| Decode | the receive pipeline's own clock, at the sink's pad | depacketize, decode, convert |
-| Held for play time | the latency query, less the row above | present |
-
-Two of those rows are measured rather than configured, and so is the timing the relay's row is derived from, though no row draws that one.
-All three are the same subtraction: a moment a frame carries, taken off a clock at a point the frame has reached.
-That is a wall-clock reading of what a stage really cost, which a setting cannot be.
-An SRT window is a request the peer can raise, and a lookahead depth is frames rather than milliseconds until something times them.
-
-Where each reading is taken, and which rows a machine cannot fill: `delay-measurement.md`.
+Which stages are measured, where each reading is taken, and which rows a machine cannot fill: `delay-measurement.md`.
 
 ## Bitrate and quality
 
@@ -686,15 +667,12 @@ flowchart TD
 ```
 
 Read it backwards.
+A viewer's decode follows from the profile, the profile from the pixel format, the pixel format from the codec, the codec from the family, and the family from the capture backend.
+Frames cross the bus according to the pair of capture backend and encoder family, and to neither alone.
+What may be published is what the encoder produces intersected with what the publish protocol carries, and what may be watched is the same intersection against the watch protocol.
 
-- A viewer's decode is decided by the *profile*, which follows from the pixel format, which the codec permits and the encoder implements.
-- A codec's availability is decided by the *family*, which the engine limits, which the capture backend fixed.
-- Whether frames cross the bus is decided by the *pair* of capture backend and encoder family, and by neither alone.
-- What may be published is the intersection of what the encoder produces and what the publish protocol carries.
-  What may be watched is the same intersection against the watch protocol, taken separately.
-
-Four things are therefore not free parameters even though each looks like one in a settings form: the engine, the frame memory, the profile, and the carriage.
-Each is derived, and this app derives all four from tables rather than restating them (`domain-model.md`).
+So the engine, the frame memory, the profile and the carriage each look like a free parameter in a settings form and are not.
+This app derives all four from tables (`domain-model.md`).
 
 ## Symptom to cause
 
@@ -716,15 +694,5 @@ Each is derived, and this app derives all four from tables rather than restating
 | Tearing | present | no vsync |
 | Judder at a steady rate | rate mismatch | capture rate against display refresh |
 
-## Where this repo holds each fact
-
-| Concept | Lives in |
-| --- | --- |
-| Which codec, chroma, mode and ladder each encoder offers | `capabilities` |
-| Which protocol carries which format, per leg and per engine | `transport` |
-| Whether a capture backend and an encoder family share memory | `gpupath` |
-| Which capture sources a platform serves | `platform` |
-| What each decoder element takes, for the viewer-cost note | `capabilities/decoders.go` |
-| How a greying, a repair and a refusal derive from all of the above | `rules`, and `form` |
-
-`domain-model.md` states why each is a table rather than a branch, and `development-principles.md` states the rules shaping any change to them.
+`domain-model.md` states why each of these is a table in this repository rather than a branch,
+and `development-principles.md` the rules shaping any change to them.

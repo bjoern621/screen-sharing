@@ -6,7 +6,6 @@
 // and a library brings a registry to keep them in,
 // a second copy of facts the registry and the service own (docs/development-principles.md).
 //
-// A scrape is a read and never a write.
 // Every gauge is derived from its owner when the request arrives,
 // so nothing here has to be kept in step with a membership change,
 // and a scrape that never comes costs nothing.

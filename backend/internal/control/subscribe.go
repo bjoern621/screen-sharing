@@ -18,7 +18,7 @@ import (
 // The third kind of method, and the one the other two lean on:
 // an effect answers with an empty message because the resulting state arrives here,
 // and a read exists so a shell that has just mounted starts from the picture this keeps current.
-// Every event carries a whole state and never a delta, so a duplicate is harmless,
+// Every event carries a whole state, so a duplicate is harmless,
 // and a dropped connection is recovered from by reading state again (docs/ipc-api.md, "Events").
 // Nothing is computed here, the broker's events being the contract's own messages already:
 // this opens a subscription, forwards it, and lets it go.
@@ -42,10 +42,10 @@ func (s *Server) Subscribe(req *screensharev1.SubscribeRequest, out grpc.ServerS
 		if !errors.As(err, &unknown) {
 			// The broker refuses a subscription for one reason, in one type.
 			// A second reason reaching here is a change to the broker this method was never told about:
-			// an Entwicklungsfehler, not anything to report to a shell.
+			// an Entwicklungsfehler.
 			assert.Never("a subscription is refused only for a kind this build has none of", err)
 		}
-		return invalidArgument("no event kind named '%s'; this build carries %s",
+		return invalidArgument("no event kind named '%s'. This build carries %s",
 			unknown.Kind, strings.Join(events.KindNames(), ", "))
 	}
 	defer cancel()

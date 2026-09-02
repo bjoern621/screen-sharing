@@ -41,8 +41,9 @@ type TestSurface struct {
 	// It travels in the stream name, so it is what a viewer picking off the roster reads before
 	// anything has decoded.
 	//
-	// An expectation, never a claim: a decode's own findings are reported off the pipeline, so
-	// an HDR-labelled row whose tile draws no HDR badge is the failure this makes visible.
+	// The label is an expectation the stream is measured against:
+	// a decode's own findings are reported off the pipeline,
+	// so an HDR-labelled row whose tile draws no HDR badge is the failure this makes visible.
 	Label string
 }
 

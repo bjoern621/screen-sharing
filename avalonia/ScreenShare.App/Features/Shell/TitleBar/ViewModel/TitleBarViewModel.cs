@@ -106,7 +106,7 @@ public sealed class TitleBarViewModel : Observable
         Title = _session.Length == 0 ? label : $"{label} · {_session}";
 
         IsMaximised = _maximised;
-        MaximiseLabel = _maximised ? "Restore" : "Maximise";
+        MaximiseLabel = _maximised ? "Restore" : "Maximize";
 
         MinimiseCommand.Refresh();
         MaximiseCommand.Refresh();

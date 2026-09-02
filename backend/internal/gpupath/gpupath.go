@@ -59,8 +59,8 @@ const (
 // Memories is the values the setting takes, in display order.
 var Memories = []string{MemoryAuto, MemoryGpu, MemoryGpuEncoderColor, MemorySystem}
 
-// Path is a capture backend and an encoder family whose frames reach the encoder without leaving
-// the device.
+// Path is a capture backend and an encoder family,
+// whose frames reach the encoder without leaving the device.
 type Path struct {
 	// Engine runs the pair, one of capabilities.Engines.
 	Engine string `json:"engine"`
@@ -91,8 +91,8 @@ type Path struct {
 // the only path where either end has no GPU frames to offer or to read.
 //
 // The rows are pairs rather than two lists intersected, since neither end implies the other.
-// The GStreamer engine's va elements import the portal's DMABuf where its nvcodec elements take
-// system memory from the same source.
+// The GStreamer engine's va elements import the portal's DMABuf
+// where its nvcodec elements take system memory from the same source.
 // On the ffmpeg side nvenc reads CUDA frames no grabber here can hand it:
 // the one CUDA filter converting a captured texture states neither colour matrix nor range,
 // and a conversion that cannot say what it produced is not one the publish leg can encode against.
@@ -102,8 +102,8 @@ type Path struct {
 // so both families download every frame whatever the pair looks like.
 //
 // The portal row alone is held against a device check.
-// A row whose engine half derives its device from the captured frames encodes on the GPU those
-// frames came off by construction (internal/ffmpeg, gpuConverts).
+// A row whose engine half derives its device from the captured frames
+// encodes on the GPU those frames came off by construction (internal/ffmpeg, gpuConverts).
 // The portal names no device at all and the va elements open their own,
 // so the two are one device only on a machine that has one (Undetermined).
 //

@@ -1,8 +1,8 @@
 // Package publish selects and supervises the pipeline that captures the screen and pushes
 // the encoded stream to the relay.
 //
-// The boundary is the Publisher: the app starts and stops a Publisher and never names ffmpeg or
-// GStreamer.
+// The boundary is the Publisher: the app starts and stops a Publisher,
+// with ffmpeg and GStreamer named only below it.
 // A capture backend owns its whole pipeline behind that contract.
 // One publish engine drives the screen grabbers feeding a single ffmpeg process, the other drives
 // the capture backends where GStreamer captures, encodes and ships in one graph.
@@ -48,8 +48,8 @@ type Callbacks struct {
 	OnExit  func(err error, stderrTail string, logPath string)
 	// OnPointer receives where the pointer is, for a publish whose cursor mode sends the position
 	// instead of drawing it into the frames.
-	// It fires at the reader's own rate, faster than the frame rate, and never on any other mode or
-	// any engine whose child cannot report one (internal/pointer).
+	// It fires at the reader's own rate, faster than the frame rate.
+	// No other mode fires it, nor an engine whose child cannot report one (internal/pointer).
 	OnPointer func(pointer.Spot)
 }
 

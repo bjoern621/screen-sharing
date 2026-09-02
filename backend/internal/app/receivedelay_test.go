@@ -46,7 +46,7 @@ func TestReceiveDelayTransitIsPerInterval(t *testing.T) {
 
 	budget := receiveDelayOf(now, last, true, publishDelay{})
 
-	// 300 ms across 10 frames, and never the run's 400 across 20.
+	// 300 ms across 10 frames, where the run holds 400 across 20.
 	closeTo(t, "receive", budget.Receive, ms(30))
 }
 
@@ -232,7 +232,7 @@ func TestReceiveDelayPublishingStagesComeOffTheStamp(t *testing.T) {
 
 	budget := receiveDelayOf(now, last, true, publishDelay{})
 
-	// 240 ms across 30 frames, and never the run's 340 across 40.
+	// 240 ms across 30 frames, where the run holds 340 across 40.
 	closeTo(t, "publish", budget.Publish, ms(8))
 	closeTo(t, "publish link", budget.PublishLink, ms(300))
 }

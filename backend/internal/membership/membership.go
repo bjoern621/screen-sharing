@@ -20,7 +20,6 @@
 // This is the one place in the service that keeps anything, and it keeps two things:
 // the leases, and one look at the relay's connections per group, held for SweepWindow.
 //
-// Enforcement is stated, never stepped.
 // A run brings the relay to the leases as they stand,
 // and a second run over unchanged leases closes nothing,
 // which is what lets it run on every statement of presence and on every read the relay reports.

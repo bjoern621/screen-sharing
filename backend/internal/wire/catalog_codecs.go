@@ -47,7 +47,7 @@ func catalogCodecs() []*screensharev1.VideoCodec {
 // the table describes the viewers' hardware rather than this machine's,
 // a stream being published once and watched on whatever the watchers have.
 // A shell reads it to say what a publish choice costs a viewer,
-// a note on a control and never a greying.
+// a note on a control.
 func catalogDecoders() []*screensharev1.Decoder {
 	out := make([]*screensharev1.Decoder, 0, len(capabilities.Decoders))
 	for _, d := range capabilities.Decoders {

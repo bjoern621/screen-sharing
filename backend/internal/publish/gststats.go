@@ -187,7 +187,7 @@ func (m *gstMeter) port() string {
 }
 
 // count takes the child's connection and drains it.
-// The payload is a copy of what the sink ships, so it is weighed and discarded, never inspected.
+// The payload is a copy of what the sink ships, so it is weighed and discarded.
 //
 // The listener closes on the first connection, a run making exactly one.
 // Left open, a later pipeline's sink could land on this meter's port and have its bytes counted

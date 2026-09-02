@@ -32,7 +32,7 @@ import (
 // and every consumer of that table would read a protocol that does not exist.
 
 // previewLeg is what the log calls the carriage between the child and this process.
-// A description, not a transport registry name: no transport entry carries this leg.
+// No transport entry carries it.
 const previewLeg = "loopback RTP"
 
 // previewRun is the local preview in force:

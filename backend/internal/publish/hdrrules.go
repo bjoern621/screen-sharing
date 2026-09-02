@@ -33,7 +33,6 @@ func init() {
 }
 
 // engineColourRules is what each engine states about the colour it carries.
-// A note and never a refusal, for the reason above.
 func engineColourRules() []rules.Rule {
 	return []rules.Rule{{
 		When: map[string]rules.Match{

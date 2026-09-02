@@ -64,7 +64,7 @@ type sessionSource struct {
 
 // sessions is what reads a single monitor, per session.
 //
-// Windows names no display server, having one.
+// Windows leaves display blank: one windowing system, nothing to distinguish.
 // Linux names x11 and not wayland, the whole of why a Wayland session has no monitor preview:
 // the portal is its only way to a screen and it answers with what the picker was told.
 // macOS has no row at all, avfvideosrc choosing its own display,
@@ -151,7 +151,7 @@ const (
 // PreviewSource is the launch fragment one monitor's preview is read through:
 // the session's own screen element, paced and reduced to what a wizard tile draws.
 //
-// It produces pictures and not a bitstream,
+// It produces pictures rather than a bitstream,
 // so a receiver built on it is opened raw and grows no decoder and no audio branch
 // (receive.Stream.Raw).
 //
@@ -183,7 +183,6 @@ func PreviewSource(p platform.Info, index int) (string, error) {
 // An enumeration reporting no geometry leaves the crop off,
 // capturing the whole X screen rather than a guessed rectangle.
 //
-// The two absences reaching one answer here is not this function deciding they are the same.
 // An enumeration with no geometry is a machine that cannot measure its outputs,
 // and the whole screen is the honest answer to it.
 // An index no output answers to is a settings file naming a monitor that was unplugged.

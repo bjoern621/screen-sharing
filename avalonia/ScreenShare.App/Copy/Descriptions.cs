@@ -4,26 +4,25 @@ namespace ScreenShare.App.Copy;
 /// Paragraph behind one choice: what it is, and when to pick it.
 /// Shown under a radio card's title, and in a dropdown entry where there is room (<c>docs/tooltips.md</c>).
 ///
-/// Three rules hold every entry.
 /// Say the observable effect and not the definition:
 /// "keeps a quarter of the color" is the definition,
 /// "colored text and edges smear" is what the reader sees, and the effect leads.
 /// Name what a choice needs before it is picked, the backend graying only what it can prove.
-/// An empty answer is allowed for a value whose name says everything, and the row then draws one line, not two.
+/// An empty answer is allowed for a value whose name says everything, and the row then draws its name alone.
 /// </summary>
 public static class Descriptions
 {
     private static readonly Dictionary<string, string> Captures = new()
     {
-        ["ddagrab"] = "Windows' own screen capture, read on the GPU, one monitor at a time. The best choice on Windows. Capturing costs almost no CPU.",
-        ["gdigrab"] = "Copies the desktop with the CPU, all monitors as one wide frame. On a multi-monitor desktop the frame can exceed what NVIDIA's encoder accepts. Use it only where the other Windows methods do not start.",
+        ["ddagrab"] = "Windows' own screen capture, read on the GPU, one screen at a time. Capturing costs almost no CPU. Pick it on Windows.",
+        ["gdigrab"] = "Copies the desktop with the CPU, every screen as one wide frame. On a desktop with more than one screen the frame can exceed what NVIDIA's encoder accepts. Use it only where the other Windows methods do not start.",
         ["d3d11screencapturesrc"] = "The same Windows capture surface, read by GStreamer instead of ffmpeg. Pick it to reach GStreamer's encoders and its WebRTC output on Windows.",
         ["x11grab"] = "Reads the X11 screen through shared memory. The default on Linux. It sees XWayland windows but not a native Wayland desktop.",
         ["ximagesrc"] = "The same X11 screen, read by GStreamer instead of ffmpeg. Pick it to reach GStreamer's encoders on an X11 session.",
-        ["kmsgrab"] = "Reads the frames the GPU scans out to the monitor, below the compositor. The cheapest capture, and the only one that needs elevated privileges. Without them the capture stops at launch, and nothing can tell in advance.",
-        ["portal"] = "Opens the desktop's own picker, where the monitor or window is chosen. The one that works on Wayland, and on X11 too. Offers fewer pixel formats and rate-control settings than the ffmpeg methods. The fields say so where it matters.",
+        ["kmsgrab"] = "Reads the frames the GPU scans out to the screen, below the compositor. The cheapest capture, and the only one that needs elevated privileges. Without them the capture stops at launch, and nothing can tell in advance.",
+        ["portal"] = "Opens the desktop's own picker, where the screen or window is chosen. Works on Wayland, and on X11 too. Offers fewer pixel formats and rate-control settings than the ffmpeg methods. The fields say so where it matters.",
         ["avfoundation"] = "macOS screen capture, by screen index. macOS offers no system-audio input device, so desktop audio cannot be recorded.",
-        ["avfvideosrc"] = "The same macOS screen, read by GStreamer instead of ffmpeg. It picks the screen itself, so the monitor setting does not reach it.",
+        ["avfvideosrc"] = "The same macOS screen, read by GStreamer instead of ffmpeg. It picks the screen itself, so the screen setting does not reach it.",
     };
 
     private static readonly Dictionary<string, string> Memories = new()
@@ -94,7 +93,7 @@ public static class Descriptions
         ["vbr"] = "Aims at the target and bursts to the ceiling on motion. Holds quality where constant bitrate would soften. Needs headroom above the average.",
         ["abr"] = "Aims at the target on average, with no ceiling. Quality holds through hard frames. A good fit on a LAN, where a burst costs nothing.",
         ["crf"] = "Constant quality, variable bandwidth. The rate rises with motion and falls to almost nothing on a still screen. Set a ceiling to keep busy moments within the connection.",
-        ["lossless"] = "The viewer decodes pixel for pixel what was captured. There is no rate control, so a moving screen can burst to hundreds of Mbit/s. LAN only.",
+        ["lossless"] = "The viewer decodes pixel for pixel what was captured. Nothing bounds the rate, so a moving screen can burst to hundreds of Mbit/s. LAN only.",
     };
 
     private static readonly Dictionary<string, string> AudioSources = new()
@@ -122,21 +121,21 @@ public static class Descriptions
         ["p2"] = "",
         ["p3"] = "",
         ["p4"] = "NVIDIA's default balance of speed and file size.",
-        ["p5"] = "Constant bitrate pins the preset here for its low-delay tuning.",
+        ["p5"] = "Constant bitrate pins the effort here for its low-delay tuning.",
         ["p6"] = "",
         ["p7"] = "Most analysis, smallest files. On the dedicated encoder chip even this barely touches the graphics cores.",
 
         // Software ladder.
         // Only a step carrying a fact beyond its position says anything, the rest being rungs.
-        ["placebo"] = "Hours of analysis for files under a percent smaller. Not useful for a live stream.",
+        ["placebo"] = "Hours of analysis for files under a percent smaller. It cannot keep up with a live stream.",
         ["medium"] = "x264's default balance of speed and file size.",
         ["veryfast"] = "Fast enough to keep up with a screen without taking every core.",
         ["ultrafast"] = "Almost no analysis. Keeps up with a large screen on a slow computer, at a much larger stream.",
     };
 
     /// <summary>
-    /// What each tune aims at, and never whether it is good:
-    /// which one is right follows from the content and the delay budget, both the reader's.
+    /// What each tune aims at.
+    /// Which one is right follows from the content and the delay budget, both the reader's.
     /// </summary>
     private static readonly Dictionary<string, string> Tunes = new()
     {
@@ -145,7 +144,7 @@ public static class Descriptions
         ["animation"] = "Assumes flat color and hard edges, where detail is scarce and blocking shows immediately.",
         ["grain"] = "Keeps film grain instead of spending bitrate erasing it. Expensive.",
         ["stillimage"] = "For a picture that barely moves, such as a slide left on screen.",
-        ["psnr"] = "Optimizes for arithmetic error rather than what the eye sees. For measurement, not watching.",
+        ["psnr"] = "Optimizes for arithmetic error rather than what the eye sees. A metric target, for measurement.",
         ["ssim"] = "Optimizes for a structural similarity score. A metric target, like PSNR.",
         ["ms-ssim"] = "The same structural score read at several scales at once. A metric target, like the other two.",
         ["vq"] = "Weighs what a viewer would notice rather than a score. The right choice for a watched picture.",

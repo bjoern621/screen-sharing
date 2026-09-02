@@ -89,7 +89,7 @@ func gstLiveBitrateWrite(s settings.Settings) []gstrun.Property {
 	}}
 }
 
-// gstLiveState is the whole state a running pipeline should hold for these settings, never a diff.
+// gstLiveState is the whole state a running pipeline should hold for these settings.
 // The child converges to it, so a second send changes nothing and one that never arrived cannot
 // leave the pipeline on a value nobody chose.
 func gstLiveState(s settings.Settings) gstrun.LiveState {

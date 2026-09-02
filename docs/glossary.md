@@ -1,42 +1,43 @@
 # Glossary
 
 Abbreviations and initialisms this project uses, in code, configuration, documentation or the user interface.
-A term earns a row by appearing somewhere in the repository, not by being common in the field.
-Which combinations are offered is the capability table's answer (`backend/internal/capabilities`), not this page's.
+A term earns a row by appearing somewhere in the repository.
+Which combinations are offered is the capability table's answer.
 
 Expansion first, meaning second.
 An abbreviation carrying two senses in this repository gets a row per sense.
 `video-stack.md` holds the other half of the subject: what each of these things sits between, what it constrains, and what breaks when it disagrees with its neighbour.
 
-The first section is different: it fixes the words for the app's own moving parts, and those names are normative rather than descriptive.
+The first section fixes the words for the app's own moving parts, and those names are normative.
 
 ## Domain language
 
 One name per concept, in tooltips, labels, log messages, comments, commit messages and docs.
-A concept with two names reads as two concepts, and a user who met "GStreamer pipeline" in one tooltip cannot tell it is the thing another tooltip calls the "portal backend".
+A concept with two names reads as two concepts,
+and a user who met "GStreamer pipeline" in one tooltip cannot tell it is the thing another tooltip calls the "portal backend".
 The **Not** column lists the synonyms this repository refuses for the same thing.
 
 | Term | Means | Not |
 | --- | --- | --- |
-| Capture backend | How frames leave the desktop, named as its own framework names the source (`x11grab`, `portal`, `d3d11screencapturesrc`, and the rest of `publish.Captures`). The user's first choice: it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source |
+| Capture backend | How frames leave the desktop, named as its own framework names the source (`x11grab`, `portal`, `d3d11screencapturesrc`, and the rest). The user's first choice: it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source |
 | Publish engine | Media framework running capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend. | pipeline, publish path, portal path, media backend, capture engine |
 | ffmpeg | The ffmpeg publish engine, and the executable. | FFmpeg, FFMPEG |
 | GStreamer | The GStreamer publish engine, driven as a `gst-launch-1.0` pipeline description. | gstreamer (in prose), Gstreamer, gst |
 | Element | One node in a GStreamer pipeline, e.g. `x264enc`. The unit a GStreamer capability gap names. | plugin (a plugin ships elements), filter, component |
 | Encoder family | Silicon or library a group of encoders runs on: software, NVENC, VAAPI, QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video. A column of the capability table (`capabilities.Codec.Family`), read to name an entry rather than picked. | encoder backend, encoder type, hardware backend |
-| Encoder | What produces a bitstream, at the grain the "Encoded by" dropdown offers one (`publish.encoder`): the family wherever that family is one encoder, and the library where several share a family (`nvenc`, `x264`, `svt-av1`). `capabilities.Codec.Encoder`. | codec (a codec is the format), encoder engine |
-| Video codec | Coding format an encoder produces: H.264, HEVC, AV1, VP9, VP8. What the "Video format" dropdown offers (`publish.format`), and a column of the capability table (`capabilities.Codec.Format`). | codec family, video format (in the UI) |
-| Codec row | One encode: the format and the encoder together, named as the ffmpeg encoder (`libx264`, `hevc_nvenc`). Addressed by the pair rather than stored, and what a command line, a log line and a probe verdict spell. `capabilities.Row`. | codec (ambiguous), encoder name |
+| Encoder | What produces a bitstream, at the grain the "Encoded by" dropdown offers one: the family wherever that family is one encoder, and the library where several share a family (`nvenc`, `x264`, `svt-av1`). | codec (a codec is the format), encoder engine |
+| Video codec | Coding format an encoder produces: H.264, HEVC, AV1, VP9, VP8. What the "Video format" dropdown offers, and a column of the capability table. | codec family, video format (in the UI) |
+| Codec row | One encode: the format and the encoder together, named as the ffmpeg encoder (`libx264`, `hevc_nvenc`). Addressed by the pair rather than stored, and what a command line, a log line and a probe verdict spell. | codec (ambiguous), encoder name |
 | Audio codec | Coding format the desktop audio track is encoded in: Opus, AAC. Separate from the audio source, which says where the track comes from. | audio format, sound codec |
 | Pixel format | Color model, subsampling and bit depth handed to the encoder: `gbrp`, `yuv444p`, `yuv422p`, `yuv420p`, `p010le`. | chroma (alone), color format |
 | Rate-control mode | How the encoder spends bits over time: CBR, VBR, ABR, CRF, lossless. | bitrate mode, rate mode, quality mode |
-| Capability gap | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. `capabilities.Gap`. | limitation, restriction, exclusion |
+| Capability gap | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. | limitation, restriction, exclusion |
 | Relay | The MediaMTX server every publisher pushes to and every viewer pulls from. | server, host, MediaMTX (when the role is meant) |
 | Publish leg | Publisher to relay. The only leg an encoder is built for, and one of the two the settings form configures: the `watch` group carries the other. | hop 1, publish hop, upstream |
 | Watch leg | Relay to viewer. Chosen per receiver, independent of the publish leg: `tile_watch_transport` for a tile, and a leg named per press for a player window or a browser page. | hop 2, viewer hop, downstream, playback path |
 | Shell | The Avalonia window, and the only one. Decides nothing, draws what the backend describes. | frontend, client, UI process |
 | Backend | Headless Go process owning capture, encode, publish, decode and the domain model. | server, daemon, core (when the role is meant) |
-| Receive pipeline | In-process GStreamer pipeline pulling one stream off the relay and decoding it for a tile. `backend/internal/receive`. | player pipeline, decode chain, grid pipeline |
+| Receive pipeline | In-process GStreamer pipeline pulling one stream off the relay and decoding it for a tile. | player pipeline, decode chain, grid pipeline |
 | Render chain | The elements between a receive pipeline's decoder and its sink, and what they say about the colour they produce: `gl`, `cpu`, `d3d11`, `d3d12`, `raw`. | render path, conversion path, video sink chain |
 | Frame channel | Second gRPC service between backend and shell: pool announcements naming the GPU memory, frame-ready notices, and the releases that hand a slot back. Carries no pixels and no control. | video channel, frame API, stream channel |
 
@@ -163,8 +164,7 @@ The **Not** column lists the synonyms this repository refuses for the same thing
 | GDI | Graphics Device Interface | Legacy Windows drawing and capture API, reached through `gdigrab`. |
 | AVF | AVFoundation | Apple's media framework, the macOS screen source of both engines: `avfoundation` on ffmpeg, `avfvideosrc` on GStreamer. |
 
-A frame that stays on the GPU from capture to encoder crosses the bus not at all.
-One that does not crosses it twice.
+A frame that stays on the GPU from capture to encoder never crosses the bus, and one that leaves it crosses twice.
 
 | Term | Expansion | Meaning |
 | --- | --- | --- |

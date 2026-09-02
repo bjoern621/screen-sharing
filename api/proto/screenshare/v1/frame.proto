@@ -7,37 +7,39 @@ import "screenshare/v1/session.proto";
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// FrameService is the second service on the control socket, carrying handles and not pixels.
+// FrameService is the second service on the control socket, carrying frame handles.
 //
 // A decoded frame stays in the GPU memory the decoder allocated.
-// What crosses here is the name of that memory, a shared texture handle on Windows or a dmabuf
-// file descriptor on Linux, with the bookkeeping that says whose turn it is to touch it.
-// Pixels never enter a message, never reach system memory and never reach ControlService.
+// What crosses here is the name of that memory,
+// a shared texture handle on Windows or a dmabuf file descriptor on Linux,
+// with the bookkeeping that says whose turn it is to touch it.
+// No pixel crosses either service.
 //
 // Nothing here describes a tile or a grid.
-// A subscription names a picture some effect already opened, and the size it asks to be
-// rendered at is a count of pixels rather than a layout
+// A subscription names a picture some effect already opened,
+// and the size it asks to be rendered at is a count of pixels rather than a layout
 // (docs/ipc-api.md, docs/viewer-architecture.md).
 service FrameService {
   // Frames subscribes one consumer to one decode.
   //
   // Bidirectional because the protocol is a loan: the backend lends a slot of shared memory
-  // and writes into it again only once the consumer hands it back, so the release rides the
-  // call the frame did.
+  // and writes into it again only once the consumer hands it back,
+  // so the release rides the call the frame did.
   // A release on a second call could outlive the subscription it belongs to.
   //
-  // One call per decode rather than one call for all of them, so a tile that ends cancels
-  // its own subscription and a consumer that dies mid-frame is one dead stream rather than
-  // every stream stalling on a slot nobody returns.
+  // One call per decode rather than one call for all of them,
+  // so a tile that ends cancels its own subscription,
+  // and a consumer that dies mid-frame is one dead stream
+  // rather than every stream stalling on a slot nobody returns.
   //
   // FAILED_PRECONDITION where nothing is producing what the subscription named.
-  // This service opens none of the three pictures: StartReceive opens a relay decode, the
-  // publish opens its own preview, and StartMonitorPreview opens a monitor's.
+  // FrameService opens no picture: StartReceive opens a relay decode,
+  // the publish opens its own preview, and StartMonitorPreview opens a monitor's.
   rpc Frames(stream FramesRequest) returns (stream FrameEvent);
 }
 
 // FramesRequest carries subscribe first and once.
-// The other two may follow at any time after it.
+// A release or a render size may follow at any time after it.
 message FramesRequest {
   oneof request {
     FrameSubscribe subscribe = 1;
@@ -48,9 +50,9 @@ message FramesRequest {
 
 // FrameSubscribe names the picture this call draws from.
 //
-// A relay decode takes the stream name and the leg together, because the relay re-serves
-// each ingest on all its listeners and one stream can be decoded over several protocols at
-// once, each decode its own pipeline.
+// A relay decode takes the stream name and the leg together,
+// because the relay re-serves each ingest on all its listeners
+// and one stream can be decoded over several protocols at once, each decode its own pipeline.
 message FrameSubscribe {
   oneof source {
     StreamRef stream = 1;
@@ -64,46 +66,46 @@ message FrameSubscribe {
 // PublishState.live is singular, so the identity is complete with no field on this message.
 // The port the preview landed on is reported on PublishState.Live.preview.
 //
-// FAILED_PRECONDITION where nothing is publishing, or where a publish runs with no preview
-// behind it.
-// The preview pipeline goes up with the publish child and down with it, and this service
-// opens neither (docs/ipc-api.md).
+// FAILED_PRECONDITION where nothing is publishing,
+// or where a publish runs with no preview behind it.
+// The preview pipeline goes up with the publish child and down with it,
+// and FrameService opens neither (docs/ipc-api.md).
 message PublishPreview {}
 
 // MonitorPreview names the live picture of one of this machine's monitors.
 //
-// The frames are raw: nothing encodes a monitor preview and nothing transports one, and what
-// leaves is the same handle every other subscription gets.
+// The frames are raw: nothing encodes a monitor preview and nothing transports one,
+// and what leaves is the same handle every other subscription gets.
 //
 // FAILED_PRECONDITION where nothing is previewing that monitor.
-// StartMonitorPreview opens one, and this service starts no screen capture of its own.
+// StartMonitorPreview opens one, and FrameService starts no screen capture of its own.
 message MonitorPreview {
-  // The index PublishSettings.monitor holds and Catalog.Monitor is enumerated under.
+  // Index PublishSettings.monitor holds and Catalog.Monitor is enumerated under.
   int32 monitor = 1;
 }
 
 // FrameRelease hands one slot back, and is the whole of the flow control.
 //
 // Until it arrives the slot is the consumer's and no frame is written into it.
-// A consumer that stops releasing slows to its own release rate and never sees a torn picture.
-// It does not stall the decode, which runs on and drops the frames it has nowhere to put
-// (FrameReady.dropped).
+// A consumer that stops releasing slows to its own release rate.
+// It does not stall the decode,
+// which runs on and drops the frames it has nowhere to put (FrameReady.dropped).
 message FrameRelease {
   // Echoed from FramePool.
-  // A release that crossed a pool change on the wire names a pool that is gone, and is
-  // discarded rather than freeing a slot of the pool that replaced it.
+  // A release that crossed a pool change on the wire names a pool that is gone,
+  // and is discarded rather than freeing a slot of the pool that replaced it.
   uint64 generation = 3;
   uint32 slot = 1;
   // Echoed from FrameReady, and names the frame the slot was lent for.
   uint64 serial = 2;
 }
 
-// FrameRenderSize is how many pixels the consumer will draw the frames at.
+// FrameRenderSize is how many pixels the consumer draws the frames at.
 //
 // A bound rather than a size.
-// The receive pipeline's scaler fixates inside it and corrects the pixel aspect ratio, so a
-// consumer smaller than the stream has the conversion done at its own size and a consumer
-// larger than the stream gets the stream's own size rather than an upscale.
+// The receive pipeline's scaler fixates inside it and corrects the pixel aspect ratio,
+// so a consumer smaller than the stream has the conversion done at its own size,
+// and a consumer larger than the stream gets the stream's own size rather than an upscale.
 //
 // Zero in either dimension leaves the pipeline where it is.
 // A render chain that names no filter to write the size into renders at the source's size.
@@ -120,41 +122,42 @@ message FrameEvent {
   }
 }
 
-// FramePool is the shared memory the frames will arrive in, announced before any of them do.
+// FramePool is the shared memory the frames arrive in, announced before any of them do.
 //
 // The backend allocates the slots and frees them when the call ends.
 // The handles carry no reference to the memory on either platform,
 // so one held after the call ended names something that is gone.
 //
-// A pool arrives more than once when the stream renegotiates, on a source that changed size
-// or a render size that moved the scaler's output.
-// Each announcement replaces the one before it: the consumer drops its imports of the
-// previous generation, and the slot numbers start again.
+// A pool arrives more than once when the stream renegotiates,
+// on a source that changed size or a render size that moved the scaler's output.
+// Each announcement replaces the one before it:
+// the consumer drops its imports of the previous generation, and the slot numbers start again.
 message FramePool {
   // Counts this subscription's pools, from one.
-  // A release is checked against it, and it is what tells a re-announcement from a repeat.
+  // A release is checked against it, and it tells a re-announcement from a repeat.
   uint64 generation = 1;
 
   FrameHandleType handle_type = 2;
-  // The pixel layout every slot carries, which is what the render chain produced rather than
-  // what the stream was encoded in.
+  // Pixel layout every slot carries.
+  // What the render chain produced, rather than what the stream was encoded in.
   FrameFormat format = 3;
 
-  // The slots' pixel dimensions, negotiated by the pipeline rather than set by the render size.
+  // Slots' pixel dimensions, negotiated by the pipeline rather than set by the render size.
   uint32 width = 4;
   uint32 height = 5;
 
-  // The allocation's size in bytes where the import needs one, and zero where the handle
-  // describes its own extent.
+  // Allocation size in bytes where the import needs one,
+  // and zero where the handle describes its own extent.
   uint64 memory_size = 6;
   // False means row zero is the bottom row and the consumer flips.
   bool top_left_origin = 7;
 
-  // The lent buffers, in index order and never renumbered within a generation.
-  // There are at least two: one the consumer draws from and one the backend writes into.
+  // Lent buffers, in index order.
+  // An index holds for the whole generation.
+  // At least two: one the consumer draws from and one the backend writes into.
   repeated FrameSlot slots = 8;
 
-  // The keyed-mutex protocol, for a handle type that carries one.
+  // Keyed-mutex protocol, for a handle type that carries one.
   // Each side acquires with its own key and releases with the other's,
   // so neither hardcodes a number the other chose.
   // Both are zero on a handle type synchronized some other way.
@@ -162,13 +165,13 @@ message FramePool {
   uint32 consumer_key = 10;
 
   // Path of a Unix socket the file descriptors are passed over, for a descriptor handle type.
-  // Empty for every handle type that is not a descriptor.
+  // Empty on any other handle type.
   // A descriptor is not a number another process can use,
-  // so the consumer connects once per generation and reads one descriptor per slot, in index
-  // order, over SCM_RIGHTS.
+  // so the consumer connects once per generation and reads one descriptor per slot,
+  // in index order, over SCM_RIGHTS.
   string fd_socket = 11;
 
-  // The format modifier the frames are tiled with, for a descriptor handle type.
+  // Format modifier the frames are tiled with, for a descriptor handle type.
   // An import that guesses it reads a linear image out of a tiled one.
   uint64 modifier = 12;
 }
@@ -178,7 +181,7 @@ message FrameSlot {
   // Names the memory in the consumer's process.
   // Zero for a handle type whose descriptors travel over fd_socket instead.
   uint64 handle = 2;
-  // The layout inside the allocation, for a handle type that does not carry it.
+  // Layout inside the allocation, for a handle type that does not carry it.
   // Empty where the handle describes itself.
   repeated FramePlane planes = 3;
 }
@@ -190,7 +193,7 @@ message FramePlane {
   uint32 stride = 2;
 }
 
-// FrameReady says one slot now holds a frame and is the consumer's until it is released.
+// FrameReady says one slot holds a frame and is the consumer's until it is released.
 message FrameReady {
   uint64 generation = 1;
   uint32 slot = 2;
@@ -203,25 +206,25 @@ message FrameReady {
 }
 
 // FrameEnd says the subscription is over and why.
-// The same fact ReceiveExit carries on the control stream, repeated on the call that was
-// consuming the frames, because a consumer blocked on this read learns nothing from an event
-// it is not the one reading.
+// The same fact ReceiveExit carries on the control stream,
+// repeated on the call that was consuming the frames,
+// because a consumer blocked on this read learns nothing from an event it is not the one reading.
 message FrameEnd {
   string message = 1;
 }
 
 // FrameHandleType names what a slot's handle is.
-// An identifier and not a platform: a consumer matches it against what its own compositor
-// imports, which is a list that differs between two backends on one operating system.
+// A consumer matches it against what its own compositor imports,
+// a list that differs between two backends on one operating system.
 enum FrameHandleType {
   FRAME_HANDLE_TYPE_UNSPECIFIED = 0;
-  // A DXGI global shared handle, from IDXGIResource::GetSharedHandle on a texture created with
-  // D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX.
+  // DXGI global shared handle, from IDXGIResource::GetSharedHandle.
+  // The texture carries D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX.
   // Valid in every process on the machine without being duplicated into one.
   FRAME_HANDLE_TYPE_D3D11_GLOBAL_SHARED = 1;
-  // A Linux dmabuf file descriptor, passed over fd_socket.
-  // The modifier and the planes travel with it, since a descriptor says nothing about the
-  // tiling of what it names.
+  // Linux dmabuf file descriptor, passed over fd_socket.
+  // The modifier and the planes travel with it,
+  // since a descriptor says nothing about the tiling of what it names.
   FRAME_HANDLE_TYPE_DMABUF_FD = 2;
 }
 

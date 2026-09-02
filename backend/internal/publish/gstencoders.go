@@ -54,7 +54,7 @@ var (
 type gstCodec struct {
 	// encode builds the element and its properties.
 	// l carries the two ladder steps the encode spends, resolved once against the codec's own row,
-	// so a mapping states which property carries a step and never which step that is.
+	// so a mapping states which property carries a step.
 	encode func(s settings.Settings, r gstRates, l capabilities.Steps) []string
 	link   []string
 	// limits refuses a settings combination the element cannot express, beyond what the capability
@@ -244,7 +244,7 @@ var gstFamilyLimits = map[string]func(settings.Settings) error{
 // at whatever rate the transport takes: a leg draining three a second turns fifty held frames
 // into seventeen seconds of picture nobody has seen, which is what internal/pipedelay reports
 // as the publish transit.
-// The effort ladder buys compression and never delay, so a pin stands whatever step it resolved to.
+// The effort ladder is paid in compression alone, so a pin stands whatever step it resolved to.
 //
 // No row where the element holds nothing to begin with: av1enc lags no frames until asked, and
 // the hardware families queue on the device rather than in an element.
@@ -789,8 +789,8 @@ func vaBitrate(rateM int) string {
 }
 
 // vaTargetPercentage places a VBR target under the ceiling bitrate carries, as a percentage of it.
-// A ceiling more than twice the target falls under the property's floor and never reaches here
-// (vaLimits); one at or below the target reads as 100.
+// A ceiling more than twice the target falls under the property's floor,
+// so it never reaches here (vaLimits); one at or below the target reads as 100.
 func vaTargetPercentage(s settings.Settings) string {
 	pct := 100
 	if s.Publish.MaxrateM > 0 {

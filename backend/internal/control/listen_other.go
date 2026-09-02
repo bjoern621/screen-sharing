@@ -88,7 +88,7 @@ func Listen() (net.Listener, error) {
 // Endpoint names the address this platform serves on,
 // for the backend's log and for a shell's "the backend is not running" message.
 //
-// A path that cannot be resolved comes back as the reason, never as an empty string:
+// A path that cannot be resolved comes back as the reason:
 // the value is only ever read in a sentence a person reads,
 // where an empty address reads as an address of nothing rather than as the absence of one.
 func Endpoint() string {

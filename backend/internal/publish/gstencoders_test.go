@@ -18,8 +18,8 @@ import (
 // encodeTimeout bounds one test encode.
 // Two frames at 320x240 return in well under a second on every element here,
 // so what the bound catches is an element that takes the frames and emits nothing:
-// svtav1enc does that in the low-delay structure, and a stall is a failure rather than a reason to
-// wait.
+// svtav1enc does that in the low-delay structure,
+// and a stall is a failure rather than a reason to wait.
 const encodeTimeout = 20 * time.Second
 
 // baseStream is the default draft with both ladder steps left unnamed.
@@ -81,8 +81,8 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 
 				// System memory: what is under test is the properties an element takes,
 				// and videotestsrc puts no device in the chain.
-				// The device elements and the layouts they negotiate are covered where the conversion into
-				// them is (TestPublishedColorimetryReachesTheDecoder).
+				// The device elements and the layouts they negotiate are covered
+				// where the conversion into them is (TestPublishedColorimetryReachesTheDecoder).
 				format, err := gstChromaFormat(name, s.Publish.Chroma, gpupath.MemorySystem)
 				if err != nil {
 					t.Fatal(err)
@@ -108,8 +108,8 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 					err = errors.New("the pipeline stalled: two frames in, nothing out")
 				}
-				// gst-launch reports a bad property or an unset caps field on stderr and still exits zero for
-				// some of them, so the output is read as well.
+				// gst-launch reports a bad property or an unset caps field on stderr,
+				// and still exits zero for some of them, so the output is read as well.
 				if err != nil || strings.Contains(string(out), "no property") {
 					t.Errorf("gst-launch %s: %v\n%s", strings.Join(args, " "), err, out)
 				}
@@ -201,10 +201,11 @@ func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	}
 }
 
-// Every bitrate mode can drive the property past the range it accepts: cbr and vbr with the figure
-// the settings carry, abr with the ceiling it derives at twice the target.
-// Each is refused, the alternative being a stream running at the bound instead of at the rate the
-// form shows.
+// Every bitrate mode can drive the property past the range it accepts:
+// cbr and vbr with the figure the settings carry,
+// abr with the ceiling it derives at twice the target.
+// Each is refused,
+// the alternative being a stream running at the bound instead of at the rate the form shows.
 func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	aboveBoundM := vaMaxBitrateKbps/1000 + 1
 	for _, tc := range []struct {
@@ -240,10 +241,10 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	}
 }
 
-// cpb-size is the rate times the window, in the kilobits the bitrate property counts, and stops at
-// the same figure.
-// A pair past it is refused here: the element takes the property as a GLib value, and an
-// out-of-range one is a warning on stderr and a pipeline that never carries a frame.
+// cpb-size is the rate times the window, in the kilobits the bitrate property counts,
+// and stops at the same figure.
+// A pair past it is refused here: the element takes the property as a GLib value,
+// and an out-of-range one is a warning on stderr and a pipeline that never carries a frame.
 func TestGstVaRefusesARateBufferAboveTheFieldItIsReadInto(t *testing.T) {
 	for _, tc := range []struct {
 		mode               string
@@ -406,8 +407,9 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			// codec's rate bound: the defaults sit above SVT-AV1's ceiling and above what the qsv
 			// elements accept once abr doubles it.
 			//
-			// The ceiling is not twice the target, which is the value abr derives for the families that
-			// code against a maximum either way: the two modes agree there for a reason,
+			// The ceiling is not twice the target,
+			// which is the value abr derives for the families that code against a maximum either way:
+			// the two modes agree there for a reason,
 			// and a fixture sitting on it would read that agreement as a collapse.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
 			if capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
@@ -426,11 +428,11 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 	}
 }
 
-// A software preset ships a lookahead, and a lookahead is frames the viewer waits for: a leg
-// draining slower than the capture paces drains them at its own rate, so the pin is what keeps a
-// shortfall costing frames instead of seconds (gstLiveDelay).
-// Read off the built encoder rather than off the table, a pin the mapping never appends being the
-// same picture as a table with no row.
+// A software preset ships a lookahead, and a lookahead is frames the viewer waits for:
+// a leg draining slower than the capture paces drains them at its own rate,
+// so the pin is what keeps a shortfall costing frames instead of seconds (gstLiveDelay).
+// Read off the built encoder rather than off the table,
+// a pin the mapping never appends being the same picture as a table with no row.
 func TestTheLookaheadPinReachesEveryElementThatHoldsFrames(t *testing.T) {
 	pinned := map[string][]string{
 		"libx264":    {"sliced-threads=true", "option-string=rc-lookahead=0"},
@@ -469,8 +471,9 @@ func TestTheLookaheadPinReachesEveryElementThatHoldsFrames(t *testing.T) {
 	}
 }
 
-// One property carries every libx265 knob, so the mode's own keys and the pins share it or one of
-// the two is dropped: a second option-string on the same element is the first one overwritten.
+// One property carries every libx265 knob,
+// so the mode's own keys and the pins share it or one of the two is dropped:
+// a second option-string on the same element is the first one overwritten.
 func TestTheX265OptionStringCarriesTheModeKeysBesideThePins(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libx265")
@@ -583,9 +586,10 @@ func TestX265BuildsConstrainedVbrWithACeilingAboveTheTarget(t *testing.T) {
 	}
 }
 
-// The keyframe interval reaches key-int-max, which the va plugin declares a range for, and what the
-// elements are handed is not always the field a reader set: an unset interval is twice the frame
-// rate, so a high rate overflows the property while the control beside it reads zero.
+// The keyframe interval reaches key-int-max, which the va plugin declares a range for,
+// and what the elements are handed is not always the field a reader set:
+// an unset interval is twice the frame rate,
+// so a high rate overflows the property while the control beside it reads zero.
 func TestGstVaRefusesAKeyframeIntervalAboveTheProperty(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("hevc_vaapi")

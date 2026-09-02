@@ -34,8 +34,9 @@ const (
 
 // Signalled is the colour a ColourEncoder path's stream carries, in the settings' own vocabulary.
 //
-// A measured fact about the encoder, recorded so the round-trip test asserts the table's claim
-// against a decoded stream rather than against a value restated beside it.
+// A measured fact about the encoder,
+// recorded so the round-trip test asserts the table's claim against a decoded stream
+// rather than against a value restated beside it.
 // A path that honours the settings fails there first and is promoted to ColourExact,
 // the direction the assertion points: the table may understate what a path does, never overstate it.
 //

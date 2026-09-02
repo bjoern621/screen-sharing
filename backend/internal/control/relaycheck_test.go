@@ -30,8 +30,8 @@ func TestCheckRelayRefusesARequestWithNoDraft(t *testing.T) {
 	}
 }
 
-// A relay that answers nothing is a response and never a status:
-// the call succeeds and every leg carries its own verdict (docs/ipc-api.md, "Errors").
+// A relay that answers nothing still answers the call:
+// it succeeds and every leg carries its own verdict (docs/ipc-api.md, "Errors").
 func TestARelayAnsweringNothingIsStillAnAnswer(t *testing.T) {
 	backend := &fakeBackend{legs: []reach.Result{
 		{Leg: "rtsp", Address: "rtsps://relay:8322", Verdict: reach.Unreachable, Detail: "i/o timeout"},

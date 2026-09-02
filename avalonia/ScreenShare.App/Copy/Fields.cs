@@ -4,7 +4,7 @@ namespace ScreenShare.App.Copy;
 /// What each control is called, what it teaches, and where to read more.
 /// The backend sends a field as a key, <c>bitrate_mbps</c>, <c>capture_memory</c>,
 /// and this turns that key into a heading and a paragraph.
-/// Which controls exist, in what order and which are reachable is the backend's answer, not restated here
+/// Which controls exist, in what order and which are reachable is the backend's answer
 /// (<c>docs/ipc-api.md</c>).
 ///
 /// Help answers three things in this order: what the control does, what moving it costs, what to do about it.
@@ -79,19 +79,19 @@ public static class Fields
 
         ["publish.capture"] = new(
             "How to capture",
-            "How frames leave the desktop. The first choice to get right: it fixes which encoder software runs, so almost everything below follows from it. Prefer the system's own: Desktop Duplication on Windows, the screen picker on Wayland."),
+            "How frames leave the desktop. Set this first. It fixes which encoder software runs, so almost everything below follows from it. Prefer the system's own: Desktop Duplication on Windows, the screen picker on Wayland."),
 
         ["publish.monitor"] = new(
             "Which screen",
-            "The monitor to share. Only what this screen shows is sent. Windows on other screens stay private."),
+            "The screen to share. Only what it shows is sent. Windows on other screens stay private."),
 
         ["publish.output_resolution"] = new(
             "Size sent",
-            "The size the encoder is fed. Leave it at the source to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: encoding, upload, and decoding. The most effective setting when the connection is the problem."),
+            "The size the encoder is fed. Leave it at the screen's own size to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: encoding, upload, and decoding. The most effective setting when the connection is the problem."),
 
         ["publish.fps"] = new(
             "Frame rate",
-            "How many pictures a second. Higher is smoother and costs proportionally more upload and encoding. Above the monitor's refresh rate the extra frames are duplicates: bandwidth for no smoothness.",
+            "How many pictures a second. Higher is smoother and costs proportionally more upload and encoding. Above the screen's refresh rate the extra frames are copies. They cost bandwidth and add no smoothness.",
             ""),
 
         ["publish.capture_memory"] = new(
@@ -123,7 +123,7 @@ public static class Fields
 
         ["publish.color_range"] = new(
             "Color range",
-            "Which code values carry picture. A desktop is full range, broadcast video is not. A mismatch makes the stream look washed out or crushed at the other end.",
+            "Which code values carry picture. A desktop is full range, and broadcast video is not. A mismatch makes the stream look washed out or crushed at the other end.",
             DocYCbCr),
 
         ["publish.effort"] = new(
@@ -200,7 +200,7 @@ public static class Fields
 
         ["publish.rtsp_publish_protocol"] = new(
             "RTSP transport, sending",
-            "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too: a home router normally allows that, a corporate network often does not.",
+            "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too. A home router normally allows that, a corporate network often does not.",
             DocRtsp),
 
         ["publish.uplink_mbps"] = new(
@@ -219,7 +219,7 @@ public static class Fields
 
         ["viewer.tile_watch_transport"] = new(
             "How tiles watch",
-            "The protocol a tile in this window receives on. External players and browser pages are not set here: they open on the protocol picked by right-clicking a stream. A tile can take WebRTC, which no external player opens. A tile on HLS plays the picture without sound, because the relay serves the two separately."),
+            "The protocol a tile in this window receives on. External players and browser pages are not set here. Right-click a stream to pick their protocol. A tile can take WebRTC, which no external player opens. A tile on HLS plays the picture without sound, because the relay serves the two separately."),
 
         ["viewer.rtsp_watch_latency_ms"] = new(
             "Reorder window, tiles",
@@ -263,7 +263,7 @@ public static class Fields
 
         ["watch"] = new(
             "Watching",
-            "How a stream comes back from the relay and how it is decoded: anyone's stream, not only this computer's. External players and browser pages are not set here. Right-click a stream in the list to pick their protocol. A tile already on screen keeps its settings, so a change here reaches the next one."),
+            "How a stream comes back from the relay and how it is decoded. It covers every stream this window watches, anyone's as well as this computer's. External players and browser pages are not set here. Right-click a stream in the list to pick their protocol. A tile already on screen keeps its settings, so a change here reaches the next one."),
 
         ["relay"] = new(
             "Relay",
@@ -280,8 +280,8 @@ public static class Fields
     /// <summary>
     /// Control a key names, with a list index taken out:
     /// <c>publish.audio_sources[2].gain</c> is a value of <c>publish.audio_sources[].gain</c>.
-    /// Copy is written for the control and never for one entry of a list,
-    /// the normalisation the backend does in its own tables (backend/internal/form/keys.go).
+    /// Copy is written for the control,
+    /// matching the normalization the backend does in its own tables (backend/internal/form/keys.go).
     /// </summary>
     public static string Template(string key)
     {

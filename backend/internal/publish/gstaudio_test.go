@@ -57,10 +57,10 @@ func TestEverySourceIsAChainIntoOneMixer(t *testing.T) {
 	}
 }
 
-// A gain reaches the mixer as a multiplier on that source's own branch, and a mute reaches it as
-// zero.
-// Both are one value to an element that multiplies, which keeps unmuting a write to a running
-// pipeline rather than a rebuild of the graph.
+// A gain reaches the mixer as a multiplier on that source's own branch,
+// and a mute reaches it as zero.
+// Both are one value to an element that multiplies,
+// which keeps unmuting a write to a running pipeline rather than a rebuild of the graph.
 func TestTheGainAndTheMuteReachTheSourcesOwnVolume(t *testing.T) {
 	s := audioStream(
 		settings.AudioSource{Source: platform.AudioSourceDesktop, Gain: 50},
@@ -117,9 +117,10 @@ func TestAMutedSourceStillCarriesATrack(t *testing.T) {
 	}
 }
 
-// An entry naming its own device opens that one rather than the kind's default, which is what the
-// enumeration is for: a machine playing into a headset and a pair of speakers has an entry per
-// output and neither of them is "the default monitor".
+// An entry naming its own device opens that one rather than the kind's default,
+// which is what the enumeration is for:
+// a machine playing into a headset and a pair of speakers has an entry per output,
+// and neither of them is "the default monitor".
 func TestAnEntryOpensTheDeviceItNames(t *testing.T) {
 	s := audioStream(settings.AudioSource{
 		Source: platform.AudioSourceDesktop,
@@ -204,9 +205,9 @@ func TestAnApplicationIsOpenedThroughPipeWire(t *testing.T) {
 	}
 }
 
-// The kind is refused on the engine with nothing to open it with, which is a second question from
-// whether the platform serves it: the platform answers about the machine, this about the pipeline
-// that would run there.
+// The kind is refused on the engine with nothing to open it with,
+// which is a second question from whether the platform serves it:
+// the platform answers about the machine, this about the pipeline that would run there.
 func TestTheApplicationKindIsRefusedOnTheEngineThatCannotOpenIt(t *testing.T) {
 	if available, _ := AudioAvailable("ximagesrc", platform.AudioSourceApplication); !available {
 		t.Error("the GStreamer engine cannot open an application, and it has the element for it")

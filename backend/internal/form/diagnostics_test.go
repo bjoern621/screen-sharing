@@ -298,7 +298,7 @@ func TestTheSummaryCarriesTheEstimateItWasHanded(t *testing.T) {
 	}
 }
 
-// Exactly one of the two, never both and never neither.
+// Exactly one of the two.
 func TestTheSummaryCarriesACommandOrTheReasonThereIsNone(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()

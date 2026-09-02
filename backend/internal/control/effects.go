@@ -20,7 +20,7 @@ import (
 )
 
 // The effects.
-// Each answers with its empty response message, never with the state it produced:
+// Each answers with its empty response message:
 // what the state became arrives on the event stream (docs/ipc-api.md, "Events").
 // One path into the display keeps the shell that pressed the button
 // and the one that only listened from showing different things.
@@ -62,7 +62,7 @@ func fromBackend(what string, err error) error {
 // Emptiness is tested against the zero message rather than one chosen field,
 // so a field added to the contract stays covered without an edit here.
 func draftOf(m *screensharev1.Settings, verb string) (settings.Settings, error) {
-	// Verb is this file's word for what the caller was doing, never the request's,
+	// Verb is this file's word for what the caller was doing, fixed at the call site,
 	// so an empty one leaves a hole in the sentence a person reads.
 	assert.Assert(verb != "", "a refused draft names what it was going to be used for")
 
@@ -174,10 +174,10 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 		}
 		if retry := state.Retry(); retry != nil {
 			return nil, failedPrecondition(
-				"a stream is already publishing and is waiting out attempt %d of %d after its pipeline died; stop it before starting another",
+				"a stream is already publishing and is waiting out attempt %d of %d after its pipeline died. Stop it before starting another",
 				retry.Attempt, retry.Budget)
 		}
-		return nil, failedPrecondition("a stream is already publishing; stop it before starting another")
+		return nil, failedPrecondition("a stream is already publishing. Stop it before starting another")
 	}
 
 	if err := s.backend.StartPublish(draft); err != nil {
@@ -193,8 +193,8 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 // (docs/development-principles.md, "Effects across a process boundary").
 // A second apply is a second restart.
 //
-// Nothing publishing is FAILED_PRECONDITION and not a quiet start:
-// an apply asks for the live stream to change, not for a stopped one to come back.
+// Nothing publishing is FAILED_PRECONDITION:
+// an apply asks for the live stream to change, and StartPublish is what brings a stopped one back.
 func (s *Server) ApplyToStream(ctx context.Context, req *screensharev1.ApplyToStreamRequest) (*screensharev1.ApplyToStreamResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "apply")
 	if err != nil {
@@ -238,7 +238,7 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 	}
 
 	if err := s.backend.StartWatch(ref); err != nil {
-		// Carriage refusal: the world not ready, not a malformed request.
+		// Carriage refusal: the world not ready.
 		// The relay re-serves a stream only on listeners whose protocol carries a payload mapping
 		// for its bitstream, so an SRT viewer opened on a VP9 stream connects and receives nothing.
 		// Both halves exist: the leg one this build serves, the stream one the relay carries.
@@ -536,7 +536,7 @@ func (s *Server) OpenLog(ctx context.Context, req *screensharev1.OpenLogRequest)
 		return nil, invalidArgument("no log file for this run")
 	}
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
-		return nil, notFound("no log file at %s; the run logs are rotated, so one named by an older exit may already be gone", path)
+		return nil, notFound("no log file at %s. The run logs are rotated, so one named by an older exit may already be gone", path)
 	}
 
 	if err := s.backend.OpenLog(path); err != nil {

@@ -11,8 +11,9 @@ import (
 
 // gstEffortProperties is the property each element spells its effort knob with.
 //
-// Stated rather than derived, being this engine's spelling of a fact the table holds in the
-// encoder's own vocabulary: the x26x elements say speed-preset where ffmpeg says -preset,
+// Stated rather than derived,
+// being this engine's spelling of a fact the table holds in the encoder's own vocabulary:
+// the x26x elements say speed-preset where ffmpeg says -preset,
 // and svtav1enc says preset where rav1enc says speed-preset again.
 // The table declares the step; which property carries it is the builder's.
 var gstEffortProperties = map[string]string{
@@ -77,8 +78,9 @@ func TestTheLaddersStateWhatTheElementsSpend(t *testing.T) {
 
 // A codec this engine builds spends an effort step exactly where its row declares a ladder.
 //
-// The two directions fail differently: a ladder nothing spends is a control the form offers and the
-// encode ignores, which the availability contract rules out,
+// The two directions fail differently:
+// a ladder nothing spends is a control the form offers and the encode ignores,
+// which the availability contract rules out,
 // and a step spent off a row declaring none is a property value nothing chose.
 func TestEveryLadderIsSpent(t *testing.T) {
 	for name := range gstCodecs {
@@ -102,10 +104,10 @@ func TestEveryLadderIsSpent(t *testing.T) {
 // psy-tune the ones weighing what the eye sees.
 // x265enc takes one enum whose zero entry is spelled by number, leaving the property off meaning
 // ssim on that element rather than no tuning.
-// The nvcodec elements spell the SDK's tunes in full words, where the row and ffmpeg use its
-// abbreviations.
-// The vpx elements call the property tuning, and svtav1enc has none at all: what SVT-AV1 takes rides
-// in the parameter string beside the screen-content key every encode here carries.
+// The nvcodec elements spell the SDK's tunes in full words,
+// where the row and ffmpeg use its abbreviations.
+// The vpx elements call the property tuning, and svtav1enc has none at all:
+// what SVT-AV1 takes rides in the parameter string beside the screen-content key every encode here carries.
 func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 	for _, tc := range []struct {
 		codec, step, want string
@@ -134,7 +136,7 @@ func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 			t.Fatalf("no capability row for %s", tc.codec)
 		}
 		if !c.Tune.Has(tc.step) {
-			t.Errorf("%s no longer declares the tune step %q", tc.codec, tc.step)
+			t.Errorf("%s declares no tune step %q", tc.codec, tc.step)
 			continue
 		}
 
@@ -221,9 +223,11 @@ func tuneProperties(encoder []string) string {
 
 // elementRateCeilingM is a rate every element in the table accepts, in Mbit/s.
 //
-// The lowest bound any of them imposes, over the largest factor a mode places its ceiling at above
-// the target: the abr mappings ask for headroom above the rate, so a draft exactly at the bound is
-// one the ceiling then exceeds.
-// One figure for every codec rather than a lookup per row, since what it is for is reaching the
-// question: a rate refused before a ladder step is spent answers a different one.
+// The lowest bound any of them imposes,
+// over the largest factor a mode places its ceiling at above the target:
+// the abr mappings ask for headroom above the rate,
+// so a draft exactly at the bound is one the ceiling then exceeds.
+// One figure for every codec rather than a lookup per row,
+// since what it is for is reaching the question:
+// a rate refused before a ladder step is spent answers a different one.
 var elementRateCeilingM = qsvShortBitrateKbps / 1000 / qsvAbrPeak

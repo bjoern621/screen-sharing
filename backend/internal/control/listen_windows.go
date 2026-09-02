@@ -36,8 +36,7 @@ func Listen() (net.Listener, error) {
 	listener, err := winio.ListenPipe(pipeName, &winio.PipeConfig{SecurityDescriptor: descriptor})
 	if err != nil {
 		// A name already held answers ERROR_ACCESS_DENIED, mapped to fs.ErrPermission by syscall.
-		// The first instance of a pipe owns the name, and a second creation of it is refused,
-		// never queued.
+		// The first instance of a pipe owns the name, and a second creation of it is refused.
 		// A name held by another user's process refuses identically, and the conclusion is the same:
 		// something else serves this endpoint and nothing will reach this process (ErrAddressInUse).
 		if errors.Is(err, fs.ErrPermission) {
@@ -67,8 +66,8 @@ func Endpoint() string {
 //	              over SMB carries.
 //	              A named pipe is reachable remotely as \\host\pipe\name,
 //	              and the surface behind this one starts screen captures,
-//	              so a remote logon as this same account is refused,
-//	              never taken for the user sitting at the machine.
+//	              The account is the same either way, so the logon type is what
+//	              separates a remote session from the user sitting at the machine.
 //	              Written first because a deny ACE binds only what follows it
 //	              in evaluation order, and SDDL keeps explicit ACEs in the order
 //	              they were written.

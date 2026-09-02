@@ -98,7 +98,7 @@ var warningPeaks = map[string]string{
 // diagnosticsAboutTheAudience says who will be able to watch,
 // where that is more than the people the user handed a key to.
 //
-// A warning and never a refusal: publishing without a group is a choice this app carries out,
+// A warning, because publishing without a group is a choice this app carries out,
 // and the stream is authenticated and encrypted either way (docs/network-architecture.md).
 // What it is not is private, and that is the one thing nothing else on the screen says.
 //
@@ -183,7 +183,6 @@ func diagnosticsAboutTheCapture(d Deps, s settings.Settings) []*screensharev1.Di
 // Which families decode a codec and chroma pair is capabilities.Decoders' answer,
 // read rather than restated, and the statement carries the pair it was read for.
 //
-// It is a cost and never an error.
 // Every format has a software decoder, so no stream is undecodable,
 // and the only question is whether a viewer spends cores on it (docs/field-availability.md).
 func diagnosticsAboutTheViewer(s settings.Settings) []*screensharev1.Diagnostic {

@@ -1,7 +1,7 @@
 # Design language
 
 One visual language, every surface follows it, including where that overrides platform convention.
-Token values live in `avalonia/ScreenShare.App/Design/`, the reference implementation: `Palette.axaml`, `Typography.axaml` and `Metrics.axaml` hold the numbers, `Text.axaml`, `Surfaces.axaml` and `Buttons.axaml` the roles built from them.
+The token values are the reference implementation: one dictionary each for the palette, the type scale and the metrics, and one each for the text, surface and button roles built from them.
 This page states the rules.
 
 ## Palette
@@ -9,7 +9,7 @@ This page states the rules.
 Greyscale, and three hues that each answer one question about a stream.
 
 Ramp: `#141414` `#181818` `#1C1C1C` `#212121` `#262626` `#2A2A2A` `#303030` `#3A3A3A` `#4A4A4A` `#565656` `#6E6E6E` `#9A9A9A` `#C8C8C8` `#D0D0D0` `#E6E6E6` `#F2F2F2` `#FFFFFF`.
-Listed once and never named again: a component asks for the role it wants and the palette decides, so a light variant is a second dictionary rather than a sweep through every view.
+A hex is written here and nowhere else: a component asks for the role it wants and the palette decides, so a light variant is a second dictionary rather than a sweep through every view.
 
 Surfaces are four steps: app body, the two chrome bands one shade lighter, a recessed panel, a raised control.
 One light surface, near-white, means selected: a chosen destination, an on toggle, the current step.
@@ -26,9 +26,9 @@ Text is five steps from white down through control label, secondary copy, muted 
 Red is the one that has to carry across a room, so it stays scarce.
 A screen with three red things on it says which one broke; a screen with thirty says nothing.
 Amber always has a stream still running behind it, and states what that stream costs rather than asking for a press.
-Green marks the way in and never the state at the end of it: `Start sharing` is green, and the machine that is sharing wears red.
+Green marks the way in: `Start sharing` is green, and the machine that is sharing wears red.
 
-A hue never says merely on, and never says selected, which is inversion ("Selection").
+On and selected both take inversion ("Selection"), so each hue keeps to the question its row names.
 None of the three carries a fact alone: what is coloured also says itself in words, a glyph or weight, so a reader who separates none of them loses nothing.
 A hue as a fill takes the label its contrast affords, white on red and green, near-black on amber.
 
@@ -39,14 +39,14 @@ A reader who has met a greyed control came for that line.
 Everything a hue does not answer for is carried by weight, fill or inversion.
 
 Hover, pressed and focus are **not** specified by the design.
-The module's choice is recorded in `Design/Palette.axaml`, so no new value enters the palette: one step up the ramp on hover, one down on press, a hue held at reduced opacity rather than lightened.
+The module's choice is recorded with the palette, so no new value enters it: one step up the ramp on hover, one down on press, a hue held at reduced opacity rather than lightened.
 
 The design states no text field, number field or slider either.
-The module's choice is recorded in `Design/Inputs.axaml` and again spends nothing new.
+The module's choice is recorded with the input roles and again spends nothing new.
 A typed value wears the same raised control a button does, in tabular figures because it is typed digit by digit.
 A number field is that box without a stepper.
 A slider is a 6px track whose travelled half takes the one light surface.
-A flag is the switch, never a tick box: one domain concept, one control.
+A flag is the switch: one domain concept, one control.
 
 ## Typography
 
@@ -59,13 +59,16 @@ The module ships the family (`Avalonia.Fonts.Inter`, registered in `Program`), s
 **One family for what another program said: JetBrains Mono.** Bundled the same way, out of `Assets/Fonts`.
 
 A single role spends it, the **transcript**: a line reproduced from another process rather than composed here, which is the session log and what lands in it.
-Such a line is an error nobody here wrote, wrapping over several rows of element names, socket addresses and codes, and the reader's next move is to copy a piece of it into a search box or a bug report.
+Such a line is an error nobody here wrote, wrapping over several rows of element names, socket addresses and codes.
+The reader's next move is to copy a piece of it into a search box or a bug report.
 Mono is what that reading needs: the columns hold under the wrap, and `0` stays unmistakable against `O`.
 The cut bundled is the ligature-free one (`JetBrains Mono NL`), because `->` or `//` drawn as a single glyph is a string the reader cannot match against the text the backend printed.
 
 Nothing else crosses over.
-An identifier this product names for itself, `hevc_nvenc` or `gbrp`, sits inline in prose where a change of face would read as a change of subject, so it keeps Inter and is marked by the identifier role instead, one step quieter and one smaller than the copy beside it.
-Digit alignment likewise stays a font feature rather than a face: **numbers that tick, count or sit in a column are set in tabular figures** (`FigureFeatures`, Inter's `tnum`), one advance width per digit without changing the face.
+An identifier this product names for itself, `hevc_nvenc` or `gbrp`, sits inline in prose where a change of face would read as a change of subject.
+It keeps Inter and is marked by the identifier role instead, one step quieter and one smaller than the copy beside it.
+Digit alignment likewise stays a font feature rather than a face.
+**Numbers that tick, count or sit in a column are set in tabular figures** (`FigureFeatures`, Inter's `tnum`), one advance width per digit without changing the face.
 A timer, a throughput reading, a table cell and a plot annotation hold still as they update, and a line mixing prose and figures keeps its shape halfway through.
 
 Weight is where the dark palette is paid for.
@@ -78,18 +81,19 @@ Sizes are four whole pixels, **12, 13, 14 and 16**, plus a single 26px for the f
 
 Whole pixels, no half steps, no two steps closer than a pixel in the body range.
 12px is the floor because the form's help text is the product's content rather than chrome, and it sits at the floor every published desktop scale starts at.
-Gaps are a pixel or more because a ladder inside a 5px range is not one anyone can hear: 13 beside 14 beside 15 reads as one size rendered unevenly, so extra steps cost churn and buy no hierarchy.
+Gaps are a pixel or more because a ladder inside a 5px range is not one anyone can hear.
+13 beside 14 beside 15 reads as one size rendered unevenly, so extra steps cost churn and buy no hierarchy.
 
 Prose that wraps states its line height (18px small, 20px body, both ~1.4×).
 A single line in a row already centred does not: a line box taller than the glyphs only moves the text off the centre it was placed on.
-Bands and rows are sized from the text they hold, so the chrome heights in `Metrics.axaml` follow the default size.
+Bands and rows are sized from the text they hold, so the chrome heights follow the default size.
 
 No letter-spacing and no text-transform anywhere.
 Labels render in the case they are written in.
 
 ## Surfaces and shape
 
-Radius follows what a thing is, not how big it is: a segment, a control, a button, a strip, a panel, a video tile, and the one capsule, a stream chip.
+Radius follows what a thing is: a segment, a control, a button, a strip, a panel, a video tile, and the one capsule, a stream chip.
 
 Two things cast a shadow and nothing else is elevated.
 The window's is the platform's, so the app states nothing for it.
@@ -101,7 +105,8 @@ Two columns beside each other therefore start on one line, whatever either of th
 
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
 Beneath it a nav strip holds the same two regions on every screen, three destinations left and live state right.
-On Linux the frame is the desktop's and no title bar is drawn: which buttons a window carries, which edge they sit on and whether it carries any are that desktop's answer, and a tiling session answers "none".
+On Linux the frame is the desktop's and no title bar is drawn.
+Which buttons a window carries, which edge they sit on and whether it carries any are that desktop's answer, and a tiling session answers "none".
 The nav strip is the first row of the window there, and it is the same strip.
 No breadcrumb: the lit segment already says where the reader is, and saying it twice is noise in the one row that must stay scannable.
 The destinations never move, so the strip becomes muscle memory.
@@ -120,7 +125,7 @@ The aspect rule is the cell's, so the picture keeps its shape and the surround i
 The way in is the tile's menu row and the key printed beside it.
 Escape is always a way out, a screen that draws no controls still having to be one a reader can leave.
 
-A grid is equal cells, and the arrangement is derived rather than configured: the one with the largest fitted picture wins, and a short last row centres itself.
+A grid is equal cells, and the arrangement is derived: the one with the largest fitted picture wins, and a short last row centres itself.
 No column count is written down anywhere.
 Maximising the cell instead of the picture inside it picks a single long row every time.
 
@@ -134,7 +139,7 @@ The badge is neutral except on this machine's own outgoing stream, which wears t
 A struggling stream wears the same neutral badge, names itself in words, and prints its drop count at a heavier weight.
 The hues stay off the picture: a colour over arbitrary video is a colour against an unknown background, so a fault on a video surface is read rather than spotted.
 
-Hiding a stream is a performance control, not a preference: it tears the decoder down, so the surface offering the toggle also reports the bandwidth and decode load that frees.
+Hiding a stream tears the decoder down, so the surface offering the toggle also reports the bandwidth and decode load that frees.
 
 ## Status language
 
@@ -149,13 +154,14 @@ One vocabulary everywhere, on a chip, a tile, the status bar and a button:
 - Failed: the red, the reason in words, and a retry the surface already offers.
   Video tiles and the chips that drop them carry the reason in words alone and spend no colour on it ("Video surfaces").
 
-The dot stays small (7px): state, not decoration.
+The dot stays small (7px).
 
 **The reason in words is selectable wherever it lands**: a banner over a step, a hint under a field, a preflight row, a session log line, the sentence a dark tile carries.
-It is the one string that has to leave the app for a bug report, a search box or a message to somebody else, and a caps negotiation or a relay address is not something anyone retypes off a screen.
+It is the one string that has to leave the app for a bug report, a search box or a message to somebody else.
+A caps negotiation or a relay address is not something anyone retypes off a screen.
 Selectable text is a `SelectableTextBlock` carrying the role of the prose beside it, drawing its selection in the pair "Selection" states.
-It wraps and never trims, an ellipsis eating the tail of the address the reader came for.
-What decides is whether the string reports a failure, not how it is styled: a hint saying what a relay answered is error text, one explaining what a control does is not.
+It wraps: an ellipsis would eat the tail of the address the reader came for.
+What decides is whether the string reports a failure: a hint saying what a relay answered is error text, one explaining what a control does is not.
 
 Two states are close enough in English to separate by name.
 A stream is **live** when it is connected and frames are moving, true of every tile in the viewer and saying nothing about this machine.
@@ -201,17 +207,17 @@ The glyph names the row and holds still while the row's state moves, so the shap
 Dividers group the rows.
 A menu whose rows are all peers makes the reader sort them on every open.
 
-**A key is printed as a reading, not as part of the label.**
+**A key is printed as a reading.**
 It sits at the quiet end in hint weight, answering a question the reader did not open the menu with.
 The menu is where the shortcuts are documented, so a row that has one prints it and a reader learns it once.
 
-**A row names a state, not a transition.**
+**A row names a state.**
 "Mute", not "Unmute"; "Fullscreen", not "Leave fullscreen".
 Whether that state is in force is the tick at the end of the row, the rule "Selection" states for everything else.
 A menu is read far more often than pressed, and a label saying what pressing it would do never answers the question the reader opened it with.
 It also makes a row idempotent to describe: the row names somewhere the thing can be, and pressing it twice is a round trip.
 
-The tick is a read of that state and never a box the row keeps for itself.
+The tick is a read of that state.
 A row that ticked itself on click would report the request instead of the answer, and would have to take the tick back wherever the backend refused.
 
 **A row that lists rows is a row like the others.**
@@ -247,7 +253,8 @@ An icon button whose tooltip repeats its glyph teaches nothing, so the tooltip s
 A tip carries what the screen does not: a sentence already standing beside the control, an error or the reason it is inert, is read where it stands and gets no tip repeating it.
 
 A figure keeps one name across surfaces: `transport`, `resolution`, `codec`, `bitrate`, `decoder`, `fps`, `frames`, `latency`, `rtt`, `loss`, `dropped`, `via`, and `n watching` for the number of open tiles.
-A name is retired rather than reused when nothing reports it: a viewer's own buffer fill reaches no publisher, so that column states what the relay discarded on the way out (`field-availability.md`, "A figure with no measurement").
+A name is retired rather than reused when nothing reports it.
+A viewer's own buffer fill reaches no publisher, so that column states what the relay discarded on the way out (`field-availability.md`, "A figure with no measurement").
 A surface with more to report adds rows instead of renaming the shared ones.
 Stat rows spell their words out, join two figures with ` · `, and print `…` where there is no value yet.
 Transport names stay lowercase, as the settings offer them: `hls`, `moq`, `rtmp`, `rtsp`, `srt`, `webrtc`.
@@ -271,7 +278,8 @@ They sit with the tiles because a reader who only watches never opens setup, and
 Outline glyphs, vector paths at a 1.2px stroke with round caps.
 Sizes range 12 to 22px by surface.
 Emoji are never used: the platform emoji font paints them in colour and ignores the foreground brush, so a button's states become inexpressible.
-Window controls are geometry rather than text, for the same reason a font's box-drawing metrics cannot be relied on: on Windows the caption glyphs live in Segoe Fluent Icons' private use area, so a missing face paints a tofu box where the close button was.
+Window controls are geometry rather than text, for the same reason a font's box-drawing metrics cannot be relied on.
+On Windows the caption glyphs live in Segoe Fluent Icons' private use area, so a missing face paints a tofu box where the close button was.
 
 The shell uses the Tabler outline set, through `TablerIcons.Avalonia`.
 Platform icon themes go unused, so every surface shows the same glyphs.

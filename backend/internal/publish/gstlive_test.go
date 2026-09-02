@@ -90,8 +90,8 @@ func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 	}
 }
 
-// A unit mistake breaks silently: 12000 written where the element counts bits is twelve kilobits a
-// second, not twelve megabits.
+// A unit mistake breaks silently:
+// 12000 written where the element counts bits is twelve kilobits a second, not twelve megabits.
 func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "ximagesrc"
@@ -111,8 +111,8 @@ func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 
 // Neither ffmpeg nor the command line it was given takes a value back once running, so a change
 // there is a relaunch whatever it touched.
-// The engine is the only difference between the two configurations here, which is what says the
-// table is gated on it and not on the selected codec.
+// The engine is the only difference between the two configurations here,
+// which is what says the table is gated on it rather than on the selected codec.
 func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libx264")
@@ -169,8 +169,8 @@ func TestOnlyTheLiveSubsetAvoidsARelaunch(t *testing.T) {
 	for _, change := range []func(*settings.Settings){
 		func(s *settings.Settings) { s.Publish.Fps = 30 },
 		func(s *settings.Settings) { s.Publish.Chroma = "yuv444p" },
-		// 300 rather than 120: a zero keyframe interval resolves to twice the frame rate, so 120 at
-		// 60 fps is the pipeline already running.
+		// 300 rather than 120: a zero keyframe interval resolves to twice the frame rate,
+		// so 120 at 60 fps is the pipeline already running.
 		func(s *settings.Settings) { s.Publish.Gop = 300 },
 	} {
 		other := running

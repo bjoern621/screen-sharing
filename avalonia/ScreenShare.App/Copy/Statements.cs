@@ -12,7 +12,7 @@ namespace ScreenShare.App.Copy;
 /// and this is where that becomes something to read (api/proto/screenshare/v1/text.proto).
 ///
 /// Every sentence names the limit, which side has it, and the way out,
-/// which makes a grayed control useful rather than merely honest.
+/// so a grayed control leaves the reader something to do.
 /// Where the backend hands over an alternative the sentence uses it,
 /// and where it hands over none the sentence stops rather than trailing off.
 /// Identifiers reach the screen through <see cref="Words"/>,
@@ -47,26 +47,25 @@ public static class Statements
                 $"{Words.Capture(a.Capture)} needs an {Words.DisplayServer(a.Display)} session. "
                 + "On Wayland it sees only X11 windows, not the desktop. Use the screen picker instead.",
 
-            // A note and not a refusal, so a fragment:
-            // it prints on the entry's own row, where a sentence would crowd out the name.
+            // Prints as a fragment on the entry's own row, where a sentence would crowd out the name.
             // What the privilege is for is the entry's paragraph (Descriptions.Capture).
             TextCode.CaptureNeedsGrant => "needs elevated privileges",
 
             TextCode.CaptureTakesNoMonitor => a.Capture switch
             {
                 "kmsgrab" => "This capture reads everything the GPU is scanning out, not one screen.",
-                "gdigrab" => "This capture reads the whole desktop as one picture: every monitor side by side.",
+                "gdigrab" => "This capture reads the whole desktop as one picture: every screen side by side.",
                 "portal" => "The desktop's own picker chooses what is shared, so there is nothing to pick here.",
                 _ => "This capture method chooses what it captures.",
             },
 
-            // Each branch names what the session does rather than what it lacks,
-            // so a missing picture reads as how the machine works and not as a fault.
+            // Each branch names what the session does,
+            // so a missing picture reads as how the machine works.
             TextCode.NoMonitorPreview => a.Display == "wayland"
                 ? "Wayland hands out screens only through the desktop's own picker, which asks "
                   + "every time. The picker shows what is shared when the stream starts."
-                : "This system decides itself which screen it hands over, so a preview of a "
-                  + "single screen cannot be shown.",
+                : "This system chooses the screen itself, so a preview of a single screen "
+                  + "cannot be shown.",
 
             TextCode.MonitorNotEnumerated =>
                 "Not connected. It stays selected, so what the stream would capture stays visible. "
@@ -93,7 +92,7 @@ public static class Statements
             TextCode.EngineNotProbed =>
                 $"No encoder on {Words.Engine(a.Engine)} has been tested on this computer, because "
                 + $"{Lower(Of(a.Cause))} Every choice stays offered, so one this computer cannot run "
-                + "fails at the start instead of here.",
+                + "stops at the start instead of here.",
 
             TextCode.ProbeNoDevice =>
                 $"No {Words.Family(a.Family)} encoder was found on this computer. Either the hardware is missing, "
@@ -113,7 +112,7 @@ public static class Statements
                 $"No encoder on this computer produces {Words.Format(a.Format)}. Pick another format.",
 
             TextCode.EncoderCodesNoFormat => a.Formats.Count > 0
-                ? $"{Words.Encoder(a.Encoder)} encodes {Words.List(a.Formats.Select(Words.Format))}, "
+                ? $"{Words.Encoder(a.Encoder)} encodes {Words.List(a.Formats.Select(Words.Format), "and")}, "
                   + $"not {Words.Format(a.Format)}."
                 : $"{Words.Encoder(a.Encoder)} does not encode {Words.Format(a.Format)}.",
 
@@ -246,7 +245,7 @@ public static class Statements
                 + "The desktop portal and the X11 screen capture report where the pointer is.",
 
             TextCode.FormatCarriesNoCursorMetadata =>
-                $"{a.Format} carries the picture and nothing beside it, so viewers would see no pointer. "
+                $"{Words.Format(a.Format)} carries the picture and nothing beside it, so viewers would see no pointer. "
                 + "H.264 and HEVC carry the position to them.",
 
             TextCode.PortalServesNoCursorMode =>
@@ -304,7 +303,7 @@ public static class Statements
                 $"{Words.Mode(a.Mode)} pins this to {Words.Tune(a.Tune)}.",
 
             TextCode.AudioCodecNeedsSource =>
-                "No audio is being sent, so there is nothing to compress.",
+                "No audio is being sent, so there is nothing to compress. Add a source to pick a format.",
 
             TextCode.EngineTagsStandardRange =>
                 $"{Words.Engine(a.Engine)} tags every stream as standard range and cannot read what this screen "
@@ -361,8 +360,8 @@ public static class Statements
                 + "so this figure is required.",
 
             TextCode.FixedFunctionAbrDerivesCeiling =>
-                "Hardware encoders always encode against a ceiling, so this target is sent with twice its "
-                + "value as one. The target holds the average.",
+                "Hardware encoders always encode against a ceiling, so the ceiling is set to twice this "
+                + "target. The target holds the average.",
 
             TextCode.AmfCodesNoBframes =>
                 "AMD's encoders run with look-ahead frames off, so a live stream avoids their delay.",
@@ -485,8 +484,8 @@ public static class Statements
                 "This computer is not a member of the group, so the relay closes its streams there. "
                 + "Join the group to send and watch.",
 
-            // Names the group holding it and never the member: an id says who holds a name,
-            // and printing one beside a name a reader chose is a string they cannot act on.
+            // Names the group: the member holding the name is an id on the wire,
+            // and an id beside a name a reader chose is a string they cannot act on.
             TextCode.GroupNameTaken =>
                 "Another member of this group holds that name. Pick a different one to join under.",
 
@@ -556,17 +555,16 @@ public static class Statements
             // Notices.
 
             TextCode.SettingsStoreUnreadable => a.Path.Length > 0
-                ? $"The saved settings could not be read, so these are the defaults. The old file was kept as {a.Path}."
+                ? $"The saved settings could not be read, so these are the defaults. The unreadable file was kept as {a.Path}."
                 : "The saved settings could not be read, so these are the defaults.",
 
             TextCode.PresetStoreUnreadable => a.Path.Length > 0
-                ? $"The saved presets could not be read, so none are listed. The old file was kept as {a.Path}."
+                ? $"The saved presets could not be read, so none are listed. The unreadable file was kept as {a.Path}."
                 : "The saved presets could not be read, so none are listed.",
 
             // Legs of a relay check nothing was asked of.
-            // Each says what is so rather than what is missing:
-            // a reader who never heard of these listeners gets a fact about their relay,
-            // not a capability taken away.
+            // Each says what is so,
+            // and a reader who never heard of these listeners gets a fact about their relay.
 
             TextCode.RelayLegNoRelay =>
                 "No relay is set, so there is no address to check.",
@@ -640,7 +638,7 @@ public static class Statements
         sentence.Length == 0 || char.IsLower(sentence[0]) ? sentence : char.ToLowerInvariant(sentence[0]) + sentence[1..];
 
     /// <summary>
-    /// Arguments of one statement, read by name and never by position.
+    /// Arguments of one statement, read by name.
     /// A statement carries the arguments its facts needed and leaves out the rest,
     /// so a reader keyed on position would silently shift.
     /// </summary>
@@ -656,7 +654,7 @@ public static class Statements
 
         public string Transport => Id(TextArgName.Transport);
 
-        /// <summary>Built-in preset, not the NVENC ladder step <see cref="Effort"/> carries.</summary>
+        /// <summary>Built-in preset. <see cref="Effort"/> carries the NVENC ladder step also called one.</summary>
         public string Preset => Id(TextArgName.Preset);
 
         public string Codec => Id(TextArgName.Codec);
@@ -736,7 +734,7 @@ public static class Statements
         public long BitrateKbps => Num(TextArgName.BitrateKbps);
 
         /// <summary>
-        /// Whole where it is a target the user set, fractional where it is a prediction.
+        /// Whole where it is a typed target, fractional where it is a prediction.
         /// Both are read here, so a sentence quoting it need not know which it got.
         /// </summary>
         public double BitrateMbps => Dec(TextArgName.BitrateMbps);

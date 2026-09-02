@@ -28,13 +28,13 @@ import (
 // ResolveForm is the sharp case, and its contract states both halves: no save,
 // and the probe result read rather than taken.
 //
-// No sentence for the screen is built here.
-// Labels, greyings and derived figures are form's, the shapes on the wire are wire's.
+// No sentence for the screen is built here:
+// labels, greyings and derived figures are form's, and the shapes on the wire are wire's.
 // Here is which of the two to ask, and what to hand it.
 
 // GetCatalog answers with every fixed fact known about this machine and the encoding model.
 //
-// It reads the probe result and never takes one.
+// It reads the probe result.
 // A flag that started the probe would replace what another shell's next resolve answers from,
 // with nothing on the wire announcing it.
 // Probing is ProbeEncoders, and what it finds reaches every shell on the event stream.
@@ -63,7 +63,7 @@ func (s *Server) catalog() *screensharev1.Catalog {
 //
 // The store notice rides here rather than on the catalog.
 // Why the persisted settings could not be restored is a fact about the settings,
-// so it belongs beside the defaults it explains, not inside the catalog of fixed facts.
+// so it belongs beside the defaults it explains.
 func (s *Server) GetSettings(ctx context.Context, req *screensharev1.GetSettingsRequest) (*screensharev1.GetSettingsResponse, error) {
 	return &screensharev1.GetSettingsResponse{
 		Settings:    wire.Settings(s.backend.Settings()),
@@ -73,7 +73,7 @@ func (s *Server) GetSettings(ctx context.Context, req *screensharev1.GetSettings
 
 // ResolveForm turns a settings draft into the complete description of the screen.
 //
-// It reads CachedEncoders and never Encoders.
+// It reads CachedEncoders.
 // The contract promises a resolve cheap enough to call on every keystroke,
 // and the probe takes seconds on its first call:
 // taking one here would charge those seconds to the first character typed,
@@ -106,7 +106,7 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 
 // ListPresets answers with the user's saved configurations.
 //
-// A store that could not be read is an Umgebungsfehler, and not a failed call.
+// A store that could not be read is an Umgebungsfehler.
 // The list comes back empty carrying the notice,
 // because nothing-readable-remained and nothing-was-saved are different facts about the machine,
 // and the difference is the user's to see:
@@ -114,8 +114,8 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 // A status error would replace both facts with "the call failed".
 //
 // The store is reached directly rather than through Backend.
-// Presets are a file and not state the backend owns, held by nothing in the running app
-// and announced by no event, so a Backend method would forward and nothing else.
+// Presets are a file, held by nothing in the running app and announced by no event,
+// so a Backend method would forward and nothing else.
 func (s *Server) ListPresets(ctx context.Context, req *screensharev1.ListPresetsRequest) (*screensharev1.ListPresetsResponse, error) {
 	presets, err := settings.LoadPresets()
 
@@ -139,12 +139,11 @@ func (s *Server) GetPublishState(ctx context.Context, req *screensharev1.GetPubl
 
 // GetRelayStatus answers with the latest relay snapshot, and always succeeds.
 //
-// An unreachable relay is a snapshot whose reachable is false, carrying the reason,
-// and never a status error (errors.go, and docs/ipc-api.md, "Errors").
+// An unreachable relay is a snapshot whose reachable is false, carrying the reason
+// (errors.go, and docs/ipc-api.md, "Errors").
 // "The relay is down" is a thing the screen has to say,
 // and a call that failed would leave the shell nothing to say it with.
 //
-// The snapshot is read and not fetched.
 // The backend owns the polling,
 // so several shells reading do not multiply the requests to the relay,
 // and the byte-delta bitrates stay computed against one steady interval
@@ -175,10 +174,9 @@ func (s *Server) GetMonitorPreviewState(ctx context.Context, req *screensharev1.
 	return wire.MonitorPreviewState(s.backend.MonitorPreviewState()), nil
 }
 
-// GetTestStreamState counts the synthetic publishers alive, not the count that was asked for:
+// GetTestStreamState counts the synthetic publishers alive:
 // one that died on its own drops out.
-// The slots travel beside the count,
-// so a set with one dead publisher says which slot, not only that it got smaller.
+// The slots travel beside the count, so a set with one dead publisher names the slot.
 func (s *Server) GetTestStreamState(ctx context.Context, req *screensharev1.GetTestStreamStateRequest) (*screensharev1.TestStreamState, error) {
 	running, slots := s.backend.TestStreamState()
 	return wire.TestStreamState(running, slots...), nil

@@ -41,7 +41,7 @@ func init() {
 		assert.Assert(!seen[f.key], "a field is declared once", f.key)
 		seen[f.key] = true
 
-		// The draft or one entry of the audio source list, never both and never neither:
+		// Exactly one of the draft and one entry of the audio source list:
 		// a control with no value is one a shell cannot render.
 		assert.Assert((f.value != nil) != (f.itemValue != nil),
 			"a field reads its value from exactly one place", f.key, f.repeat)

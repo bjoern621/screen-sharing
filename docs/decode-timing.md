@@ -25,7 +25,7 @@ What makes them late is a stage running longer than it declared: a decode or a c
 The dotted edge is the whole control loop.
 The sink measures the overrun and sends it back as a proportion, and the decoder discards in step with it.
 
-## Shedding, not falling behind
+## Shedding
 
 A chain that cannot hold the rate its source sends has two ways to be short, and only one of them is survivable.
 
@@ -37,19 +37,21 @@ A chain that cannot hold the rate its source sends has two ways to be short, and
 | Recovers | never | every frame |
 
 The sink measures every frame against its moment.
-With `qos` off it keeps that reading to itself, the queue backpressures rather than leaking, and the transport's flow control turns the shortfall into a backlog that only grows.
+With `qos` off it keeps that reading to itself, and the queue backpressures rather than leaking.
+The transport's flow control turns the shortfall into a backlog that only grows.
 
 With `qos` on it sends the overrun upstream as a proportion, and the decoder discards what is already late in `gst_video_decoder_clip_and_push_buf`.
 That is the whole mechanism.
-It has to act there rather than at the sink, because the backlog sits upstream: discarding at the end of the chain drains nothing, and a leg with QoS off falls behind at the same rate whether or not the sink is throwing frames away.
+It has to act there because the backlog sits upstream.
+Discarding at the end of the chain drains nothing: a leg with QoS off falls behind at the same rate while the sink throws frames away.
 
 Shedding upstream is also the cheap place.
-A discarded frame costs a decode and never a conversion, so `glupload` and the colour converters run only on frames that will be drawn.
+A discarded frame costs a decode and no more, so `glupload` and the colour converters run only on frames that will be drawn.
 
 `max-lateness` stays at GstBaseSink's own -1, which hands on every frame however late.
-A cutoff there is not a second line of defence, and on top of a working QoS loop it only takes frames the proportion had already judged worth drawing.
+On top of a working QoS loop, a cutoff there takes only frames the proportion had already judged worth drawing.
 
-`renderQueue` and `renderSink` in `backend/internal/receive/receive.go` hold this and say why each property is set.
+The receiving pipeline holds this, each property carrying why it is set.
 
 ## Reading it off the tile
 

@@ -93,9 +93,9 @@ func encoderOption(t *testing.T, form *screensharev1.Form, encoder string) *scre
 // around: before a probe the same call greys nothing,
 // and a shell that never asked for one goes on offering an encoder that fails at launch.
 //
-// The entry stays in the list, the treatment and not an accident.
-// A general concept the machine blocks is taught by a greyed option and its sentence,
-// not by a dropdown quietly one item shorter (docs/field-availability.md, "The rule").
+// The entry stays in the list, which is the treatment the rule names.
+// A general concept the machine blocks is taught by a greyed option and its sentence
+// (docs/field-availability.md, "The rule").
 func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 	server := New(&probedBackend{probed: qsvMissing}, events.New(), "test")
 
@@ -108,8 +108,8 @@ func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 	if option.GetEnabled() {
 		t.Fatal("the Quick Sync encoder is offered on a machine whose probe could not run it")
 	}
-	// The statement names the family whose device is missing and not a sentence about it.
-	// How "no Intel Quick Sync encoder on this machine" reads belongs to the surface.
+	// The statement names the family whose device is missing, and the surface writes the sentence.
+	// How "no Intel Quick Sync encoder on this computer" reads belongs there.
 	// A reason greying the codec without naming the family would leave the reader nothing to act on.
 	if option.GetReason().GetCode() != screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE {
 		t.Errorf("the Quick Sync encoder greys with %v, want the probe's no-device verdict", option.GetReason().GetCode())
@@ -165,7 +165,7 @@ func TestGetCatalogNeverProbes(t *testing.T) {
 // The probe replaces what every later resolve is answered from,
 // so without the event a shell that never asked for one would watch its form start greying codecs
 // with nothing having told it why.
-// The event carries the whole catalog, never a delta:
+// The event carries the whole catalog:
 // a shell holding one has nothing to merge a half-state into.
 func TestProbeEncodersAnnouncesWhatItFound(t *testing.T) {
 	backend := &probedBackend{probed: qsvMissing}
@@ -200,7 +200,7 @@ func TestProbeEncodersAnnouncesWhatItFound(t *testing.T) {
 }
 
 // textArgID reads one identifier out of a statement, and the empty string where it carries none.
-// A statement names what it is about by argument name and not by position,
+// A statement names what it is about by argument name,
 // so a test asks for one the way a surface does.
 func textArgID(t *screensharev1.Text, name screensharev1.TextArgName) string {
 	for _, arg := range t.GetArgs() {

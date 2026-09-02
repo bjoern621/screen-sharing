@@ -137,8 +137,9 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	// returns, so caps arriving before that find it nil and stop nothing.
 	// The caps follow the pipeline reaching PLAYING, so they do not arrive before it.
 	//
-	// That is an argument about timing, not about the memory model: the handle is written here and
-	// read on the reader goroutine, so the mutex makes the write visible to that read.
+	// That is an argument about timing, not about the memory model:
+	// the handle is written here and read on the reader goroutine,
+	// so the mutex makes the write visible to that read.
 	// stopped needs none, being written and read inside this callback alone, which is one goroutine.
 	var handleMu sync.Mutex
 	var handle Handle

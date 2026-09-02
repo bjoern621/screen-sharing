@@ -9,7 +9,7 @@ A machine with no GPU encoder reaches neither at 60 fps.
 A stored set of field values can only be right on the machine it was written on.
 So the table states the goal, and a search finds a configuration for it here.
 
-`lossless`, `gaming` and `readability` live in `form/presets.go`, beside the capability table the search walks and the repair it holds every candidate to (`ipc-api.md`).
+`lossless`, `gaming` and `readability` are declared beside the capability table the search walks and the repair it holds every candidate to (`ipc-api.md`).
 
 They reach a surface on the resolved form, one entry per preset: the settings applying it would produce here, or the reason nothing here reaches it, and whether the draft already delivers it (`form.proto`, `BuiltinPreset`).
 They belong there rather than on a method of their own: each of those answers changes with the draft exactly as a greying does.
@@ -45,35 +45,50 @@ That part is the preset's identity rather than something to search for.
 It writes those fields and leaves the others standing, so a field the preset promises nothing about keeps what the settings hold.
 A bitrate target means nothing to a lossless encode, and zeroing it would spend a figure the user chose on a field the preset never reads.
 
-## Applying searches, it does not assign
+## Applying searches for a configuration
 
-`presetResolve` walks rungs, and inside a rung codecs, and inside a codec capture backends.
-Each candidate goes through the same repair the form uses (`form/repair.go`).
-A repair that walks the pixel format, either half of the encode or the capture backend has answered a different question than the one the search asked, so that candidate is rejected and the next one tried.
-So does one that walks a setting outside the publish group, which is what a preset cannot carry.
+```mermaid
+flowchart TD
+    R[rung, best first] --> C[codec, from the capability table]
+    C --> B[capture backend, selected one first]
+    B --> P[repair, the one the form uses]
+    P --> Q{did it walk the format,<br/>the encode or the backend?}
+    Q -->|yes| N[next candidate]
+    N --> R
+    Q -->|no| K{does it deliver the claim?}
+    K -->|no| N
+    K -->|yes| W[written to the settings whole]
+```
+
+The walk runs one candidate at a time, and every candidate meets the same repair the form uses.
+A repair that walks the pixel format, either half of the encode or the capture backend has answered a different question than the one the search asked.
+That candidate is rejected and the next one tried.
+So is one the repair walks outside the publish group, which is what a preset cannot carry.
 The first candidate that survives and delivers the claim is written to the settings whole.
 
 Every other field arrived holding what the settings held rather than something the preset chose, so the repair's answer for it is the machine's.
 The GStreamer VA elements signal no colour description, and a draft on full range therefore leaves that range behind when it lands on one of them.
-A preset that promised nothing about the range is still itself afterwards, and gating on the field instead would put every VA encoder out of reach and land a 60 fps desktop on a software encode.
-What the promise does cover, the claim decides on the repaired settings: a rate-control mode walked to another one the promise names is still the preset, and one walked past it is not.
+A preset that promised nothing about the range is still itself afterwards.
+Gating on the field instead would put every VA encoder out of reach and land a 60 fps desktop on a software encode.
+What the promise does cover, the claim decides on the repaired settings.
+A rate-control mode walked to another one the promise names is still the preset, and one walked past it is not.
 
 The settings a search runs against are the repaired ones, which makes rejecting a repaired candidate sound rather than merely strict.
 A draft still holding a stranded value would have every candidate moved by the repair, and every preset would then be unreachable for a fault none of them has.
-`Resolve` repairs first and everything after it describes what that reached, so the only thing left for a repair to move is what the preset itself put there.
+The resolve repairs first and everything after it describes what that reached, so the only thing left for a repair to move is what the preset itself put there.
 
 A candidate whose own pixel format, encoder or capture backend the repair would already walk is dropped before the repair runs.
 That is the same question asked of the same function, one field at a time instead of a fixed point over the whole table.
 It decides nothing new, and it keeps a machine that reaches no preset from paying for a full repair per candidate on every keystroke.
 
-The axes the search varies:
+## What a search varies
 
 - **Pixel format**, from the ladder.
 - **Codec**, from the capability table: the encoders that come with a device before the ones that come with a build, and coding efficiency inside each half in opposite directions.
   A format spends fewer bits by searching more for them.
   On dedicated silicon that search is free, so the most efficient format wins.
   On a CPU it is the frame rate, so the cheapest one wins.
-- **Capture backend**, from `publish.AutoCaptures`, with the selected one first, so a configuration reachable without switching backend is the one taken.
+- **Capture backend**, over the capture backends this platform runs, with the selected one first, so a configuration reachable without switching backend is the one taken.
   A backend behind a privilege nothing can check in advance is not in that set: `kmsgrab` needs CAP_SYS_ADMIN, so it stays selectable by hand and is never picked on the user's behalf.
 
 The publish transport is not searched.
@@ -94,7 +109,7 @@ The reason names the publish transport, the one dimension the search worked with
 
 ## The selection is derived
 
-Whether a preset is the one in force is read from the settings on every resolve, never remembered from the click that applied it.
+Whether a preset is the one in force is read from the settings on every resolve.
 A field edited to a value the claim still covers keeps the preset.
 One edited past the claim leaves it.
 Changing the codec under `lossless` keeps `lossless`, and dropping the pixel format to 4:2:0 does not, because subsampled chroma is not what the preset promised.
@@ -103,13 +118,14 @@ No stored selection can disagree with the settings, and there is no state to rec
 ## At most one preset can match
 
 Two presets whose claims intersect would both describe one settings object, and a surface has one selection to show.
-The claims are therefore written to be pairwise disjoint, each pair parting on one axis: the rate-control mode separates `lossless` from the other two, and the frame rate separates those two from each other.
+The claims are therefore written to be pairwise disjoint, each pair parting on one axis.
+The rate-control mode separates `lossless` from the other two, and the frame rate separates those two from each other.
 
 The overlap check decides that question from the same axis table the claim test reads, and the preset table is checked against it at load.
 A claim widened past its neighbour fails there, rather than at a surface left to pick one of two right answers.
 
 Settings that satisfy no claim deliver no preset, and nothing is marked.
-That is a state and not a choice: the way out of it is to pick a preset.
+That is a state, and the way out of it is to pick a preset.
 
 ## Saved presets
 

@@ -1,7 +1,6 @@
 // The transport, and the one decision in it:
 // this service is reachable over a local socket and over nothing else.
 //
-// No TCP listener, not even on loopback.
 // A loopback port is reachable by every process on the machine,
 // and by anything a browser can be talked into fetching,
 // and the surface behind this one starts screen captures:
@@ -95,8 +94,8 @@ func Serve(listener net.Listener, srv *Server) *Service {
 			service.endpoint)
 		// A stopped server ends its accept loop with no error,
 		// so anything arriving here is the listener itself failing.
-		// An Umgebungsfehler, so Warnf and never Errorf:
-		// the backend goes on capturing and publishing with no shell attached.
+		// An Umgebungsfehler, so Warnf: the backend goes on capturing and publishing
+		// with no shell attached.
 		if err := server.Serve(listener); err != nil {
 			logger.Warnf("control: stopped accepting on %s: %v", service.endpoint, err)
 		}

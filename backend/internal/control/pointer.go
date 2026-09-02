@@ -15,7 +15,7 @@ import (
 
 // pointerCadence is how often a pointer stream sends.
 //
-// The reader's own interval, not a rate chosen here, so one tick is one reading:
+// The reader's own interval, so one tick is one reading:
 // faster would send the same position twice, slower would step over positions that were taken.
 // Not the frame rate: a position costs no frame,
 // so a 240 Hz pointer over a 30 fps stream is the win over drawing it into the picture.
@@ -40,11 +40,11 @@ const streamPointerCadence = 16 * time.Millisecond
 // folded into Subscribe it would push the whole publish state at pointer rate,
 // for a figure nothing else reads.
 //
-// Every tick is the position read through to the backend and never a delta,
+// Every tick is the position read through to the backend,
 // so a shell that joined late or fell behind is right again on the next one.
 // Nothing queues either: the ticker's channel drops the ticks a blocked Send ran past,
 // so a slow reader receives the present instead of a queue of the past.
-// A stale position is the one worth dropping: it says where the mouse was, not where it is.
+// A stale position is the one worth dropping: it says where the mouse was.
 //
 // A publish reporting no position sends nothing here and the stream stays open.
 // The cursor mode can change under a subscription,
@@ -76,8 +76,7 @@ func (s *Server) SubscribePointer(req *screensharev1.SubscribePointerRequest, ou
 	for {
 		select {
 		case <-done:
-			// A client gone or one that stopped listening ends this call normally.
-			// No failure and nothing reported, as in Subscribe.
+			// A client gone or one that stopped listening ends this call normally, as in Subscribe.
 			return nil
 		case <-ticker.C:
 			p, reporting := read()

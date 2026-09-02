@@ -13,14 +13,15 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// A pixel format the capability table leaves reachable and the format map has no row for is a
-// publish that fails after the UI offered the combination.
+// A pixel format the capability table leaves reachable and the format map has no row for it
+// is a publish that fails after the UI offered the combination.
 //
-// Both memories, a family's device elements not being its system ones: a chroma only one of the two
-// maps holds fails on the path it resolves to.
+// Both memories, a family's device elements not being its system ones:
+// a chroma only one of the two maps holds fails on the path it resolves to.
 //
-// The reverse is no rule: the map keys off the encoder family, so a chroma one element rejects can
-// still name a layout the family's others take, and what keeps that out of a pipeline is the gap.
+// The reverse is no rule: the map keys off the encoder family,
+// so a chroma one element rejects can still name a layout the family's others take,
+// and what keeps that out of a pipeline is the gap.
 func TestGstChromaFormatCoversTheEngineChromas(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -121,8 +122,8 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 }
 
 // The probe counts new pictures, so nothing that repeats or paces a frame may sit ahead of it.
-// On the portal backend that is imagefreeze, which repeats the newest damage frame at the
-// configured rate.
+// On the portal backend that is imagefreeze,
+// which repeats the newest damage frame at the configured rate.
 func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
@@ -137,13 +138,13 @@ func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 	}
 }
 
-// A chroma this engine's encoder element cannot take is refused rather than converted to the
-// nearest format the element does negotiate.
-// Planar RGB on the software HEVC row is that case: x265enc negotiates YUV alone where the ffmpeg
-// engine codes the format directly.
+// A chroma this engine's encoder element cannot take is refused
+// rather than converted to the nearest format the element does negotiate.
+// Planar RGB on the software HEVC row is that case:
+// x265enc negotiates YUV alone where the ffmpeg engine codes the format directly.
 //
-// The codec is named here rather than taken from the defaults, which carry planar RGB on
-// hevc_nvenc, whose elements do take a GBR sink format.
+// The codec is named here rather than taken from the defaults,
+// which carry planar RGB on hevc_nvenc, whose elements do take a GBR sink format.
 // What this covers has to stay a gapped combination whatever the defaults move to.
 //
 // The rejection comes from the caps step, the one the engine runs before it acquires a source:
@@ -159,7 +160,7 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 		t.Fatalf("codec %s has no capability row", s.Publish.Codec())
 	}
 	if _, gapped := cap.OptionGap(EngineGst, capabilities.OptionChroma, s.Publish.Chroma); !gapped {
-		t.Skipf("%s at %s is no longer gapped on this engine, so it no longer covers the refusal", s.Publish.Codec(), s.Publish.Chroma)
+		t.Skipf("%s at %s is not gapped on this engine, so nothing here covers the refusal", s.Publish.Codec(), s.Publish.Chroma)
 	}
 
 	_, err := gstTestCaps(s)
@@ -187,8 +188,8 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		s := baseStream()
 		s.Publish.Capture, s.Publish.Transport = "portal", name
 		s.Publish.AudioSources = settings.Recording("desktop")
-		// libx264 over every transport: the format set decides carriage, and this asserts the shape of
-		// the pipeline.
+		// libx264 over every transport: the format set decides carriage,
+		// and this asserts the shape of the pipeline.
 		s.Publish.UseCodec("libx264")
 		s.Publish.Chroma = "yuv420p"
 		if err := transport.ValidatePublish(name, EngineGst, s.Publish.Codec()); err != nil {
@@ -209,10 +210,11 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 	}
 }
 
-// The audio branch is built from the capability table: the element coding the selected codec on
-// this engine, the parser framing it for the muxer pad, and the rate it codes at.
-// Spelling any of them here instead would state one codec's answer for every codec, where the
-// ffmpeg engine codes the same setting with an element of its own.
+// The audio branch is built from the capability table:
+// the element coding the selected codec on this engine,
+// the parser framing it for the muxer pad, and the rate it codes at.
+// Spelling any of them here instead would state one codec's answer for every codec,
+// where the ffmpeg engine codes the same setting with an element of its own.
 func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 	for _, a := range capabilities.AudioCodecs {
 		enc, ok := a.EncoderOn(EngineGst)
@@ -221,8 +223,9 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 		}
 		s := baseStream()
 		// RTSP carries every audio codec the table holds, so the transport decides none of this.
-		// The backend is one this engine runs on a platform serving the monitor source: the branch is
-		// refused per platform before any element is named, and the defaults carry a Windows grabber.
+		// The backend is one this engine runs on a platform serving the monitor source:
+		// the branch is refused per platform before any element is named,
+		// and the defaults carry a Windows grabber.
 		s.Publish.Capture = "portal"
 		s.Publish.Transport, s.Publish.AudioCodec = "rtsp", a.Name
 		s.Publish.AudioSources = settings.Recording("desktop")
@@ -241,8 +244,8 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 				t.Errorf("%s: audio branch %q lacks %q", a.Name, joined, want)
 			}
 		}
-		// Ending at the muxer's request pad is what makes it a second track and not a pipeline of its
-		// own.
+		// Ending at the muxer's request pad is what makes it a second track
+		// rather than a pipeline of its own.
 		if !strings.HasSuffix(joined, transport.GstMuxName+".") {
 			t.Errorf("%s: audio branch %q must end at the mux name", a.Name, joined)
 		}
@@ -334,11 +337,11 @@ func TestEveryGstGpuPathNamesItsMemory(t *testing.T) {
 	}
 }
 
-// A family whose plugin ships one encoder element per memory kind names one for every codec it
-// encodes.
-// A missing entry is worse than a missing table: the run resolves onto the device and launches the
-// element that refuses the memory, so the failure lands in negotiation with nothing naming the
-// codec.
+// A family whose plugin ships one encoder element per memory kind
+// names one for every codec it encodes.
+// A missing entry is worse than a missing table:
+// the run resolves onto the device and launches the element that refuses the memory,
+// so the failure lands in negotiation with nothing naming the codec.
 //
 // An entry for another family's codec, or for one this engine has no mapping for, is an element no
 // run can reach.
@@ -405,8 +408,8 @@ func TestTheGstDevicePathNamesTheDeviceEncoderElement(t *testing.T) {
 		t.Errorf("the two elements are configured differently:\ndevice: %s\nsystem: %s",
 			strings.Join(device, " "), strings.Join(system, " "))
 	}
-	// What the registry is asked for is what a run launches, or the availability probe reports the
-	// family present while the element is missing.
+	// What the registry is asked for is what a run launches,
+	// or the availability probe reports the family present while the element is missing.
 	elem, named := GstEncoderElementOn(s.Publish.Codec(), gpupath.MemoryGpu)
 	if !named || elem != device[0] {
 		t.Errorf("GstEncoderElementOn names %q on the device path, want %s", elem, device[0])
@@ -492,7 +495,7 @@ func TestTheGstGpuPathCarriesTheMemoryFeatureOnEveryCaps(t *testing.T) {
 		if !strings.HasPrefix(caps, "video/x-raw") || strings.Contains(caps, feature) {
 			continue
 		}
-		// The source is pinned to what the compositor exports, not to the encoder's memory.
+		// The source is pinned to what the compositor exports.
 		// Every other raw caps in the chain is downstream of the conversion.
 		if strings.Contains(caps, "memory:DMABuf") {
 			continue
@@ -554,8 +557,8 @@ func TestGstAutoFollowsThePairTable(t *testing.T) {
 		t.Errorf("auto must take the direct path where the pair has one, got %s", opts.Memory)
 	}
 
-	// The same capture into an encoder reading system memory has no pair, and auto resolves to the
-	// copy rather than refusing.
+	// The same capture into an encoder reading system memory has no pair,
+	// and auto resolves to the copy rather than refusing.
 	s.Publish.UseCodec("libx264")
 	s.Publish.Chroma = "yuv420p"
 	opts, err = gstSourceOptions(s)
@@ -578,10 +581,10 @@ func TestGstRefusesTheGpuDemandForAPairWithoutAPath(t *testing.T) {
 	}
 }
 
-// gstTestCaps is the encoder input caps these settings publish through, resolved the way the engine
-// resolves them.
-// A test about the caps alone reads them here rather than building a frame memory of its own, so a
-// change in how the memory is resolved reaches it.
+// gstTestCaps is the encoder input caps these settings publish through,
+// resolved the way the engine resolves them.
+// A test about the caps alone reads them here rather than building a frame memory of its own,
+// so a change in how the memory is resolved reaches it.
 func gstTestCaps(s settings.Settings) (string, error) {
 	opts, err := gstSourceOptions(s)
 	return opts.InCaps, err
@@ -593,12 +596,12 @@ func gstProbed(opts gstCaptureOptions) gstCaptureOptions {
 	return opts
 }
 
-// The capture paces itself off the clock and the encoder takes what it can, so the trunk sheds
-// between the two: without the drop the encode holds the capture up and every frame behind it ages
-// by what the wait cost, which is the delay internal/pipedelay reports climbing for as long as the
-// shortfall lasts.
-// Ahead of the encoder and nowhere after it, a dropped encoded frame being a reference a viewer
-// decodes without.
+// The capture paces itself off the clock and the encoder takes what it can,
+// so the trunk sheds between the two:
+// without the drop the encode holds the capture up and every frame behind it ages by what the wait cost,
+// which is the delay internal/pipedelay reports climbing for as long as the shortfall lasts.
+// Ahead of the encoder and nowhere after it,
+// a dropped encoded frame being a reference a viewer decodes without.
 func TestTheTrunkShedsAheadOfTheEncoder(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libx264")
@@ -620,8 +623,9 @@ func TestTheTrunkShedsAheadOfTheEncoder(t *testing.T) {
 	}
 }
 
-// The shed's drops are a figure rather than a silence, which takes the queue carrying a name and the
-// child being told it: the count is taken at both ends of that element (gstrun/delay.go).
+// The shed's drops are a figure rather than a silence,
+// which takes the queue carrying a name and the child being told it:
+// the count is taken at both ends of that element (gstrun/delay.go).
 func TestTheShedIsNamedAndCounted(t *testing.T) {
 	s := baseStream()
 	s.Publish.UseCodec("libx264")
@@ -639,8 +643,8 @@ func TestTheShedIsNamedAndCounted(t *testing.T) {
 		t.Errorf("a metered run does not count the shed: %v", metered)
 	}
 
-	// A run with no meter times nothing and counts nothing, and the rendered command still reads as
-	// the command that ran.
+	// A run with no meter times nothing and counts nothing,
+	// and the rendered command still reads as the command that ran.
 	if plain := gstChildArgs(s, "/run/socket", false); slices.ContainsFunc(plain,
 		func(arg string) bool { return strings.HasPrefix(arg, gstrun.ShedFlag) }) {
 		t.Errorf("an unmetered run counts the shed: %v", plain)

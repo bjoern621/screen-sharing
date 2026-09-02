@@ -1,23 +1,25 @@
-// Package encoders reports which video encoders this machine runs, so a codec that would only fail
-// at launch is greyed out instead of offered.
+// Package encoders reports which video encoders this machine runs,
+// so a codec that would only fail at launch is greyed out instead of offered.
 //
 // Two kinds of encoder cannot be assumed present.
-// A hardware codec needs the GPU, its driver and the matching build: NVENC an NVIDIA card, VAAPI
-// a render node whose driver exposes that encode entrypoint, QSV an Intel GPU whose oneVPL runtime
-// the dispatcher finds, Vulkan Video a driver implementing the encode extension for that format.
-// A family diverges per generation on top of that, an AMD card carrying no VP8 or VP9 encoder and
-// a pre-Arc Intel one no AV1.
-// The AV1 and VPx software encoders each need their library compiled in, which a bundled or distro
-// build may lack.
+// A hardware codec needs the GPU, its driver and the matching build:
+// NVENC an NVIDIA card, VAAPI a render node whose driver exposes that encode entrypoint,
+// QSV an Intel GPU whose oneVPL runtime the dispatcher finds,
+// Vulkan Video a driver implementing the encode extension for that format.
+// A family diverges per generation on top of that, an AMD card carrying no VP8 or VP9 encoder
+// and a pre-Arc Intel one no AV1.
+// The AV1 and VPx software encoders each need their library compiled in,
+// which a bundled or distro build may lack.
 //
 // The verdict is per publish engine, the two wrapping different encoder implementations.
 // An ffmpeg build with librav1e compiled in says nothing about whether this GStreamer install
 // carries the rav1enc element, and either one can be the missing half.
-// Each engine is probed the way its own failure shows up, so a codec running on one engine alone
-// is greyed for the capture backends that cannot run it rather than for all of them.
+// Each engine is probed the way its own failure shows up,
+// so a codec running on one engine alone is greyed for the capture backends that cannot run it
+// rather than for all of them.
 //
-// Every verdict is a reading of the machine, so nothing here asserts on one: a missing encoder
-// is an Umgebungsfehler and the whole point of asking.
+// Every verdict is a reading of the machine, so nothing here asserts on one:
+// a missing encoder is an Umgebungsfehler and the whole point of asking.
 package encoders
 
 import (
@@ -42,8 +44,8 @@ import (
 const gstInspectExe = "gst-inspect-1.0"
 
 // engineProbe is one publish engine's answer to "does this machine run this codec".
-// available answers for the engine as a whole, codecs lists what is worth testing there, and usable
-// runs the test.
+// available answers for the engine as a whole, codecs lists what is worth testing there,
+// and usable runs the test.
 type engineProbe struct {
 	available func() error
 	codecs    func() []string
@@ -53,19 +55,20 @@ type engineProbe struct {
 // engineProbes holds the probe per publish engine, covering publish.Engines.
 //
 // The two probes differ because the two engines fail differently.
-// An ffmpeg encoder listed by "ffmpeg -encoders" proves the build carries it, not that it
-// initializes, so the test that answers is a one-frame encode.
-// A GStreamer element is absent from the registry when its plugin is not installed, and
-// the hardware plugins register elements per detected device, so one registry query answers both
-// halves and costs no encode per codec.
+// An ffmpeg encoder listed by "ffmpeg -encoders" proves the build carries it,
+// not that it initializes, so the test that answers is a one-frame encode.
+// A GStreamer element is absent from the registry when its plugin is not installed,
+// and the hardware plugins register elements per detected device,
+// so one registry query answers both halves and costs no encode per codec.
 var engineProbes = map[string]engineProbe{
 	publish.EngineFfmpeg: {available: ffmpegAvailable, codecs: ffmpegProbed, usable: ffmpegUsable},
 	publish.EngineGst:    {available: gstAvailable, codecs: gstProbed, usable: gstUsable},
 }
 
 // ffmpegAvailable reports whether the ffmpeg engine can be probed at all.
-// Without the executable every test encode fails, and a per-codec verdict would then answer
-// a question about ffmpeg with a sentence about the machine's encoder hardware.
+// Without the executable every test encode fails,
+// and a per-codec verdict would then answer a question about ffmpeg
+// with a sentence about the machine's encoder hardware.
 func ffmpegAvailable() error {
 	_, err := ffmpeg.FindExe("ffmpeg")
 	return err
@@ -80,13 +83,13 @@ func gstAvailable() error {
 	return nil
 }
 
-// ffmpegAssumed are the encoders no probe is spent on: every ffmpeg build worth shipping carries
-// them and none of them fails to initialize, so a test encode would spend a process on a foregone
-// answer.
+// ffmpegAssumed are the encoders no probe is spent on:
+// every ffmpeg build worth shipping carries them and none of them fails to initialize,
+// so a test encode would spend a process on a foregone answer.
 var ffmpegAssumed = []string{"libx264", "libx265"}
 
-// ffmpegProbed lists the ffmpeg encoders worth testing: every implemented codec this engine has
-// an encoder for, minus the ones that need no asking.
+// ffmpegProbed lists the ffmpeg encoders worth testing:
+// every implemented codec this engine has an encoder for, minus the ones that need no asking.
 // Derived from the capability table rather than listed, so a codec added there is probed and greyed
 // where it cannot run instead of reaching a launch that fails.
 func ffmpegProbed() []string {
@@ -100,14 +103,16 @@ func ffmpegProbed() []string {
 	return out
 }
 
-// gstProbed lists every implemented codec this engine has an encoder for, nothing assumed present
-// the way ffmpegAssumed is.
-// Each element ships in a plugin package of its own: x264enc in gst-plugins-ugly, rav1enc
-// in gst-plugins-rs, the va and nvcodec elements in device-conditional plugins.
+// gstProbed lists every implemented codec this engine has an encoder for,
+// nothing assumed present the way ffmpegAssumed is.
+// Each element ships in a plugin package of its own:
+// x264enc in gst-plugins-ugly, rav1enc in gst-plugins-rs,
+// the va and nvcodec elements in device-conditional plugins.
 //
 // A codec gapped off this engine is left out rather than probed to false.
-// The gap already states why it is unavailable here, and a verdict would replace
-// that with the machine's answer to a question carrying no element name to look for.
+// The gap already states why it is unavailable here,
+// and a verdict would replace that with the machine's answer
+// to a question carrying no element name to look for.
 func gstProbed() []string {
 	var out []string
 	for _, c := range capabilities.Codecs {
@@ -127,15 +132,15 @@ const probeTimeout = 10 * time.Second
 // An engine absent from the outer map restricts nothing.
 //
 // Unprobed names the engines whose own tooling is missing, with the reason.
-// Nothing on such an engine was tested and nothing can run there, the codecs no probe is spent
-// on included, so the reason covers the engine rather than a codec at a time.
-// Without it a missing ffmpeg reads as a machine with no encoder hardware, and the encoders
-// in ffmpegAssumed stay selectable while being the ones certain to fail at launch.
+// Nothing on such an engine was tested and nothing can run there,
+// the codecs no probe is spent on included,
+// so the reason covers the engine rather than a codec at a time.
+// Without it a missing ffmpeg reads as a machine with no encoder hardware,
+// and the encoders in ffmpegAssumed stay selectable while being the ones certain to fail at launch.
 type Availability struct {
 	Usable   map[string]map[string]bool `json:"usable"`
 	Unprobed map[string]string          `json:"unprobed"`
-	// Legs maps a publish leg to whether this GStreamer install registers every element its sink
-	// is made of.
+	// Legs maps a publish leg to whether this GStreamer install registers every element its sink is made of.
 	// A leg absent from the map was not probed and counts as available, as an unprobed codec does.
 	//
 	// The encoder half of a pipeline is not the whole of it: an install carrying the older WHIP
@@ -206,7 +211,7 @@ func Detect(ctx context.Context) Availability {
 	}
 	wg.Wait()
 
-	// An engine is asked or excused, never both and never neither.
+	// An engine is asked or excused, exactly one of the two.
 	// A name in both maps would let a surface read a verdict off an engine it was told carries none.
 	for engine := range engineProbes {
 		_, asked := usable[engine]

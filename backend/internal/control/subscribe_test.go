@@ -42,7 +42,7 @@ func (f *fakeStream) Send(event *screensharev1.Event) error {
 
 // unknownKind is an EventKind value no build declares,
 // what a shell generated against a later minor version sends.
-// A number and not a misspelt name, the kinds being an enum:
+// A number, the kinds being an enum:
 // the mistake left to a shell is naming a kind that exists somewhere and not here.
 const unknownKind = screensharev1.EventKind(9999)
 

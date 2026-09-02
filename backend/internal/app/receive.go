@@ -26,7 +26,6 @@ import (
 // a receive builds a GStreamer pipeline whose frames the frame channel hands to the shell
 // (docs/viewer-architecture.md, "The decode host").
 //
-// A decode, never a tile.
 // Where the frames are drawn and beside which others is the shell's (docs/ipc-api.md).
 //
 // The leg is a parameter for the reason StartWatch's is:

@@ -7,7 +7,7 @@ Two of them, in three folders.
 `Members` is the same service's membership half: who is in a group, and closing what anybody holding no lease has open (`backend/internal/membership`).
 `Relay` is the MediaMTX API the app polls for who is live, read by `backend/internal/relay`, plus the HLS playlist as the one media leg a GET can check.
 
-The backend-to-shell contract is not here and is not HTTP: gRPC over a Unix socket, stated in `docs/ipc-api.md`, defined in `api/`.
+The backend-to-shell contract is elsewhere: gRPC over a Unix socket, stated in `docs/ipc-api.md`, defined in `api/`.
 
 ## Running it
 
@@ -28,7 +28,9 @@ That name is the proxy's `SCREENSHARE_DOMAIN`, so another deployment is this env
 
 `relayApi` and `groupAdmin` stay on loopback in both.
 
-The relay's API is not fronted at all, and two of the group service's routes are not either: `/members` and `/reconcile` answer on 9443 and the proxy carries neither.
+## Reaching a deployment
+
+The proxy fronts neither the relay's API nor `/members` and `/reconcile`, which answer on 9443.
 So `Members` addresses `groupAdmin` while the rest of the collection addresses `groupService`, and against a deployment both need the tunnel below.
 Sent to the deployment's public name they reach the HLS listener instead, which answers `{"status":"error","error":"authentication error"}`.
 That shape is MediaMTX's, so a refusal carrying it is a request that never arrived here.
@@ -46,7 +48,7 @@ Opening an open tunnel is a no-op.
 A stale tunnel keeps listening while forwarding nothing, so a request that hangs rather than refuses is one to restart it for.
 
 The printed token goes in `relayApiToken` and grants the API alone.
-A relay access token grants publishing and reading under one prefix and never the API, so the operator's is signed separately, on the machine holding the signing key.
+A relay access token is the other grant, covering publishing and reading under one prefix, and the operator's is signed separately on the machine holding the signing key.
 
 ## Order
 
@@ -58,7 +60,7 @@ The `Members` folder runs in its own order on top of that, and wants a stream op
 Run `Leave the group` while a second member holds a lease and the leaver's connections come back under `kicked` and their player stops.
 
 A member secret is drawn by the request that needs one where the environment holds none, which is what an app does on its first join to a group.
-Nobody issues one: it is what makes a member unforgeable inside the group, so the service never sees it drawn and never hands one out.
+The secret is what makes a member unforgeable inside the group, so it is drawn locally and the service never sees one.
 
 Group key, member secrets and tokens are declared secret, so Bruno keeps their values out of the environment files and this collection carries no credential.
-The rest of an environment is addresses, a stream name and a display name, which is why the files are committed.
+The rest of an environment is addresses, a stream name and a display name, so the files are committed.

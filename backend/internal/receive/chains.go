@@ -59,8 +59,8 @@ const (
 // Stated colour on Windows means picking the CPU chain and paying the download,
 // a choice the form offers and a fact the receive state reports.
 //
-// Fallback covers a machine that cannot run it (resolve), so this names the chain to prefer and not
-// one every install has.
+// Fallback covers a machine that cannot run it (resolve), so this names the chain to prefer
+// and not one every install has.
 const DefaultChain = defaultChain
 
 // unconvertedChain converts nothing.

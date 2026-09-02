@@ -5,58 +5,59 @@ package screenshare.v1;
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// Every statement the backend makes crosses as a Text: a code naming which statement, plus
-// the identifiers and figures it is about.
+// Every statement the backend makes crosses as a Text:
+// a code naming which statement, plus the identifiers and figures it is about.
 // The shell turns that into words.
-// It holds no domain knowledge and invents no value, and it owns every label, every
-// paragraph and every sentence on screen (docs/ipc-api.md).
+// It holds no domain knowledge and invents no value,
+// and it owns every label, every paragraph and every sentence on screen (docs/ipc-api.md).
 //
-// The two halves meet on identifiers: "hevc_nvenc", "gstreamer", "yuv420p", "srt", each
-// spelled as the encoder, the element registry and the relay spell it.
-// "HEVC / H.265 (NVIDIA NVENC)" is one shell's answer for its typography, its width and
-// its reader.
-// Wording wraps, truncates, has a tone and needs a short form for a chip beside a long
-// one for a tooltip, so a backend that shipped the sentence would decide all of it from a
-// place that can see none of it.
+// The two halves meet on identifiers: "hevc_nvenc", "gstreamer", "yuv420p", "srt",
+// each spelled as the encoder, the element registry and the relay spell it.
+// "HEVC / H.265 (NVIDIA NVENC)" is one shell's answer for its typography, its width and its reader.
+// Wording wraps, truncates, has a tone,
+// and needs a short form for a chip beside a long one for a tooltip,
+// so a backend that shipped the sentence would decide all of it from a place seeing none of it.
 //
-// A string produced outside this app's vocabulary stays raw rather than crossing as a
-// Text, because it is data and not vocabulary: the rendered command line
-// (Summary.command), the publish builder's refusal (Summary.command_error), a child
-// process's own failure (ExitInfo.message), the relay's own error (RelayStatus.error).
-// Each is shown verbatim and is never matched against.
+// A string produced outside this app's vocabulary stays raw rather than crossing as a Text:
+// the rendered command line (Summary.command),
+// the publish builder's refusal (Summary.command_error),
+// a child process's own failure (ExitInfo.message),
+// the relay's own error (RelayStatus.error).
+// Each is shown verbatim, and nothing matches on it.
 
 // TextArgName names one substitution in a statement.
 //
-// An enum rather than a string key, for the reason EventKind is one: a misspelt name is a
-// sentence that renders with a hole in it on one screen and nowhere else.
+// An enum rather than a string key, for the reason EventKind is one:
+// a misspelt name is a sentence that renders with a hole in it on one screen and nowhere else.
 //
 // Three kinds, and the kind decides what a shell does with the value.
-// An identifier is looked up in the shell's own vocabulary, TEXT_ARG_NAME_CODEC carrying
-// "hevc_nvenc".
-// A figure is formatted, the unit being in the name, TEXT_ARG_NAME_BITRATE_MBPS carrying
-// megabits.
-// A nested statement is rendered by the same machinery one level down, which lets a reason
-// quote the fact behind it without either half knowing the other's wording.
+// An identifier is looked up in the shell's own vocabulary,
+// TEXT_ARG_NAME_CODEC carrying "hevc_nvenc".
+// A figure is formatted, the unit being in the name,
+// TEXT_ARG_NAME_BITRATE_MBPS carrying megabits.
+// A nested statement is rendered by the same machinery one level down,
+// which lets a reason quote the fact behind it without either half knowing the other's wording.
 enum TextArgName {
   TEXT_ARG_NAME_UNSPECIFIED = 0;
 
-  // Identifiers. Each carries one value of the domain table its name says.
+  // Identifiers.
+  // Each carries one value of the domain table its name says.
   TEXT_ARG_NAME_CAPTURE = 1;
   TEXT_ARG_NAME_ENGINE = 2;
-  // Engine a statement points at as the way out, TEXT_ARG_NAME_ENGINE being the one that
-  // refused.
-  // Two names rather than two positions, since a sentence naming both has to know which is
-  // which.
+  // Engine a statement points at as the way out,
+  // TEXT_ARG_NAME_ENGINE being the one that refused.
+  // Two names rather than two positions,
+  // since a sentence naming both has to know which is which.
   TEXT_ARG_NAME_OTHER_ENGINE = 3;
   TEXT_ARG_NAME_TRANSPORT = 4;
   TEXT_ARG_NAME_CODEC = 5;
   TEXT_ARG_NAME_FORMAT = 6;
   TEXT_ARG_NAME_FAMILY = 7;
-  // What produces a bitstream, at the grain the settings pick one: a family wherever that
-  // family is one encoder, and the library where several share a family ("nvenc", "x264",
-  // "svt-av1").
-  // Apart from TEXT_ARG_NAME_CODEC, which is the whole encode as an engine spells it,
-  // "hevc_nvenc", and from TEXT_ARG_NAME_FAMILY, which four software encoders share.
+  // What produces a bitstream, at the grain the settings pick one:
+  // a family wherever that family is one encoder,
+  // and the library where several share a family ("nvenc", "x264", "svt-av1").
+  // Apart from TEXT_ARG_NAME_CODEC, the whole encode as an engine spells it ("hevc_nvenc"),
+  // and from TEXT_ARG_NAME_FAMILY, which several encoders can share.
   TEXT_ARG_NAME_ENCODER = 37;
   TEXT_ARG_NAME_CHROMA = 8;
   TEXT_ARG_NAME_COLOR_RANGE = 9;
@@ -70,45 +71,46 @@ enum TextArgName {
   TEXT_ARG_NAME_RTSP_PROTOCOL = 15;
   TEXT_ARG_NAME_DECODE_FAMILY = 16;
   // Decoder element as the receiving pipeline names it, e.g. "avdec_h264".
-  // Not a settings value: a publisher never picks one, and a statement about what a viewer
-  // spends names it all the same.
+  // Not a settings value:
+  // a publisher never picks one, and a statement about what a viewer spends names it all the same.
   TEXT_ARG_NAME_DECODER = 17;
   // Operating system and Linux display server, spelled as Platform spells them.
   TEXT_ARG_NAME_OS = 18;
   TEXT_ARG_NAME_DISPLAY = 19;
-  // Settings field a gap takes a value away from, named as the settings name it, and the
-  // value taken.
+  // Settings field a gap takes a value away from, named as the settings name it,
+  // and the value taken.
   TEXT_ARG_NAME_OPTION = 20;
   TEXT_ARG_NAME_VALUE = 21;
   // Filesystem path the backend handed out.
-  // Not vocabulary: backend and shell are one application on one machine
-  // (docs/ipc-api.md), so a path crosses as a path.
+  // Not vocabulary:
+  // backend and shell are one application on one machine (docs/ipc-api.md),
+  // so a path crosses as a path.
   TEXT_ARG_NAME_PATH = 22;
   // GStreamer element factory, e.g. "glcolorconvert".
-  // Not a settings value: nobody picks one, and a statement about what this machine cannot
-  // run names the one that is missing.
+  // Not a settings value:
+  // nobody picks one, and a statement about what this machine cannot run names the one missing.
   TEXT_ARG_NAME_ELEMENT = 23;
   // Built-in preset, e.g. "gaming" (form.proto, BuiltinPreset).
-  // Not a settings value either: a preset is applied and never stored, so no field holds
-  // one.
+  // Not a settings value either:
+  // applying one writes the fields it moves, so no field holds the preset itself.
   TEXT_ARG_NAME_PRESET = 24;
   // What the pointer does in the captured frames, as the settings name it: "embedded",
   // "hidden" or "metadata".
   TEXT_ARG_NAME_CURSOR = 25;
   // Step of an encoder's tune ladder, spelled as that encoder does: "zerolatency" on x264,
   // "ll" on NVENC.
-  // Separate from TEXT_ARG_NAME_EFFORT because a statement about one says nothing about the
-  // other.
+  // Separate from TEXT_ARG_NAME_EFFORT,
+  // because a statement about one says nothing about the other.
   TEXT_ARG_NAME_TUNE = 26;
-  // Video driver an encode runs through, and the adapter it drives, each spelled as the
-  // driver names itself: "radeonsi", "AMD Radeon 780M Graphics".
-  // Not settings values: nobody picks a driver, and a statement about what this machine's
-  // driver gets wrong names the one that is installed.
+  // Video driver an encode runs through, and the adapter it drives,
+  // each spelled as the driver names itself: "radeonsi", "AMD Radeon 780M Graphics".
+  // Not settings values:
+  // nobody picks a driver, and a statement about a driver defect names the one installed.
   TEXT_ARG_NAME_GPU_DRIVER = 27;
   TEXT_ARG_NAME_GPU_MODEL = 28;
 
   // Lists of identifiers, each of the axis its name says.
-  // The backend states which ones, never how they read together.
+  // The backend states which ones, and the shell decides how they read together.
   TEXT_ARG_NAME_FAMILIES = 30;
   TEXT_ARG_NAME_FORMATS = 38;
   TEXT_ARG_NAME_TRANSPORTS = 31;
@@ -116,15 +118,16 @@ enum TextArgName {
   TEXT_ARG_NAME_DECODERS = 33;
   TEXT_ARG_NAME_DECODE_FAMILIES = 34;
   TEXT_ARG_NAME_RTSP_PROTOCOLS = 35;
-  // What is inside one audio kind: a sound device, or an application whose own output is
-  // being recorded.
-  // Carries the handle the enumeration reported, which is what a publish engine opens it
-  // by, so a shell that has met the enumeration can name it and one that has not still
-  // shows something the machine answers to.
+  // What is inside one audio kind:
+  // a sound device, or an application whose own output is being recorded.
+  // Carries the handle the enumeration reported, which is what a publish engine opens it by,
+  // so a shell that has met the enumeration can name it,
+  // and one that has not still shows something the machine answers to.
   TEXT_ARG_NAME_DEVICE = 36;
 
-  // Figures. Each carries the unit its name says, so a shell needs no second field to know
-  // what it is holding.
+  // Figures.
+  // Each carries the unit its name says,
+  // so a shell needs no second field to know what it is holding.
   TEXT_ARG_NAME_MONITOR = 40;
   TEXT_ARG_NAME_WIDTH = 41;
   TEXT_ARG_NAME_HEIGHT = 42;
@@ -140,24 +143,22 @@ enum TextArgName {
   TEXT_ARG_NAME_HIGH_MBPS = 53;
   TEXT_ARG_NAME_RATE_HZ = 54;
   TEXT_ARG_NAME_BITRATE_KBPS = 55;
-  // How many further cases a statement stands in for, where listing them would bury the
-  // one that carries the point.
+  // How many further cases a statement stands in for,
+  // where listing them would bury the one that carries the point.
   TEXT_ARG_NAME_OTHER_COUNT = 56;
-  // Driver version as one comparable figure, so a defect can name the release it is fixed
-  // in: 26.1.6 reads 26001006.
-  // A figure and not the written version, because the only question asked of it is whether
-  // this machine is below the fix.
+  // Driver version as one comparable figure, so a defect can name the release it is fixed in:
+  // 26.1.6 reads 26001006.
+  // A figure, because the only question asked of it is whether this machine is below the fix.
   TEXT_ARG_NAME_GPU_DRIVER_VERSION = 57;
 
   // Nested statements.
   //
-  // TEXT_ARG_NAME_CAUSE is the fact behind the statement, e.g. a probe's verdict inside a
-  // diagnostic about the probe.
-  // TEXT_ARG_NAME_IMPORT is what carries frames across a GPU path, TEXT_ARG_NAME_COST what
-  // that path takes in exchange, TEXT_ARG_NAME_REACH the way to the same path without the
-  // cost.
-  // Each is a Text, so the half that knows the fact never has to know the sentence it lands
-  // in.
+  // TEXT_ARG_NAME_CAUSE is the fact behind the statement,
+  // e.g. a probe's verdict inside a diagnostic about the probe.
+  // TEXT_ARG_NAME_IMPORT is what carries frames across a GPU path,
+  // TEXT_ARG_NAME_COST what that path takes in exchange,
+  // TEXT_ARG_NAME_REACH the way to the same path without the cost.
+  // Each is a Text, so the half that knows the fact never has to know the sentence it lands in.
   TEXT_ARG_NAME_CAUSE = 60;
   TEXT_ARG_NAME_IMPORT = 61;
   TEXT_ARG_NAME_COST = 62;
@@ -166,7 +167,8 @@ enum TextArgName {
   // The longest keyframe interval an encoder's own field holds, in frames.
   TEXT_ARG_NAME_GOP_LIMIT_FRAMES = 64;
 
-  // Reserved for a rename rather than a removal: TEXT_ARG_NAME_EFFORT carries the number,
+  // Reserved for a rename rather than a removal:
+  // TEXT_ARG_NAME_EFFORT carries the number,
   // and a build still spelling the old name fails to compile rather than to parse.
   reserved "TEXT_ARG_NAME_ENC_PRESET";
 
@@ -196,10 +198,10 @@ message TextArg {
 // Text is one statement the backend makes: which statement, and what it is about.
 //
 // A shell renders it by switching on the code.
-// An unknown code is an older shell meeting a newer backend, which Hello settles before
-// any of this is reached.
-// A shell that meets one anyway shows the code rather than nothing, since a blank where a
-// reason belongs reads as a control with no reason at all.
+// An unknown code is an older shell meeting a newer backend,
+// which Hello settles before any of this is reached.
+// A shell that meets one anyway shows the code rather than nothing,
+// since a blank where a reason belongs reads as a control with no reason at all.
 message Text {
   TextCode code = 1;
   repeated TextArg args = 2;
@@ -207,26 +209,27 @@ message Text {
 
 // TextCode names one statement.
 //
-// Numbering is grouped by subject with room between the groups, so a statement added
-// beside its neighbours takes the next free number in its own range rather than landing at
-// the end of the list.
-// Nothing is renumbered: a code is the whole identity of a sentence, and a reused number
-// silently changes what a shell says.
+// Numbering is grouped by subject with room between the groups,
+// so a statement added beside its neighbours takes the next free number in its own range,
+// rather than landing at the end of the list.
+// Nothing is renumbered.
+// A code is the whole identity of a sentence,
+// and a reused number silently changes what a shell says.
 enum TextCode {
   TEXT_CODE_UNSPECIFIED = 0;
 
   // --- Capture backends and monitors --------------------------------------------
 
   // Capture backend needs another operating system.
-  // TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_OS, the second being the one it needs rather
-  // than the one running.
+  // TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_OS,
+  // the second being the one it needs rather than the one running.
   TEXT_CODE_CAPTURE_WRONG_OS = 1;
   // Right operating system, wrong session.
   // TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_DISPLAY, the display server the backend needs.
   TEXT_CODE_CAPTURE_WRONG_SESSION = 2;
   // Capture backend needs a privilege nothing here can establish.
-  // Not an unavailability: the process holds it or the capture dies at launch, and no probe
-  // tells which in advance.
+  // Not an unavailability:
+  // the process holds it or the capture dies at launch, and no probe tells which in advance.
   // TEXT_ARG_NAME_CAPTURE.
   TEXT_CODE_CAPTURE_NEEDS_GRANT = 3;
   // Capture backend takes no monitor index and captures something else.
@@ -238,10 +241,10 @@ enum TextCode {
   // Scaled output resolution, and the source it was derived from.
   // TEXT_ARG_NAME_WIDTH and TEXT_ARG_NAME_HEIGHT are the source's.
   TEXT_CODE_SCALED_FROM_SOURCE = 6;
-  // This session has no capture element that reads one output apart from another, so there
-  // is no picture of a single monitor to show.
-  // TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY: what is missing is the
-  // session's, not any one monitor's.
+  // This session has no capture element that reads one output apart from another,
+  // so there is no picture of a single monitor to show.
+  // TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY:
+  // what is missing belongs to the session, whatever monitor is picked.
   TEXT_CODE_NO_MONITOR_PREVIEW = 7;
 
   // --- Publish engines and the encoder probe ------------------------------------
@@ -252,21 +255,22 @@ enum TextCode {
   // Capture backend's engine has no publish sink for the transport.
   // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT.
   TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK = 11;
-  // Engine serializes the transport's sink and this install carries none of the elements it
-  // is made of, so the leg would die at launch.
-  // Apart from the code above it in that the app builds this leg and the machine cannot run
-  // what it builds, which is what the encoder probe answers about a codec.
+  // Engine serializes the transport's sink,
+  // and this install carries none of the elements it is made of,
+  // so the leg would die at launch.
+  // Apart from the code above it in that the app builds this leg and the machine cannot run it,
+  // which is what the encoder probe answers about a codec.
   // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_ELEMENT.
   TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING = 163;
   // Nothing on this engine was probed, so no codec on it is greyed for absence.
   // TEXT_ARG_NAME_ENGINE and TEXT_ARG_NAME_CAUSE.
   TEXT_CODE_ENGINE_NOT_PROBED = 12;
-  // Probe found no encoder and the family's encoders come with a device: no such GPU here,
-  // or no driver exposing that encode entrypoint.
+  // Probe found no encoder and the family's encoders come with a device:
+  // no such GPU here, or no driver exposing that encode entrypoint.
   // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_FAMILY.
   TEXT_CODE_PROBE_NO_DEVICE = 13;
-  // Probe found no encoder and the family's encoders come with a build: nothing compiled it
-  // in, or no plugin provides the element.
+  // Probe found no encoder and the family's encoders come with a build:
+  // nothing compiled it in, or no plugin provides the element.
   // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_CODEC.
   TEXT_CODE_PROBE_NO_BUILD = 14;
   // Probe could not run the encoder and the codec's family is one no table here describes,
@@ -276,50 +280,53 @@ enum TextCode {
   // No pipeline is built for the codec, and it stays offered so the roadmap is visible.
   // No arguments.
   TEXT_CODE_CODEC_NOT_IMPLEMENTED = 16;
-  // Nothing this machine runs produces the format on this engine, whatever encoder is picked
-  // beside it. One statement for the format, the encoders behind it being out for reasons of
-  // their own, which the encoder control states per entry.
+  // Nothing this machine runs produces the format on this engine,
+  // whatever encoder is picked beside it.
+  // One statement for the format,
+  // the encoders behind it being out for reasons of their own,
+  // which the encoder control states per entry.
   // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_ENGINE.
   TEXT_CODE_NO_ENCODER_FOR_FORMAT = 164;
-  // Encoder produces no bitstream in this format, on any machine: the pair names no row of
-  // the codec table.
-  // TEXT_ARG_NAME_ENCODER, TEXT_ARG_NAME_FORMAT, and TEXT_ARG_NAME_FORMATS for the ones it
-  // does produce.
+  // Encoder produces no bitstream in this format, on any machine:
+  // the pair names no row of the codec table.
+  // TEXT_ARG_NAME_ENCODER, TEXT_ARG_NAME_FORMAT,
+  // and TEXT_ARG_NAME_FORMATS for the ones it does produce.
   TEXT_CODE_ENCODER_CODES_NO_FORMAT = 165;
 
   // --- Carriage -----------------------------------------------------------------
 
   // Publish leg has no mapping for the bitstream on this engine.
-  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_ENGINE, and the two ways
-  // out where the tables hold one: TEXT_ARG_NAME_TRANSPORTS are the legs that carry it on
-  // this engine, TEXT_ARG_NAME_OTHER_ENGINE the engine that carries it on this leg.
+  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_ENGINE,
+  // and the two ways out where the tables hold one:
+  // TEXT_ARG_NAME_TRANSPORTS are the legs that carry it on this engine,
+  // TEXT_ARG_NAME_OTHER_ENGINE the engine that carries it on this leg.
   // Either may be absent.
   TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT = 20;
   // Publish leg carries no track in this audio codec's format on this engine.
-  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_AUDIO_CODEC, TEXT_ARG_NAME_ENGINE, and
-  // TEXT_ARG_NAME_AUDIO_CODECS for the ones it does carry, which may be empty.
+  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_AUDIO_CODEC, TEXT_ARG_NAME_ENGINE,
+  // and TEXT_ARG_NAME_AUDIO_CODECS for the ones it does carry, which may be empty.
   TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC = 21;
   // Engine has no encoder element for the audio codec.
   // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_AUDIO_CODEC.
   TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER = 22;
   // No viewer on this engine receives over the transport at all.
-  // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_TRANSPORTS for what it
-  // does receive over.
+  // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT,
+  // TEXT_ARG_NAME_TRANSPORTS for what it does receive over.
   TEXT_CODE_NO_VIEWER_RECEIVES_OVER = 23;
-  // Relay re-serves no stream of this format on that listener, so a viewer connects and
-  // receives nothing.
+  // Relay re-serves no stream of this format on that listener,
+  // so a viewer connects and receives nothing.
   // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_TRANSPORTS.
   TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER = 24;
-  // This GStreamer registers none of the elements the render chain is built from, so no
-  // receive pipeline can be built on it.
-  // TEXT_ARG_NAME_VALUE is the chain, TEXT_ARG_NAME_ELEMENT the first element it needs and
-  // this machine does not have.
+  // This GStreamer registers none of the elements the render chain is built from,
+  // so no receive pipeline can be built on it.
+  // TEXT_ARG_NAME_VALUE is the chain,
+  // TEXT_ARG_NAME_ELEMENT the first element it needs and this machine does not have.
   TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING = 25;
 
   // --- Pixel format, colour and decoding ----------------------------------------
 
-  // Codec reaches no direct RGB on either engine, which needs a coding tool rather than a
-  // subsampling.
+  // Codec reaches no direct RGB on either engine,
+  // which needs a coding tool rather than a subsampling.
   // TEXT_ARG_NAME_CODEC.
   TEXT_CODE_CODEC_CODES_NO_RGB = 30;
   // Codec's encoder codes this pixel format on no engine.
@@ -332,15 +339,17 @@ enum TextCode {
   // TEXT_ARG_NAME_DECODE_FAMILIES.
   TEXT_CODE_DECODES_IN_HARDWARE = 33;
   // Nothing decodes this pair on a GPU, so every viewer spends cores.
-  // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_CHROMA, TEXT_ARG_NAME_DECODER for the software
-  // element, and TEXT_ARG_NAME_DECODE_FAMILY for the hardware family whose limit stands for
-  // the rest, absent where none declares one.
+  // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_CHROMA,
+  // TEXT_ARG_NAME_DECODER for the software element,
+  // and TEXT_ARG_NAME_DECODE_FAMILY for the hardware family whose limit stands for the rest,
+  // absent where none declares one.
   TEXT_CODE_DECODES_ON_CPU = 34;
   // Pair reaches a GPU on some decode families and not others.
-  // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_CHROMA, TEXT_ARG_NAME_DECODE_FAMILIES for the ones
-  // it reaches, TEXT_ARG_NAME_DECODER for the software element, TEXT_ARG_NAME_DECODE_FAMILY
-  // for the family whose limit is quoted, TEXT_ARG_NAME_OTHER_COUNT for how many further
-  // ones agree.
+  // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_CHROMA,
+  // TEXT_ARG_NAME_DECODE_FAMILIES for the ones it reaches,
+  // TEXT_ARG_NAME_DECODER for the software element,
+  // TEXT_ARG_NAME_DECODE_FAMILY for the family whose limit is quoted,
+  // TEXT_ARG_NAME_OTHER_COUNT for how many further ones agree.
   TEXT_CODE_DECODES_IN_HARDWARE_PARTLY = 35;
 
   // --- Frame memory and the GPU path --------------------------------------------
@@ -349,20 +358,21 @@ enum TextCode {
   // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE.
   TEXT_CODE_PAIR_HAS_NO_DEVICE_MEMORY = 40;
   // Pair converts on the device by the colour the form shows, so there is nothing to trade.
-  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_MEMORY for the value that
-  // keeps both.
+  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC,
+  // TEXT_ARG_NAME_MEMORY for the value that keeps both.
   TEXT_CODE_PAIR_CONVERTS_ON_DEVICE = 41;
-  // Pair shares device memory with nothing converting between the two ends, so the encoder
-  // converts in its own colour.
-  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_COST
-  // for what that takes, and TEXT_ARG_NAME_REACH for the pair that reaches the device
-  // without the trade, absent where the table declares none.
+  // Pair shares device memory with nothing converting between the two ends,
+  // so the encoder converts in its own colour.
+  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE,
+  // TEXT_ARG_NAME_COST for what that takes,
+  // and TEXT_ARG_NAME_REACH for the pair that reaches the device without the trade,
+  // absent where the table declares none.
   TEXT_CODE_PAIR_TRADES_COLOUR = 42;
   // Another capture backend runs the same screen onto the device with the colour selected.
   // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_IMPORT.
   TEXT_CODE_EXACT_COLOUR_REACH = 43;
-  // A device path with no conversion on it has nothing that can resize, so a scaled picture
-  // is out of reach there.
+  // A device path with no conversion on it has nothing that can resize,
+  // so a scaled picture is out of reach there.
   // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_MEMORY for the way across.
   TEXT_CODE_DEVICE_PATH_HAS_NO_SCALER = 44;
   // Frames stay on the GPU, so nothing is downloaded and no mapping device is chosen.
@@ -370,16 +380,16 @@ enum TextCode {
   TEXT_CODE_DRM_MAP_UNUSED_ON_DEVICE = 45;
 
   // What carries the frames on each GPU path the table declares.
-  // One code per row rather than one code with the mechanism as an argument: the mechanism
-  // is exactly the part that differs, and a shell describing it generically would describe
-  // none of them.
+  // One code per row rather than one code with the mechanism as an argument:
+  // the mechanism is exactly the part that differs,
+  // and a shell describing it generically would describe none of them.
   TEXT_CODE_IMPORT_GST_PORTAL_VAAPI = 50;
   TEXT_CODE_IMPORT_GST_D3D11_NVENC = 51;
   TEXT_CODE_IMPORT_FFMPEG_KMSGRAB_VAAPI = 52;
   TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_QSV = 53;
   TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_NVENC = 54;
-  // What the one colour-trading row takes: the encoder converts the captured RGB itself and
-  // signals what it chose.
+  // What the one colour-trading row takes:
+  // the encoder converts the captured RGB itself and signals what it chose.
   // TEXT_ARG_NAME_CHROMA and TEXT_ARG_NAME_COLOR_RANGE are what it signals.
   TEXT_CODE_COST_ENCODER_SIGNALS_ITS_OWN_COLOUR = 55;
 
@@ -419,8 +429,8 @@ enum TextCode {
   // TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_EFFORT.
   TEXT_CODE_EFFORT_PINNED_BY_MODE = 67;
   // Codec's encoder tunes for nothing the user picks, so there is no ladder to offer.
-  // Apart from TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER because a codec can declare either
-  // ladder without the other.
+  // Apart from TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER,
+  // because a codec can declare either ladder without the other.
   // TEXT_ARG_NAME_CODEC.
   TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER = 78;
   // Mode pins the tune.
@@ -440,45 +450,48 @@ enum TextCode {
   TEXT_CODE_AUDIO_TRACK_CODED_AT = 71;
 
   // The two limits a codec's own encoder places on a figure the user sets.
-  // Each states the top of the range that reaches the encoder, which is what the control is
-  // offered within and what a value above it is refused by: one fact and one statement,
+  // Each states the top of the range that reaches the encoder,
+  // which is what the control is offered within and what a value above it is refused by:
+  // one fact and one statement,
   // rather than a ceiling the form narrowed by beside a refusal worded separately.
   //
-  // Quantizer scale is the codec's and the engine's together, since the two set different
-  // properties and one may pass an index through that the other clamps.
+  // Quantizer scale is the codec's and the engine's together,
+  // since the two set different properties,
+  // and one may pass an index through that the other clamps.
   // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_CQ_MAX.
   TEXT_CODE_CQ_ABOVE_CODEC_SCALE = 72;
   // Encoder refuses a target above this rather than coding at what it was given.
   // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE,
   // TEXT_ARG_NAME_BITRATE_LIMIT_MBPS.
   TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT = 73;
-  // Encoder's keyframe-interval field holds less than the control's own scale, and it refuses an
-  // interval above it rather than coding a shorter one.
+  // Encoder's keyframe-interval field holds less than the control's own scale,
+  // and it refuses an interval above it rather than coding a shorter one.
   // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_GOP_LIMIT_FRAMES.
   TEXT_CODE_GOP_ABOVE_CODEC_LIMIT = 162;
 
   // --- What the installed driver gets wrong --------------------------------------
 
-  // Driver on this machine miscodes the selected option badly enough to take the graphics
-  // device down with it, so the option is withheld while that driver is the one installed.
-  // The value is one the encoder declares and another driver runs, which is what separates
-  // this from a capability nothing here has.
+  // Driver on this machine miscodes the selected option badly enough to crash the graphics
+  // device, so the option is withheld while that driver is the one installed.
+  // The value is one the encoder declares and another driver runs,
+  // which is what separates this from a capability nothing here has.
   // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_GPU_DRIVER, TEXT_ARG_NAME_GPU_MODEL,
   // TEXT_ARG_NAME_OPTION and TEXT_ARG_NAME_VALUE for what is withheld.
   TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION = 161;
 
   // --- What the pointer can do, per capture backend ------------------------------
 
-  // kmsgrab reads the scanout's primary plane and the pointer has a plane of its own, so
-  // nothing on that path draws it into the frames.
+  // kmsgrab reads the scanout's primary plane and the pointer has a plane of its own,
+  // so nothing on that path draws it into the frames.
   // TEXT_ARG_NAME_CAPTURE.
   TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE = 74;
-  // Capture backend reports no pointer position of its own, so there is nothing to send
-  // beside the picture.
+  // Capture backend reports no pointer position of its own,
+  // so there is nothing to send beside the picture.
   // TEXT_ARG_NAME_CAPTURE.
   TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA = 75;
   // The position rides in the encoded frames,
-  // and this bitstream has no unit that carries one, so a viewer of this stream sees no pointer.
+  // and this bitstream has no unit that carries one,
+  // so a viewer of this stream sees no pointer.
   // A fact about the format rather than about the capture, hence a code of its own.
   // TEXT_ARG_NAME_FORMAT.
   TEXT_CODE_FORMAT_CARRIES_NO_CURSOR_METADATA = 168;
@@ -495,9 +508,9 @@ enum TextCode {
   // --- Where a publish engine departs from the mode table ------------------------
   //
   // One code per row of that table.
-  // Separate codes rather than one with the element named: each states a different fact
-  // about a different piece of software, and a generic "this element has no such property"
-  // teaches nothing about which of them to change.
+  // Separate codes rather than one with the element named:
+  // each states a different fact about a different piece of software,
+  // and a generic "this element has no such property" teaches nothing about which to change.
 
   TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER = 81;
   TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL = 82;
@@ -507,24 +520,25 @@ enum TextCode {
   TEXT_CODE_GST_VPX_CQ_BITRATE_IS_CAP = 86;
   TEXT_CODE_FIXED_FUNCTION_ABR_DERIVES_CEILING = 87;
   TEXT_CODE_AMF_CODES_NO_BFRAMES = 88;
-  // The VA elements count effort over a fixed 1 to 7, where ffmpeg's VAAPI encoders count
-  // over the range the installed driver reports, which differs per vendor.
-  // One step cannot mean one thing on both, so the ffmpeg half spends none and leaves the
-  // driver its own.
+  // The VA elements count effort over a fixed 1 to 7,
+  // where ffmpeg's VAAPI encoders count over the range the installed driver reports,
+  // which differs per vendor.
+  // One step cannot mean one thing on both,
+  // so the ffmpeg half spends none and leaves the driver its own.
   // No arguments.
   TEXT_CODE_FFMPEG_VAAPI_QUALITY_IS_THE_DRIVERS_SCALE = 158;
   // VAAPI elements place the target as a percentage of the ceiling, at half at the lowest,
   // so a ceiling above twice the target has no form there.
-  // TEXT_ARG_NAME_MAXRATE_MBPS is the highest ceiling that fits, TEXT_ARG_NAME_BITRATE_MBPS
-  // the target it is against.
+  // TEXT_ARG_NAME_MAXRATE_MBPS is the highest ceiling that fits,
+  // TEXT_ARG_NAME_BITRATE_MBPS the target it is against.
   TEXT_CODE_VAAPI_CEILING_BOUND = 89;
 
   // --- Codec capability gaps -----------------------------------------------------
   //
   // One code per row of the gap tables in the capability model.
-  // A gap is a fact about one library or one element, so each carries its own code and none
-  // of them takes an argument: the codec, the engine and the value the gap removes are
-  // already on the Gap that holds the code.
+  // A gap is a fact about one library or one element,
+  // so each carries its own code and none of them takes an argument:
+  // the codec, the engine and the value the gap removes are already on the Gap holding the code.
 
   TEXT_CODE_GAP_NVENC_AV1_NO_LOSSLESS_TUNE = 100;
   TEXT_CODE_GAP_GST_VP9ENC_NO_LOSSLESS = 101;
@@ -554,38 +568,38 @@ enum TextCode {
   TEXT_CODE_GAP_VIDEOTOOLBOX_NO_LOSSLESS = 159;
   TEXT_CODE_GAP_VIDEOTOOLBOX_AVERAGE_BITRATE_ONLY = 160;
 
-  // The entry names no capture source, so what is inside a kind, how loud it is and whether
-  // it is silenced are all questions about nothing.
+  // The entry names no capture source,
+  // so what is inside a kind, how loud it is and whether it is silenced ask about nothing.
   // No arguments.
   TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE = 123;
   // One device of this kind here, so there is nothing to choose between.
   // TEXT_ARG_NAME_AUDIO names the kind.
   TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE = 124;
   // The selection is not among what this kind enumerates.
-  // Kept rather than dropped: an application that is not running is one that may be running
-  // when the stream starts.
+  // Kept rather than dropped:
+  // an application that is not running is one that may be running when the stream starts.
   // TEXT_ARG_NAME_AUDIO names the kind, TEXT_ARG_NAME_DEVICE the selection.
   TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED = 125;
-  // Engine tags every encode standard range and cannot read what the capture negotiated, so
-  // a 10-bit format carries the extra precision and never a high dynamic range description.
-  // TEXT_ARG_NAME_ENGINE names the engine, TEXT_ARG_NAME_OTHER_ENGINE the one that does
-  // carry it.
+  // Engine tags every encode standard range and cannot read what the capture negotiated.
+  // A 10-bit format then carries the extra precision, with no high dynamic range description.
+  // TEXT_ARG_NAME_ENGINE names the engine,
+  // TEXT_ARG_NAME_OTHER_ENGINE the one that does carry it.
   TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE = 126;
   reserved 127;
   reserved "TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY";
-  // The platform serves this capture source and the engine behind this capture backend has
-  // nothing that opens it.
-  // TEXT_ARG_NAME_AUDIO names the source, TEXT_ARG_NAME_ENGINE the engine that cannot, and
-  // TEXT_ARG_NAME_OTHER_ENGINE the one that can.
+  // The platform serves this capture source,
+  // and the engine behind this capture backend has nothing that opens it.
+  // TEXT_ARG_NAME_AUDIO names the source, TEXT_ARG_NAME_ENGINE the engine that cannot,
+  // and TEXT_ARG_NAME_OTHER_ENGINE the one that can.
   TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE = 128;
 
   // --- Diagnostics ---------------------------------------------------------------
 
-  // No engine can build these settings, and Summary.command_error carries the builder's own
-  // refusal.
-  // The one statement that quotes a raw string, because what refused is an operational
-  // failure rather than a fact about the domain: the same text crosses as a gRPC status
-  // when the publish is attempted.
+  // No engine can build these settings,
+  // and Summary.command_error carries the builder's own refusal.
+  // The one statement that quotes a raw string,
+  // because what refused is an operational failure rather than a fact about the domain:
+  // the same text crosses as a gRPC status when the publish is attempted.
   // No arguments.
   TEXT_CODE_PUBLISH_REFUSED = 130;
   // No uplink capacity is stated, so there is nothing to hold the prediction against.
@@ -598,8 +612,8 @@ enum TextCode {
   // TEXT_ARG_NAME_LOW_MBPS, TEXT_ARG_NAME_HIGH_MBPS, TEXT_ARG_NAME_UPLINK_MBPS,
   // TEXT_ARG_NAME_MODE.
   TEXT_CODE_BURST_ABOVE_UPLINK = 133;
-  // Target frame rate is above the captured monitor's refresh rate, so the extra frames are
-  // repeats.
+  // Target frame rate is above the captured monitor's refresh rate,
+  // so the extra frames are repeats.
   // TEXT_ARG_NAME_FPS, TEXT_ARG_NAME_REFRESH_HZ.
   TEXT_CODE_FPS_ABOVE_REFRESH = 134;
   // No bitrate is predicted: the monitor it would rest on is not enumerated here.
@@ -617,9 +631,10 @@ enum TextCode {
   // Why a stream a reader was watching or publishing stopped.
   // Numbered from 144, the run after 137 belonging to the groups below.
   //
-  // Membership of the group is not in force here, and the relay closes what a non-member holds.
-  // Stated where this app read its own membership and found none, a close it cannot account for
-  // leaving the child's own words to stand alone.
+  // Membership of the group is not in force here,
+  // and the relay closes what a non-member holds.
+  // Stated where this app read its own membership and found none.
+  // A close it cannot account for leaves the child's own words to stand alone.
   // No arguments.
   TEXT_CODE_GROUP_MEMBERSHIP_LAPSED = 144;
   // Another member of this group holds the name this machine claims.
@@ -637,16 +652,18 @@ enum TextCode {
 
   // --- The audience and the wire -------------------------------------------------
 
-  // No group key is set, so the stream is published where anybody who reaches the relay may
-  // watch it. Not a refusal: publishing without a group is a choice this app carries out.
+  // No group key is set,
+  // so the stream is published where anybody who reaches the relay may watch it.
+  // Not a refusal: publishing without a group is a choice this app carries out.
   // No arguments.
   TEXT_CODE_STREAM_IS_PUBLIC = 138;
-  // Whether the connection is encrypted follows the relay's address and is stored nowhere, so
-  // the control saying so is a reading rather than a setting.
+  // Whether the connection is encrypted follows the relay's address and is stored nowhere,
+  // so the control saying so is a reading rather than a setting.
   // No arguments.
   TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS = 139;
-  // An encrypted RTSP session carries its RTP inside the TLS connection, so the lower
-  // transport is fixed: UDP would put the media on the wire beside it in the clear.
+  // An encrypted RTSP session carries its RTP inside the TLS connection,
+  // so the lower transport is fixed:
+  // UDP would put the media on the wire beside it in the clear.
   // No arguments.
   TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP = 141;
 
@@ -656,46 +673,49 @@ enum TextCode {
 
   // --- Presets -------------------------------------------------------------------
 
-  // No configuration this machine runs delivers what the preset promises, so nothing is
-  // applied and nothing is approximated.
-  // TEXT_ARG_NAME_PRESET names the preset, TEXT_ARG_NAME_TRANSPORT the publish leg the
-  // search worked within, that being the one dimension a preset never moves.
+  // No configuration this machine runs delivers what the preset promises,
+  // so nothing is applied and nothing is approximated.
+  // TEXT_ARG_NAME_PRESET names the preset,
+  // TEXT_ARG_NAME_TRANSPORT the publish leg the search worked within,
+  // that being the one dimension a preset never moves.
   TEXT_CODE_PRESET_UNREACHABLE = 140;
 
   // --- Notices -------------------------------------------------------------------
 
-  // The persisted settings could not be restored, and the file holding the old values was
-  // moved aside rather than overwritten.
+  // The persisted settings could not be restored,
+  // and the file holding the old values is moved aside rather than overwritten.
   // TEXT_ARG_NAME_PATH names where they are.
   TEXT_CODE_SETTINGS_STORE_UNREADABLE = 150;
-  // Preset store could not be read, so the list is empty because nothing readable remained
+  // Preset store could not be read,
+  // so the list is empty because nothing readable remained,
   // rather than because nothing was saved.
   // TEXT_ARG_NAME_PATH.
   TEXT_CODE_PRESET_STORE_UNREADABLE = 151;
 
   // --- Why a leg of the relay was never dialled ----------------------------------
   //
-  // Both sit on a RelayLeg under RELAY_LEG_VERDICT_UNADDRESSED, which is neither an answer
-  // nor a failure: nothing was asked of that listener (control.proto, CheckRelay).
+  // Both sit on a RelayLeg under RELAY_LEG_VERDICT_UNADDRESSED,
+  // which is neither an answer nor a failure:
+  // nothing was asked of that listener (control.proto, CheckRelay).
 
   // No relay is named in the settings, so no leg has an address at all.
   // No arguments.
   TEXT_CODE_RELAY_LEG_NO_RELAY = 166;
-  // The relay binds this listener to loopback, so it answers on the relay's own machine and
-  // is reached from nowhere else.
+  // The relay binds this listener to loopback,
+  // so it answers on the relay's own machine and is reached from nowhere else.
   // No arguments.
   TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY = 167;
 
-  // 66 said only some encoder families take a preset ladder, which stopped holding once
-  // every implemented encoder's row declared its own.
+  // 66 said only some encoder families take a preset ladder,
+  // which stopped holding once every implemented encoder's row declared its own.
   // The statement is gone rather than renamed, so the name stays reserved too:
-  // TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER names one codec where 66 named a set of
-  // families, and 67 carries the rename of TEXT_CODE_PRESET_PINNED_BY_MODE.
-  // 80 said the GStreamer encoders take no preset ladder, and their own preset enum carries
-  // the p1-p7 steps ffmpeg's does beside the presets it deprecates, so both engines forward
-  // the step.
-  // Both numbers stay out of reach, so a build holding an old value cannot land on whatever
-  // takes their place.
+  // TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER names one codec where 66 named a set of families,
+  // and 67 carries the rename of TEXT_CODE_PRESET_PINNED_BY_MODE.
+  // 80 said the GStreamer encoders take no preset ladder,
+  // and their own preset enum carries the p1-p7 steps ffmpeg's does,
+  // beside the presets it deprecates, so both engines forward the step.
+  // Both numbers stay out of reach,
+  // so a build holding an old value cannot land on whatever takes their place.
   reserved 66, 80;
   reserved
     "TEXT_CODE_PRESET_ONLY_ON_FAMILIES",

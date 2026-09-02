@@ -542,7 +542,7 @@ public sealed class Session
                 // A run that ended takes its samples with it: they belong to the pipeline that produced them, and
                 // a sparkline carrying them across a restart draws two runs as one.
                 //
-                // The relay series goes for the same reason, not a weaker one.
+                // The relay series goes for the same reason.
                 // The relay keeps answering, but the plot beside the egress curve describes this run's viewers,
                 // and readers of a path nothing publishes to are not what the next run starts with.
                 // The newest snapshot goes too, and the next poll brings one back.

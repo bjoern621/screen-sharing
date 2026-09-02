@@ -37,8 +37,9 @@ func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 			trans: "bt709",
 		},
 		{
-			// Wide primaries with a standard-range curve, the case the transfer characteristic exists to
-			// separate: reading the primaries would publish a wide-gamut SDR desktop as HDR.
+			// Wide primaries with a standard-range curve,
+			// the case the transfer characteristic exists to separate:
+			// reading the primaries would publish a wide-gamut SDR desktop as HDR.
 			name:  "a wide-gamut SDR surface",
 			caps:  "video/x-raw, format=(string)BGRx, colorimetry=(string)bt2020",
 			hdr:   false,
@@ -137,7 +138,7 @@ func TestTheChildsOutputSplitsCapsFromProgress(t *testing.T) {
 		t.Fatalf("the caps reader saw %d lines, want the one the child reported: %v", len(seen), seen)
 	}
 	if !hdrCapture(seen[0]) {
-		t.Errorf("the caps reached the reader as %q, which no longer reads as HDR", seen[0])
+		t.Errorf("the caps reached the reader as %q, which does not read as HDR", seen[0])
 	}
 }
 

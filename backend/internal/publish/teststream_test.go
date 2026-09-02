@@ -97,8 +97,9 @@ func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	}
 }
 
-// One sounding stream, and inside the starting set for the same reason: nothing but a stream with a
-// track reaches the per-stream volume, the meter beside it, or two streams sounding at once.
+// One sounding stream, and inside the starting set for the same reason:
+// a stream with a track is the only thing reaching the per-stream volume,
+// the meter beside it, or two streams sounding at once.
 //
 // One row rather than every row, which leaves a silent tile to compare against.
 // This engine codes its codec and RTSP carries it, RTSP being every test stream's leg, so the row
@@ -197,11 +198,11 @@ func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
 	}
 }
 
-// The row's whole point, measured rather than assumed: a stream off the sounding surface carries a
-// track that decodes.
+// The row's whole point, measured rather than assumed:
+// a stream off the sounding surface carries a track that decodes.
 //
-// The argv is the app's, with a file's muxer standing in for the relay's sink, read back as a
-// viewer reads it: through a decoder, off the raw caps that arrived at the sink.
+// The argv is the app's, with a file's muxer standing in for the relay's sink,
+// read back as a viewer reads it: through a decoder, off the raw caps that arrived at the sink.
 // Bounding both sources is the one edit a live pipeline needs to end its own run.
 func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
@@ -286,8 +287,8 @@ func soundingSurface(t *testing.T) TestSurface {
 //
 // The argv is the app's rather than a pipeline written for the case, read back as a viewer reads
 // it: off the caps the decoder produces.
-// Only the relay is left out, since bytes are all it re-serves, and what is asserted here is that
-// the bytes leave the encoder in the colour the surface was drawn in.
+// Only the relay is left out, since bytes are all it re-serves,
+// and what is asserted here is that the bytes leave the encoder in the colour the surface was drawn in.
 func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -332,8 +333,8 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 		t.Fatalf("decoding the HDR test stream: %v\n%s", err, out)
 	}
 
-	// A viewer's reading: the transfer characteristic settles the verdict, and the verdict is what a
-	// tile offers its choice on.
+	// A viewer's reading: the transfer characteristic settles the verdict,
+	// and the verdict is what a tile offers its choice on.
 	decoded, stated := decodedColorimetry(out)
 	if !stated {
 		t.Fatalf("the HDR test stream decodes stating no colour at all:\n%s", out)

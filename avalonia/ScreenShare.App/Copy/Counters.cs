@@ -6,7 +6,7 @@ namespace ScreenShare.App.Copy;
 /// </summary>
 /// <param name="Label">Name of the figure, as the row prints it.</param>
 /// <param name="Tip">
-/// What a reading of the figure is evidence of, never a restatement of the unit printed beside it
+/// What a reading of the figure is evidence of, beyond the unit already printed beside it
 /// (<c>docs/tooltips.md</c>).
 /// </param>
 public readonly record struct Counter(string Label, string Tip);
@@ -182,7 +182,7 @@ public static class Counters
         // section.delay
         ["delay.publish"] = new(
             "Capture and encode",
-            "How long the publisher held a frame between reading the screen and having it encoded. A faster preset or shorter lookahead shortens this stage."),
+            "How long the publisher held a frame between reading the screen and having it encoded. A faster effort step or a shorter lookahead shortens this stage."),
         ["delay.publish_link"] = new(
             "Publisher to relay",
             "The delivery window the publisher's leg agreed with the relay. Paid on every frame whether anything is lost, so it is the largest healthy stage."),
@@ -200,7 +200,7 @@ public static class Counters
             "The longest a single frame has taken on this decode. It only rises, so one slow frame shows here where an average hides it."),
         ["delay.present"] = new(
             "Held for play time",
-            "How long each frame waited to be drawn at its play time. It shrinks as the decode above grows: together they are the window."),
+            "How long each frame waited to be drawn at its play time. It shrinks as the decode above grows, the two together making the window."),
         ["delay.total"] = new(
             "At least, end to end",
             "Everything measured, added up, nothing counted twice. A floor wherever a stage is missing: a stream without its own timestamp leaves the relay out."),
@@ -234,7 +234,7 @@ public static class Counters
             "The size of the frames this window is given, as the window sees it. What a marker over the picture is positioned against."),
         ["window.frames"] = new(
             "Frames taken",
-            "Frames this window has taken since it subscribed. Arrived, not drawn: a window behind the compositor takes frames it never puts on screen."),
+            "Frames this window has taken since it subscribed. A window behind the compositor takes frames it never puts on screen."),
         ["window.dropped"] = new(
             "Dropped waiting for this window",
             "Frames the backend discarded because this window held every slot of the lent pool. Evidence that the drawing side is the slow half."),

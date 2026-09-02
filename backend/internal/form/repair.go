@@ -145,7 +145,7 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 	return out, repaired
 }
 
-// repairSkips reports whether a field stands as it is however the rest of the draft reads.
+// repairSkips reports whether a field is left unchanged however the rest of the draft reads.
 //
 // The audio codec is the one, and it is a rule rather than an exception.
 // It is read only where a source is selected, so on a silent stream it reaches no encoder

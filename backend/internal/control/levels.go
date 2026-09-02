@@ -15,8 +15,8 @@ import (
 
 // levelCadence is how often a level stream sends.
 //
-// The interval the level elements post at, not a rate chosen here,
-// so one tick carries one measurement: a faster cadence would send a figure twice,
+// The interval the level elements post at, so one tick carries one measurement:
+// a faster cadence would send a figure twice,
 // a slower one would step over figures that were taken.
 // One constant, read from the package that measures (docs/viewer-architecture.md).
 const levelCadence = receive.LevelInterval
@@ -34,7 +34,7 @@ const levelCadence = receive.LevelInterval
 // That channel carries frames alone, a level is not one,
 // and frequency is not what put anything there.
 //
-// Each tick is the whole set, read through to the backend, never a delta.
+// Each tick is the whole set, read through to the backend.
 // A shell that joined late, missed a tick or fell behind is correct again on the next one.
 // Nothing is queued for a slow reader:
 // the ticker's channel drops the ticks a blocked Send ran past,
@@ -54,8 +54,7 @@ func (s *Server) SubscribeAudioLevels(req *screensharev1.SubscribeAudioLevelsReq
 	for {
 		select {
 		case <-done:
-			// A client gone or one that stopped listening ends this call normally.
-			// Not a failure and not reported as one, as in Subscribe.
+			// A client gone or one that stopped listening ends this call normally, as in Subscribe.
 			return nil
 		case <-ticker.C:
 			if err := out.Send(wire.AudioLevels(s.backend.AudioLevels())); err != nil {

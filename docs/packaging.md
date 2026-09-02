@@ -27,7 +27,7 @@ Which backends the app invokes: `captureArgs` in the `ffmpeg` package.
 
 Opening a viewer needs nothing beyond those two, on any platform.
 A viewer counts as connected once the relay reports a reader on the path, which the backend's relay poll already reports.
-No window-system probe takes part, so a package declares no dependency for one (`backend/internal/app/watch.go`).
+No window-system probe takes part, so a package declares no dependency for one.
 
 ### The AMD AMF runtime
 
@@ -35,11 +35,11 @@ The `*_amf` encoders are the one family needing more than ffmpeg itself.
 Compiled in unconditionally, they load AMD's closed-source `libamfrt64.so.1` at run time by soname, so it has to be on the loader path rather than merely installed.
 AMD ships it in the proprietary part of its driver package (`amf-amdgpu-pro`), x86_64 only.
 AMF reaches the encoder hardware through Vulkan, so the card also needs a Vulkan driver.
-A missing runtime is not a failure the app handles: the encoder refuses to open, `encoders.Detect` sees that, and the form greys the family exactly as on a machine with no AMD card.
+A missing runtime is not a failure the app handles: the encoder refuses to open, the probe sees that, and the form greys the family exactly as on a machine with no AMD card.
 
 `LD_LIBRARY_PATH` reaches an unprivileged `ffmpeg` alone.
 The kmsgrab wrapper carries file capabilities, which puts it in glibc's secure-execution mode where that variable is ignored, so a runtime delivered through the environment never reaches its loader.
-Untreated that is a wrong answer rather than a missing encoder: `encoders.Detect` probes the unprivileged binary, finds the runtime, and the form offers a family that dies at launch under kmsgrab.
+Untreated that is a wrong answer rather than a missing encoder: the probe runs the unprivileged binary, finds the runtime, and the form offers a family that dies at launch under kmsgrab.
 The `amf` option of `nix/screen-share.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
 Ordinary variables survive, so the oneVPL runtime behind QSV, located through `ONEVPL_SEARCH_PATH`, is unaffected.
 
@@ -56,11 +56,11 @@ Every dependency this repository resolves is pinned, so the tree decides which t
 
 The Nix inputs name revisions rather than branches, which leaves `nix flake update` with nothing to do.
 A branch ref moves the whole package set at once.
-Every row of `backend/internal/capabilities` is measured against ffmpeg and GStreamer, so that move is a change to the app's declared capabilities with no commit behind it.
+Every row of the capability table is measured against ffmpeg and GStreamer, so that move is a change to the app's declared capabilities with no commit behind it.
 
 The revision tracks nixos-unstable rather than a release channel: a release channel trails GStreamer by a minor series, and the plugin set is the thing under test.
 
-Moving it is followed by re-measuring rather than by assuming.
+Moving it is followed by re-measuring.
 A package set that moved can change which codecs probe usable, which elements a receive pipeline autoplugs, and which pixel formats an element accepts.
 "Verifying a build" answers the first two.
 
@@ -72,9 +72,9 @@ A package set that moved can change which codecs probe usable, which elements a 
 2. The first match on `PATH`.
 3. Otherwise an error naming the missing program and both places it looked.
 
-Every GStreamer child goes through the same lookup via `publish.FindGstExe`: the publish engine, the encode probe and the test streams.
-A bare name handed to `exec.Command` would search `PATH` alone and pass over the copy a bundle ships.
-A bundled launcher is also given `GST_PLUGIN_PATH` at spawn (`publish.GstChildEnv`), the prefix it was built against existing on no machine but the build host.
+Every GStreamer child goes through the same lookup: the publish engine, the encode probe and the test streams.
+A bare name handed to the process launcher would search `PATH` alone and pass over the copy a bundle ships.
+A bundled launcher is also given `GST_PLUGIN_PATH` at spawn, the prefix it was built against existing on no machine but the build host.
 
 Two provisioning models follow: bundle ffmpeg next to the binary, or declare a dependency and rely on `PATH`.
 The bundled copy always wins, so a packaged system ffmpeg and a bundled one never conflict.
@@ -108,7 +108,7 @@ It is the only backend in a stock ffmpeg build that captures a full Wayland desk
 
 `CAP_SYS_ADMIN` is close to root: a process holding it can perform a wide range of kernel operations.
 Never on a shared or system-wide ffmpeg: any local user who can run that binary inherits the capability through ffmpeg's many input handlers.
-It goes on the app's own bundled copy, or on a dedicated wrapper, never on `/usr/bin/ffmpeg`.
+It goes on the app's own bundled copy, or on a dedicated wrapper.
 
 ```bash
 sudo setcap cap_sys_admin+ep /path/to/app/ffmpeg
@@ -137,55 +137,21 @@ The stock `ffmpeg-full` in nixpkgs is not, so this path takes a custom ffmpeg bu
 
 ### Capture device selection
 
-`captureArgs` passes a fixed DRM node to `kmsgrab`.
-That node is not stable across machines: the boot `simple-framebuffer` can occupy `card0` while the real GPU lands on `card1`, and the numbering depends on driver load order.
-Portable capture picks the active card node at run time, the DRM node whose driver is a real GPU rather than `simple-framebuffer`, instead of hard-coding one.
+The DRM node `kmsgrab` reads is resolved per run: the first `/dev/dri/card*` whose driver is a real GPU rather than `simple-framebuffer` (`drmCaptureDevice`).
+A fixed node travels badly, the boot framebuffer often holding `card0` while the real GPU lands on `card1`, and the numbering following driver load order.
 
 ## Per-channel packaging
+
+One section per channel, naming its recipe and which of the two provisioning models it takes.
 
 ### Windows (self-contained)
 
 `scripts/package-windows.ps1` assembles this channel over what `task build:windows` and `task bundle:windows` produce.
-Windows has no dependency manager the installer can rely on, so the app ships ffmpeg: the build task copies `ffmpeg.exe` and `ffplay.exe` next to the backend binary, where `FindExe` finds them first.
+Windows has no dependency manager the installer can rely on, so the app ships ffmpeg.
+The build task copies `ffmpeg.exe` and `ffplay.exe` next to the backend binary, where `FindExe` finds them first.
 A development run needs no bundle, `FindExe` falling back to `PATH`.
 The bundle takes a third-party build (Gyan or BtbN) carrying `ddagrab`.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
-
-The launcher is the exception: on Windows it comes from MSYS2, whose prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the run.
-Appended rather than prepended, MSYS2 shipping an ffmpeg of its own that a prefix in front would move every capture and encode onto.
-
-The backend links GStreamer through cgo and no cross toolchain builds that from Linux, so the Windows binary is built on Windows against MSYS2's toolchain.
-Install MSYS2, then from its MINGW64 shell:
-
-```bash
-pacman -S mingw-w64-x86_64-{toolchain,pkgconf,gstreamer} \
-          mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
-```
-
-Go is not in that list, and the omission is the point: it comes from a Windows install of Go, MSYS2 shipping a trimmed one that would need `GOROOT` named for it.
-`.github/workflows` installs the same set.
-
-Building needs no particular shell.
-The build and bundle tasks reach the toolchain, `MINGW_PREFIX` and MSYS2's own `sh` by path, from `MSYS2_ROOT` in `Taskfile.yml`, so they behave the same from Git Bash, PowerShell or cmd.
-Set `MSYS2_ROOT` for an install other than `C:/msys64`.
-What that variable absorbs is the prefix on `PATH`, where the GStreamer the built binary loads sits, and the `CC` and `PKG_CONFIG` cgo compiles through.
-Both are named by path rather than looked up: the prefix is appended, as in `task dev`, so a machine carrying another `gcc` and `pkg-config` ahead of it would decide the toolchain instead.
-Strawberry Perl ships that pair, and its `pkg-config` resolves against a prefix holding no GStreamer, which is what a `Can't find gobject-2.0.pc` reports.
-
-Reaching MSYS2 by path rather than through the shell is what makes Git for Windows' Git Bash safe to build from.
-The trap otherwise: Git Bash is built on MSYS2, reports `MSYSTEM=MINGW64` and prints the same prompt, but its `/mingw64` is Git's own prefix and carries neither the toolchain nor GStreamer.
-Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, which is why `bundle:windows` names MSYS2's `sh` instead of taking whichever is on `PATH`.
-
-One Windows runtime quirk belongs to the running process rather than the build.
-libsrt names its threads by raising the debugger's thread-naming exception, which the Go runtime has no owner for and ends the process over.
-Undisarmed, every pipeline carrying an `srtsrc` or `srtsink` dies as it is built, reported as `Exception 0x406d1388 ... signal arrived during external code execution`.
-`backend/internal/receive` disarms it in the backend, the process building those elements in-process.
-A spawned `gst-launch-1.0` is a C program and never sees it, which is why the same pipeline plays there.
-RTSP is unaffected, no libsrt being loaded.
-
-A build reporting `build constraints exclude all Go files` for a go-gst package ran against a `go` that found no C compiler and disabled cgo, which excludes every file in a binding whose files are all cgo.
-The extra tell is a `go: downloading go1.26.4` line, which a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
-The build task asks for cgo outright so this surfaces as the missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
 
 A receive pipeline ends in `appsink`, which is core, so the tile path needs no plugin of its own.
 What it needs is the source element of the leg it watches.
@@ -202,11 +168,22 @@ What it needs is the source element of the leg it watches.
 `gst-rtsp-server` is pulled in by none of the `gst-plugins-*` packages, and its absence shows up as `no element "rtspclientsink"` the first time a test stream or an RTSP publish starts, long after the build succeeded.
 A machine registering none of the `gl` elements falls back to the CPU chain rather than failing (`viewer-architecture.md`).
 
-A machine that runs the app has no MSYS2, so `scripts/bundle-windows.sh` copies the runtime beside the binaries: the DLL closure of the backend, of `gst-launch-1.0.exe` and of every installed plugin, flat next to the executables where the Windows loader looks first; `gst-launch-1.0.exe` itself; and the plugins under `gstreamer-1.0`.
+A machine that runs the app has no MSYS2, so `scripts/bundle-windows.sh` copies the runtime beside the binaries:
+
+- the DLL closure of the backend, of `gst-launch-1.0.exe` and of every installed plugin, flat next to the executables where the Windows loader looks first,
+- `gst-launch-1.0.exe` itself,
+- the plugins under `gstreamer-1.0`.
+
 No GLib schema, icon theme or font is bundled, the shell shipping its own (`avalonia/README.md`).
 
-GStreamer looks for plugins in the prefix it was built against, so the backend prepends its own `gstreamer-1.0` directory to `GST_PLUGIN_PATH` before initializing the library, and passes the same to every child (`publish.GstChildEnv`).
+GStreamer looks for plugins in the prefix it was built against, so the backend prepends its own `gstreamer-1.0` directory to `GST_PLUGIN_PATH` before initializing the library, and passes the same to every child.
 A directory that is not there is an ordinary installation, left to find its plugins itself.
+
+libsrt names its threads by raising the debugger's thread-naming exception, which the Go runtime has no owner for and ends the process over.
+Undisarmed, every pipeline carrying an `srtsrc` or `srtsink` dies as it is built, reported as `Exception 0x406d1388 ... signal arrived during external code execution`.
+The backend disarms it, being the process that builds those elements in-process.
+A spawned `gst-launch-1.0` is a C program that never sees it, so the same pipeline plays there.
+RTSP is unaffected, no libsrt being loaded.
 
 ### Arch Linux (AUR)
 
@@ -236,7 +213,7 @@ postInstall = ''
 '';
 ```
 
-The runtime dependency is expressed in the closure, not bundled by hand, which is what nixpkgs expects.
+The runtime dependency is expressed in the closure, which is what nixpkgs expects.
 The full derivation builds the Go backend with `buildGoModule` and the shell with the .NET SDK, matching `Taskfile.yml`.
 The GStreamer libraries are ordinary build inputs and the plugin path is set by the wrapper the way ffmpeg's is.
 The `kmsgrab` capability is a system concern, handled by the `security.wrappers` entry under "Granting the capability".
@@ -254,8 +231,39 @@ Distributions with no package here take the tarball `scripts/package-linux.sh` b
 
 Neither format has a recipe here, so what follows is the model one would take.
 Both are self-contained, so ffmpeg goes inside the image next to the binary: the bundling side of the convention, with the obligations the Windows archive carries (`THIRD-PARTY-NOTICES.md`).
-A Flatpak additionally captures through the portal, so it needs no capability and runs in the sandbox unmodified.
+A Flatpak captures through the portal, so it needs no capability and runs in the sandbox unmodified.
 The manifest requests the `ScreenCast` portal rather than raw DRM access.
+
+## Building on Windows
+
+The backend links GStreamer through cgo and no cross toolchain builds that from Linux, so the Windows binary is built on Windows against MSYS2's toolchain.
+Install MSYS2, then from its MINGW64 shell:
+
+```bash
+pacman -S mingw-w64-x86_64-{toolchain,pkgconf,gstreamer} \
+          mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
+```
+
+Go is not in that list: it comes from a Windows install of Go, MSYS2 shipping a trimmed one that would need `GOROOT` named for it.
+`.github/workflows` installs the same set.
+
+A development run takes the launcher from MSYS2, whose prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the run.
+Appended rather than prepended, MSYS2 shipping an ffmpeg of its own that a prefix in front would move every capture and encode onto.
+
+Building needs no particular shell.
+The build and bundle tasks reach the toolchain, `MINGW_PREFIX` and MSYS2's own `sh` by path, from `MSYS2_ROOT` in `Taskfile.yml`, so they behave the same from Git Bash, PowerShell or cmd.
+Set `MSYS2_ROOT` for an install other than `C:/msys64`.
+What that variable absorbs is the prefix on `PATH`, where the GStreamer the built binary loads sits, and the `CC` and `PKG_CONFIG` cgo compiles through.
+Both are named by path rather than looked up: the prefix is appended, as in `task dev`, so a machine carrying another `gcc` and `pkg-config` ahead of it would decide the toolchain instead.
+Strawberry Perl ships that pair, and its `pkg-config` resolves against a prefix holding no GStreamer, which is what a `Can't find gobject-2.0.pc` reports.
+
+Reaching MSYS2 by path rather than through the shell is what makes Git for Windows' Git Bash safe to build from.
+The trap otherwise: Git Bash is built on MSYS2, reports `MSYSTEM=MINGW64` and prints the same prompt, but its `/mingw64` is Git's own prefix and carries neither the toolchain nor GStreamer.
+Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, so `bundle:windows` names MSYS2's `sh` instead of taking whichever is on `PATH`.
+
+A build reporting `build constraints exclude all Go files` for a go-gst package ran against a `go` that found no C compiler and disabled cgo, which excludes every file in a binding whose files are all cgo.
+The extra tell is a `go: downloading go1.26.4` line, which a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
+The build task asks for cgo outright so this surfaces as the missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
 
 ## Verifying a build
 

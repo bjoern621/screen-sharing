@@ -508,8 +508,8 @@ func gstColorimetry(s settings.Settings) (string, error) {
 // a negotiation producing a stream tagged PQ over eight-bit samples.
 // That combination is refused on the capture's own report instead (gsthdr.go).
 //
-// Which row a run ends on is the capture's answer and never a setting: the child narrows them
-// to the transfer the surface carries, before anything negotiates.
+// Which row a run ends on is the capture's answer:
+// the child narrows them to the transfer the surface carries, before anything negotiates.
 func gstColorimetries(s settings.Settings) ([]string, error) {
 	r, err := gstColorRange(s)
 	if err != nil {

@@ -92,8 +92,8 @@ func TestEveryPublishableFormatHasAPreviewLegWithBothHalves(t *testing.T) {
 
 // The GStreamer child copies the encoded stream to the loopback port off the same tee the meter
 // hangs on.
-// Both taps and the muxer are branches of one tee, and a pipeline that grew a second tee would be a
-// second copy of the encoded stream.
+// Both taps and the muxer are branches of one tee,
+// and a pipeline that grew a second tee would be a second copy of the encoded stream.
 func TestTheGstPipelineTeesThePreviewOffTheEncodedStream(t *testing.T) {
 	for format, codec := range previewCodecs {
 		s := previewStream(t, "portal", codec)
@@ -120,25 +120,25 @@ func TestTheGstPipelineTeesThePreviewOffTheEncodedStream(t *testing.T) {
 		if !strings.Contains(line, "tcpclientsink host="+previewHost+" port=54321") {
 			t.Errorf("%s: the preview branch displaced the meter's: %s", format, line)
 		}
-		// The branch leaks rather than backpressures: a preview able to hold up the encode path is a
-		// preview able to stall the stream it previews.
+		// The branch leaks rather than backpressures:
+		// a preview able to hold up the encode path is a preview able to stall the stream it previews.
 		payloader := strings.Index(line, previewCarriages[format].payloader[0])
 		leaky := strings.LastIndex(line[:payloader], "leaky=downstream")
 		if leaky < 0 {
 			t.Errorf("%s: the preview branch can backpressure the encoder: %s", format, line)
 		}
-		// The trunk still reaches the muxer, and still through a queue, since a tee's request pad and a
-		// muxer's do not link to each other directly.
+		// The trunk still reaches the muxer, and still through a queue,
+		// since a tee's request pad and a muxer's do not link to each other directly.
 		last := strings.LastIndex(line, gstTeeName+". !")
 		if mux := strings.Index(line, "name="+"mux"); last < 0 || mux < last || !strings.Contains(line[last:], "queue") {
-			t.Errorf("%s: the muxer is no longer the last branch off the tee: %s", format, line)
+			t.Errorf("%s: the muxer is not the last branch off the tee: %s", format, line)
 		}
 	}
 }
 
-// The rendered command carries no preview leg, and the reason is not tidiness: the port belongs to
-// one launch, and whether two settings build one pipeline is decided by comparing exactly this
-// string (SamePipeline).
+// The rendered command carries no preview leg:
+// the port belongs to one launch,
+// and whether two settings build one pipeline is decided by comparing exactly this string (SamePipeline).
 func TestTheRenderedCommandCarriesNoPreviewLeg(t *testing.T) {
 	for _, capture := range []string{"portal", "gdigrab"} {
 		for _, codec := range previewCodecs {
@@ -161,10 +161,10 @@ func TestTheRenderedCommandCarriesNoPreviewLeg(t *testing.T) {
 	}
 }
 
-// The ffmpeg child writes the same encoded packets twice through the tee muxer: the relay's leg as
-// the transport states it, and the preview's beside it.
-// Two outputs written any other way are two encoders on one capture, which is why the tee muxer is
-// the shape.
+// The ffmpeg child writes the same encoded packets twice through the tee muxer:
+// the relay's leg as the transport states it, and the preview's beside it.
+// Two outputs written any other way are two encoders on one capture,
+// which is why the tee muxer is the shape.
 func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 	for format, codec := range previewCodecs {
 		s := previewStream(t, "gdigrab", codec)
@@ -194,8 +194,8 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 		if !strings.Contains(line, "onfail=ignore") {
 			t.Errorf("%s: a preview slave that cannot open would end the stream: %s", format, line)
 		}
-		// The streams are mapped by hand: automatic stream selection does not apply to a tee, and an
-		// unmapped tee writes no stream at all.
+		// The streams are mapped by hand: automatic stream selection does not apply to a tee,
+		// and an unmapped tee writes no stream at all.
 		if !strings.Contains(line, "-map 0:v") {
 			t.Errorf("%s: the video is not mapped into the tee: %s", format, line)
 		}
@@ -208,10 +208,10 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 	}
 }
 
-// A filter source has no input to map, so its chain's output is labelled and the map names that
-// label.
-// Without it the tee writes nothing, and the failure is a stream that never starts rather than a
-// preview that does not.
+// A filter source has no input to map,
+// so its chain's output is labelled and the map names that label.
+// Without it the tee writes nothing,
+// and the failure is a stream that never starts rather than a preview that does not.
 func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 	s := previewStream(t, "ddagrab", "libx264")
 	tap, ok := ffmpegPreviewTap(s.Publish.Codec(), PreviewLeg{Port: 45678})
@@ -235,8 +235,9 @@ func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 	}
 }
 
-// The port is the kernel's answer rather than a number this package picked, and two allocations in
-// a row do not collide, which is the whole reason it is allocated rather than being a constant.
+// The port is the kernel's answer rather than a number this package picked,
+// and two allocations in a row do not collide,
+// which is the whole reason it is allocated rather than being a constant.
 func TestPreviewPortsAreAllocatedAndBindable(t *testing.T) {
 	first, err := AllocatePreviewPort()
 	if err != nil {
@@ -264,10 +265,10 @@ func TestPreviewPortsAreAllocatedAndBindable(t *testing.T) {
 	}
 }
 
-// A codec whose format has no local carriage publishes without a preview rather than failing to
-// publish.
-// A complete table leaves that branch unreachable, so a row is taken out to reach it: it is the
-// branch that decides whether a format added later costs a stream.
+// A codec whose format has no local carriage publishes without a preview
+// rather than failing to publish.
+// A complete table leaves that branch unreachable, so a row is taken out to reach it:
+// it is the branch that decides whether a format added later costs a stream.
 func TestAFormatWithNoLocalCarriagePublishesWithoutAPreview(t *testing.T) {
 	const format = "h264"
 	codec := previewCodecs[format]

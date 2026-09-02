@@ -32,7 +32,7 @@ func TestAnUnstatedColorimetryCarriesNoTransfer(t *testing.T) {
 	}
 }
 
-// An unknown value is answered with itself, never a guess.
+// An unknown value is answered with itself.
 // A curve a later GStreamer adds to the enum reaches a reader as whatever it is called,
 // and nothing promotes it to HDR for being unfamiliar.
 func TestAnUnknownColorimetryAnswersWithItself(t *testing.T) {
@@ -59,8 +59,8 @@ func TestOnlyTheTwoBT2100CurvesAreHDR(t *testing.T) {
 		}
 	}
 
-	// Names resolve to the nicks the constants spell, so a caller can hold a transfer read off
-	// a pipeline against them.
+	// Names resolve to the nicks the constants spell,
+	// so a caller can hold a transfer read off a pipeline against them.
 	if TransferOfColorimetry("bt2100-pq") != TransferPQ || TransferOfColorimetry("bt2100-hlg") != TransferHLG {
 		t.Error("the two HDR names resolve to transfers the constants do not spell")
 	}

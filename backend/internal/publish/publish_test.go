@@ -74,10 +74,10 @@ func TestSamePipelineHoldsForUnchangedSettings(t *testing.T) {
 	}
 }
 
-// The watch leg and the figures the form warns from are settings of the app rather than of the
-// pipeline, so moving one leaves a running publish alone.
-// A builder that starts reading one of them fails here, which is the point: the same comparison
-// decides whether the stream is restarted under the user.
+// The watch leg and the figures the form warns from are settings of the app rather than of the pipeline,
+// so moving one leaves a running publish alone.
+// A builder that starts reading one of them fails here, which is the point:
+// the same comparison decides whether the stream is restarted under the user.
 func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
 		"apiPort":            func(s *settings.Settings) { s.Relay.ApiPort = 19997 },
@@ -153,16 +153,17 @@ func TestSamePipelineRefusesSettingsNoEngineRenders(t *testing.T) {
 	}
 }
 
-// A backend whose platform serves no monitor source refuses desktop audio rather than publishing a
-// silent track, whichever engine runs it.
+// A backend whose platform serves no monitor source
+// refuses desktop audio rather than publishing a silent track, whichever engine runs it.
 //
 // The refusal is asserted through Command, the one path a run and the displayed line both take:
 // an engine refusing inside Start alone would show a user a command the publish button cannot
 // execute.
-// The verdict is the source table's, so what a greyed option says before publishing and what a
-// refused publish says rest on one answer rather than two that drift.
-// The refusal names the backend and the source rather than quoting the table's statement, since it
-// is an operational error and the statement is what the greyed option shows
+// The verdict is the source table's,
+// so what a greyed option says before publishing and what a refused publish says
+// rest on one answer rather than two that drift.
+// The refusal names the backend and the source rather than quoting the table's statement,
+// since it is an operational error and the statement is what the greyed option shows
 // (api/proto/screenshare/v1/text.proto).
 func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testing.T) {
 	for capture := range captureBackends {
@@ -192,9 +193,9 @@ func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testin
 	}
 }
 
-// Every registered backend is answerable for, and no backend refuses the absent source: a stream
-// with no second track asks nothing of the machine, so no platform can be missing the piece that
-// serves it.
+// Every registered backend is answerable for, and no backend refuses the absent source:
+// a stream with no second track asks nothing of the machine,
+// so no platform can be missing the piece that serves it.
 func TestEveryCaptureBackendAnswersForEveryAudioSource(t *testing.T) {
 	for capture := range captureBackends {
 		available, reason := AudioAvailable(capture, platform.AudioSourceNone)

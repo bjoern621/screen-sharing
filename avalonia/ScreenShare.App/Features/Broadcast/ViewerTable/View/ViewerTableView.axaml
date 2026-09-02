@@ -51,7 +51,7 @@
           No interval in the sentence: the backend announces each snapshot it polls, and how
           often it polls is not on the contract, so a period named here would be made up.
         -->
-        <TextBlock Grid.Column="1" Classes="hint" Text="as the backend last polled the relay" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Classes="hint" Text="as of the last read from the relay" VerticalAlignment="Center" />
       </Grid>
 
       <!--

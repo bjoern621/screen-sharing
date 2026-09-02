@@ -13,7 +13,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// The frame channel: the second service on the same socket, carrying handles and never pixels
+// The frame channel: the second service on the same socket, carrying handles to memory a consumer maps
 // (docs/ipc-api.md, "What crosses, and in what shape").
 //
 // A server type of its own rather than more methods on Server,
@@ -55,8 +55,7 @@ func NewFrames(backend Backend) *FrameServer {
 func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) error {
 	first, err := stream.Recv()
 	if err != nil {
-		// A window that closed between opening the call and filling it,
-		// not a failure to report.
+		// A window that closed between opening the call and filling it.
 		return nil
 	}
 
@@ -72,7 +71,7 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 	// The other two need no such check:
 	// the publish preview is named by the choice itself, having no key,
 	// and a monitor index reaching no output is refused where the preview is looked for.
-	// Whether an index is one of this machine's is a fact about the machine, not about the request.
+	// Whether an index is one of this machine's is a fact about the machine, so the backend decides it.
 	if source.Kind == wire.FrameSourceRelay {
 		if source.Stream.StreamName == "" {
 			return invalidArgument("no stream named to receive frames of")

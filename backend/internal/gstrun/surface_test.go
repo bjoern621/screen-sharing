@@ -6,14 +6,14 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 )
 
-// A capsfilter's alternatives narrow to the surface's own colour, so what the encoder is handed is
-// what the desktop had.
+// A capsfilter's alternatives narrow to the surface's own colour,
+// so what the encoder is handed is what the desktop had.
 //
 // The pipelines below stand in for the publish chain: a source claiming a colour,
-// the videoconvert every capture chain carries, and the encoder input stating each colour this
-// publish accepts.
-// A fakesink replaces the encoder, the negotiation ahead of it being what is under test and an
-// encoder adding a plugin this machine may not carry.
+// the videoconvert every capture chain carries, and the encoder input stating each colour
+// this publish accepts.
+// A fakesink replaces the encoder, the negotiation ahead of it being what is under test
+// and an encoder adding a plugin this machine may not carry.
 //
 // Untouched, the behaviour fails silently.
 // videoconvert fixates a capsfilter to its first structure whatever the frames carry,
@@ -39,8 +39,8 @@ func TestTheEncoderInputTakesTheSurfacesOwnTransfer(t *testing.T) {
 		// A standard-range desktop takes the leading row, the same row it takes with no narrowing at all:
 		// the answer does not move, the row having described the surface already.
 		{surface: "bt709", want: "1:3:5:1"},
-		// A transfer no row names narrows nothing, so the leading row stands and the parent refuses the
-		// run on the same caps, naming both ends (publish/gsthdr.go).
+		// A transfer no row names narrows nothing, so the leading row stands and the parent refuses
+		// the run on the same caps, naming both ends (publish/gsthdr.go).
 		// An empty capsfilter here fails with a negotiation error instead, which names neither.
 		{surface: "1:6:11:7", want: "1:3:5:1"},
 	} {
@@ -55,13 +55,13 @@ func TestTheEncoderInputTakesTheSurfacesOwnTransfer(t *testing.T) {
 	}
 }
 
-// Mastering display metadata reaches the encoder where the capture states it, and is absent where
-// it does not.
+// Mastering display metadata reaches the encoder where the capture states it,
+// and is absent where it does not.
 //
-// It rides through because nothing names it: the encoder input pins memory, format, colorimetry and
-// size, so every other field the capture put on its caps survives the intersection untouched.
-// A row that started naming these fields would drop the ones it did not match, and a stream would
-// lose the grading it was mastered against with nothing saying so.
+// It rides through because nothing names it: the encoder input pins memory, format, colorimetry
+// and size, so every other field the capture put on its caps survives the intersection untouched.
+// A row that started naming these fields would drop the ones it did not match,
+// and a stream would lose the grading it was mastered against with nothing saying so.
 func TestMasteringMetadataReachesTheEncoder(t *testing.T) {
 	const (
 		display = "34000:16000:13250:34500:7500:3000:15635:16450:10000000:1"
@@ -90,8 +90,8 @@ func TestMasteringMetadataReachesTheEncoder(t *testing.T) {
 	}
 }
 
-// encoderInput plays one description to its end the way a run does, and answers the colorimetry the
-// last element was handed.
+// encoderInput plays one description to its end the way a run does, and answers the colorimetry
+// the last element was handed.
 //
 // Driven here rather than through Run because the answer sits on a pad inside the pipeline:
 // a run reports what the capture negotiated, where this is about the far end of the conversion.
@@ -101,8 +101,8 @@ func encoderInput(t *testing.T, description string) string {
 	return negotiatedCaps(t, description).GetStructure(0).GetString(colorimetryField)
 }
 
-// negotiatedCaps plays one description to its end and answers the caps the element named sink was
-// handed.
+// negotiatedCaps plays one description to its end and answers the caps the element named sink
+// was handed.
 func negotiatedCaps(t *testing.T, description string) *gst.Caps {
 	t.Helper()
 	gst.Init()

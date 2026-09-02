@@ -15,7 +15,7 @@ Where a build lands, plus the Windows pieces a build needs that are not source.
 | `appicon.png` | the source image the platform icons derive from |
 
 `bin/` and `dist/` are outputs and carry nothing worth keeping.
-`windows/redist/` is fetched rather than built, which is why it lives here instead of being downloaded on every build.
+`windows/redist/` is fetched rather than built.
 `scripts/get-ffmpeg.ps1` fills it.
 `task build:windows` copies the pair into `bin/` beside the backend, where the app's own lookup finds them (`backend/internal/ffmpeg`, `FindExe`).
 
@@ -28,5 +28,4 @@ One directory holds all of it: what the Windows loader searches first for a DLL 
 
 ## Leftovers
 
-`darwin/`, `windows/installer/`, `windows/wails.exe.manifest`, `windows/info.json` and `windows/icon.ico` come from an earlier Wails build.
-No recipe in the tree reads them.
+No recipe in the tree reads `darwin/`, `windows/installer/`, `windows/wails.exe.manifest`, `windows/info.json` or `windows/icon.ico`.

@@ -60,8 +60,8 @@ var liveFields = []liveField{{
 	// An encoder takes a new rate while it runs, and every element here has a property for one.
 	//
 	// A mode that sends the encoder no rate is not live in it.
-	// Constant quality aims at a quantizer and lossless at exactness, so a rate written under either
-	// is a figure the element carries and never spends.
+	// Constant quality aims at a quantizer and lossless at exactness,
+	// so a rate written under either sits on the element unspent.
 	when: map[string]rules.Match{
 		rules.AxisEngine: rules.OneOf(EngineGst),
 		rules.AxisCodec:  rules.OneOf(gstLiveBitrateCodecs()...),

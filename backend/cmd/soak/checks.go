@@ -163,7 +163,7 @@ func checkWhole(run *session, form *v1.Form, settings *v1.Settings) {
 }
 
 // checkPresetShape holds the built-in presets to what each one owes:
-// an outcome or a reason, never both and never neither,
+// exactly one of an outcome and a reason,
 // and at most one of them already delivered.
 func checkPresetShape(run *session, form *v1.Form, settings *v1.Settings) {
 	selected := []string{}

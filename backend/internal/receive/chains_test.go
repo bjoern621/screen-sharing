@@ -6,9 +6,8 @@ import (
 )
 
 // TestChainsAreWellFormed holds the table to its own invariants.
-// A row is read by name, offered
-// to a picker by label and tip, and built into a launch line, so one missing any of those becomes
-// an unusable offer instead of failing where it is used.
+// A row is read by name, offered to a picker by label and tip, and built into a launch line,
+// so one missing any of those becomes an unusable offer instead of failing where it is used.
 func TestChainsAreWellFormed(t *testing.T) {
 	seen := map[string]bool{}
 	for _, c := range chains {
@@ -52,8 +51,7 @@ func TestChainNeedsAreTheElementsItBuilds(t *testing.T) {
 
 // TestChainBoundsWhereItNamesAFilter pins the pair a render size is written through: the row's
 // elements name the filter and the row's caps go into it.
-// Either alone is a size nothing bounds, or
-// caps nothing carries.
+// Either alone is a size nothing bounds, or caps nothing carries.
 func TestChainBoundsWhereItNamesAFilter(t *testing.T) {
 	for _, c := range chains {
 		names := strings.Contains(strings.Join(c.elements, " ! "), "name="+fitName)
@@ -70,9 +68,8 @@ func TestChainBoundsWhereItNamesAFilter(t *testing.T) {
 // was parsed with.
 //
 // A chain bounding nothing has no such caps and answers on the element half alone.
-// Not bounding
-// is a device chain's option and not an oversight: the bound pays where a conversion costs
-// its output pixels, and on the GPU whole frames can beat renegotiating for tile-sized ones.
+// Not bounding is a device chain's option and not an oversight: the bound pays where a conversion
+// costs its output pixels, and on the GPU whole frames can beat renegotiating for tile-sized ones.
 func TestDeviceChainsKeepTheirMemoryFeature(t *testing.T) {
 	for _, c := range chains {
 		if c.device == "" {
@@ -176,8 +173,8 @@ func TestDefaultChainConvertsOnTheDevice(t *testing.T) {
 
 // TestUnconvertedChainConvertsNothing keeps resolve's rule meaningful: the chain it must never fall
 // back to is the one handing frames over as they are.
-// No format and no memory pinned, no element
-// of its own wanted, and no bound to a tile's size, each of which would be a conversion.
+// No format and no memory pinned, no element of its own wanted, and no bound to a tile's size,
+// each of which would be a conversion.
 func TestUnconvertedChainConvertsNothing(t *testing.T) {
 	c := chainNamed(unconvertedChain)
 	if c.colour != ColourUnstated {

@@ -74,7 +74,6 @@ func TestAutoResolvesForEveryPair(t *testing.T) {
 	}
 }
 
-// The device path is a demand, not a preference.
 // A pair without one is refused,
 // resolving to the copy handing back the round trip the setting exists to avoid.
 func TestGpuIsRefusedForAPairWithoutAPath(t *testing.T) {

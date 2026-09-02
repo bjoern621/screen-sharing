@@ -86,7 +86,7 @@ public static class Cards
 
     /// <summary>
     /// A stream live with no preview behind it.
-    /// The reason is in the backend's log rather than on the contract, so the sentence names the fact, not a cause.
+    /// The reason is in the backend's log rather than on the contract, so the sentence names the fact alone.
     /// </summary>
     public const string PreviewNotPreviewed = "This stream is live and not being previewed locally.";
 
@@ -99,7 +99,7 @@ public static class Cards
         "The settings name no protocol for a viewer to receive on. Pick one under Watching.";
 
     /// <summary>
-    /// Its own state, not the tile's "Connecting.":
+    /// Its own state, apart from the tile's "Connecting.":
     /// that one is a pipeline up with no frame out of it, this the round trip before there is a pipeline at all.
     /// </summary>
     public const string PreviewOpening = "Opening a decode of this stream off the relay.";
@@ -143,7 +143,7 @@ public static class Cards
 
     /// <summary>
     /// What the viewer table says in place of rows.
-    /// Three absences, three sentences, each leaving the publisher a different thing to do next:
+    /// One sentence per absence, each leaving the publisher a different thing to do next:
     /// start a stream, wait for the relay to be asked, or send somebody the link.
     /// </summary>
     public const string ViewersIdle = "Nothing is publishing, so nobody can be watching this computer.";
@@ -159,7 +159,7 @@ public static class Cards
 
     /// <summary>
     /// Beside a row the relay is carrying a stream from.
-    /// Sending, not watching: who watches what belongs to the machine doing it,
+    /// Sending only: who watches what belongs to the machine doing it,
     /// so the group states presence and publication and nothing else.
     /// </summary>
     public const string MemberPublishing = "sending";
@@ -185,7 +185,7 @@ public static class Cards
 
     /// <summary>
     /// What the member list says in place of rows.
-    /// Three states, each leaving the reader a different thing to do: wait, join, or hand somebody the group key.
+    /// One sentence per state, each leaving the reader a different thing to do: wait, join, or hand somebody the group key.
     /// </summary>
     public const string MembersUnread = "Reading who is in this group.";
 
@@ -247,7 +247,7 @@ public static class Cards
     public const string RelayCheckAction = "Check";
 
     public const string RelayCheckHint =
-        "Opens a connection on every way this computer reaches the relay, and says which answered. "
+        "Opens a connection to each of the relay's listeners and says which answered. "
         + "Sends no stream and changes nothing.";
 
     public const string RelayCheckUnrun = "No check has run on this relay.";
@@ -287,7 +287,7 @@ public static class Cards
 
     public static string QuantizerCeiling(int at) => $"{at}: unusable";
 
-    public static string QuantizerBand(int from, int to) => $"{from}–{to} recommended for screen content";
+    public static string QuantizerBand(int from, int to) => $"{from}-{to} recommended for screen content";
 
     /// <summary>
     /// What the button over the audio list says.
@@ -314,7 +314,7 @@ public static class Cards
         $"{first} and {second} reach a running stream, so moving either costs no viewer a reconnect.";
 
     /// <summary>
-    /// An empty store, not <see cref="Statements"/>' unreadable-store notice:
+    /// An empty store, apart from <see cref="Statements"/>' unreadable-store notice:
     /// that one is the store failing, this one a reader who has saved nothing.
     /// </summary>
     public const string PresetsEmpty = "Nothing saved yet. Name the configuration below to keep it.";

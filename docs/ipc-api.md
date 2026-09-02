@@ -8,7 +8,8 @@ This page states the rule it encodes and what each side owes.
 
 ## The rule
 
-**The backend decides what is true. A shell decides how to say it, and asks the backend to act.**
+**The backend decides what is true.**
+**A shell decides how to say it, and asks the backend to act.**
 
 Without exception:
 
@@ -18,7 +19,7 @@ Without exception:
 - Every piece of state is read from the backend or received on its event stream. A shell caches nothing across a change notification.
 - **Every word on screen is the shell's.** Labels, help text, option names, the paragraph behind a choice, the sentence in place of a greyed entry, how a unit is spelled and where it sits. Written where the layout is, keyed by the identifiers the backend sends (`text.proto`).
 - Beyond words, a shell contributes layout, typography, colour, motion, input handling and accessibility. Its whole job.
-- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer and the rest in its publish wizard, invisible from Go (`avalonia/ScreenShare.App/Features/Fields/Model/GroupPlacement.cs`). A shell may never decide that a group exists, what is in it, or which entries are reachable.
+- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer and the rest in its publish wizard, invisible from the backend. A shell may never decide that a group exists, what is in it, or which entries are reachable.
 
 **The two halves meet on identifiers and nowhere else.**
 `hevc_nvenc`, `gstreamer`, `yuv420p`, `srt`: what the encoder, the element registry and the relay call these things.
@@ -34,8 +35,8 @@ Three kinds of method, the rule in executable form:
 | Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `OpenInBrowser`, `CreateGroup`, `JoinGroup`, `LeaveGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
-Samples, not the whole surface.
-`control.proto` carries that.
+The table lists samples.
+`control.proto` carries the whole surface.
 A method that is neither a read nor an effect does not belong here.
 A shell that wants one is about to hold state the backend owns.
 
@@ -44,7 +45,8 @@ Measurements are effects, by the test rather than by category.
 The probe most of all: what it finds is what every subsequent `ResolveForm` greys codecs against.
 A read that replaces the answer another shell's next resolve would give, with nothing on the wire announcing it, is what this test catches.
 
-`CheckRelay` is an effect on the first half of that test and not the second: it opens a connection on every leg of the relay and waits out the ones with nothing behind them, so no shell may ask on a keystroke.
+`CheckRelay` is an effect on the first half of that test and not the second.
+It opens a connection on every leg of the relay and waits out the ones with nothing behind them, so no shell may ask on a keystroke.
 What it answers is a reading of the moment, held by whoever asked rather than by a state a later read serves.
 
 **Membership is two effects and a read.**
@@ -54,20 +56,13 @@ The backend states it on the loop that already polls the relay, so a method for 
 
 ## Why
 
-A shell with its own copy of the domain model is a chance to disagree with the encoder, invisible until it is a stream nobody can explain.
-`domain-model.md` exists because a rule written twice drifts.
-This contract stops a shell being the second place.
-
-The second reason decides the shape rather than the direction.
-Capture, encode and publish stay in Go, and frames cross as shared GPU handles.
-The shell already talks to one Go process about frames.
-A second, private idea of what a codec is would let the process holding the encoder and the process drawing its settings disagree about which encoders exist.
-
-The rule also buys replaceability: a shell that decides nothing can be swapped outright, or driven by a test with no UI, everything it displays having been computed where a test can reach.
+A shell with its own copy of the domain model is a chance to disagree with the encoder,
+invisible until it is a stream nobody can explain.
+A shell that decides nothing can also be swapped outright, or driven by a test with no interface.
 
 **The backend and the shell always run on the same machine.**
-Development separation, not a step toward a remote shell, and not a trust boundary: two modules of one application on one box.
-Nothing here is shaped against a hostile client, and a filesystem path crosses as a path.
+Two modules of one application on one box, so nothing here is shaped against a hostile client
+and a filesystem path crosses as a path.
 
 ## What crosses, and in what shape
 
@@ -99,14 +94,17 @@ Two tiles on one decode share the branch, so a per-tile volume would be several 
 The tile is where the slider is *drawn*.
 What it sets is not the shell's.
 
-`SubscribeAudioLevels` is a second stream, not an event kind.
+`SubscribeAudioLevels` is a stream of its own.
 `Subscribe` carries whole states when something changed, and a level changes continuously.
 Folding it in would push the receive state at metering rate and re-render every consumer for a figure none of them reads.
 Frequency alone is no reason to leave this service: the frame channel exists for frames, and a level is not one.
 Each tick carries the whole set, fifteen a second, coalesced to the newest, so a reader that fell behind receives the present rather than a queue of the past.
 
+## ResolveForm
+
 `Form` is the one to read first: what makes a shell a display.
-`ResolveForm` takes the three settings drafts and returns the whole screen: groups, fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its value, a fresh installation's value, and for every control offering entries (select, radio, and the number carrying a ladder) each option with its value, note, enabled flag and reason.
+`ResolveForm` takes the three settings drafts and returns the whole screen: groups, fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its value, and a fresh installation's value.
+Every control offering entries (select, radio, and the number carrying a ladder) carries each option with its value, note, enabled flag and reason.
 The default travels per field for the reason every value does: a shell offering to put a group back would otherwise hold a table of defaults, which is the domain written twice.
 Built-in presets ride here too, one entry each: what applying it would produce here, or a `Text` saying why nothing reaches it, and whether the draft already delivers it (`presets.md`).
 On the form rather than on a method of their own, all three answers being functions of the draft exactly as a greying is.
@@ -118,7 +116,8 @@ It evaluates no rule, and writes every word.
 `publish.encoder`, `viewer.render_chain`, `relay.host`.
 The key is the shell's only handle on where a value is written.
 A bare name across three messages would need a lookup to say which descriptor it meant, which is one rule stated twice.
-One resolve over all three also keeps a cross-message greying possible: a tile leg that cannot carry the publish codec is greyed inside that one call, the comparison done before a shell ever sees it.
+One resolve over all three also keeps a cross-message greying possible.
+A tile leg that cannot carry the publish codec is greyed inside that one call, the comparison done before a shell ever sees it.
 
 Three messages because they answer to different owners.
 `PublishSettings` is what a preset copies between machines (`presets.md`).
@@ -127,7 +126,7 @@ Three messages because they answer to different owners.
 One host stored twice is two hosts able to disagree.
 
 `ResolveForm` has no side effect and is cheap on every keystroke.
-It returns a possibly repaired draft alongside the form and names the fields it repaired: where the draft held a value the tables forbid, the backend walked to the first legal one (`form/repair.go`).
+It returns a possibly repaired draft alongside the form and names the fields it repaired: where the draft held a value the tables forbid, the backend walked to the first legal one.
 A shell adopts the returned settings wholesale, so a greyed option and its replacement cannot disagree.
 
 ## The format, and why this one
@@ -145,20 +144,24 @@ Between the schema languages that generate both sides:
 
 gRPC then brings the two things a hand-rolled framing would reinvent badly: server streaming, which is exactly the event channel, and a status model with deadlines and cancellation.
 
-**Local IPC, not a network port.**
+### The endpoint
+
+One endpoint per platform, restricted to the owning user.
 
 | Platform | Endpoint |
 | --- | --- |
 | Windows | named pipe `\\.\pipe\screenshare-control-v1`, DACL restricted to the owning user |
 | Linux, macOS | Unix socket `$XDG_RUNTIME_DIR/screenshare/control-v1.sock`, mode `0600`, falling back to the config directory where `XDG_RUNTIME_DIR` is unset |
 
-No TCP listener, not even loopback.
+The service binds no TCP port, loopback included.
 A loopback port is reachable by every process on the machine and by anything the browser can be persuaded to fetch, and this service starts screen captures.
 The socket path is the only discovery mechanism.
 A shell that cannot open it starts the backend and asks again, the backend being headless and a user who opened the app having asked for both halves.
 Still unreachable, it reports that the backend is not running and names the endpoint.
-A shell's arrangement, not a contract rule: a backend already listening is connected to rather than duplicated, and one the shell did not start is not one it stops.
+The contract states none of that: a shell connects to a backend already listening, and stops only one it started itself.
 Both ends run gRPC over that stream, Go with a custom dialer and .NET with `SocketsHttpHandler.ConnectCallback`, so the service definition is the same on every platform.
+
+## The frame channel
 
 **Frames do not cross this API.**
 The frame channel is a second gRPC service on the same socket, carrying handle metadata and release-backs.
@@ -170,18 +173,22 @@ One socket avoids reinventing framing, versioning and cancellation for a metadat
 A release on a second call could outlive its subscription and free a slot of a pool that is gone.
 One call per decode, so a consumer that dies mid-frame is one dead stream rather than every stream stalling.
 
-It is also where "no tile on this contract" is easiest to break and is not: a subscription names a decode something else opened and never opens one.
+It is also where "no tile on this contract" is easiest to break, and the shape holds: a subscription names a decode something else opened.
 The render size is a count of pixels rather than a layout.
 Pool ownership, generations and what each side does when the other dies: `viewer-architecture.md`, "The buffer-ownership protocol".
 
+## What a subscription names
+
 **A subscription names one of three pictures, each carrying what tells one of its own kind apart.**
 `FrameSubscribe` carries a `StreamRef` (a stream and the leg it crossed the relay over), `PublishPreview` (the local decode of what this machine sends), or `MonitorPreview` (one of this machine's screens, read live).
-The preview message is empty and needs to be: `PublishState.live` is singular, so "the running publish's preview" is already a complete identity, and a name or port on it would be the consumer restating what it read off the state.
-The monitor message carries one index for the mirror-image reason: the index is what the catalog enumerates screens under and what `PublishSettings.monitor` holds, so a size or name would be the consumer sending the catalog back.
+The preview message is empty and needs to be: `PublishState.live` is singular, so "the running publish's preview" is already a complete identity.
+A name or port on it would be the consumer restating what it read off the state.
+The monitor message carries one index for the mirror-image reason.
+The index is what the catalog enumerates screens under and what `PublishSettings.monitor` holds, so a size or name would be the consumer sending the catalog back.
 
 Separate arms rather than legs in the transport table, two of the three crossing no protocol at all.
 The publish child copies encoded video to a loopback port and the backend decodes it there (`viewer-architecture.md`, "What the broadcast preview draws").
-A monitor preview is read off the screen and never encoded.
+A monitor preview is read off the screen and crosses no encoder.
 A synthetic transport entry would tell every consumer of that table that some protocol carries them.
 
 **Which effect opens each keeps the frame channel from deciding anything.**
@@ -236,7 +243,8 @@ The screen renders that reason as "The relay is down."
 
 The same holds one level down.
 A path's `reader_roster` is joined from the per-protocol connection lists, one call each.
-A list that refuses leaves its readers named with every figure absent rather than failing the snapshot: the relay answered the question the snapshot is about, and a listener switched off has no list at all.
+A list that refuses leaves its readers named with every figure absent rather than failing the snapshot.
+The relay answered the question the snapshot is about, and a listener switched off has no list at all.
 So `reachable` states whether the relay answered, and presence on each figure states whether that figure was measured.
 Two facts, kept separate.
 
@@ -244,7 +252,7 @@ Two facts, kept separate.
 
 Two rules keep the event stream from becoming a second definition of the state.
 
-**Every event carries a whole state, never a delta.**
+**Every event carries a whole state.**
 A shell receiving `PublishState` renders it.
 It does not apply it to something it held.
 A duplicate is harmless, and a dropped connection is recovered from by reading state again rather than replaying history.
@@ -275,15 +283,16 @@ A control the shell invented is a lie on screen.
 A control the contract declares and the backend disables is a fact.
 A control the backend later implements needs no shell edit.
 
-`PublishSettings.output_resolution` is the case worth keeping.
-A field the Go pipeline cannot honour is drawn by every shell all the same, `ResolveForm` answering it disabled with that as its reason, so the stage behind it lands with no shell edit.
+`PublishSettings.output_resolution` is the field that shows it.
+A field the Go pipeline cannot honour is drawn by every shell all the same, `ResolveForm` answering it disabled with that as its reason.
 Scaling is a `scale` filter on the ffmpeg software path, the size on the device conversion's own filter where frames never leave the GPU, and `videoscale` plus a size on the encoder input caps for GStreamer.
-One pair stays greyed: a device path with no conversion at all, the encoder reading captured surfaces directly, has nothing that can resize, so the scaled entries grey with the frame memory named as the way across.
+One pair stays greyed: a device path with no conversion at all, the encoder reading captured surfaces directly, has nothing that can resize.
+The scaled entries grey there with the frame memory named as the way across.
 
 ## What each side owes
 
 **The backend owes** one `ControlService` implementation, and every rule beside the tables it derives from: greyings, repairs, dropdown construction, prediction, the viewability verdict, the preset search.
-They live in `backend/internal/form`, so `domain-model.md`'s list of consumers has one entry rather than one per shell.
+They live in the backend, so `domain-model.md`'s list of consumers has one entry rather than one per shell.
 
 It owes a **code** rather than a sentence for each verdict, and the identifiers behind it.
 A greying arriving as prose is a rule and a wording travelling together, and the wording is the half no backend gets right for a surface it has never seen.
@@ -298,7 +307,8 @@ It owes the render-function discipline (`development-principles.md`): one functi
 
 It owes a `SaveSettings` for every write to a group the form marks `applied`, and none for the others.
 Those are the settings the backend reads on a schedule of its own instead of being handed them by an effect.
-The relay's address is the case that exists: a shell holding one for a commit would leave the backend dialling the address the reader had just replaced, and the publish that would have carried it is refused for exactly that reason.
+The relay's address is the case that exists.
+A shell holding one for a commit would leave the backend dialling the address the reader had just replaced, and the publish that would have carried it is refused for exactly that reason.
 At the cadence of a settled value rather than a keystroke, `ResolveForm` per keystroke being cheap and `SaveSettings` per keystroke being a file write, so a text control writes when the reader leaves it.
 Which call a reader's move produces, and when, is `settings-editing.md`.
 And it owes showing a disabled field rather than inventing an enabled one.

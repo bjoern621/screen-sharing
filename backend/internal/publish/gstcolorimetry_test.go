@@ -23,11 +23,12 @@ import (
 // The rest keep an encoder that emits nothing until its lookahead fills from writing an empty file.
 const roundTripFrames = 5
 
-// roundTripWidth and roundTripHeight are the picture one round trip codes, and roundTripPicture the
-// caps fields stating it, which complete the caps on both ends of the conversion.
-// HD, because the guess a viewer falls back to follows the picture size and every screen this app
-// captures is HD or larger: a 320x240 round trip would be read as BT.601 and would measure a case
-// no screen produces.
+// roundTripWidth and roundTripHeight are the picture one round trip codes,
+// and roundTripPicture the caps fields stating it,
+// which complete the caps on both ends of the conversion.
+// HD, because the guess a viewer falls back to follows the picture size,
+// and every screen this app captures is HD or larger:
+// a 320x240 round trip would be read as BT.601 and would measure a case no screen produces.
 const (
 	roundTripWidth  = 1280
 	roundTripHeight = 720
@@ -37,24 +38,24 @@ var roundTripPicture = fmt.Sprintf(",width=%d,height=%d,framerate=30/1", roundTr
 
 // gstUnsignalledColorimetry is what a viewer reads off an HD stream carrying no colour description:
 // limited-range BT.709, the default taken from the picture size.
-// A stream that signals nothing is watched as this whatever it holds, so it is what such a publish
-// is measured against.
+// A stream that signals nothing is watched as this whatever it holds,
+// so it is what such a publish is measured against.
 const gstUnsignalledColorimetry = "bt709"
 
-// gstFraming carries one format's elementary stream through a file: write is what the encoder's own
-// link fragment hands the filesink, read what finds the frames in the file again.
-// The file severs caps negotiation, which is what makes the round trip a measurement: the
-// colorimetry the decoder reports can only have come from the bitstream.
+// gstFraming carries one format's elementary stream through a file:
+// write is what the encoder's own link fragment hands the filesink,
+// read what finds the frames in the file again.
+// The file severs caps negotiation, which is what makes the round trip a measurement:
+// the colorimetry the decoder reports can only have come from the bitstream.
 //
-// The write side pins framing and never a colour description.
-// Annex B start codes frame an H.26x stream and typefind reads them, so those two need nothing to
-// be read back again.
+// Annex B start codes frame an H.26x stream and typefind reads them,
+// so those two need nothing to be read back again.
 // An AV1 OBU states its own size, so it comes out of a plain file once av1parse is named.
-// The VP formats travel in IVF: 32 bytes of fourcc, picture size, frame rate and frame count, with
-// no colour field of any kind and byte-identical between a full-range and a limited-range encode.
+// The VP formats travel in IVF: 32 bytes of fourcc, picture size, frame rate and frame count,
+// with no colour field of any kind,
+// and byte-identical between a full-range and a limited-range encode.
 //
-// IVF rather than a parser, and for VP8 there is no choice: the format has no parser element at
-// all.
+// IVF rather than a parser, and for VP8 there is no choice: the format has no parser element at all.
 // VP9 has vp9parse, and a stream it framed decodes only while the frames stay small.
 // Past roughly half a megabit at this picture size, vp9dec takes every buffer it hands over and
 // reports no valid frame at end of stream, where the same encode read back through IVF decodes
@@ -85,24 +86,26 @@ var (
 	gstColorimetryField = regexp.MustCompile(`colorimetry=\(string\)([^,\s]+)`)
 )
 
-// A stream is watched in the colour its bitstream states, and in the viewer's own where it states
-// none: RTP and MPEG-TS carry no colour description, so what an encoder leaves out travels nowhere
-// else.
-// The colour range a publish is configured at therefore has to arrive at the decoder, and where it
-// cannot the table gaps it rather than encoding a stream that says one thing and holds another.
-// Both are measured here, one hop further out than the failure a partially named colorimetry
-// produces inside the pipeline (TestCaptureCapsNameEveryColorimetryComponent).
+// A stream is watched in the colour its bitstream states,
+// and in the viewer's own where it states none:
+// RTP and MPEG-TS carry no colour description, so what an encoder leaves out travels nowhere else.
+// The colour range a publish is configured at therefore has to arrive at the decoder,
+// and where it cannot the table gaps it rather than encoding a stream that says one thing and holds another.
+// Both are measured here,
+// one hop further out than the failure a partially named colorimetry produces inside the pipeline
+// (TestCaptureCapsNameEveryColorimetryComponent).
 //
-// The encode runs through the engine's own encoder-input caps and encoder, the decoder is handed
-// the bitstream and its framing alone (gstFraming), and the colorimetry is read off the decoded
-// caps: the pad the grid's stats card reads its own from, its render chain measuring what decodebin
-// produced.
+// The encode runs through the engine's own encoder-input caps and encoder,
+// the decoder is handed the bitstream and its framing alone (gstFraming),
+// and the colorimetry is read off the decoded caps:
+// the pad the grid's stats card reads its own from,
+// its render chain measuring what decodebin produced.
 //
-// Each codec runs once per chain the pair table leaves it reachable through, rather than once for
-// the codec.
-// A stream's colour is the whole chain's answer rather than the encoder's: the conversion is a
-// different element on each path and the encoder often is too, so a device path measured through
-// the system one would state a claim about neither.
+// Each codec runs once per chain the pair table leaves it reachable through,
+// rather than once for the codec.
+// A stream's colour is the whole chain's answer rather than the encoder's:
+// the conversion is a different element on each path and the encoder often is too,
+// so a device path measured through the system one would state a claim about neither.
 func TestPublishedColorimetryReachesTheDecoder(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -137,10 +140,10 @@ func TestPublishedColorimetryReachesTheDecoder(t *testing.T) {
 			for _, colorRange := range []string{"pc", "tv"} {
 				t.Run(codec+"/"+chain.memory+"/"+colorRange, func(t *testing.T) {
 					s := roundTripSettings(t, codec, colorRange, chain)
-					// A colour range this engine cannot state is declared as a gap and refused before a
-					// pipeline is built, so the refusal is what is asserted for it.
-					// Encoding it anyway is what the gap exists to prevent: a stream watched in another range than
-					// the form shows.
+					// A colour range this engine cannot state is declared as a gap and refused before a pipeline is built,
+					// so the refusal is what is asserted for it.
+					// Encoding it anyway is what the gap exists to prevent:
+					// a stream watched in another range than the form shows.
 					if gap, gapped := cap.OptionGap(EngineGst, capabilities.OptionColorRange, colorRange); gapped {
 						if _, err := gstTestCaps(s); err == nil {
 							t.Fatalf("colour range %s is gapped on this engine, so it must be refused rather than encoded: %s",
@@ -193,21 +196,20 @@ func TestPublishedColorimetryReachesTheDecoder(t *testing.T) {
 	}
 }
 
-// whitePatchLuma is what a white patch has to be stored as at each colour range: the top of the
-// 8-bit range, and the studio ceiling 20 code values under it.
+// whitePatchLuma is what a white patch has to be stored as at each colour range:
+// the top of the 8-bit range, and the studio ceiling 20 code values under it.
 var whitePatchLuma = map[string]int{"pc": 255, "tv": 235}
 
 // whitePatchTolerance is how far off a decoded patch may land.
-// The ranges are 20 code values apart and a lossy encode of a flat field can round one off, so a
-// single value of slack cannot make either range read as the other.
+// The ranges are 20 code values apart and a lossy encode of a flat field can round one off,
+// so a single value of slack cannot make either range read as the other.
 const whitePatchTolerance = 1
 
 // A device path claiming exact colour has to convert the frames and not only describe them.
 // The signalled colorimetry says what a viewer expands the picture as, and this says what is in it,
 // the half a label cannot earn on its own.
-// An element that ignored the range and tagged it anyway signals bt709 full range over
-// limited-range pixels, and every viewer then stretches a 235 white to 255 and clips everything the
-// picture had.
+// An element that ignored the range and tagged it anyway signals bt709 full range over limited-range pixels,
+// and every viewer then stretches a 235 white to 255 and clips everything the picture had.
 //
 // A white patch is coded through the pair's own conversion and encoder, decoded, and its luma plane
 // read.
@@ -253,8 +255,8 @@ func TestTheGstDevicePathStoresTheConfiguredRange(t *testing.T) {
 				}
 				t.Run(c.Name+"/"+chain.memory+"/"+colorRange, func(t *testing.T) {
 					s := roundTripSettings(t, c.Name, colorRange, chain)
-					// 8-bit 4:2:0, the layout every device element here negotiates and the one whose luma plane is
-					// the file's first width*height bytes.
+					// 8-bit 4:2:0, the layout every device element here negotiates,
+					// and the one whose luma plane is the file's first width*height bytes.
 					// The range is what is measured, and it is the same conversion at every depth.
 					s.Publish.Chroma = whitePatchChroma
 					if _, gapped := c.OptionGap(EngineGst, capabilities.OptionColorRange, colorRange); gapped {
@@ -276,11 +278,11 @@ func TestTheGstDevicePathStoresTheConfiguredRange(t *testing.T) {
 	}
 }
 
-// whitePatchChroma is the layout the white patch is coded in, and whitePatchFormats the layouts its
-// luma plane is read back in.
+// whitePatchChroma is the layout the white patch is coded in,
+// and whitePatchFormats the layouts its luma plane is read back in.
 // Both lead with the full luma plane, so the pixel sits at the same offset in either.
-// Offering both keeps the read a memory download: a videoconvert asked for one layout converts the
-// range along with it, which is the value under test.
+// Offering both keeps the read a memory download:
+// a videoconvert asked for one layout converts the range along with it, which is the value under test.
 const (
 	whitePatchChroma  = "yuv420p"
 	whitePatchFormats = "video/x-raw,format={ NV12, I420 }"
@@ -402,9 +404,9 @@ func gstRoundTripEncode(t *testing.T, s settings.Settings, pattern string) strin
 		upload = []string{mem.upload}
 	}
 
-	// Forward slashes, this path being interpolated into a gst-launch line whose parser reads a
-	// backslash as an escape: a Windows temp path reaches filesink with its separators eaten, and the
-	// round trip writes into the working directory rather than the temp one.
+	// Forward slashes, this path being interpolated into a gst-launch line whose parser reads a backslash as an escape:
+	// a Windows temp path reaches filesink with its separators eaten,
+	// and the round trip writes into the working directory rather than the temp one.
 	// GStreamer takes a drive-letter path in either separator.
 	stream := filepath.ToSlash(filepath.Join(t.TempDir(), "roundtrip"))
 	encode := gstChain(
@@ -421,9 +423,10 @@ func gstRoundTripEncode(t *testing.T, s settings.Settings, pattern string) strin
 	return stream
 }
 
-// roundTripSettings are the settings one round trip publishes with: the codec under test at the
-// narrowest chroma this engine reaches for it, in a rate-control mode its element implements, over
-// one of the chains the pair table leaves it reachable through.
+// roundTripSettings are the settings one round trip publishes with:
+// the codec under test at the narrowest chroma this engine reaches for it,
+// in a rate-control mode its element implements,
+// over one of the chains the pair table leaves it reachable through.
 //
 // RTSP carries every format the codec table holds, so the transport check gstInputCaps runs never
 // decides which codecs are covered.
@@ -447,11 +450,12 @@ func roundTripSettings(t *testing.T, codec, colorRange string, chain roundTripCh
 	s.Publish.UseCodec(codec)
 	s.Publish.Mode, s.Publish.ColorRange = mode, colorRange
 	s.Publish.Chroma = chromas[len(chromas)-1]
-	// The chain is demanded rather than left to auto, so which path a run takes is this test's choice
-	// and not the defaults' capture backend: the memory setting decides the caps feature, the
-	// conversion and, on a family with one element per memory kind, the encoder.
-	// The generated frames start in system memory either way, and the family's upload puts them where
-	// a captured frame already is.
+	// The chain is demanded rather than left to auto,
+	// so which path a run takes is this test's choice and not the defaults' capture backend:
+	// the memory setting decides the caps feature,
+	// the conversion and, on a family with one element per memory kind, the encoder.
+	// The generated frames start in system memory either way,
+	// and the family's upload puts them where a captured frame already is.
 	s.Publish.CaptureMemory = chain.demand
 	if chain.capture != "" {
 		s.Publish.Capture = chain.capture

@@ -30,7 +30,7 @@ import (
 // The monitor index is the whole key:
 // what PublishSettings.monitor holds and what the catalog enumerates outputs under.
 
-// monitorPreviewLeg is a description, not a transport registry name.
+// monitorPreviewLeg is what the log calls this carriage.
 // No transport carries these frames, and the string reaches the receive package's log lines only.
 const monitorPreviewLeg = "screen capture"
 

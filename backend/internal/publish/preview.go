@@ -76,8 +76,8 @@ type previewCarriage struct {
 }
 
 // previewCarriages is the local preview leg per bitstream format.
-// The keys are capabilities.Codec.Format values, because the payload format follows the bitstream
-// and never the encoder that produced it.
+// The keys are capabilities.Codec.Format values, because the payload format follows the bitstream,
+// so two encoders emitting one format share a row.
 //
 // config-interval=1 on the H.26x payloaders repeats the parameter sets in band once a second.
 // The receiving side is a udpsrc with no session exchange, so nothing carries an SPS out of band,
@@ -124,8 +124,8 @@ func PreviewCarried(codec string) (format string, carried bool) {
 // hidden.
 // Nothing here can hold it: the receiving pipeline's udpsrc binds the port itself, and two binds
 // on one datagram socket deliver to whichever of them the operating system feels like.
-// Losing that race costs a receiver that fails to bind and says so: a preview that does not come up
-// beside a publish that does, never a stream that fails.
+// Losing that race costs a receiver that fails to bind and says so,
+// so the publish comes up while the preview beside it does not.
 func AllocatePreviewPort() (int, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(previewHost), Port: 0})
 	if err != nil {

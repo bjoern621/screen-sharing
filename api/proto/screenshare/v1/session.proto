@@ -8,54 +8,62 @@ import "screenshare/v1/text.proto";
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// The running state: what is publishing, what the relay carries, which viewers are open, and
-// what the encoder measures.
+// The running state:
+// what is publishing, what the relay carries, which viewers are open,
+// and what the encoder measures.
 //
 // Every message here is a whole state rather than a change to one.
-// A shell that mounts reads the shape an event delivers, so a fresh window and a running one
-// cannot be told different things, and a shell that missed an event recovers by reading the
-// state again rather than by replaying history.
+// A shell that mounts reads the shape an event delivers,
+// so a fresh window and a running one cannot be told different things,
+// and a shell that missed an event recovers by reading the state again,
+// rather than by replaying history.
 
-// PublishState is whether a stream is in force, what it carries, and whether that still
-// matches the settings the backend holds.
+// PublishState is whether a stream is in force, what it carries,
+// and whether that still matches the settings the backend holds.
 //
-// The nesting is the state machine: a publishing stream always has the settings it was built
-// from, an attempt number only means something against a retry, and a retry only happens to a
-// stream the user has not stopped.
+// The nesting is the state machine:
+// a publishing stream always has the settings it was built from,
+// an attempt number only means something against a retry,
+// and a retry only happens to a stream the user has not stopped.
 message PublishState {
   // Retry is a relaunch waiting out a backoff, after a pipeline died on its own.
   message Retry {
-    // "Attempt 2 of 3": attempt counts from one, budget is what the backend spends before it
-    // gives up, and neither figure says anything without the other.
+    // "Attempt 2 of 3": attempt counts from one,
+    // budget is what the backend spends before it gives up,
+    // and neither figure says anything without the other.
     int32 attempt = 1;
     int32 budget = 2;
     // What ended the pipeline this relaunch follows, absent where nothing here names it.
-    // On the state and not on the exit event alone, so a shell that mounts mid-backoff reads why
-    // as well as one that was listening when the pipeline died.
+    // On the state as well as on the exit event,
+    // so a shell that mounts mid-backoff reads why as well as one that was listening.
     Text cause = 3;
-    // That pipeline's own last words, raw and never matched against (text.proto).
+    // That pipeline's own last words (text.proto).
+    // Shown raw, and nothing matches on them.
     string message = 4;
   }
 
   // Preview is the local decode of the stream this machine is sending.
   //
-  // The publish child copies its already-encoded video to a loopback port and the backend
-  // decodes what arrives there, which never leaves this machine and never reaches the relay
+  // The publish child copies its already-encoded video to a loopback port,
+  // and the backend decodes what arrives there, which stays on this machine
   // (docs/viewer-architecture.md, "What the broadcast preview draws").
   // Nested under Live because the pipeline goes up with the publish child and down with it.
   //
-  // Everything below port is reported rather than asked for: a render chain falls back on a
-  // machine that cannot run its elements, and a hardware decoder may download its own frames.
+  // Everything below port is reported rather than asked for:
+  // a render chain falls back on a machine that cannot run its elements,
+  // and a hardware decoder may download its own frames.
   message Preview {
     // Loopback UDP port the publish child sends the copy to, and the backend receives it on.
-    // The kernel picks it per run, so it is a fact to be read and never a constant to assume.
+    // The kernel picks it per run.
     uint32 port = 1;
     // Whether a decoded frame has left the pipeline.
     // Until it has, nothing has negotiated and the fields below are empty.
     bool live = 2;
-    // chain is the render chain the pipeline was built with, decode_memory and render_memory
-    // the memory features the decoder's output pad and the sink's input pad carried, decoder
-    // the element decodebin picked, and hardware whether it ran on silicon.
+    // chain is the render chain the pipeline was built with,
+    // decode_memory and render_memory the memory features the decoder's output pad
+    // and the sink's input pad carried,
+    // decoder the element decodebin picked,
+    // and hardware whether it ran on silicon.
     string chain = 3;
     string decode_memory = 4;
     string render_memory = 5;
@@ -65,31 +73,30 @@ message PublishState {
 
   // Live is a stream the user asked for and has not stopped.
   message Live {
-    // The two groups the running pipeline was built from, which is the stream the viewers
-    // are watching and not necessarily what a form is showing.
-    // The viewer group is absent by design: how this machine watches has never been part of
-    // what it publishes.
+    // The two groups the running pipeline was built from,
+    // which is the stream the viewers are watching, and a form beside it may have moved off.
+    // The viewer group is absent: how this machine watches is no part of what it publishes.
     PublishSettings publish = 1;
     RelaySettings relay = 4;
-    // Set where the settings the backend holds would build a different pipeline than this
-    // one, so the form has moved off the live stream.
-    // Applying the change is a separate call, because both engines run a child process built
-    // from an argv and neither takes a value back afterwards.
+    // Set where the settings the backend holds would build a different pipeline than this one,
+    // so the form has moved off the live stream.
+    // Applying the change is a separate call,
+    // because both engines run a child process built from an argv,
+    // and neither takes a value back afterwards.
     bool pending = 2;
     // Present while the pipeline died on its own and a relaunch waits out a backoff.
-    // Its presence is the retry, and the stream stays live across the wait: one call stops it
-    // either way.
+    // Its presence is the retry, and the stream stays live across the wait:
+    // one call stops it either way.
     Retry retry = 3;
-    // The local decode of this stream, absent where the backend runs none, on a format with
-    // no local carriage or a pipeline that would not start.
-    // Its presence is what says a frame subscription naming PublishPreview will be served, so
-    // a shell reads it rather than asking and being refused.
+    // The local decode of this stream, absent where the backend runs none:
+    // a format with no local carriage, or a pipeline that would not start.
+    // Its presence is what says a frame subscription naming PublishPreview will be served,
+    // so a shell reads it rather than asking and being refused.
     Preview preview = 5;
-    // The rate this encoder is held to, in Mbit/s, absent where the encode is bounded by
-    // nothing.
-    // Read rather than derived from the settings beside it: whether a ceiling reaches the
-    // encoder is a fact about the mode and the element, so a shell deriving it would be
-    // deciding what this stream is doing.
+    // The rate this encoder is held to, in Mbit/s, absent where nothing bounds the encode.
+    // Read rather than derived from the settings beside it:
+    // whether a ceiling reaches the encoder is a fact about the mode and the element,
+    // so a shell deriving it would be deciding what this stream is doing.
     optional double rate_ceiling_mbps = 6;
 
     // 1 held the flat StreamSettings, and carries its publish half above.
@@ -97,28 +104,30 @@ message PublishState {
   }
 
   // Set exactly while a stream is in force, and absent while nothing publishes.
-  // Its presence is what a shell reads as "publishing", so no separate flag can disagree with
-  // the settings beside it.
+  // Its presence is what a shell reads as "publishing",
+  // so no separate flag can disagree with the settings beside it.
   Live live = 1;
 
-  // 2 through 6 held settings, pending, retrying, attempt and budget, the flat form of
-  // everything above; 1 held publishing and carries Live.
+  // 2 through 6 held settings, pending, retrying, attempt and budget,
+  // the flat form of everything above.
+  // 1 held publishing and carries Live.
   reserved 2, 3, 4, 5, 6;
   reserved "publishing", "settings", "pending", "retrying", "attempt", "budget";
 }
 
 // PublishStats is one progress sample from the running encoder.
 //
-// A figure carries presence because no measurement is not a measured zero: the encoder reports
-// nothing until the first packet is muxed, a per-interval figure has none on the first sample
-// of a run, and each engine instruments only what its pipeline exposes.
-// An absent figure is shown as absent and never as a stalled encoder.
+// A figure carries presence because an absent measurement is not a measured zero:
+// the encoder reports nothing until the first packet is muxed,
+// a per-interval figure has none on the first sample of a run,
+// and each engine instruments only what its pipeline exposes.
+// A shell shows an absent figure as absent.
 message PublishStats {
   int64 frame_count = 12;
-  // fps is how often the encoder emitted a picture, capture_fps how often the screen produced
-  // a new one.
-  // They differ wherever a backend paces its output independently of its source, and a
-  // starved capture or a static screen shows up in the second figure alone.
+  // fps is how often the encoder emitted a picture,
+  // capture_fps how often the screen produced a new one.
+  // They differ wherever a backend paces its output independently of its source,
+  // and a starved capture or a static screen shows up in the second figure alone.
   optional double fps = 2;
   optional double capture_fps = 3;
   optional double size_kib = 4;
@@ -126,33 +135,33 @@ message PublishStats {
   // Encode rate against real time.
   // Below one is an encoder falling behind the capture.
   optional double speed = 6;
-  // duplicated_frames were repeated to hold the output rate, dropped_frames arrived faster
-  // than the encoder took them.
+  // duplicated_frames were repeated to hold the output rate,
+  // dropped_frames arrived faster than the encoder took them.
   int64 duplicated_frames = 13;
   int64 dropped_frames = 14;
   // inst_mbps is the rate over the last interval, avg_mbps over the run.
   optional double inst_mbps = 9;
   optional double avg_mbps = 10;
 
-  // What this leg costs a frame on its way out, which is the publishing half of the delay
-  // between a screen and a viewer's window.
+  // What this leg costs a frame on its way out,
+  // which is the publishing half of the delay between a screen and a viewer's window.
   //
-  // transit_ms is the mean wall clock one frame spent between the capture stamping it and
-  // the encoded stream leaving the pipeline, over the last interval: converting, encoding
-  // and parsing, measured rather than configured.
-  // link_ms is the delivery window this leg settled on with the relay, the delay every
-  // packet is held for so a lost one has room to arrive again, and rtt_ms the round trip
-  // that says whether the window has room for that.
+  // transit_ms is the mean wall clock one frame spent between the capture stamping it
+  // and the encoded stream leaving the pipeline, over the last interval:
+  // converting, encoding and parsing, measured rather than configured.
+  // link_ms is the delivery window this leg settled on with the relay,
+  // the delay every packet is held for so a lost one has room to arrive again,
+  // and rtt_ms the round trip that says whether the window has room for that.
   //
-  // Absent where nothing measured them: an engine that runs no pipeline of this app's own
-  // reports none of the three, and a transport keeping no link counters reports the first
-  // alone.
+  // Absent where nothing measured them:
+  // an engine that runs no pipeline of this app's own reports none of the three,
+  // and a transport keeping no link counters reports the first alone.
   optional double transit_ms = 15;
   optional double link_ms = 16;
   optional double rtt_ms = 17;
 
-  // 11 was "missing", a hand-written list of the field names that carried no measurement, which
-  // proto3 presence states with the spelling guaranteed.
+  // 11 was "missing", a hand-written list of the field names that carried no measurement,
+  // which proto3 presence states with the spelling guaranteed.
   // 1, 7 and 8 were frame, duplicated and dropped, renamed above to say what they count.
   reserved 1, 7, 8, 11;
   reserved "frame", "duplicated", "dropped", "missing";
@@ -160,44 +169,48 @@ message PublishStats {
 
 // RelayReader is one connection the relay is serving a path to.
 //
-// Every figure carries presence, because what a relay measures about a reader depends on the
-// protocol rather than on the moment: SRT is the one leg the relay times a round trip and
-// states a loss rate on, and the rest report what was sent to them and little more.
-// An absent figure is a permanent fact about that reader's leg and not a reading that has not
-// landed, so a screen shows it as absent, never as zero.
+// Every figure carries presence,
+// because what a relay measures about a reader depends on the protocol rather than on the moment:
+// SRT is the one leg the relay times a round trip and states a loss rate on,
+// and the rest report what was sent to them and little more.
+// An absent figure is a permanent fact about that reader's leg, so a screen shows it as absent.
 message RelayReader {
-  // type is the relay's own token for what this reader is, e.g. srtConn, and id the relay's
-  // handle on it.
-  // Both are passed through unchanged, so a reader of this message can find the same
-  // connection in the relay's own API.
+  // type is the relay's own token for what this reader is, e.g. srtConn,
+  // and id the relay's handle on it.
+  // Both are passed through unchanged,
+  // so a reader of this message can find the same connection in the relay's own API.
   string type = 1;
   string id = 2;
-  // type in the vocabulary every other leg in this contract is named in: srt, rtsp, rtmp,
-  // webrtc, hls, moq.
+  // type in the vocabulary every other leg in this contract is named in:
+  // srt, rtsp, rtmp, webrtc, hls, moq.
   // A reader on a protocol the backend has no row for keeps the relay's token here.
   string transport = 3;
 
   // host:port as the relay saw it.
-  // Absent where the relay named a reader it then described nowhere: one that ended between
-  // the two reads, or one whose protocol this relay serves no list for.
+  // Absent where the relay named a reader it then described nowhere:
+  // one that ended between the two reads,
+  // or one whose protocol this relay serves no list for.
   optional string remote_addr = 4;
-  // When the relay accepted this reader, RFC 3339, on the relay's clock and in the relay's
-  // own spelling.
+  // When the relay accepted this reader, RFC 3339,
+  // on the relay's clock and in the relay's own spelling.
   // A backend that reformatted it would be putting a second clock on the wire.
   optional string joined = 5;
 
   optional uint64 bytes_sent = 6;
-  // rtt_ms is the smoothed round trip to this reader, and loss_percent SRT's own send-side
-  // loss rate, which SRT defines as resent data against sent data.
-  // Both are the relay's figures rather than ones computed from the counters here, and both
-  // are absent on every leg but SRT.
+  // rtt_ms is the smoothed round trip to this reader,
+  // and loss_percent SRT's own send-side loss rate,
+  // which SRT defines as resent data against sent data.
+  // Both are the relay's figures rather than ones computed from the counters here,
+  // and both are absent on every leg but SRT.
   optional double rtt_ms = 7;
   optional double loss_percent = 8;
 
   // Cumulative over the connection.
-  // packets_lost were lost on the way, packets_dropped were given up on by the sender, and
-  // frames_discarded were dropped by the relay itself because this reader's outgoing queue
-  // was full, which is a fact about the relay rather than about the line.
+  // packets_lost were lost on the way,
+  // packets_dropped were given up on by the sender,
+  // and frames_discarded were dropped by the relay itself,
+  // this reader's outgoing queue being full,
+  // which is a fact about the relay rather than about the line.
   optional uint64 packets_sent = 9;
   optional uint64 packets_lost = 10;
   optional uint64 packets_dropped = 11;
@@ -207,13 +220,15 @@ message RelayReader {
 // RelayPath is one stream the relay is carrying.
 message RelayPath {
   string name = 1;
-  // The stream's own name inside the prefix this machine reaches under, which is what a list
-  // of that prefix's streams shows: a group is a path prefix, so the prefix leads every row
-  // and tells a reader nothing about any of them.
-  // Equal to name where nothing was taken off, a relay that authenticates nobody carrying
-  // bare names and an operator's own view carrying several prefixes at once.
-  // name stays the identity every viewer method takes, so a screen prints this and opens
-  // that.
+  // The stream's own name inside the prefix this machine reaches under,
+  // which is what a list of that prefix's streams shows:
+  // a group is a path prefix,
+  // so the prefix leads every row and tells a reader nothing about any of them.
+  // Equal to name where nothing was taken off:
+  // a relay that authenticates nobody carries bare names,
+  // and an operator's own view carries several prefixes at once.
+  // name stays the identity every viewer method takes,
+  // so a screen prints this and opens that.
   string own_name = 8;
   // Whether a publisher is connected and the path is being served.
   // A path the relay knows about is not necessarily a path with a stream on it.
@@ -221,35 +236,38 @@ message RelayPath {
   // The relay's own description of what the path carries.
   string tracks = 3;
   // The bitstream format, which decides the legs a viewer may receive it over.
-  // Empty where the relay's description named nothing this app recognises, and an empty
-  // format refuses no viewer: the snapshot can be older than the stream, and refusing on
-  // absent information would block a viewer that would have worked.
+  // Empty where the relay's description named nothing this app recognises,
+  // and an empty format refuses no viewer:
+  // the snapshot can be older than the stream,
+  // and refusing on absent information would block a viewer that would have worked.
   string format = 4;
   int32 readers = 5;
   // The live ingest rate, computed from byte deltas between polls.
-  // Meaningful only against a steady poll interval, which is why the backend owns the polling
-  // and a shell reads the result.
+  // Meaningful only against a steady poll interval,
+  // which is why the backend owns the polling and a shell reads the result.
   double in_mbps = 6;
   // Who those readers are, one entry per reader counted above.
-  // Both are read off the one array the relay answered with, so the count is the roster's
-  // length by construction.
+  // Both are read off the one array the relay answered with,
+  // so the count is the roster's length by construction.
   repeated RelayReader reader_roster = 7;
 }
 
 // RelayStatus is one snapshot of the relay.
 message RelayStatus {
   // Whether the relay answered.
-  // An unreachable relay is an environment condition and not a call failure: the snapshot
-  // arrives, says so, and carries the reason.
+  // An unreachable relay is an environment condition:
+  // the snapshot arrives, says so, and carries the reason.
   bool reachable = 1;
   string error = 2;
   repeated RelayPath paths = 3;
 }
 
-// StreamRef identifies one open external viewer: a stream received over one transport, and the
-// identity every viewer method takes and every viewer event carries.
-// The stream name alone is not one, because the relay re-serves each stream on all its
-// listeners and a stream can be watched over several transports at once.
+// StreamRef identifies one open external viewer:
+// a stream received over one transport,
+// and the identity every viewer method takes and every viewer event carries.
+// The stream name alone is not one,
+// because the relay re-serves each stream on all its listeners,
+// and a stream can be watched over several transports at once.
 message StreamRef {
   string stream_name = 3;
   string transport = 2;
@@ -261,12 +279,12 @@ message StreamRef {
 
 // AudioLevel is how loud one decode's audio branch is.
 //
-// Measured before the volume element, so a muted decode still reports what it is carrying: a
-// reader who muted a stream has to be able to see that it started making noise again.
+// Measured before the volume element, so a muted decode still reports what it is carrying:
+// a reader who muted a stream has to be able to see that it started making noise again.
 //
 // Decibels relative to full scale: at most zero, and silence is negative infinity.
-// A decode carrying no audio track has no entry at all, which is a different fact from a
-// silent one.
+// A decode carrying no audio track has no entry at all,
+// which is a different fact from a silent one.
 message AudioLevel {
   // The decode this level belongs to, the identity every other receive message carries.
   StreamRef stream = 1;
@@ -277,18 +295,18 @@ message AudioLevel {
 }
 
 // AudioLevels is every decode that is carrying audio, at one instant.
-// A whole state per tick and never a delta, so a reader that joined late, missed a tick or fell
-// behind is correct again on the next one.
+// A whole state per tick,
+// so a reader that joined late, missed a tick or fell behind is correct again on the next one.
 message AudioLevels {
   repeated AudioLevel levels = 1;
 }
 
-// EncodeRate is what the encode-capacity probe measured: the frame rate this machine sustains
-// at the given settings, bracketed.
+// EncodeRate is what the encode-capacity probe measured:
+// the frame rate this machine sustains at the given settings, bracketed.
 //
-// The probe times a finite run, so it can say the machine reached at least low_fps and did not
-// reach high_fps, and the bounded flags say which end is a measurement rather than a limit of
-// the probe.
+// The probe times a finite run,
+// so it can say the machine reached at least low_fps and did not reach high_fps,
+// and the bounded flags say which end is a measurement rather than a limit of the probe.
 message EncodeRate {
   double low_fps = 1;
   double high_fps = 2;

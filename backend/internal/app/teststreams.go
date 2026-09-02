@@ -335,8 +335,7 @@ func (a *App) TestStreamState() (running int, slots []wire.TestStreamSlot) {
 			running++
 		}
 		// A launch takes a fresh entry,
-		// so what the last child left behind belongs to the slot waiting for the next one,
-		// and never stands beside a publisher that is up (teststreams_retry.go).
+		// so what the last child left behind belongs to the slot waiting for the next one (teststreams_retry.go).
 		assert.Assert(!alive || slot.cause == nil, "a slot a publisher fills carries no reason to have none", i)
 		slots = append(slots, wire.TestStreamSlot{
 			Slot: i,

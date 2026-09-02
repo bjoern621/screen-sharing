@@ -50,7 +50,7 @@ func TestCursorAtOfAFrameCarryingNoCursor(t *testing.T) {
 	}
 }
 
-// A region of interest is not a cursor because it is one: an encoder's own regions ride the same
+// A region of interest counts as a cursor by name alone: an encoder's own regions ride the same
 // meta, and reading the first would put the pointer wherever something else asked for bitrate.
 func TestCursorAtIgnoresAnotherRegion(t *testing.T) {
 	if _, _, over := cursorAt(frame(t, "face")); over {

@@ -122,8 +122,8 @@ func TestEveryTransportIsChecked(t *testing.T) {
 	}
 }
 
-// One row per leg, carrying either an address or the reason there is none, never both and never
-// neither.
+// One row per leg, carrying either an address or the reason there is none,
+// exactly one of the two.
 func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
