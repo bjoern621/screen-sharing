@@ -85,7 +85,7 @@ How a viewer arranges what it receives is the shell's job, on the list "The rule
 What the contract carries instead is a viewer that reads.
 `StartReceive` and `StopReceive` open and close a decode for one stream on one leg.
 Receive state travels on the event stream.
-`ViewerSettings` carries the watch leg, the jitter buffer and the render chain it is built from.
+`ViewerSettings` carries the watch leg, the jitter buffer, the render chain it is built from, and whether this machine reads its own stream back off the relay to watch it (`viewer-architecture.md`).
 Facts about receiving, none of them a tile, an arrangement or a window.
 A method that opened a *window* is the one thing this contract may not have.
 

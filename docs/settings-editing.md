@@ -24,6 +24,7 @@ The window opens on the stored settings, read once, and edits that copy.
 | Presses a group's save | `SaveSettings` | Per press |
 | Presses publish | `StartPublish` | Per press |
 | Edits a group the form marks `applied` | `SaveSettings` | Per change, one write in flight at a time |
+| Picks a route on the broadcast preview | `SaveSettings` | Per press, on the same queue |
 
 `ResolveForm` is a read: no file is written, no pipeline is touched, and asking twice for one draft answers twice the same (`ipc-api.md`).
 
@@ -78,3 +79,17 @@ A group is staged unless the form marks it `applied`.
 Staged is the default: the draft carries the change and a commit is what stores it.
 Applied is for settings the backend reads on a schedule of its own, the relay's address among them.
 The form says which, and the shell reads the mark (`ipc-api.md`).
+
+A control the form draws no field for is applied by construction.
+The broadcast preview's route toggle has no commit beside it, so the press is the write (`viewer-architecture.md`).
+
+## Who can be put back
+
+A group carries a reset to what a fresh installation holds where the reader has no other way back to it.
+An applied group is one: its fields are already what this machine is.
+A staged group drawn beside the wizard's own commit is not, a reader who dislikes the proposal walking away from it.
+
+The watch group is staged and carries one all the same, its commit standing on the panel that draws it.
+A leg kept there has become what this machine watches on, and closing the panel puts nothing back.
+
+The values are the form's, one per field, so no screen holds a table of defaults.

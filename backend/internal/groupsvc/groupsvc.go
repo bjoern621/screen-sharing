@@ -82,22 +82,31 @@ const PublicSubject = "public"
 
 // Stream is one path the relay carries, as far as a member is told about it.
 //
-// Enough to open it and no more: the name, whether it carries anything, and the video track,
-// which decides the protocols a viewer may receive it over.
-// Not who else is reading, nor at what rate,
-// which is the relay's operational state rather than the group's (docs/plan.md).
+// Enough to open it and to say how it is going: the name, whether it carries anything,
+// the video track deciding the protocols a viewer may receive it over,
+// and the two figures a row of the grid draws beside it.
+//
+// The reader count crosses and the roster stays behind.
+// A member is told how many are watching a stream of their own group,
+// where naming them would answer a question about other members
+// that presence already answers under its own request (membership.md).
 type Stream struct {
 	Path   string `json:"-"`
 	Name   string `json:"name"`
 	Ready  bool   `json:"ready"`
 	Tracks string `json:"tracks,omitempty"`
 	Format string `json:"format,omitempty"`
+	// InMbps is what the publisher is pushing, Mbit/s, off the byte delta between two fetches.
+	// Zero on the first fetch after a stream appears, there being no earlier sample to measure from.
+	InMbps float64 `json:"inMbps,omitempty"`
+	// Readers is how many are watching, the length of the roster the relay answered with.
+	Readers int `json:"readers,omitempty"`
 }
 
 // Streams is what the relay is carrying, as the index reads it.
 //
 // An interface rather than the relay client: the index needs the rows above,
-// where the client answers with bitrates and reader lists beside them.
+// where the client answers with a reader roster beside them.
 // It is also what lets the index be tested without a relay.
 type Streams interface {
 	Paths() []Stream

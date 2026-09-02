@@ -208,6 +208,45 @@ func TestLoadMigratesMissingTileWatchTransport(t *testing.T) {
 	}
 }
 
+// The card draws one of three routes and has no reading for a fourth,
+// so a file written before the toggle became a setting,
+// and one a hand edit put a route no build draws into, both arrive naming one this build draws.
+func TestLoadRepairsThePreviewRoute(t *testing.T) {
+	for _, stored := range []string{"", "sideways"} {
+		isolateConfig(t)
+
+		s := Defaults()
+		s.Viewer.PreviewRoute = stored
+		if err := Save(s); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+
+		if got := mustLoad(t); got.Viewer.PreviewRoute != Defaults().Viewer.PreviewRoute {
+			t.Errorf("preview route = %q from a stored %q, want repaired to %q",
+				got.Viewer.PreviewRoute, stored, Defaults().Viewer.PreviewRoute)
+		}
+	}
+}
+
+// Every route the card draws survives the store, off is the one a repair could swallow:
+// it is the route a reader picks to give a reader slot back,
+// and a load that walked it to the local one would open a decode nobody asked for.
+func TestEveryPreviewRouteSurvivesAReload(t *testing.T) {
+	for _, route := range PreviewRoutes {
+		isolateConfig(t)
+
+		s := Defaults()
+		s.Viewer.PreviewRoute = route
+		if err := Save(s); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+
+		if got := mustLoad(t); got.Viewer.PreviewRoute != route {
+			t.Errorf("preview route = %q after a reload, want the stored %q", got.Viewer.PreviewRoute, route)
+		}
+	}
+}
+
 func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	isolateConfig(t)
 

@@ -390,6 +390,13 @@ type Viewer struct {
 	// One value for every tile rather than one per stream:
 	// a chain falls back where a driver cannot run it, which is a property of the machine.
 	RenderChain string `json:"renderChain"`
+	// PreviewRoute is the picture the broadcast preview draws, one of PreviewRoutes.
+	//
+	// With the viewer because the end-to-end route is a relay client:
+	// it decodes this machine's own stream off the relay over TileWatchTransport
+	// and takes a reader slot for it, where the local route reads a copy that stays here.
+	// A preset is a publish group, so applying one leaves the picture where the reader put it.
+	PreviewRoute string `json:"previewRoute"`
 }
 
 // Codec is the encoder the format and the encoder fields name between them,
@@ -510,12 +517,21 @@ func Defaults() Settings {
 			UplinkMbps:          50,
 		},
 		Viewer: Viewer{
-			TileWatchTransport: "srt",
+			// The one watch leg carrying every format this app publishes,
+			// so a stream in any of them comes back on it,
+			// and the measured way through the relay on it is an order of magnitude
+			// shorter than SRT's or HLS's (docs/delay-measurement.md).
+			TileWatchTransport: "rtsp",
 			RtspWatchProtocol:  "tcp",
-			SrtWatchLatencyMs:  1200,
+			// The publish hop's own window, the glass-to-glass budget being the two added.
+			// The relay negotiates the larger of its 120 ms and this, so it is what the hop runs at.
+			SrtWatchLatencyMs: 300,
 			// rtspsrc's own default is 2000 ms, seconds of display delay above what a LAN needs.
 			RtspWatchLatencyMs: 200,
 			RenderChain:        receive.DefaultChain,
+			// The picture that costs nothing beyond one decode here:
+			// no uplink, no reader slot, and viewer figures that describe viewers.
+			PreviewRoute: PreviewLocal,
 		},
 	}
 

@@ -301,6 +301,16 @@ internal sealed class SeededBackend : IBackend
     /// </summary>
     public static readonly string[] PlayerLegs = ["srt", "rtsp", "hls"];
 
+    /// <summary>The build a seeded backend answers with, so a band under test has one to state.</summary>
+    public const string Build = "0.0.0-test";
+
+    public Task<string> VersionAsync(CancellationToken cancellation = default)
+    {
+        return cancellation.IsCancellationRequested
+            ? Task.FromCanceled<string>(cancellation)
+            : Task.FromResult(Build);
+    }
+
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
         // Honoured rather than ignored, so an abandoned read takes the same path whichever implementation
@@ -357,11 +367,12 @@ internal sealed class SeededBackend : IBackend
         },
         Viewer = new ViewerSettings
         {
-            TileWatchTransport = "srt",
+            TileWatchTransport = "rtsp",
             RtspWatchProtocol = "tcp",
-            SrtWatchLatencyMs = 1200,
+            SrtWatchLatencyMs = 300,
             RtspWatchLatencyMs = 200,
             RenderChain = "gl",
+            PreviewRoute = "local",
         },
     };
 

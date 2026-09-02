@@ -629,7 +629,21 @@ type ViewerSettings struct {
 	// because a chain falls back where a driver cannot run it,
 	// and that is a property of the machine
 	// (docs/viewer-architecture.md, "The receive package").
-	RenderChain   string `protobuf:"bytes,6,opt,name=render_chain,json=renderChain,proto3" json:"render_chain,omitempty"`
+	RenderChain string `protobuf:"bytes,6,opt,name=render_chain,json=renderChain,proto3" json:"render_chain,omitempty"`
+	// Which picture of this machine's own stream the broadcast preview draws:
+	// "off", "local" or "end-to-end"
+	// (docs/viewer-architecture.md, "What the broadcast preview draws").
+	//
+	// Here rather than with the publish because the end-to-end route is a relay client:
+	// it opens a decode of this machine's own stream over the leg above,
+	// takes a reader slot and pays a viewer's downstream bandwidth,
+	// where the local route reads a copy that never leaves the machine.
+	// A preset is a PublishSettings, so a saved way of publishing cannot move a window's picture.
+	//
+	// The card's toggle is the one control over it and stores what it writes,
+	// so a card opens on the route it was left on.
+	// A stored value no route carries is repaired as the file is read.
+	PreviewRoute  string `protobuf:"bytes,7,opt,name=preview_route,json=previewRoute,proto3" json:"preview_route,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -695,6 +709,13 @@ func (x *ViewerSettings) GetRtspWatchLatencyMs() int32 {
 func (x *ViewerSettings) GetRenderChain() string {
 	if x != nil {
 		return x.RenderChain
+	}
+	return ""
+}
+
+func (x *ViewerSettings) GetPreviewRoute() string {
+	if x != nil {
+		return x.PreviewRoute
 	}
 	return ""
 }
@@ -905,13 +926,14 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"J\x04\b\v\x10\fJ\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x05audioR\x05codecR\n" +
 	"relay_hostR\n" +
 	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\n" +
-	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\x97\x02\n" +
+	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\xbc\x02\n" +
 	"\x0eViewerSettings\x120\n" +
 	"\x14tile_watch_transport\x18\x02 \x01(\tR\x12tileWatchTransport\x12.\n" +
 	"\x13rtsp_watch_protocol\x18\x03 \x01(\tR\x11rtspWatchProtocol\x12/\n" +
 	"\x14srt_watch_latency_ms\x18\x04 \x01(\x05R\x11srtWatchLatencyMs\x121\n" +
 	"\x15rtsp_watch_latency_ms\x18\x05 \x01(\x05R\x12rtspWatchLatencyMs\x12!\n" +
-	"\frender_chain\x18\x06 \x01(\tR\vrenderChainJ\x04\b\x01\x10\x02R\x16player_watch_transport\"s\n" +
+	"\frender_chain\x18\x06 \x01(\tR\vrenderChain\x12#\n" +
+	"\rpreview_route\x18\a \x01(\tR\fpreviewRouteJ\x04\b\x01\x10\x02R\x16player_watch_transport\"s\n" +
 	"\vAudioSource\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\x12\x17\n" +

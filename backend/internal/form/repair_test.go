@@ -607,3 +607,90 @@ func TestAMissingEncoderMovesTheEncoderAndNotTheFormat(t *testing.T) {
 		t.Errorf("the repair landed on %s/%s, which addresses no row", s.Publish.Format, s.Publish.Encoder)
 	}
 }
+
+// A machine with a working video encoder should use it.
+//
+// The walk reaches for the first entry the option list leaves enabled,
+// so without a stated order the encoder field falls in capability-table order:
+// nvenc, then the software libraries, then every remaining hardware family.
+// A box with no NVIDIA card therefore lands on x264 with its GPU encoder sitting one row further
+// down, which costs a screen share the cores it is trying to capture.
+//
+// One case per vendor, because the order has to hold whichever family the machine turns out to run.
+func TestARepairReachesForHardwareBeforeSoftware(t *testing.T) {
+	cases := []struct {
+		name   string
+		deps   Deps
+		usable []string
+		want   string
+	}{
+		{
+			"an AMD box on Linux, where VAAPI is the family with a device path",
+			Deps{Platform: platform.Info{OS: "linux", Display: "x11"}},
+			[]string{capabilities.FamilyVaapi, capabilities.FamilyAmf, capabilities.FamilySoftware},
+			capabilities.FamilyVaapi,
+		},
+		{
+			"an AMD box on Windows, where AMF is the only hardware family there is",
+			Deps{Platform: platform.Info{OS: "windows"}},
+			[]string{capabilities.FamilyAmf, capabilities.FamilySoftware},
+			capabilities.FamilyAmf,
+		},
+		{
+			"an Intel box on Linux, where VAAPI and QSV both reach the same block",
+			Deps{Platform: platform.Info{OS: "linux", Display: "x11"}},
+			[]string{capabilities.FamilyVaapi, capabilities.FamilyQsv, capabilities.FamilySoftware},
+			capabilities.FamilyVaapi,
+		},
+		{
+			"an NVIDIA box, where NVENC is what the shipped default already names",
+			Deps{Platform: platform.Info{OS: "linux", Display: "x11"}},
+			[]string{capabilities.FamilyNvenc, capabilities.FamilySoftware},
+			capabilities.FamilyNvenc,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			capture := "x11grab"
+			if tc.deps.Platform.OS == "windows" {
+				capture = "ddagrab"
+			}
+			deps := tc.deps
+			deps.Encoders = presetOnlyFamilies(tc.usable...)
+			draft := availabilityDraft(capture, "hevc_nvenc", "yuv420p", "srt")
+
+			s, _ := Repair(deps, draft)
+
+			row, ok := capabilities.Row(s.Publish.Format, s.Publish.Encoder)
+			if !ok {
+				t.Fatalf("the repair landed on %s/%s, which addresses no row",
+					s.Publish.Format, s.Publish.Encoder)
+			}
+			if row.Family != tc.want {
+				t.Errorf("the repair landed on the %s family (%s), where %s runs on this machine",
+					row.Family, s.Publish.Encoder, tc.want)
+			}
+		})
+	}
+}
+
+// A family the order forgets sinks behind the software libraries,
+// where the walk reaches it only on a machine that runs nothing else.
+// The failure is silent: the repair lands on a legal encoder and the stream goes out on the CPU.
+func TestEveryHardwareFamilyStatesItsPlaceInTheWalk(t *testing.T) {
+	for _, family := range capabilities.Families {
+		if family == capabilities.FamilySoftware {
+			continue
+		}
+		if !slices.Contains(repairEncoderOrder, family) {
+			t.Errorf("the %s family is absent from the encoder walk, so it sits behind every library",
+				family)
+		}
+	}
+	for _, named := range repairEncoderOrder {
+		if !slices.Contains(capabilities.Families, named) {
+			t.Errorf("the encoder walk names %q, which is no family the tables carry", named)
+		}
+	}
+}

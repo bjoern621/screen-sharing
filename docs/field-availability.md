@@ -60,6 +60,17 @@ The pixel-format control carries a note of the second kind: what the choice cost
 It is a note rather than a greying because the limit is the viewer's.
 Every format has a software decoder, so a pixel format no GPU takes is a viewer spending cores, a trade the publisher is entitled to make once it is stated.
 
+## A recommendation is emphasis
+
+`FieldOption.recommended` marks the entry worth picking on a control whose entries are all legal.
+It is a hint about the combination in front of the reader.
+What the settings hold is `Field.value`, and what a fresh installation carries is `Field.default_value`.
+
+An entry the same combination rules out loses the mark, a form recommending what nobody can pick arguing with itself.
+So a mark is drawn only beside a live entry, as one word at emphasis weight in no hue (`design-language.md`, "Palette").
+
+Which entries carry one is `internal/form/options.go`.
+
 ## Three facts decide a rate-control field
 
 A quantizer target, bitrate bound, rate buffer, B-frame count or effort step is live only when all three agree.

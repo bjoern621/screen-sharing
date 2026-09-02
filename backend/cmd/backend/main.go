@@ -16,6 +16,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/reach"
+	"bjoernblessin.de/screenshare/internal/release"
 )
 
 // version is the build stamp the control handshake answers with (docs/ipc-api.md, "Versioning").
@@ -55,6 +56,14 @@ func main() {
 
 	a := app.New(version)
 	a.Start()
+
+	// Which build this is, beside the one that is published.
+	// A tester runs whatever they downloaded once, so a report about a bug already fixed
+	// carries the build it came from and the log says whether that build predates the fix.
+	//
+	// Off the startup path: a forge that does not answer would otherwise hold the app
+	// behind a read nothing waits on.
+	go logRelease()
 
 	// SIGTERM ends this process under a supervisor, interrupt under a terminal.
 	// Both reach the one shutdown that stops the children.
@@ -118,4 +127,26 @@ func runPipeline(elements []string) int {
 		return 1
 	}
 	return 0
+}
+
+// logRelease writes which build is running and what the published one is.
+//
+// Every outcome is a log line and none of them stops anything.
+// A machine behind a firewall, offline, or running a build nobody stamped is told
+// what it is running and nothing about what it is not.
+func logRelease() {
+	latest, err := release.Fetch(context.Background())
+	if err != nil {
+		logger.Infof("running %s; the published release could not be read: %v", version, err)
+		return
+	}
+
+	switch release.Compare(version, latest.Tag) {
+	case release.StateBehind:
+		logger.Warnf("running %s; %s is published: %s", version, latest.Tag, latest.URL)
+	case release.StateCurrent:
+		logger.Infof("running %s, which is the published release", version)
+	default:
+		logger.Infof("running %s; the published release is %s", version, latest.Tag)
+	}
 }

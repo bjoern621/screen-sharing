@@ -95,7 +95,8 @@ func ViewerSettings(v settings.Viewer) *screensharev1.ViewerSettings {
 		SrtWatchLatencyMs:  int32(v.SrtWatchLatencyMs),
 		RtspWatchLatencyMs: int32(v.RtspWatchLatencyMs),
 
-		RenderChain: v.RenderChain,
+		RenderChain:  v.RenderChain,
+		PreviewRoute: v.PreviewRoute,
 	}
 }
 
@@ -186,7 +187,8 @@ func ToViewer(m *screensharev1.ViewerSettings) settings.Viewer {
 		SrtWatchLatencyMs:  int(m.GetSrtWatchLatencyMs()),
 		RtspWatchLatencyMs: int(m.GetRtspWatchLatencyMs()),
 
-		RenderChain: m.GetRenderChain(),
+		RenderChain:  m.GetRenderChain(),
+		PreviewRoute: m.GetPreviewRoute(),
 	}
 }
 

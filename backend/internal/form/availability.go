@@ -360,10 +360,10 @@ var availabilityOptionRules = map[string]func(availability, string) *screenshare
 	// and neither direction's RTP travels inside it over UDP.
 	KeyRtspPublishProtocol: availability.rtspProtocolReason,
 	KeyRtspWatchProtocol:   availability.rtspProtocolReason,
-	// The tile decodes through a GStreamer pipeline, so its roster is that engine's carriage rows.
-	KeyTileWatchTransport: func(av availability, value string) *screensharev1.Text {
-		return av.watchLegReason(capabilities.EngineGst, value)
-	},
+	// The tile's leg has no row.
+	// Its roster is the legs a GStreamer receiver can open (optionTileWatchTransports),
+	// so every entry is one, and the format is answered per stream as the decode opens
+	// (internal/app, carriesStream).
 	KeyRenderChain: availability.renderChainReason,
 }
 
@@ -928,30 +928,6 @@ func (av availability) rtspProtocolReason(value string) *screensharev1.Text {
 		return nil
 	}
 	return say(encryptedRtspInterleavesRtp)
-}
-
-// watchLegReason states why a viewer on this engine cannot receive the stream over a transport.
-// Two facts withhold one: the receiver has no form of that protocol at all,
-// and the relay does not re-serve this bitstream format on that listener.
-// An SRT viewer opened on a VP9 stream connects and receives nothing,
-// MPEG-TS having no mapping for it, so the choice is answered per format.
-//
-// A format no implemented codec produces narrows nothing: hiding a choice on absent information
-// would hide one that would have worked.
-func (av availability) watchLegReason(engine, name string) *screensharev1.Text {
-	if !transport.CanWatch(name, engine) {
-		return say(noViewerReceivesOver,
-			argEngine(engine), argTransport(name), argTransports(transport.WatchNames(engine)))
-	}
-	format := ""
-	if av.knownCodec {
-		format = av.codec.Format
-	}
-	if !capabilities.HasFormat(format) || transport.CanWatchFormat(name, engine, format) {
-		return nil
-	}
-	return say(relayServesNoFormatOver,
-		argFormat(format), argTransport(name), argTransports(transport.WatchNamesFor(engine, format)))
 }
 
 // renderChainReason states why this machine cannot render through a chain, nil for one it can.

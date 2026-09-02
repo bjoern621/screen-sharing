@@ -52,8 +52,6 @@ const (
 	transportCarriesNoFormat   = screensharev1.TextCode_TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT
 	legCarriesNoAudioCodec     = screensharev1.TextCode_TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC
 	engineHasNoAudioEncoder    = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER
-	noViewerReceivesOver       = screensharev1.TextCode_TEXT_CODE_NO_VIEWER_RECEIVES_OVER
-	relayServesNoFormatOver    = screensharev1.TextCode_TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER
 	renderChainElementMissing  = screensharev1.TextCode_TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING
 	codecCodesNoRGB            = screensharev1.TextCode_TEXT_CODE_CODEC_CODES_NO_RGB
 	codecCannotEncodeChroma    = screensharev1.TextCode_TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA

@@ -24,9 +24,12 @@ namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 /// The local route costs one decode here, no bandwidth and no reader slot.
 /// The end-to-end route is a relay client: a reader slot, a viewer's downstream bandwidth, and a row among
 /// the viewer figures beside the card.
-/// So the card opens on the local route and the other is asked for by name.
+/// So a fresh installation is stored on the local route and the other is asked for by name.
 ///
-/// Off is a segment of that same toggle, and the card opens on a route rather than on it.
+/// The route is a setting the toggle writes,
+/// and the card opens on the one it was left on (<see cref="PreviewRoutes.Of"/>).
+///
+/// Off is a segment of that same toggle.
 /// It does not follow the window: a publisher's window stands behind what is being shared, so a card that went
 /// dark while nobody looked would be dark when a reader came back, and would pay a pool import and a reconnect
 /// to return.
@@ -45,16 +48,6 @@ public sealed class PreviewViewModel : Observable
     private readonly FormSession _form;
     private readonly Session _session;
     private readonly Action<Action> _dispatch;
-
-    /// <summary>
-    /// Which picture the reader asked for, <see cref="PreviewRoute.Off"/> for none.
-    /// This card's own state, with nowhere to read it back from: the backend has no opinion about which of two
-    /// pictures of one stream a window draws, the local pipeline belongs to the publish, and a relay decode
-    /// outlives every window drawing it.
-    /// A route to begin with, a card that has to be started reading as one that is broken.
-    /// Written by <see cref="SelectedRoute"/> alone.
-    /// </summary>
-    private PreviewRoute _route = PreviewRoute.Local;
 
     /// <summary>
     /// Tile this card draws, null while it wants none.
@@ -119,9 +112,13 @@ public sealed class PreviewViewModel : Observable
     private Func<string, string> _gridLeg = static _ => "";
 
     /// <param name="form">
-    /// Settings the backend is holding, read for one value: the leg the end-to-end route receives on.
-    /// Stored and not the draft, the backend building the rest of that decode out of its own settings, so a draft
-    /// leg would run against kept jitter buffers (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
+    /// Settings, read for two values and written for one of them.
+    ///
+    /// The leg the end-to-end route receives on comes off the stored copy,
+    /// the backend building the rest of that decode out of its own settings,
+    /// so a draft leg would run against kept jitter buffers
+    /// (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
+    /// The route comes off the draft and is what the toggle writes (<see cref="Choose"/>).
     /// </param>
     /// <param name="dispatch">
     /// Hands work to the UI loop.
@@ -141,13 +138,26 @@ public sealed class PreviewViewModel : Observable
         _dispatch = dispatch;
 
         Routes = PreviewRoutes.All.Select(route => new PreviewRouteTab(route)).ToList();
-        _selectedRoute = Routes.Single(tab => tab.Value == _route);
+        _selectedRoute = Routes.Single(tab => tab.Value == Route);
 
         Assert.That(Routes.Count == PreviewRoutes.All.Count, "a segment per route", Routes.Count);
-        Assert.That(_selectedRoute.Value == _route, "the toggle opens on the route the card draws");
+        Assert.That(_selectedRoute.Value == Route, "the toggle opens on the route the card draws");
 
         Apply();
     }
+
+    /// <summary>
+    /// Picture the reader asked for, <see cref="PreviewRoute.Off"/> for none.
+    /// Read out of the settings on every pass rather than held here:
+    /// the card stores what its toggle writes,
+    /// so a copy would be a second answer to which picture this machine draws
+    /// (<see cref="PreviewRoutes.Of"/>).
+    ///
+    /// The draft, which the press writes as it happens.
+    /// The stored copy follows a round trip later,
+    /// and a toggle that waited for it would spring back under the pointer.
+    /// </summary>
+    private PreviewRoute Route => PreviewRoutes.Of(_form.Draft);
 
     // --- Inputs -------------------------------------------------------------------
 
@@ -211,9 +221,9 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// What the route toggle has selected.
-    /// The reader owns it, so the setter is the write and the render function follows.
+    /// The reader owns it, so the setter stores the route and the render function follows.
     /// Settable where every other output here is not, the control writing it back on selection.
-    /// Idempotent: selecting the segment already selected notifies nothing.
+    /// Idempotent: selecting the segment already selected stores nothing and notifies nothing.
     /// </summary>
     public PreviewRouteTab SelectedRoute
     {
@@ -227,14 +237,45 @@ public sealed class PreviewViewModel : Observable
                 return;
             }
 
-            Set(ref _selectedRoute, value);
-            _route = value.Value;
-
-            // The refusal belonged to the route being left.
-            // Kept across the switch, it would describe a leg the other route never uses.
-            _refusal = "";
-            Apply();
+            Choose(value.Value);
         }
+    }
+
+    /// <summary>
+    /// Stores the route the reader picked and renders what that changed.
+    ///
+    /// <b>Written to the settings rather than held here.</b>
+    /// The route outlives the window, a card opening on the picture it was left on,
+    /// and the file the backend keeps is the one owner of that fact (<c>docs/settings-editing.md</c>).
+    ///
+    /// <b>Stored as it is written</b>, the way an applied group's field is:
+    /// this toggle has no commit beside it,
+    /// so a route the reader picked and nothing kept would be a decision lost at the next start.
+    /// The write is the whole draft,
+    /// so an edit staged elsewhere in the window is stored with it,
+    /// which every applied field already does (<c>Backend/FormSession.cs</c>, <c>Write</c>).
+    ///
+    /// A card whose opening read is still out has no draft to write into,
+    /// and the segment goes back to the route being drawn.
+    /// </summary>
+    private void Choose(PreviewRoute route)
+    {
+        if (_form.Draft is null)
+        {
+            // Nothing here moved, so the render pass notifies nothing,
+            // and the list box is left holding a selection this card does not draw.
+            OnPropertyChanged(nameof(SelectedRoute));
+            return;
+        }
+
+        // The refusal belonged to the route being left.
+        // Kept across the switch, it would describe a leg the other route never uses.
+        _refusal = "";
+
+        _form.Write(PreviewRoutes.Key, new FieldValue { Text = PreviewRoutes.ValueOf(route) });
+        _ = _form.SaveAsync();
+
+        Apply();
     }
 
     public string RouteChoice => Cards.PreviewRouteChoice;
@@ -362,7 +403,13 @@ public sealed class PreviewViewModel : Observable
         IsSharing = reading.IsLive;
         Encoded = $"encoded {Figure.Of(reading.Fps, "0.0")} fps";
         Quality = $"cq {Figure.Of(reading.Cq)}";
-        Cost = PreviewRoutes.CostOf(_route);
+        Cost = PreviewRoutes.CostOf(Route);
+
+        // The segment follows the settings like every other output,
+        // so the toggle lands on the stored route as the opening read answers.
+        // Through the field: the property's setter is the reader's own write,
+        // and going back through it would store the route this pass has just read.
+        Set(ref _selectedRoute, Routes.Single(tab => tab.Value == Route), nameof(SelectedRoute));
 
         // Only the end-to-end route has a leg and the local route's tile reports the empty string, so there is no
         // case on the route here.
@@ -380,11 +427,11 @@ public sealed class PreviewViewModel : Observable
         Assert.That(HasTile == (Tile is not null), "a tile and the fact that there is one agree", HasTile);
         Assert.That(_tile is null || pipeline is not null, "a preview tile draws a picture something is producing");
         Assert.That(
-            _route == PreviewRoute.EndToEnd || _asked is null,
-            "only the end-to-end route holds a relay decode open", (int)_route);
-        Assert.That(_route != PreviewRoute.Off || _tile is null, "a preview that is off draws no tile");
+            Route == PreviewRoute.EndToEnd || _asked is null,
+            "only the end-to-end route holds a relay decode open", (int)Route);
+        Assert.That(Route != PreviewRoute.Off || _tile is null, "a preview that is off draws no tile");
         Assert.That(Cost.Length > 0, "a preview states what it is showing and what it is not");
-        Assert.That(SelectedRoute.Value == _route, "the toggle and the picture name one route", (int)_route);
+        Assert.That(SelectedRoute.Value == Route, "the toggle and the picture name one route", (int)Route);
     }
 
     /// <summary>
@@ -397,7 +444,7 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private StreamRef? Wanted()
     {
-        if (_route != PreviewRoute.EndToEnd)
+        if (Route != PreviewRoute.EndToEnd)
         {
             return null;
         }
@@ -428,12 +475,12 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private TilePipeline? Running(StreamRef? wanted)
     {
-        if (_route == PreviewRoute.Off)
+        if (Route == PreviewRoute.Off)
         {
             return null;
         }
 
-        return _route == PreviewRoute.EndToEnd
+        return Route == PreviewRoute.EndToEnd
             ? TilePipeline.Of(wanted is null ? null : Decoding(wanted))
             : TilePipeline.Of(_session.Publish?.Live?.Preview);
     }
@@ -463,7 +510,7 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private TileSource? SourceFor(StreamRef? wanted)
     {
-        if (_route == PreviewRoute.EndToEnd)
+        if (Route == PreviewRoute.EndToEnd)
         {
             return wanted is null ? null : TileSource.Relay(wanted.StreamName, wanted.Transport);
         }
@@ -672,7 +719,7 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private string PlaceholderFor()
     {
-        if (_route == PreviewRoute.Off)
+        if (Route == PreviewRoute.Off)
         {
             return Cards.PreviewOff;
         }
@@ -692,7 +739,7 @@ public sealed class PreviewViewModel : Observable
             return Cards.PreviewNotPublishing;
         }
 
-        if (_route != PreviewRoute.EndToEnd)
+        if (Route != PreviewRoute.EndToEnd)
         {
             return Cards.PreviewNotPreviewed;
         }

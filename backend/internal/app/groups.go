@@ -73,9 +73,9 @@ func (a *App) forgetRelayToken() {
 // The relay's own API is not a member's to read:
 // a group token grants publish and read under one prefix and names no API action (docs/plan.md).
 //
-// The index answers no reader count and no rate,
-// so those figures stay zero and the snapshot marks its source (relay.Status.FromIndex).
-// Otherwise a reader shows "no viewers" for "not answered here".
+// The index answers the reader count and the ingest rate, and never the roster,
+// so the snapshot marks its source and a row draws its figures with an empty roster
+// (relay.Status.FromIndex).
 func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 	streams, err := a.groups.Streams(base, s.Relay.GroupKey)
 	if err != nil {
@@ -87,10 +87,12 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 		paths = append(paths, relay.Path{
 			// The index answers the name inside the group,
 			// and a viewer opens the whole relay path, group prefix included.
-			Name:   s.Relay.Path(stream.Name),
-			Ready:  stream.Ready,
-			Tracks: stream.Tracks,
-			Format: stream.Format,
+			Name:    s.Relay.Path(stream.Name),
+			Ready:   stream.Ready,
+			Tracks:  stream.Tracks,
+			Format:  stream.Format,
+			InMbps:  stream.InMbps,
+			Readers: stream.Readers,
 		})
 	}
 	return relay.Status{Reachable: true, FromIndex: true, Paths: paths}

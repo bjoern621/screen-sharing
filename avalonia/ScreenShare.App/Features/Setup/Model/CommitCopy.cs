@@ -12,7 +12,6 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// <b>The apply row states the restart in the copy itself.</b>
 /// Both engines run a child built from an argv, so new settings tear the pipeline down and launch another,
 /// and every viewer loses the picture across the gap.
-/// The broadcast screen's quality track is greyed carrying the same reason (<c>Features/Broadcast/Nudge</c>).
 ///
 /// <b>Here rather than in <c>Copy/</c>, which is the layering.</b>
 /// Everything in <c>Copy/</c> is keyed on an identifier the backend sends and read by every feature.

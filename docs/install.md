@@ -67,7 +67,25 @@ The flake turns on GStreamer's Vulkan and QSV plugins, which no binary cache car
 Capturing a Wayland desktop with `kmsgrab` needs a privileged ffmpeg, which `nixosModules.screenShare` sets up.
 The portal path needs nothing.
 
+## Flatpak
+
+The bundle carries its own ffmpeg and GStreamer, so it installs on a distribution that packages neither.
+
+```sh
+flatpak install --user ./screen-sharing-<version>-x86_64.flatpak
+flatpak run de.bjoernblessin.ScreenSharing
+```
+
+Capture goes through the desktop portal, which asks for the surface in a dialog.
+The sandbox holds no privilege, so `kmsgrab` is unreachable there and nothing has to be granted.
+
+Two things are outside the bundle.
+The WebRTC transports need `gst-plugins-rs`, which the runtime does not carry, so WHIP and WHEP are absent and SRT, RTSP, RTMP and HLS are unaffected.
+The ffmpeg engine's software H.264 and HEVC rows probe as unavailable and the form greys them, the GStreamer engine encoding H.264 in software instead.
+
 ## Debian, Ubuntu and other distributions
+
+The Flatpak above is the one to take on a distribution whose GStreamer is older than 1.26, which both current Debian and Ubuntu long-term releases are.
 
 The tarball carries both binaries and its own .NET runtime, and takes ffmpeg and GStreamer from the distribution.
 GStreamer has to be 1.26 or newer, the backend linking symbols that release introduced:

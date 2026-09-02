@@ -114,6 +114,34 @@ jobs:
           path: build/dist/*.tar.gz
           if-no-files-found: error
 
+      # The Flatpak assembles the directory the step above staged, so it runs in this job
+      # rather than in one of its own: a second job would rebuild both binaries to get it.
+      #
+      # The runtime carries GStreamer and the extension carries the codecs the runtime leaves
+      # out, so what is compiled here is ffmpeg and ffplay alone, which no extension ships
+      # (packaging/flatpak).
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists \
+            flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub \
+            org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+
+      - name: Package Flatpak
+        run: |
+          version=$(cat VERSION)
+          flatpak-builder --user --force-clean --repo=build/flatpak-repo \
+            build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
+          flatpak build-bundle build/flatpak-repo \
+            "build/dist/screen-sharing-$version-x86_64.flatpak" de.bjoernblessin.ScreenSharing
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-flatpak
+          path: build/dist/*.flatpak
+          if-no-files-found: error
+
   # The Windows zip, which carries its own ffmpeg and GStreamer because Windows has no
   # dependency manager the app can lean on (docs/packaging.md).
   windows:

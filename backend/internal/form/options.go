@@ -475,10 +475,23 @@ func optionPublishTransports(_ Deps, _ settings.Settings) []*screensharev1.Field
 
 // optionTileWatchTransports offers the legs a receive pipeline decodes from,
 // which is the GStreamer roster.
-// It reaches WHEP, which no player URL expresses, and not HLS,
-// which nothing on this side reads back.
+// It reaches WHEP, which no player URL expresses.
+//
+// RTSP is marked, a hint about the protocols rather than about this machine.
+// It is the one watch leg carrying every format this app publishes (transport.rtspCarriage),
+// so a stream in any of them comes back on it,
+// and the way through the relay measured on it is an order of magnitude shorter
+// than SRT's or HLS's (docs/delay-measurement.md).
+// What a draft holds is Field.value, and the mark says which leg to move to.
 func optionTileWatchTransports(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
-	return optionPlainList(transport.WatchNames(capabilities.EngineGst), KeyTileWatchTransport)
+	names := transport.WatchNames(capabilities.EngineGst)
+	assert.Assert(len(names) > 0, "a closed option list has values to offer", KeyTileWatchTransport)
+
+	out := make([]*screensharev1.FieldOption, 0, len(names))
+	for _, name := range names {
+		out = append(out, optionEntry(name, nil, name == transport.RTSP{}.Name()))
+	}
+	return out
 }
 
 // optionRenderChains offers the chains a receive pipeline converts decoded frames with,

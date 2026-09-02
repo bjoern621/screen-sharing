@@ -83,7 +83,7 @@ func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 		"apiPort":            func(s *settings.Settings) { s.Relay.ApiPort = 19997 },
 		"hlsPort":            func(s *settings.Settings) { s.Relay.HlsPort = 18888 },
 		"uplinkMbps":         func(s *settings.Settings) { s.Publish.UplinkMbps = 500 },
-		"gridTransport":      func(s *settings.Settings) { s.Viewer.TileWatchTransport = "rtsp" },
+		"gridTransport":      func(s *settings.Settings) { s.Viewer.TileWatchTransport = "srt" },
 		"srtWatchLatencyMs":  func(s *settings.Settings) { s.Viewer.SrtWatchLatencyMs = 900 },
 		"rtspWatchLatencyMs": func(s *settings.Settings) { s.Viewer.RtspWatchLatencyMs = 400 },
 		"rtspWatchProtocol":  func(s *settings.Settings) { s.Viewer.RtspWatchProtocol = "udp" },

@@ -15,7 +15,7 @@ import (
 // Every device carries the kind it is inside and the handle a publish opens it by.
 // One missing either is an entry a control offers and a pipeline cannot open.
 func TestEveryEnumeratedDeviceIsOpenable(t *testing.T) {
-	devices := Cached(context.Background())
+	devices := Devices(context.Background())
 	if len(devices) == 0 {
 		t.Skip("no PipeWire daemon on this machine, so there is nothing inside any kind")
 	}
@@ -45,18 +45,19 @@ func TestEveryEnumeratedDeviceIsOpenable(t *testing.T) {
 // so a handle without that suffix names the sink itself,
 // which a publish opens for playback and never records.
 func TestADesktopDeviceIsASinksMonitor(t *testing.T) {
-	for _, d := range Cached(context.Background()) {
+	for _, d := range Devices(context.Background()) {
 		if d.Kind == platform.AudioSourceDesktop && !strings.HasSuffix(d.ID, monitorSuffix) {
 			t.Errorf("%s is offered as desktop audio and is no sink's monitor", d.ID)
 		}
 	}
 }
 
-// The enumeration is a subprocess and a form resolves on every keystroke,
-// which is why it is cached rather than taken on demand.
-func TestTheEnumerationIsTakenOnce(t *testing.T) {
-	first := Cached(context.Background())
-	second := Cached(context.Background())
+// A form resolves on every keystroke, so a read is a lock and a copy.
+// Two of them with nothing between describe one machine, and in one order:
+// a list reshuffled between two resolves would move an entry out from under the cursor.
+func TestTwoReadsWithNothingBetweenAgree(t *testing.T) {
+	first := Devices(context.Background())
+	second := Devices(context.Background())
 
 	if len(first) != len(second) {
 		t.Fatalf("two reads answered %d and %d devices", len(first), len(second))

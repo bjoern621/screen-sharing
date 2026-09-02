@@ -169,6 +169,12 @@ public sealed class Session
     public Vocabulary Words { get; private set; } = Vocabulary.Empty;
 
     /// <summary>
+    /// The build behind the socket, which the status band states.
+    /// Empty until the first load, so a window paints its band before a backend has answered.
+    /// </summary>
+    public string Version { get; private set; } = "";
+
+    /// <summary>
     /// Legs the relay serves a player page for, which are the ones a stream opens over in a browser.
     /// Off the catalog rather than a form field, no setting standing behind it: a menu offers all of them at once,
     /// and a stored preference would be a value nothing reads.
@@ -416,10 +422,12 @@ public sealed class Session
         var previewed = await _backend.PreviewedMonitorsAsync(cancellation).ConfigureAwait(false);
         var members = await _backend.MembersAsync(cancellation).ConfigureAwait(false);
         var testStreams = await _backend.TestStreamsAsync(cancellation).ConfigureAwait(false);
+        var version = await _backend.VersionAsync(cancellation).ConfigureAwait(false);
 
         Write(() =>
         {
             Unavailable = "";
+            Version = version;
             Words = new Vocabulary(catalog);
             BrowserLegs = catalog.BrowserWatchTransports;
             PlayerLegs = catalog.WatchTransports;

@@ -120,6 +120,18 @@
     <Setter Property="LineHeight" Value="{DynamicResource LineHeightSmall}" />
   </Style>
 
+  <!--
+    An entry the backend marks worth picking (form.proto, FieldOption.recommended).
+    Weight and no hue: the three hues each answer one question about a stream,
+    and which entry to pick is none of them (docs/design-language.md, "Palette").
+    Beside the entry's own name, where a reader choosing is already looking.
+  -->
+  <Style Selector=":is(TextBlock).mark">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
   <Style Selector=":is(TextBlock).disabled">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>

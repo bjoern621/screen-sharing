@@ -45,7 +45,7 @@ Both are ordinary writes through ordinary controls, so a shell decides nothing a
 
 Carriage rules out two tracks, so the sources mix into one.
 Kinds stay a declared table (`desktop`, `application`).
-What is inside a kind is enumerated, cached for the process lifetime and read back separately from the probe.
+What is inside a kind is read off the daemon's own events and answered from memory, separately from the probe.
 Gain and mute are one live field beside the bitrate: they reach the mixer that is already running,
 where an entry added or taken off is a different graph and a relaunch.
 
@@ -62,14 +62,15 @@ The element opens the default render device itself and takes no handle for it,
 which is the difference from a sound server's named devices and why the element and its handle are one table read.
 Per-application capture stays refused there: that API addresses a program by process id rather than by device, and nothing enumerates one.
 
-**What is left.** Three, in the order they cost a user something.
+**Built: the Linux enumeration follows the daemon.** One `pw-dump --monitor` runs as long as the app does, seeding from the whole state it opens with and folding in each batch of changes.
+A read is a lock and a copy, which is what a form resolving on a keystroke can pay.
+The application that just launched is the entry worth selecting, and an answer taken once has it wrong every time.
+
+**What is left.** Two, in the order they cost a user something.
 
 Nothing enumerates Windows devices, so both kinds offer their own default and nothing else.
 The default is what a machine with no enumeration takes anyway, so the gap is a picker rather than a capability.
-
-The Linux enumeration is taken once and cached for the process lifetime: right for the devices a machine has, wrong for the applications it is running.
-The one just launched is the one worth selecting, the case a cache gets wrong every time.
-Following PipeWire's own add and remove events replaces it.
+Closing it is two halves: a device monitor to list the render devices, and a handle on `wasapi2src`, which opens the default device and takes none.
 
 macOS records nothing, and it is the one platform where the work is a component rather than a row.
 Reading what a Mac plays takes a CoreAudio process tap or ScreenCaptureKit audio feeding an `appsrc`, neither engine having an element for either.
@@ -301,8 +302,34 @@ so a name another member holds comes back as a refusal a reader can act on rathe
 The relay states no reason when it closes a connection,
 so the app reads its own membership against the close and says either that the relay closed it or that membership lapsed (`api/proto/screenshare/v1/text.proto`).
 
-**What is left.** The snapshot that comes from the index carries no reader roster and no ingest bitrate, since the index does not answer them,
-and the grid shows those columns empty rather than blank-because-zero (`relay.Status.FromIndex`).
+**Built: the figures beside a row.** The index answers each stream's ingest rate and its reader count, so a member behind the proxy reads the same two columns an operator reads off the relay's own API.
+
+**What is left.** The reader roster stays at the service.
+A count says how many are watching and naming them answers a question about other members that presence already answers under its own request.
+
+## Adaptive bitrate
+
+One bitstream reaches every viewer.
+The relay re-muxes what it ingests, so what a publisher sends is what each viewer receives.
+Three separate things go by this name and they are not equally reachable from here.
+
+**The publish leg, off the link's own report.**
+The scarce resource is the publisher's uplink, and the SRT leg already measures it: round-trip time, the delivery window and what the sender dropped arrive with every stats read.
+The encoder's bitrate is a live field on the GStreamer engine, so a rate reaches a playing pipeline without relaunching it.
+Both halves are built and the controller between them is not.
+It reads one signal and writes one field, and the design decision in it is how slowly it may move, a rate chasing a noisy estimate being worse than one that stands.
+This is the tier worth building: it costs no second encode, needs nothing of the relay, and every publisher benefits from it on the transport the app defaults to.
+
+**A second rung, paid for in upload.**
+A publisher encodes a lower rung to a sibling path under the same group prefix and a viewer picks between them.
+The index lists a group's paths, so a rung is discoverable with no contract of its own.
+It stays opt-in, being a second encode and a second upload spent so a viewer who cannot keep up has something.
+Nothing switches on the viewer's behalf, which is what separates a rung from adaptation.
+
+**Per-viewer layers, which this design does not reach.**
+Dropping layers per subscriber takes a server that understands the media, and every such server is WebRTC alone.
+Adopting one costs SRT, RTSP, RTMP, HLS and MoQ, which is the carriage model itself.
+Temporal SVC stands in for none of it, nothing on the way out dropping the layers.
 
 ## Assumptions to verify
 

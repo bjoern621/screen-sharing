@@ -24,6 +24,16 @@
                   Spacing="{StaticResource GapSection}"
                   VerticalAlignment="Center">
 
+        <!--
+          The build, in every destination.
+          The app's own fact rather than one screen's, and the one band drawn on every platform:
+          the title bar is the app's on Windows and macOS alone (avalonia/README.md).
+        -->
+        <TextBlock Classes="muted"
+                   Text="{Binding Version}"
+                   IsVisible="{Binding ShowsVersion}"
+                   VerticalAlignment="Center" />
+
         <TextBlock Classes="muted"
                    Text="{Binding Streams}"
                    IsVisible="{Binding ShowsMetrics}" />

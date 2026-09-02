@@ -343,6 +343,31 @@ var repairCaptureOrder = []string{
 // with when asked for nothing.
 var repairRenderChainOrder = []string{receive.DefaultChain}
 
+// The encoder families a repair reaches for, ahead of every software library.
+//
+// A hardware encode leaves the cores for what is being captured,
+// so a machine carrying one of these families lands on it
+// rather than on the first software library the capability table happens to offer.
+// The libraries are named nowhere here and fall to the tail of the walk in table order,
+// which is where a machine with no video encoder of its own lands.
+//
+// The order among them is the device paths gpupath declares.
+// VAAPI holds the zero-copy row on both Linux capture backends and QSV the Windows one,
+// where AMF and Vulkan reach the same block through system memory.
+// So an AMD box on Linux lands on VAAPI, and the same box on Windows, where VAAPI is greyed,
+// lands on AMF.
+// NVENC leads because a machine registering it is one whose VA driver decodes alone.
+var repairEncoderOrder = []string{
+	capabilities.FamilyNvenc,
+	capabilities.FamilyVaapi,
+	capabilities.FamilyQsv,
+	capabilities.FamilyAmf,
+	capabilities.FamilyVideoToolbox,
+	capabilities.FamilyRkmpp,
+	capabilities.FamilyV4l2,
+	capabilities.FamilyVulkan,
+}
+
 // repairOrders is the walk order of the fields that state one.
 // A field with no row here walks in the order its option list offers.
 var repairOrders = map[string][]string{
@@ -350,6 +375,7 @@ var repairOrders = map[string][]string{
 	KeyChroma:      repairChromaOrder,
 	KeyColorRange:  repairColorRangeOrder,
 	KeyRenderChain: repairRenderChainOrder,
+	KeyEncoder:     repairEncoderOrder,
 }
 
 // legalOption answers what this field holds instead of held, and whether that is a change.

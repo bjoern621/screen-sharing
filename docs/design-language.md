@@ -114,6 +114,10 @@ Every one is **reachable at all times**, broadcast included.
 That screen reports the stream that has ended as well as the one running, which is what a publisher goes looking for after a stream drops and what a live-only tab would take away.
 An expert tool teaches its own shape, and a tab that comes and goes reads as a bug.
 
+The status band along the foot states the running build, leading the row and drawn in every destination.
+The figures beside it speak for the viewer alone, where the build is the app's own fact and holds wherever the reader is standing.
+It goes here rather than in the title bar because the foot is the one band every platform draws.
+
 ## Narrow windows
 
 A window is the width the desktop gives it.

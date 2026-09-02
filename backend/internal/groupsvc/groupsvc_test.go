@@ -272,3 +272,48 @@ func TestTheServicePublishesTheKeyItsTokensAreVerifiedWith(t *testing.T) {
 
 // base64Raw is how every token segment is spelled, for the test that reads one back.
 var base64Raw = base64.RawURLEncoding
+
+// rated is a relay carrying one stream, at a rate and with readers on it.
+type rated struct {
+	path    string
+	inMbps  float64
+	readers int
+}
+
+func (r rated) Paths() []Stream {
+	return []Stream{{
+		Path: r.path, Ready: true, Format: "h264",
+		InMbps: r.inMbps, Readers: r.readers,
+	}}
+}
+
+// The grid draws a rate and a viewer count per row,
+// and a member on a relay behind the proxy reads the index rather than the relay's own API.
+// An index answering neither leaves those columns empty on the one deployment shape that ships,
+// which a reader takes for "nobody watching" rather than for "not answered here".
+func TestTheIndexCarriesTheIngestRateAndReaderCount(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	signer, err := token.NewSigner()
+	if err != nil {
+		t.Fatalf("drawing a signing key: %v", err)
+	}
+	relayStreams := rated{path: groupKey.ID() + "/standup", inMbps: 42.5, readers: 3}
+	s := New(signer, relayStreams, membership.New(&carrying{}), &keyed{})
+
+	_, body := call(t, s, "GET", listing(groupKey), "")
+
+	rows := body["streams"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("the listing carries %d streams, want the one the relay reports", len(rows))
+	}
+	row := rows[0].(map[string]any)
+	if got, _ := row["inMbps"].(float64); got != relayStreams.inMbps {
+		t.Errorf("the row states %v Mbit/s ingest, want %v", row["inMbps"], relayStreams.inMbps)
+	}
+	if got, _ := row["readers"].(float64); int(got) != relayStreams.readers {
+		t.Errorf("the row states %v readers, want %d", row["readers"], relayStreams.readers)
+	}
+}

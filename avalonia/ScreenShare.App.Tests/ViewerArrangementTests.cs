@@ -28,6 +28,8 @@ public sealed class ViewerArrangementTests
     {
         private readonly SeededBackend _seed = new("windows");
 
+        public Task<string> VersionAsync(CancellationToken cancellation = default) => _seed.VersionAsync(cancellation);
+
         public event Action? Changed
         {
             add { }

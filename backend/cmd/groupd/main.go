@@ -304,7 +304,8 @@ type relayStreams struct {
 }
 
 // Paths narrows the relay's answer to what a member is told:
-// the readers and byte counters beside each path stop here (internal/groupsvc, Stream).
+// the reader roster beside each path stops here, and its length crosses
+// (internal/groupsvc, Stream).
 func (r *relayStreams) Paths() []groupsvc.Stream {
 	assert.IsNotNil(r.client, "a relay reader holds a client to read through")
 
@@ -318,7 +319,10 @@ func (r *relayStreams) Paths() []groupsvc.Stream {
 	status := r.client.Fetch(r.host, r.apiPort)
 	out := make([]groupsvc.Stream, 0, len(status.Paths))
 	for _, p := range status.Paths {
-		out = append(out, groupsvc.Stream{Path: p.Name, Ready: p.Ready, Tracks: p.Tracks, Format: p.Format})
+		out = append(out, groupsvc.Stream{
+			Path: p.Name, Ready: p.Ready, Tracks: p.Tracks, Format: p.Format,
+			InMbps: p.InMbps, Readers: p.Readers,
+		})
 	}
 	return out
 }

@@ -199,7 +199,7 @@ func openInShell(path string) error {
 // the enumeration is one short subprocess rather than a run of every encoder,
 // so the first resolve pays for it and none after it does.
 func (a *App) audioDevices() []platform.AudioDevice {
-	return audiodev.Cached(context.Background())
+	return audiodev.Devices(context.Background())
 }
 
 // portalCapabilities is what the desktop portal here serves: which pointer modes and source kinds

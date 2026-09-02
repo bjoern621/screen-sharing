@@ -32,6 +32,8 @@ public sealed class BroadcastPreviewTests
     {
         private readonly SeededBackend _seed = new("windows");
 
+        public Task<string> VersionAsync(CancellationToken cancellation = default) => _seed.VersionAsync(cancellation);
+
         public event Action? Changed
         {
             add { }
@@ -54,6 +56,15 @@ public sealed class BroadcastPreviewTests
         /// Stands for a leg that cannot carry this stream's format.
         /// </summary>
         public string StartRefusal { get; set; } = "";
+
+        /// <summary>
+        /// Route the stored settings name, empty for the one the seed itself holds.
+        /// What a card left on a route reads back at the next start.
+        /// </summary>
+        public string StoredRoute { get; set; } = "";
+
+        /// <summary>Settings the card asked to keep, oldest first.</summary>
+        public IReadOnlyList<Settings> Saved => _seed.Saved;
 
         public int PreviewSubscriptions { get; private set; }
 
@@ -144,8 +155,16 @@ public sealed class BroadcastPreviewTests
         public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
             => _seed.CatalogAsync(cancellation);
 
-        public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
-            => _seed.SettingsAsync(cancellation);
+        public async Task<Settings> SettingsAsync(CancellationToken cancellation = default)
+        {
+            var settings = await _seed.SettingsAsync(cancellation).ConfigureAwait(false);
+            if (StoredRoute.Length > 0)
+            {
+                settings.Viewer.PreviewRoute = StoredRoute;
+            }
+
+            return settings;
+        }
 
         public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
             => _seed.WatchingAsync(cancellation);
@@ -236,7 +255,7 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>Leg the fixture's stored settings name for a tile, so the end-to-end route's.</summary>
-    private const string Leg = "srt";
+    private const string Leg = "rtsp";
 
     private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend)
         => Card(backend, PreviewRoute.Local);
@@ -336,6 +355,56 @@ public sealed class BroadcastPreviewTests
         Assert.Equal(PreviewRoute.Local, preview.SelectedRoute.Value);
         Assert.NotNull(preview.Tile);
         Assert.True(preview.HasTile);
+    }
+
+    /// <summary>
+    /// The route is a setting, so a card comes up on the picture the reader left it on, and the end-to-end one
+    /// asks the relay for its decode with nobody pressing anything.
+    /// </summary>
+    [Fact]
+    public void TheCardOpensOnTheRouteItWasLeftOn()
+    {
+        var backend = new PreviewBackend
+        {
+            Publish = Live(),
+            StoredRoute = PreviewRoutes.ValueOf(PreviewRoute.EndToEnd),
+        };
+        var session = Read(backend);
+
+        var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
+        Settle(preview, session);
+
+        Assert.Equal(PreviewRoute.EndToEnd, preview.SelectedRoute.Value);
+        var started = Assert.Single(backend.Started);
+        Assert.Equal(Stream, started.StreamName);
+        Assert.Equal(Leg, started.Transport);
+    }
+
+    /// <summary>
+    /// The toggle has no commit beside it, so the press is the write: a route nothing kept would be a decision
+    /// lost at the next start.
+    /// </summary>
+    [Fact]
+    public void ChoosingARouteStoresIt()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend);
+
+        Choose(preview, PreviewRoute.Off);
+
+        Assert.Equal(PreviewRoutes.ValueOf(PreviewRoute.Off), Assert.Single(backend.Saved).Viewer.PreviewRoute);
+    }
+
+    /// <summary>Pressing the segment the card is already on names a state that holds, so nothing is written.</summary>
+    [Fact]
+    public void ChoosingTheRouteAlreadyDrawnStoresNothing()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend, PreviewRoute.Off);
+
+        Choose(preview, PreviewRoute.Off);
+
+        Assert.Single(backend.Saved);
     }
 
     /// <summary>

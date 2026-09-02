@@ -58,6 +58,11 @@ type Stream struct {
 	Ready  bool   `json:"ready"`
 	Tracks string `json:"tracks"`
 	Format string `json:"format"`
+	// InMbps is what the publisher is pushing, Mbit/s.
+	// Zero on a stream the service has fetched once, there being no earlier sample to measure from.
+	InMbps float64 `json:"inMbps"`
+	// Readers is how many are watching. The roster behind it stays at the service.
+	Readers int `json:"readers"`
 }
 
 // Membership is what one statement of presence answers: this member, and the group it is in.

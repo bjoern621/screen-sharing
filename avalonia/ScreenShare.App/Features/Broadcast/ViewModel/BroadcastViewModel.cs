@@ -7,7 +7,6 @@ using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
-using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 using ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
@@ -122,7 +121,6 @@ public sealed class BroadcastViewModel : Observable
         // Its end-to-end route receives this machine's own stream back off the relay, so it takes the boundary,
         // the running state and the leg a viewer receives on rather than the composed reading alone.
         Preview = new PreviewViewModel(backend, form, session, dispatch);
-        Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();
         Plots = new PlotsViewModel();
@@ -178,8 +176,6 @@ public sealed class BroadcastViewModel : Observable
     public HeaderStatsViewModel Stats { get; }
 
     public PreviewViewModel Preview { get; }
-
-    public NudgeViewModel Nudge { get; }
 
     public ConfigCardViewModel Config { get; }
 
@@ -274,7 +270,6 @@ public sealed class BroadcastViewModel : Observable
 
         Stats.Snapshot = reading;
         Preview.Snapshot = reading;
-        Nudge.Snapshot = reading;
         Plots.Snapshot = reading;
         Plots.Samples = _session.Samples;
         Plots.RelaySamples = _session.RelaySamples;
@@ -304,8 +299,7 @@ public sealed class BroadcastViewModel : Observable
         StopCommand.Refresh();
 
         Assert.That(
-            Stats.Snapshot == reading && Preview.Snapshot == reading
-            && Nudge.Snapshot == reading && Plots.Snapshot == reading,
+            Stats.Snapshot == reading && Preview.Snapshot == reading && Plots.Snapshot == reading,
             "every card on the screen describes one reading", reading.Elapsed);
         Assert.That(
             !PauseCommand.CanExecute(null) && !ForceKeyframeCommand.CanExecute(null) && !ReconnectCommand.CanExecute(null),

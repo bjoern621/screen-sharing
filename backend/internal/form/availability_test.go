@@ -1056,3 +1056,25 @@ func TestALegGreysWhereItsSinkElementIsMissing(t *testing.T) {
 		t.Errorf("the ffmpeg engine greys a leg over a GStreamer element: %v", ff.transportReason("webrtc"))
 	}
 }
+
+// The tile's leg covers every stream the window watches, anyone's as well as this machine's,
+// so what this machine publishes rules out none of it.
+// A publisher on HEVC still watches a neighbour's H.264 over WHEP,
+// the leg with the shortest way back and no mapping for HEVC.
+//
+// A stream a leg cannot carry is refused when the tile opens,
+// per stream and against the format the relay reports for that path (internal/app, carriesStream),
+// which is the authority a draft cannot stand in for.
+//
+// What stays greyed is a protocol this engine has no receiver for at all.
+func TestTheTileLegIgnoresWhatThisMachinePublishes(t *testing.T) {
+	deps := fieldTestDeps()
+	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", availabilitySrt)
+
+	for _, name := range transport.WatchNames(capabilities.EngineGst) {
+		enabled, reason := optionState(deps, s, KeyTileWatchTransport, name, noEntry)
+		if !enabled {
+			t.Errorf("%s is greyed on a machine publishing HEVC: %v", name, codeOf(reason))
+		}
+	}
+}

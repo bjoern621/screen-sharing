@@ -605,6 +605,28 @@ public sealed class ControlBackend : IBackend
         Assert.That(
             hello.ProtocolMajor == ProtocolMajor,
             "a settled handshake leaves both sides on one contract major", ProtocolMajor, hello.ProtocolMajor);
+
+        lock (_gate)
+        {
+            _backendVersion = hello.BackendVersion;
+        }
+    }
+
+    /// <summary>
+    /// The build behind the socket, which the handshake already carries.
+    /// Read through the handshake rather than held by a caller, so a reconnect answers the build now serving.
+    /// </summary>
+    private string _backendVersion = "";
+
+    /// <inheritdoc />
+    public async Task<string> VersionAsync(CancellationToken cancellation = default)
+    {
+        await GreetAsync().ConfigureAwait(false);
+
+        lock (_gate)
+        {
+            return _backendVersion;
+        }
     }
 
     /// <summary>

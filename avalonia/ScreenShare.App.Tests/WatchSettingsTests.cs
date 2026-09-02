@@ -165,10 +165,10 @@ public sealed class WatchSettingsTests
     {
         var both = await BothAsync();
 
-        await ChooseAsync(both, "viewer.tile_watch_transport", "rtsp");
+        await ChooseAsync(both, "viewer.tile_watch_transport", "srt");
 
-        Assert.Equal("rtsp", Field(both, "viewer.tile_watch_transport").Readback);
-        Assert.Equal("rtsp", both.Form.Draft!.Viewer.TileWatchTransport);
+        Assert.Equal("srt", Field(both, "viewer.tile_watch_transport").Readback);
+        Assert.Equal("srt", both.Form.Draft!.Viewer.TileWatchTransport);
     }
 
     // --- The leg a decode opens on ------------------------------------------------------
@@ -203,10 +203,10 @@ public sealed class WatchSettingsTests
         var backend = Carrying("desk");
         var both = await BothAsync(backend);
 
-        await ChooseAsync(both, "viewer.tile_watch_transport", "rtsp");
+        await ChooseAsync(both, "viewer.tile_watch_transport", "srt");
         await TileAsync(both, "desk");
 
-        Assert.Equal("srt", Assert.Single(backend.Decoded).Transport);
+        Assert.Equal("rtsp", Assert.Single(backend.Decoded).Transport);
     }
 
     [Fact]
@@ -215,11 +215,11 @@ public sealed class WatchSettingsTests
         var backend = Carrying("desk");
         var both = await BothAsync(backend);
 
-        await ChooseAsync(both, "viewer.tile_watch_transport", "rtsp");
+        await ChooseAsync(both, "viewer.tile_watch_transport", "srt");
         both.Viewer.Watch.SaveCommand.Execute(null);
         await TileAsync(both, "desk");
 
-        Assert.Equal("rtsp", Assert.Single(backend.Decoded).Transport);
+        Assert.Equal("srt", Assert.Single(backend.Decoded).Transport);
     }
 
     /// <summary>
@@ -344,5 +344,43 @@ public sealed class WatchSettingsTests
         both.Viewer.Watch.CloseCommand.Execute(null);
 
         Assert.False(both.Viewer.WatchColumn.IsShowing);
+    }
+
+    /// <summary>
+    /// The panel puts its own group back.
+    /// A staged group elsewhere is a proposal a reader walks away from, and this one keeps itself,
+    /// so after a Keep there is nowhere else to read what a fresh installation holds
+    /// (<c>docs/settings-editing.md</c>, "Staged and applied").
+    /// The values are the form's, stated per field, so no default is named here.
+    /// </summary>
+    [Fact]
+    public async Task TheWatchPanelPutsItsGroupBack()
+    {
+        var both = await BothAsync();
+        var fresh = both.Form.Draft!.Viewer.Clone();
+
+        await ChooseAsync(both, "viewer.tile_watch_transport", "srt");
+        await ChooseAsync(both, "viewer.render_chain", "sys");
+        Assert.NotEqual(fresh, both.Form.Draft!.Viewer);
+
+        Assert.True(both.Viewer.Watch.Group.HasAction);
+        both.Viewer.Watch.Group.Action!.Command.Execute(null);
+        await both.Form.Settled;
+
+        Assert.Equal(fresh, both.Form.Draft!.Viewer);
+    }
+
+    /// <summary>A staged reset stores nothing: the panel's own commit is what keeps it.</summary>
+    [Fact]
+    public async Task AResetInTheWatchPanelIsKeptByTheButton()
+    {
+        var both = await BothAsync();
+
+        await ChooseAsync(both, "viewer.render_chain", "sys");
+        both.Viewer.Watch.Group.Action!.Command.Execute(null);
+        await both.Form.Settled;
+
+        Assert.Empty(both.Backend.Saved);
+        Assert.False(both.Viewer.Watch.IsUnkept);
     }
 }

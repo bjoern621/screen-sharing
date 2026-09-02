@@ -218,7 +218,7 @@ A stream can start or end in between, and the backend refuses each effect in pre
 `Model/CommitCopy.cs` is one row per commit, holding the label and the two halves of the sentence the stream name sits in, read by the view model and bound whole rather than a ternary at the binding site.
 The apply row says in plain words that the stream restarts, because it does.
 Both engines run a child built from an argv, so new settings tear the pipeline down and launch another, and every viewer loses the picture across the gap.
-The broadcast screen's quality track is greyed carrying that same fact (`Features/Broadcast/Nudge`), and a button promising an uninterrupted change would be the one place in the app that lied.
+A button promising an uninterrupted change would be the one place in the app that lied.
 
 The relay half is the one state the shell reads from a poll it does not run.
 The backend polls for as long as it is up, records each snapshot and answers `GetRelayStatus` from it, its opening value being unreachable with no reason, the honest reading of a relay nobody has asked.

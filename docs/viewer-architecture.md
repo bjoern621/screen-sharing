@@ -128,10 +128,15 @@ The wait is bounded, and a relay still serving gaps at the end of it is a refusa
 ## The viewability verdict
 
 A tile decodes whatever the machine decodes, so the leg is the only gate.
-The verdict asks whether a receiving pipeline is served the codec's format over the tile's watch leg.
+The verdict asks whether a receiving pipeline is served this stream's format over the tile's watch leg.
 It reads the watch entry rather than the publish one:
 a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
-A format with no listener on the selected leg reports not viewable, names the leg, and names the protocols that would carry it.
+A format with no listener on the selected leg is refused as the decode opens, naming the leg and the protocols that would carry it.
+
+**It is asked per stream, against what the relay reports for that path.**
+The stored leg covers every stream the window watches, so the settings form offers the whole roster and greys nothing.
+A publisher on HEVC watches a neighbour's H.264 over WHEP, which carries no HEVC and is the shortest way back.
+A form answering from the draft would have taken that leg away over a stream nobody asked about.
 
 ## The decode host
 
@@ -322,8 +327,13 @@ They differ by where the picture is taken and by nothing else, so what one shows
 **The two costs are opposite, which is why it is a choice.**
 The local route costs one decode here, spends no bandwidth and takes no reader slot, so the viewer count and worst-viewer round trip describe viewers rather than this machine watching itself.
 The end-to-end route is a relay client: it occupies a reader slot, is counted among those figures, and pays a viewer's downstream bandwidth.
-So the card opens on the local route and the other is asked for by name, each stating its own cost on screen.
+So a fresh installation is stored on the local route and the other is asked for by name, each stating its own cost on screen.
 The third segment is off, which is why it stands on the same toggle rather than under a control of its own.
+
+**The route is a watch setting**, `viewer.preview_route`, so a card opens on the picture it was left on.
+It sits with the watch settings because the end-to-end route is a relay client: it decodes over the tile's own leg and takes a reader slot for it.
+The toggle has no commit beside it, so the press is the write, the way an applied field is stored as it is edited (`settings-editing.md`).
+A stored value no route carries is repaired as the file is read.
 
 **The constraint that shapes it is where the encoder runs.**
 Publishing is an external child, which keeps a pipeline that dies from taking the backend with it.

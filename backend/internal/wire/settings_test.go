@@ -67,6 +67,7 @@ func populatedSettings() settings.Settings {
 			SrtWatchLatencyMs:  666,
 			RtspWatchLatencyMs: 777,
 			RenderChain:        "d3d11",
+			PreviewRoute:       settings.PreviewEndToEnd,
 		},
 	}
 }

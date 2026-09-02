@@ -21,6 +21,7 @@ public sealed class StatusBarViewModel : Observable
     private string _figuresStreams = "";
     private IReadOnlyList<string> _figuresLoad = [];
     private string _figuresHint = "";
+    private string _build = "";
 
     /// <summary>
     /// Band's whole input.
@@ -30,18 +31,23 @@ public sealed class StatusBarViewModel : Observable
     /// The load figures arrive as a list rather than as named slots, what a destination reports being
     /// that destination's business.
     /// A field per figure is a band edited whenever one of them splits in two.
+    ///
+    /// <paramref name="build"/> is the backend's own, off the handshake, and is empty until it settles.
+    /// It arrives with the figures rather than being set once, so the band keeps one render pass.
     /// Idempotent.
     /// </summary>
-    public void Show(Destination current, string streams, IReadOnlyList<string> load, string hint)
+    public void Show(Destination current, string streams, IReadOnlyList<string> load, string hint, string build)
     {
         Assert.NotNull(streams, "a status band is told how much of what arrives is on screen");
         Assert.NotNull(load, "a status band is told what the link and the units are carrying");
         Assert.NotNull(hint, "a status band is told what the view in front of it affords");
+        Assert.NotNull(build, "a status band is told which build is running");
 
         _current = current;
         _figuresStreams = streams;
         _figuresLoad = load;
         _figuresHint = hint;
+        _build = build;
         Apply();
     }
 
@@ -51,6 +57,8 @@ public sealed class StatusBarViewModel : Observable
     private string _streams = "";
     private string _hint = "";
     private bool _showsHint;
+    private string _version = "";
+    private bool _showsVersion;
 
     /// <summary>Whether this destination has figures worth stating.</summary>
     public bool ShowsMetrics { get => _showsMetrics; private set => Set(ref _showsMetrics, value); }
@@ -65,6 +73,14 @@ public sealed class StatusBarViewModel : Observable
     public string Hint { get => _hint; private set => Set(ref _hint, value); }
 
     public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
+
+    /// <summary>
+    /// The running build, marked as a version so it reads as one beside figures that are measurements.
+    /// </summary>
+    public string Version { get => _version; private set => Set(ref _version, value); }
+
+    /// <summary>Whether a build has been answered yet.</summary>
+    public bool ShowsVersion { get => _showsVersion; private set => Set(ref _showsVersion, value); }
 
     /// <summary>
     /// One render function.
@@ -84,9 +100,14 @@ public sealed class StatusBarViewModel : Observable
         Hint = speaks ? _figuresHint : "";
         ShowsHint = Hint.Length > 0;
 
+        // Every destination, the build being the app's rather than one screen's.
+        Version = _build.Length > 0 ? "v" + _build : "";
+        ShowsVersion = Version.Length > 0;
+
         Assert.That(ShowsMetrics == (Streams.Length > 0), "the figures and the prose beside them appear together", ShowsMetrics, Streams);
         Assert.That(ShowsMetrics || Load.Count == 0, "a band that states no counts states no measurements either", ShowsMetrics, Load.Count);
         Assert.That(ShowsHint == (Hint.Length > 0), "the trailing hint and its text agree", ShowsHint, Hint);
+        Assert.That(ShowsVersion == (Version.Length > 0), "the version and its text agree", ShowsVersion, Version);
     }
 
     /// <summary>

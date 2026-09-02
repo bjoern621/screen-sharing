@@ -78,6 +78,9 @@ internal sealed class DeferredBackend : IBackend
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.SettingsAsync(cancellation);
 
+    public Task<string> VersionAsync(CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.VersionAsync(cancellation);
+
     public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
         if (IsAbsent)
@@ -282,6 +285,8 @@ internal sealed class DeferredBackend : IBackend
 internal sealed class PublishingBackend : IBackend
 {
     private readonly SeededBackend _seed = new("linux");
+
+    public Task<string> VersionAsync(CancellationToken cancellation = default) => _seed.VersionAsync(cancellation);
 
     public event Action? Changed
     {

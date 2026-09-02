@@ -169,7 +169,7 @@ public static class Descriptions
     private static readonly Dictionary<string, string> Transports = new()
     {
         ["srt"] = "UDP that requests lost packets again, within a delay window set here. One outgoing connection carries everything, so a home router needs no setup.",
-        ["rtsp"] = "A session that carries each track as its own stream. Each leg picks what those run over: interleaved on the session's own connection, or a UDP port pair per track.",
+        ["rtsp"] = "A session that carries each track as its own stream. Each leg picks what those run over: interleaved on the session's own connection, or a UDP port pair per track. It is the only protocol here that carries every format, and it adds the least delay.",
         ["webrtc"] = "What a browser speaks. It tests the path before sending, which opens the way through a home router. No external player opens it by address.",
         ["rtmp"] = "One TCP connection, the protocol broadcast tools speak. Nothing is tunable: the delay is whatever TCP and the relay make it.",
         ["hls"] = "Files and a playlist over ordinary HTTP, which gets through proxies and firewalls that block everything else. A viewer cannot start until a segment exists, so it is by far the slowest way to watch.",

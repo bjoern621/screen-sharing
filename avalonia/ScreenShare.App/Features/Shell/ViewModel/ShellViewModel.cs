@@ -296,7 +296,7 @@ public sealed class ShellViewModel : Observable
     /// Idempotent.
     /// </summary>
     private void RenderStatusBar()
-        => StatusBar.Show(_current, Viewer.ShownSummary, Viewer.Figures, Viewer.Hint);
+        => StatusBar.Show(_current, Viewer.ShownSummary, Viewer.Figures, Viewer.Hint, _session.Version);
 
     /// <summary>
     /// Whether the window's bands are drawn, derived from the destination and what that destination shows.

@@ -1,3 +1,5 @@
+using ScreenShare.Api.V1;
+using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
 
@@ -90,4 +92,53 @@ public static class PreviewRoutes
         PreviewRoute.EndToEnd => Cards.PreviewEndToEndCost,
         _ => Assert.Never<string>("unexpected preview route", (int)route),
     };
+
+    /// <summary>
+    /// Settings field the chosen route is stored in, so a card opens on the route it was left on.
+    /// Named once, so a rename in the contract is one line rather than one per screen.
+    /// </summary>
+    public const string Key = "viewer.preview_route";
+
+    /// <summary>What the settings spell for a route. Exhaustive, so a route with no value fails here.</summary>
+    public static string ValueOf(PreviewRoute route) => route switch
+    {
+        PreviewRoute.Off => "off",
+        PreviewRoute.Local => "local",
+        PreviewRoute.EndToEnd => "end-to-end",
+        _ => Assert.Never<string>("unexpected preview route", (int)route),
+    };
+
+    /// <summary>
+    /// Route the settings name, and <see cref="Opening"/> for settings that have not arrived.
+    /// A stored value no route carries is repaired as the file is read
+    /// (<c>backend/internal/settings/migrate.go</c>),
+    /// so a card meeting one anyway opens rather than crashing over a file it does not own.
+    /// </summary>
+    public static PreviewRoute Of(Settings? settings)
+    {
+        if (settings is null)
+        {
+            return Opening;
+        }
+
+        var value = FieldValues.AsText(SettingsDraft.Read(settings, Key));
+        foreach (var route in All)
+        {
+            if (ValueOf(route) == value)
+            {
+                return route;
+            }
+        }
+
+        return Opening;
+    }
+
+    /// <summary>
+    /// Route a card draws while its settings are being read.
+    /// The picture that costs nothing beyond one decode here,
+    /// which is what a fresh installation is stored on (<c>backend/internal/settings</c>, Defaults).
+    /// Drawn only: the stored route replaces it when the read lands,
+    /// and the reader's selection is what stores a route.
+    /// </summary>
+    private const PreviewRoute Opening = PreviewRoute.Local;
 }

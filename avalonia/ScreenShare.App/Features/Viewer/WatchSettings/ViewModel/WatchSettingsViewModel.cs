@@ -47,6 +47,9 @@ public sealed class WatchSettingsViewModel : Observable
     /// </summary>
     private readonly Action _close;
 
+    /// <summary>One reset command per group key, kept so a pass produces an action equal to the last.</summary>
+    private readonly Dictionary<string, DelegateCommand> _reset = [];
+
     /// <param name="form">
     /// Draft this window holds, and where a write leaves through.
     /// The panel keeps no copy: the group renders what the session answers on each pass.
@@ -74,7 +77,7 @@ public sealed class WatchSettingsViewModel : Observable
         _close = close;
 
         // Renderer every wizard step goes through: a group is the same group whichever screen places it.
-        Group = new FieldGroupViewModel(_form.Write, sweep: _form.Sweeping);
+        Group = new FieldGroupViewModel(_form.Write, groupActionOf: ResetOf, sweep: _form.Sweeping);
 
         // Round trip the backend can refuse.
         // The command holds whether one is out, which the button waits on and which refuses a second press.
@@ -104,9 +107,41 @@ public sealed class WatchSettingsViewModel : Observable
     public DelegateCommand CloseCommand { get; }
 
     public string SaveTip =>
-        "Keeps these settings. A tile already on screen keeps the settings it was opened with, so a change reaches the next decode rather than the running one.";
+        "Keeps these settings. A tile already on screen keeps what it opened with, so a change reaches the next tile you open.";
 
     public string CloseTip => "Closes this panel. Anything not kept is left as it was.";
+
+    /// <summary>
+    /// The reset offered beside the heading, and the one place a staged group carries one.
+    /// The wizard's rule is that an applied group has no other way back, a staged one being a proposal a reader
+    /// walks away from (<c>Features/Setup/ViewModel/SetupViewModel.cs</c>).
+    /// This group is staged and keeps itself, so after a press on the commit walking away restores nothing
+    /// (<c>docs/settings-editing.md</c>, "Staged and applied").
+    ///
+    /// It writes the draft and stores nothing, which is what every control on this panel does.
+    /// The values are the form's, stated per field, so no default is named here.
+    ///
+    /// Composed per pass around the held command, so two passes produce actions that compare equal
+    /// (<see cref="GroupAction"/>).
+    /// </summary>
+    private GroupAction ResetOf(Api.V1.FieldGroup group) => new(
+        "Reset to defaults",
+        "Puts every setting here back to the value a fresh installation starts with. Press Keep these settings to store them.",
+        ResetCommandOf(group.Key));
+
+    private DelegateCommand ResetCommandOf(string key)
+    {
+        Assert.That(key.Length > 0, "a reset command is identified by the group it puts back");
+
+        if (_reset.TryGetValue(key, out var command))
+        {
+            return command;
+        }
+
+        command = new DelegateCommand(() => _form.Reset(key));
+        _reset[key] = command;
+        return command;
+    }
 
     /// <summary>Backend's sentence about the last save, empty where there is none.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
@@ -122,7 +157,7 @@ public sealed class WatchSettingsViewModel : Observable
     public bool IsUnkept { get => _isUnkept; private set => Set(ref _isUnkept, value); }
 
     public string UnkeptNotice =>
-        "These differ from the kept settings. A decode opens on the kept ones, so press Keep these settings for these to reach the next decode.";
+        "These differ from the kept settings. A new tile opens on the kept ones, so press Keep these settings for these to take effect.";
 
     /// <summary>
     /// The one render function.

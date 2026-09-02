@@ -292,6 +292,21 @@ message ViewerSettings {
   // and that is a property of the machine
   // (docs/viewer-architecture.md, "The receive package").
   string render_chain = 6;
+
+  // Which picture of this machine's own stream the broadcast preview draws:
+  // "off", "local" or "end-to-end"
+  // (docs/viewer-architecture.md, "What the broadcast preview draws").
+  //
+  // Here rather than with the publish because the end-to-end route is a relay client:
+  // it opens a decode of this machine's own stream over the leg above,
+  // takes a reader slot and pays a viewer's downstream bandwidth,
+  // where the local route reads a copy that never leaves the machine.
+  // A preset is a PublishSettings, so a saved way of publishing cannot move a window's picture.
+  //
+  // The card's toggle is the one control over it and stores what it writes,
+  // so a card opens on the route it was left on.
+  // A stored value no route carries is repaired as the file is read.
+  string preview_route = 7;
 }
 
 // AudioSource is one thing the second track is mixed from.

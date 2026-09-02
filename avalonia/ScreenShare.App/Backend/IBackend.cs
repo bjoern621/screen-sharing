@@ -54,6 +54,12 @@ public interface IBackend
     Task<Settings> SettingsAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// The build serving this connection, as the handshake answers it.
+    /// Empty until the handshake settles, which is what a window opening before a backend is up sees.
+    /// </summary>
+    Task<string> VersionAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Every fixed fact about this machine and the encoding model, as <c>GetCatalog</c> answers: which codecs
     /// exist and what each produces, what the screens are, what each transport carries.
     ///

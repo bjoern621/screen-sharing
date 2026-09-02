@@ -259,6 +259,21 @@ tasks:
     cmds:
       - bash scripts/package-linux.sh
 
+  package:flatpak:
+    desc: Build the Flatpak bundle into build/dist
+    # The channel for a distribution packaging neither ffmpeg nor a new enough GStreamer.
+    # It assembles what package:linux staged rather than compiling anything of its own,
+    # a flatpak-builder module having no network to restore NuGet packages over.
+    platforms: [linux]
+    deps: [package:linux]
+    cmds:
+      - flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+      - flatpak-builder --user --force-clean --repo=build/flatpak-repo build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
+      - flatpak build-bundle build/flatpak-repo build/dist/screen-sharing-{{.VERSION}}-x86_64.flatpak de.bjoernblessin.ScreenSharing
+    vars:
+      VERSION:
+        sh: cat VERSION
+
   package:windows:
     desc: Build the Windows release zip into build/dist
     platforms: [windows]

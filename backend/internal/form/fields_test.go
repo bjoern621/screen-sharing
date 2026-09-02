@@ -1334,3 +1334,35 @@ func entryValues(entries []*screensharev1.FieldOption) []string {
 	}
 	return out
 }
+
+// RTSP is the leg a tile is pointed at when nothing else decides:
+// it is the one watch protocol carrying every format this app publishes,
+// and the measured way back through the relay is an order of magnitude shorter than SRT's or HLS's.
+// One mark, a second being two answers to one question.
+func TestTheTileWatchRosterRecommendsRtsp(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	var marked []string
+	for _, entry := range optionTileWatchTransports(d, s) {
+		if entry.GetRecommended() {
+			marked = append(marked, entry.GetValue())
+		}
+	}
+
+	if want := []string{"rtsp"}; !slices.Equal(marked, want) {
+		t.Errorf("the tile watch roster recommends %v, want %v", marked, want)
+	}
+}
+
+// A fresh installation starts on the leg the roster marks, so the form recommends what it ships.
+// The two apart is a screen telling a reader to move off the value it handed them.
+func TestAFreshInstallationWatchesOnTheRecommendedLeg(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	for _, entry := range optionTileWatchTransports(d, s) {
+		if entry.GetRecommended() && entry.GetValue() != s.Viewer.TileWatchTransport {
+			t.Errorf("the roster recommends %q and a fresh installation watches over %q",
+				entry.GetValue(), s.Viewer.TileWatchTransport)
+		}
+	}
+}

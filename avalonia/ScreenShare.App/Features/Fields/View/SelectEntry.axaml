@@ -20,10 +20,19 @@
   <DataTemplate x:Key="SelectEntry" x:DataType="fields:OptionViewModel">
     <StackPanel MinWidth="260" MaxWidth="380" Spacing="2">
       <Grid ColumnDefinitions="Auto,*,Auto">
-        <TextBlock Grid.Column="0"
-                   Classes="ident"
-                   Text="{Binding Label}"
-                   VerticalAlignment="Center" />
+        <!--
+          The mark rides beside the name rather than in the note column, which carries what an entry
+          was derived from and is filled on the same rows.
+        -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Classes="ident"
+                     Text="{Binding Label}"
+                     VerticalAlignment="Center" />
+          <TextBlock Classes="mark"
+                     Text="Recommended"
+                     IsVisible="{Binding IsRecommended}"
+                     VerticalAlignment="Center" />
+        </StackPanel>
         <ti:TablerIcon Grid.Column="1"
                        Icon="IconCheck"
                        Brush="{StaticResource ForegroundBrush}"

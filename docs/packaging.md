@@ -227,12 +227,29 @@ Same model as Arch: declare the dependency, do not bundle.
 
 Distributions with no package here take the tarball `scripts/package-linux.sh` builds, which carries both binaries and the .NET runtime and takes ffmpeg and GStreamer from the distribution.
 
-### AppImage and Flatpak
+### Flatpak
 
-Neither format has a recipe here, so what follows is the model one would take.
-Both are self-contained, so ffmpeg goes inside the image next to the binary: the bundling side of the convention, with the obligations the Windows archive carries (`THIRD-PARTY-NOTICES.md`).
-A Flatpak captures through the portal, so it needs no capability and runs in the sandbox unmodified.
-The manifest requests the `ScreenCast` portal rather than raw DRM access.
+`packaging/flatpak/de.bjoernblessin.ScreenSharing.yml`, built by `task package:flatpak`.
+Self-contained, so it is the bundling side of the convention, with the obligations the Windows archive carries (`THIRD-PARTY-NOTICES.md`).
+
+The channel exists for the distributions the tarball leaves out.
+That artifact takes GStreamer from the machine and the backend links symbols 1.26 introduced, which is newer than the current Debian and Ubuntu long-term releases carry.
+
+Three sources make up what is inside it.
+`org.freedesktop.Platform` 25.08 carries GStreamer and the base plugin set.
+The `ffmpeg-full` extension carries the codecs the runtime leaves out, libx264 and libx265 among them, and GStreamer's `x264enc` with them.
+The manifest itself compiles ffmpeg and ffplay, which no extension ships: the extension's own ffmpeg is configured `--disable-programs` and is libraries alone.
+
+What the app is comes in already built.
+The shell is a self-contained .NET publish whose restore reaches NuGet, and a `flatpak-builder` module builds with no network, so `scripts/package-linux.sh` runs first and the manifest assembles what it staged.
+
+Capture goes through the portal, so the sandbox needs no capability.
+`kmsgrab` is unreachable from inside it and wants `CAP_SYS_ADMIN`, which is the whole reason the portal path exists.
+
+### AppImage
+
+No recipe here.
+The model is the Flatpak's without the runtime: ffmpeg goes inside the image next to the binary, and the same obligations follow it.
 
 ## Building on Windows
 

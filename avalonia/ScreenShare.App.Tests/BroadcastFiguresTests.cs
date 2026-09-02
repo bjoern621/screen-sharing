@@ -2,7 +2,6 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
-using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 using ScreenShare.App.Features.Broadcast.Plots.Model;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
@@ -281,26 +280,6 @@ public sealed class BroadcastFiguresTests
         var reading = BroadcastSnapshot.Of(Live(), Sample(4, 12), null);
 
         Assert.Equal("", reading.CongestionAt);
-    }
-
-    /// <summary>
-    /// The card offers no apply the backend has no effect for: the greying and the reason are both bound,
-    /// so the markup shows what the view model states.
-    /// Both sentences come off one table, so the card's words and its behaviour agree.
-    /// </summary>
-    [Fact]
-    public void TheNudgeCardNeverPromisesAnApplyTheBackendHasNoEffectFor()
-    {
-        var nudge = new NudgeViewModel
-        {
-            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 12), null),
-        };
-
-        Assert.False(nudge.IsEnabled);
-        Assert.NotEqual("", nudge.Reason);
-        Assert.NotEqual("", nudge.Caveat);
-        Assert.DoesNotContain("without a reconnect", nudge.Caveat);
-        Assert.Contains("restarts the stream", nudge.Reason);
     }
 
     /// <summary>

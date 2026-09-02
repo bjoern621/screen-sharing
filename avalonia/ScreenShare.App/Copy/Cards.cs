@@ -104,20 +104,6 @@ public static class Cards
     /// </summary>
     public const string PreviewOpening = "Opening a decode of this stream off the relay.";
 
-    /// <summary>
-    /// Caption beside the nudge card's title.
-    /// One claim with <see cref="NudgeInert"/>, side by side so neither promises a live-safe quality change.
-    /// </summary>
-    public const string NudgeCaveat = "quality changes take a restart";
-
-    /// <summary>
-    /// Why the nudge track takes no hand: both engines run a child built from an argv,
-    /// and neither takes a quality back, so no effect changes it without rebuilding the pipeline
-    /// (<c>docs/field-availability.md</c>, "The rule").
-    /// </summary>
-    public const string NudgeInert =
-        "Changing quality restarts the stream. Setup applies it, and says so before it does.";
-
     public const string ConfigReadOnly =
         "Read-only while live. Every setting here reaches a running stream by restarting it, "
         + "through setup's commit.";

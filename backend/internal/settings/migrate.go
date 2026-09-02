@@ -295,10 +295,18 @@ func migrateViewer(v, d Viewer) Viewer {
 	fillNum(&v.SrtWatchLatencyMs, d.SrtWatchLatencyMs)
 	fillNum(&v.RtspWatchLatencyMs, d.RtspWatchLatencyMs)
 	fillText(&v.RenderChain, d.RenderChain)
+	// The card draws one of three routes and has no reading for a fourth,
+	// so an empty key and a hand-edited one are repaired together:
+	// a file written before the toggle became a setting names none,
+	// and the file is the user's to edit.
+	// The local route is what those builds drew, and it costs no reader slot at the relay.
+	if !ValidPreviewRoute(v.PreviewRoute) {
+		v.PreviewRoute = d.PreviewRoute
+	}
 
-	assert.Assert(v.TileWatchTransport != "" && v.RenderChain != "",
-		"an upgraded viewer names a tile leg and a render chain",
-		v.TileWatchTransport, v.RenderChain)
+	assert.Assert(v.TileWatchTransport != "" && v.RenderChain != "" && ValidPreviewRoute(v.PreviewRoute),
+		"an upgraded viewer names a tile leg, a render chain and a preview route",
+		v.TileWatchTransport, v.RenderChain, v.PreviewRoute)
 	return v
 }
 

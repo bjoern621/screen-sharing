@@ -209,7 +209,7 @@ public static class Fields
 
         ["viewer.srt_watch_latency_ms"] = new(
             "Retransmit window, watching",
-            "The same window on the viewer's side, where most internet loss happens. It is delay the viewer sees. A distant viewer on a poor connection wants more, one on the local network wants less.",
+            "How long this machine waits for a lost packet to arrive again on the way back from the relay. Most loss happens on this leg. It is delay you see, so raise it on a distant or lossy connection and lower it on a local network. The relay enforces at least 120 ms, so anything lower is raised to that.",
             DocSrt),
 
         ["viewer.rtsp_watch_protocol"] = new(
@@ -219,7 +219,7 @@ public static class Fields
 
         ["viewer.tile_watch_transport"] = new(
             "How tiles watch",
-            "The protocol a tile in this window receives on. External players and browser pages are not set here. Right-click a stream to pick their protocol. A tile can take WebRTC, which no external player opens. A tile on HLS plays the picture without sound, because the relay serves the two separately."),
+            "The protocol a tile in this window receives on. A tile can take WebRTC, which no external player opens. A tile on HLS plays the picture without sound, because the relay serves the two separately. A stream the protocol cannot carry is refused when you open it, naming the ones that can."),
 
         ["viewer.rtsp_watch_latency_ms"] = new(
             "Reorder window, tiles",

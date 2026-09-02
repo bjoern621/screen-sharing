@@ -96,10 +96,10 @@ type Status struct {
 	// FromIndex marks a snapshot off the group service's index rather than the relay's own API, what
 	// a member gets on a relay that authenticates it (internal/app, groups.go).
 	//
-	// The two sources answer different amounts, not different truths: an index row names a stream and
-	// what it carries, and knows nothing of readers or rate.
-	// Those fields are zero here, so a reader that did not know would show "no viewers" for "not
-	// answered here".
+	// The two sources answer different amounts of one truth.
+	// An index row names a stream, what it carries, its ingest rate and how many are reading it.
+	// The roster behind that count stays at the service, so Roster is empty here
+	// while Readers is answered.
 	FromIndex bool `json:"fromIndex,omitempty"`
 }
 
