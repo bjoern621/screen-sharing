@@ -105,9 +105,14 @@ let
   gstPluginPath = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
 
   # The monitor enumerators, which are Linux session tools and have no counterpart elsewhere.
+  # pipewire carries pw-dump, which the audio device list subscribes to for the daemon's
+  # add and remove events (internal/audiodev).
+  # A closure without it enumerates nothing and every audio kind keeps its own default,
+  # which reads as a machine that plays no sound rather than as a missing tool.
   displayTools = lib.optionals stdenv.hostPlatform.isLinux [
     xrandr
     wlr-randr
+    pipewire
   ];
 
   # AMD and Intel ship these runtimes for x86_64 alone,
