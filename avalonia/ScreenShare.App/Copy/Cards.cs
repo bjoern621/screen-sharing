@@ -179,19 +179,15 @@ public static class Cards
         _ => "",
     };
 
-    public const string MembersJoin = "Join the group";
-
-    public const string MembersLeave = "Leave the group";
-
     /// <summary>
     /// What the member list says in place of rows.
-    /// One sentence per state, each leaving the reader a different thing to do: wait, join, or hand somebody the group key.
+    /// One sentence per state, each leaving the reader a different thing to do:
+    /// wait, set a group key, or hand somebody the one that is set.
     /// </summary>
     public const string MembersUnread = "Reading who is in this group.";
 
     public const string MembersOutside =
-        "This computer is outside the group. Joining lists it here beside everyone else, and lets the relay "
-        + "carry what it publishes.";
+        "This computer is not in a group. Set a group key and a name on the Relay step to join one.";
 
     public const string MembersNone = "Nobody is listed in this group.";
 

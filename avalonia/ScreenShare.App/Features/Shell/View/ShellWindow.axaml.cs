@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.ViewModel;
 
 namespace ScreenShare.App.Features.Shell.View;
 
@@ -38,6 +39,18 @@ public sealed partial class ShellWindow : Window
         // Tunnelling, so the press is seen on the way down and whatever it lands on still handles it.
         // A button pressed while a box holds the caret takes focus for itself straight afterwards.
         AddHandler(PointerPressedEvent, DropFocus, RoutingStrategies.Tunnel);
+
+        // What every screen arranges its columns against (ShellViewModel.Resize).
+        // A tiling desktop resizes a window that asked for nothing, so the width is read off the window on every
+        // change rather than taken from the size the app opened at.
+        // A pass before the first layout carries no width, and the shell is told about widths a window has.
+        SizeChanged += (_, change) =>
+        {
+            if (change.NewSize.Width > 0 && DataContext is ShellViewModel shell)
+            {
+                shell.Resize(change.NewSize.Width);
+            }
+        };
     }
 
     /// <summary>

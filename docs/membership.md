@@ -13,13 +13,15 @@ A member's own machine is therefore the one thing that has to run for them to be
 | --- | --- |
 | group key | 32 bytes friends share once, and the invite. Held in the settings. It never expires. |
 | group id | Public digest of the group key. Every path of the group is `<group id>/<name>`. |
-| member secret | 32 bytes the app draws for itself the first time it joins a group. Issued by nobody. |
+| member secret | 32 bytes the app draws for itself the first time its settings name a group. Issued by nobody. |
 | member id | Digest of the member secret under the group key. Subject of every relay access token, and what presence is stated over. |
 | display name | Label a member claimed in this group. The first claim holds. |
 | relay access token | Short-lived JWT the relay checks at the handshake. |
 
-Holding the group key is what lets somebody join.
-It buys relay access tokens and carries every statement of presence, so whoever holds one is a member from the moment their app says so.
+Holding the group key is being in the group.
+It buys relay access tokens and carries every statement of presence,
+so an app whose settings name a key and a name for this machine states presence under it from the next pass of the relay poll.
+There is nothing to press: a key pasted into the settings joins, and a key taken out leaves.
 
 A display name cannot be taken over.
 A member id derives from a secret nobody else holds.
@@ -92,10 +94,11 @@ Both are a member possibly still watching, so neither is folded into the count o
 
 ## Leaving
 
+A group key the settings stop naming is a group left, and the settings write is where it happens.
 `DELETE /members` releases the lease and reconciles, which closes what the leaver held.
-The app drops the identity file with it, so the secret goes and rejoining is a new member rather than the one that left.
+The app drops the identity file with it, so the secret goes and coming back to that key is a new member rather than the one that left.
 Both halves are idempotent: a member holding no lease answers `"released": false`, and a group with no identity file is already the state the call names.
-`LeaveGroup` on the control contract is that pair, and `JoinGroup` draws the identity and states the first presence over it.
+A service that would not answer the release leaves the lease to run out on its own, the settings having already moved this machine on.
 
 Nothing removes another member.
 A group is left by its own member, by a lease that stopped being refreshed, or by drawing a new group key.

@@ -47,8 +47,6 @@ const (
 	ControlService_SetReceiveAudio_FullMethodName        = "/screenshare.v1.ControlService/SetReceiveAudio"
 	ControlService_StartTestStreams_FullMethodName       = "/screenshare.v1.ControlService/StartTestStreams"
 	ControlService_StopTestStreams_FullMethodName        = "/screenshare.v1.ControlService/StopTestStreams"
-	ControlService_JoinGroup_FullMethodName              = "/screenshare.v1.ControlService/JoinGroup"
-	ControlService_LeaveGroup_FullMethodName             = "/screenshare.v1.ControlService/LeaveGroup"
 	ControlService_ProbeEncoders_FullMethodName          = "/screenshare.v1.ControlService/ProbeEncoders"
 	ControlService_MeasureUplink_FullMethodName          = "/screenshare.v1.ControlService/MeasureUplink"
 	ControlService_MeasureEncodeRate_FullMethodName      = "/screenshare.v1.ControlService/MeasureEncodeRate"
@@ -67,275 +65,271 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // The whole surface a shell may reach.
-// There is no second way in: no shared file the shell parses, no relay endpoint it calls
-// directly, no environment variable it reads to learn a port.
+// There is no second way in:
+// no shared file the shell parses, no relay endpoint it calls directly,
+// no environment variable it reads to learn a port.
 //
-// The methods divide into three kinds, and the division is the boundary rule
-// (docs/ipc-api.md):
+// The methods divide into three kinds,
+// and the division is the boundary rule (docs/ipc-api.md):
 //
-//	Reads    hand the shell something to draw. They compute, they change nothing, and
-//	         they are cheap enough to call on a keystroke or a mount.
-//	Effects  do the one thing the user asked for, and are the only methods that change
-//	         the world. The measurements are among them: probing the uplink, timing the
-//	         encoder and running the encoder probe each start real work, take seconds,
-//	         and leave behind something a later read sees.
+//	Reads    hand the shell something to draw.
+//	         They compute, they change nothing,
+//	         and they are cheap enough to call on a keystroke or a mount.
+//	Effects  do the one thing the user asked for,
+//	         and are the only methods that change the world.
+//	         The measurements are among them:
+//	         probing the uplink, timing the encoder, probing the encoders.
+//	         Each starts real work, takes seconds, and leaves a result a later read sees.
 //	Streams  carry what changed, for as long as the shell holds the call.
 //
-// A method that is neither a read nor one of the listed effects does not belong here, and a
-// shell that wants one is a shell about to hold state the backend owns.
+// A method that is neither a read nor one of the listed effects does not belong here,
+// and a shell that wants one is about to hold state the backend owns.
 type ControlServiceClient interface {
 	// First call on a connection.
-	// It settles which contract version both sides are on before any other method is reached,
+	// Settles which contract version both sides are on before any other method is reached,
 	// so a mismatch is stated rather than arriving as a field that is silently empty.
 	Hello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloResponse, error)
-	// Every fixed fact about this machine and the encoding model, as known now.
-	// It probes nothing: ProbeEncoders does that, and what it finds arrives here on the next
-	// call and on the event stream for every shell, including the ones that did not ask.
+	// Every fixed fact about this machine and the encoding model, as the backend holds them.
+	// Probes nothing.
+	// ProbeEncoders does, and what it finds arrives here on the next call
+	// and on the event stream for every shell, including the ones that did not ask.
 	GetCatalog(ctx context.Context, in *GetCatalogRequest, opts ...grpc.CallOption) (*GetCatalogResponse, error)
-	// The settings the backend holds: the starting draft for a form, and the values a fresh
-	// shell opens on.
+	// The settings the backend holds:
+	// the starting draft for a form, and the values a fresh shell opens on.
 	GetSettings(ctx context.Context, in *GetSettingsRequest, opts ...grpc.CallOption) (*GetSettingsResponse, error)
-	// Turns a settings draft into the complete description of the screen: every field, every
-	// option, every greying and its reason, the diagnostics and the derived figures.
+	// Turns a settings draft into the complete description of the screen:
+	// every field, every option, every greying and its reason,
+	// the diagnostics and the derived figures.
 	//
 	// No side effect, and safe to call on every keystroke.
-	// It reads what has been probed rather than probing, and it saves nothing: a resolve that
-	// wrote would make every intermediate keystroke a persisted setting.
+	// Reads what has been probed rather than probing, and saves nothing:
+	// a resolve that wrote would make every intermediate keystroke a persisted setting.
 	ResolveForm(ctx context.Context, in *ResolveFormRequest, opts ...grpc.CallOption) (*ResolveFormResponse, error)
 	// The user's saved configurations.
-	// The notice states why the store could not be read, in which case the empty list means
-	// nothing readable remained rather than nothing saved, and the difference is the user's to
-	// see.
+	// The notice states why the store could not be read,
+	// in which case the empty list means nothing readable remained rather than nothing saved,
+	// and the difference is the user's to see.
 	ListPresets(ctx context.Context, in *ListPresetsRequest, opts ...grpc.CallOption) (*ListPresetsResponse, error)
 	// Whether a stream is in force, and whether the held settings have moved off it.
-	// A shell reads it when it mounts and receives the same message on the event stream
-	// thereafter.
+	// A shell reads it when it mounts,
+	// and receives the same message on the event stream thereafter.
 	GetPublishState(ctx context.Context, in *GetPublishStateRequest, opts ...grpc.CallOption) (*PublishState, error)
 	// The latest relay snapshot.
-	// The backend polls the relay on its own interval, so several shells reading do not
-	// multiply the polling and the byte-delta bitrates stay computed against one steady
-	// interval.
+	// The backend polls the relay on its own interval,
+	// so several shells reading do not multiply the polling,
+	// and the byte-delta bitrates stay computed against one steady interval.
 	GetRelayStatus(ctx context.Context, in *GetRelayStatusRequest, opts ...grpc.CallOption) (*RelayStatus, error)
 	GetViewerState(ctx context.Context, in *GetViewerStateRequest, opts ...grpc.CallOption) (*ViewerState, error)
 	GetTestStreamState(ctx context.Context, in *GetTestStreamStateRequest, opts ...grpc.CallOption) (*TestStreamState, error)
 	// Who this machine shares a group with, as the presence loop last read it.
-	// A read and no membership call of its own: presence is stated on the loop that already polls
-	// the relay, and a shell asking would be a second thing deciding when this machine joins.
+	// A read and no membership call of its own:
+	// the group key and the display name in the settings are what put this machine in a group,
+	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(ctx context.Context, in *GetMembersStateRequest, opts ...grpc.CallOption) (*MembersState, error)
 	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
-	// A preview outlives the window that asked for it, exactly as a decode does, so a shell
-	// that crashed with screens being read leaves them running, and the next one closes what
-	// nothing is drawing.
+	// A preview outlives the window that asked for it, exactly as a decode does,
+	// so a shell that crashed with screens being read leaves them running,
+	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(ctx context.Context, in *GetMonitorPreviewStateRequest, opts ...grpc.CallOption) (*MonitorPreviewState, error)
 	// Persists the settings the shell holds.
-	// It does not touch a running stream: what reaches a live pipeline is asked for
-	// separately, by ApplyToStream, because both engines run a child built from an argv and
-	// neither takes a value back afterwards.
+	// Touches no running stream:
+	// what reaches a live pipeline is asked for separately, by ApplyToStream,
+	// because both engines run a child built from an argv,
+	// and neither takes a value back afterwards.
 	SaveSettings(ctx context.Context, in *SaveSettingsRequest, opts ...grpc.CallOption) (*SaveSettingsResponse, error)
 	// Replaces a same-named preset.
 	SavePreset(ctx context.Context, in *SavePresetRequest, opts ...grpc.CallOption) (*SavePresetResponse, error)
 	DeletePreset(ctx context.Context, in *DeletePresetRequest, opts ...grpc.CallOption) (*DeletePresetResponse, error)
 	// Persists the settings and starts the encoder on them.
-	// Refused while a stream is already in force, a retry backoff included, because that is a
-	// stream the user asked for and has not stopped.
+	// Refused while a stream is already in force, a retry backoff included,
+	// because that is a stream the user asked for and has not stopped.
 	StartPublish(ctx context.Context, in *StartPublishRequest, opts ...grpc.CallOption) (*StartPublishResponse, error)
-	// Restarts the running stream on new settings, which is how an edit reaches a live
-	// pipeline.
-	// A separate method from SaveSettings because the user's two intentions differ: keep this
-	// for next time, and put this on the air now.
+	// Restarts the running stream on new settings, which is how an edit reaches a live pipeline.
+	// A separate method from SaveSettings because the user's two intentions differ:
+	// keep this for next time, and put this on the air now.
 	//
-	// The command is rendered before anything is torn down, so a combination no engine can
-	// build refuses the call and leaves the stream running what it has.
-	// A launch that fails after the teardown leaves nothing publishing: the pipeline carrying
-	// the stream is gone by then, and there is no earlier one to return to.
+	// The command is rendered before anything is torn down,
+	// so a combination no engine can build refuses the call,
+	// and the stream goes on running what it has.
+	// A launch that fails after the teardown leaves nothing publishing:
+	// the pipeline carrying the stream is gone by then, and there is no earlier one to return to.
 	ApplyToStream(ctx context.Context, in *ApplyToStreamRequest, opts ...grpc.CallOption) (*ApplyToStreamResponse, error)
 	// Ends the stream, whether it is running or waiting out a backoff.
 	// A stop is the one answer the retry budget has no say in.
 	StopPublish(ctx context.Context, in *StopPublishRequest, opts ...grpc.CallOption) (*StopPublishResponse, error)
 	// Opens an external viewer for one stream over one transport.
-	// The transport is per viewer and independent of the publish leg, so one stream can be
-	// watched over any leg the relay serves it on.
-	// A leg that cannot carry the stream's format is refused with the format named, rather
-	// than opening a viewer that connects and receives nothing.
+	// The transport is per viewer and independent of the publish leg,
+	// so one stream can be watched over any leg the relay serves it on.
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a viewer that connects and receives nothing.
 	StartWatch(ctx context.Context, in *StartWatchRequest, opts ...grpc.CallOption) (*StartWatchResponse, error)
 	StopWatch(ctx context.Context, in *StopWatchRequest, opts ...grpc.CallOption) (*StopWatchResponse, error)
-	// Opens the relay's own player page for one stream in the machine's default browser, over
-	// one of the legs the relay serves a page for (Catalog.browser_watch_transports).
+	// Opens the relay's own player page for one stream in the machine's default browser,
+	// over one of the legs the relay serves a page for (Catalog.browser_watch_transports).
 	// A leg that cannot carry the stream's format is refused the way StartWatch refuses one.
 	//
-	// It opens a page and starts no viewer this process owns, which is the whole difference
-	// from StartWatch: nothing appears in ViewerState, and there is no stop.
-	// A tab belongs to the browser that owns it, and this backend can neither read whether it
-	// is still open nor close it, so it says nothing about either.
+	// It opens a page and starts no viewer this process owns,
+	// which is the whole difference from StartWatch:
+	// nothing appears in ViewerState, and there is no stop.
+	// A tab belongs to the browser that owns it,
+	// and this backend can neither read whether it is still open nor close it,
+	// so it says nothing about either.
 	//
-	// Repeating the call opens the page again, a departure from the idempotency the rest of
-	// this contract holds to (docs/development-principles.md).
-	// OpenLog and OpenLogsFolder depart the same way for the same reason: the effect lands in
-	// a program this one does not own, and there is no state to read back that would let a
-	// second call decide it had already happened.
+	// Repeating the call opens the page again,
+	// a departure from the idempotency elsewhere on this contract
+	// (docs/development-principles.md).
+	// OpenLog and OpenLogsFolder depart the same way for the same reason:
+	// the effect lands in a program this one does not own,
+	// and no state reads back to tell a second call that it had already happened.
 	OpenInBrowser(ctx context.Context, in *OpenInBrowserRequest, opts ...grpc.CallOption) (*OpenInBrowserResponse, error)
 	// Opens a decode for one stream on one leg, inside the backend.
-	// The tile path's counterpart of StartWatch, and the difference is where the frames end
-	// up: a watch opens a player window the backend does not draw in, a receive decodes into
-	// this process, from where the frame channel hands the frames to the shell
-	// (docs/viewer-architecture.md).
+	// The tile path's counterpart of StartWatch, and the difference is where the frames end up:
+	// a watch opens a player window the backend does not draw in,
+	// a receive decodes into this process,
+	// from where the frame channel hands the frames to the shell (docs/viewer-architecture.md).
 	//
-	// What it opens is a decode and not a tile.
-	// Where the frames are drawn, how large, beside which others and in what order is the
-	// shell's whole job.
+	// The shell's whole job is where the frames are drawn:
+	// how large, beside which others, in what order.
 	//
-	// A leg that cannot carry the stream's format is refused with the format named, rather
-	// than opening a pipeline that connects and decodes nothing.
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a pipeline that connects and decodes nothing.
 	StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error)
 	// A pair nothing is decoding succeeds and does nothing: the state it names already holds.
 	StopReceive(ctx context.Context, in *StopReceiveRequest, opts ...grpc.CallOption) (*StopReceiveResponse, error)
-	// Reads one of this machine's monitors into a picture the frame channel can hand over, so
-	// a screen is chosen by looking at it instead of by its number.
-	// Nothing is encoded and nothing is sent anywhere: the capture element feeds the render
-	// chain inside the backend, and the handles go to the shell.
+	// Reads one of this machine's monitors into a picture the frame channel can hand over,
+	// so a screen is chosen by looking at it instead of by its number.
+	// Nothing is encoded and nothing is sent anywhere:
+	// the capture element feeds the render chain inside the backend,
+	// and the handles go to the shell.
 	//
-	// An effect and not a flag on a read, by the test every method here is put to: it opens a
-	// screen capture that goes on running until something closes it, and what is running
-	// reaches every shell as MonitorPreviewState.
+	// An effect, on the test every method here is put to:
+	// it opens a screen capture that goes on running until something closes it,
+	// and what is running reaches every shell as MonitorPreviewState.
 	// The frame channel opens none of it, for the reason it opens no relay decode.
 	//
 	// Idempotent.
-	// A monitor already being previewed is the state this asks for, so a second call changes
-	// nothing and succeeds.
-	// A monitor no output is enumerated under is INVALID_ARGUMENT, and a machine whose session
-	// has no way to read one screen apart from another is FAILED_PRECONDITION, which a shell
-	// reads off Catalog.no_monitor_preview instead of discovering by asking.
+	// A monitor already being previewed is the state this asks for,
+	// so a second call changes nothing and succeeds.
+	// A monitor no output is enumerated under is INVALID_ARGUMENT.
+	// FAILED_PRECONDITION where the session has no way to read one screen apart from another,
+	// which a shell reads off Catalog.no_monitor_preview instead of discovering by asking.
 	StartMonitorPreview(ctx context.Context, in *StartMonitorPreviewRequest, opts ...grpc.CallOption) (*StartMonitorPreviewResponse, error)
-	// A monitor nothing is previewing succeeds and does nothing: the state it names already
-	// holds.
+	// A monitor nothing is previewing succeeds and does nothing: the state it names already holds.
 	StopMonitorPreview(ctx context.Context, in *StopMonitorPreviewRequest, opts ...grpc.CallOption) (*StopMonitorPreviewResponse, error)
 	// Sets how loud one decode plays, and whether it plays at all.
 	//
 	// An effect on the receiver rather than anything the frame channel carries.
-	// The audio branch ends in a sink of its own inside this process, because the backend runs
-	// on the machine the shell is on and carrying samples across the process boundary would be
-	// a longer way to the same output device (docs/viewer-architecture.md).
+	// The audio branch ends in a sink of its own inside this process
+	// (docs/viewer-architecture.md).
+	// The backend runs on the machine the shell is on,
+	// so carrying samples across the process boundary would be a longer way to the same device.
 	//
-	// The volume is a property of the decode and not of a window drawing it.
-	// Two windows on one decode share one audio branch, so a per-window volume would be two
-	// controls over one element, each showing a value the other had overwritten.
+	// Two windows on one decode share one audio branch,
+	// so a per-window volume would be two controls over one element,
+	// each showing a value the other had overwritten.
 	//
-	// Idempotent in both directions: a request for the loudness a decode already has succeeds
-	// and does nothing, and a volume set before the decoder has exposed an audio pad is held
-	// and applied when it does.
-	// A decode that does not exist is NOT_FOUND with the pair named, that being a request
-	// about something absent rather than a state that already holds.
+	// Idempotent in both directions:
+	// a request for the loudness a decode already has succeeds and does nothing,
+	// and a volume set before the decoder has exposed an audio pad is held until it does.
+	// A decode that does not exist is NOT_FOUND with the pair named,
+	// that being a request about something absent rather than a state that already holds.
 	SetReceiveAudio(ctx context.Context, in *SetReceiveAudioRequest, opts ...grpc.CallOption) (*SetReceiveAudioResponse, error)
-	// Launches synthetic publishers, which exercise the viewing paths without a screen
-	// capture.
+	// Launches synthetic publishers, which exercise the viewing paths without a screen capture.
 	// A running set is replaced.
 	StartTestStreams(ctx context.Context, in *StartTestStreamsRequest, opts ...grpc.CallOption) (*StartTestStreamsResponse, error)
 	StopTestStreams(ctx context.Context, in *StopTestStreamsRequest, opts ...grpc.CallOption) (*StopTestStreamsResponse, error)
-	// Joins the group the settings name, drawing this machine's member identity where it holds
-	// none and stating its presence at once.
-	// Idempotent: joining a group this machine is already in succeeds and draws nothing.
-	// A display name another member holds is INVALID_ARGUMENT naming the name, and a settings
-	// pair carrying no group key or no display name is FAILED_PRECONDITION.
-	JoinGroup(ctx context.Context, in *JoinGroupRequest, opts ...grpc.CallOption) (*JoinGroupResponse, error)
-	// Leaves the group, releasing this machine's presence and dropping the identity it held in
-	// it, which the relay answers by closing what this machine had open there.
-	// Idempotent: leaving a group this machine is not in succeeds and closes nothing.
-	LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*LeaveGroupResponse, error)
-	// Test-encodes on every engine and records what this machine can really run, so a form can
-	// grey NVENC on a machine with no NVIDIA GPU.
+	// Test-encodes on every engine and records what this machine can really run,
+	// so a form can grey NVENC on a machine with no NVIDIA GPU.
 	//
-	// An effect and not a flag on GetCatalog: it costs seconds on its first call and nothing
-	// afterwards, it replaces the result ResolveForm answers from, and the answer it lands
-	// reaches every shell on the event stream.
-	// A read carrying it meant one shell's request changed what a different shell's next
-	// resolve said, with nothing on the wire to announce it.
+	// An effect, on the test every method here is put to:
+	// it costs seconds on its first call and nothing afterwards,
+	// it replaces the result ResolveForm answers from,
+	// and the answer it lands reaches every shell on the event stream.
+	// A flag on GetCatalog would let one shell's request change another shell's next resolve,
+	// with nothing on the wire to announce it.
 	ProbeEncoders(ctx context.Context, in *ProbeEncodersRequest, opts ...grpc.CallOption) (*ProbeEncodersResponse, error)
-	// Probes this machine's real upload throughput, so a shell can replace the user's guessed
-	// uplink figure with a measured one.
+	// Probes this machine's real upload throughput,
+	// so a shell can replace the user's guessed uplink figure with a measured one.
 	//
-	// It and MeasureEncodeRate both run the real thing, take seconds, and are refused while a
-	// stream is publishing: one would compete with the stream for the line and the other with
-	// the encoder for the silicon.
+	// It and MeasureEncodeRate both run the real thing, take seconds,
+	// and are refused while a stream is publishing:
+	// one would compete with the stream for the line,
+	// and the other with the encoder for the silicon.
 	// The refusal is FAILED_PRECONDITION with that as the reason.
 	MeasureUplink(ctx context.Context, in *MeasureUplinkRequest, opts ...grpc.CallOption) (*MeasureUplinkResponse, error)
-	// Times the configured encoder on generated frames of the captured monitor's size, so a
-	// shell can say whether the target frame rate is above what this machine encodes at these
-	// settings.
+	// Times the configured encoder on generated frames of the captured monitor's size,
+	// so a shell can say whether the target frame rate is above what this machine reaches.
 	MeasureEncodeRate(ctx context.Context, in *MeasureEncodeRateRequest, opts ...grpc.CallOption) (*MeasureEncodeRateResponse, error)
 	// Dials every leg of the relay the draft names and answers what each listener said.
 	//
-	// An effect on the same test the measurements meet: it reaches the network, it takes seconds
-	// against a listener that is not there, and what it reports is a reading of the moment rather
-	// than a fact a later read answers from.
-	// Unlike them it competes with nothing, so a live stream does not refuse it: a handshake per
-	// leg is not a load on the line or on the encoder.
+	// An effect on the same test the measurements meet:
+	// it reaches the network, it takes seconds against a listener that is not there,
+	// and it reports a reading of the moment rather than a fact a later read answers from.
+	// Unlike them it competes with nothing, so a live stream does not refuse it:
+	// a handshake per leg is no load on the line or on the encoder.
 	//
-	// Each leg is dialled where the transport carrying it says its listener answers, so a check
-	// reaches what a stream reaches, and it is asked in its own protocol because an open socket
-	// proves nothing (backend/internal/reach, docs/network-architecture.md).
+	// Each leg is dialled where the transport carrying it says its listener answers,
+	// so a check reaches what a stream reaches,
+	// and it is asked in its own protocol because an open socket proves nothing
+	// (backend/internal/reach, docs/network-architecture.md).
 	CheckRelay(ctx context.Context, in *CheckRelayRequest, opts ...grpc.CallOption) (*CheckRelayResponse, error)
-	// Drops the stored screen-capture consent, so the next capture asks the compositor to pick
-	// again.
-	// It is how a share aimed at the wrong window or monitor is corrected.
+	// Drops the stored screen-capture consent,
+	// so the next capture asks the compositor to pick again.
+	// How a share aimed at the wrong window or monitor is corrected.
 	ForgetPortalConsent(ctx context.Context, in *ForgetPortalConsentRequest, opts ...grpc.CallOption) (*ForgetPortalConsentResponse, error)
 	// Draws a group key at the relay's group service and answers it, without storing it.
 	//
-	// A call and not a side effect of publishing: possession of the key is membership, so a key
-	// this app minted on its own would put a stream in a group nobody else can reach and say so
-	// only afterwards.
+	// A call of its own, because possession of the key is membership:
+	// a key minted as a side effect of publishing would put a stream in a group nobody reaches,
+	// and say so only afterwards.
 	// The shell shows what came back and writes it to the settings field like any other value,
 	// which keeps the one write that changes a machine's group in the same place as every other.
 	CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error)
-	// OpenLog opens one run log in the machine's default application, OpenLogsFolder the
-	// directory holding them.
-	// They are backend methods because the files are the backend's: it writes them, it rotates
-	// them, and it is the only side that knows which of them still exist under the name it
-	// handed out.
+	// OpenLog opens one run log in the machine's default application,
+	// OpenLogsFolder the directory holding them.
+	// Backend methods because the files are the backend's:
+	// it writes them, it rotates them,
+	// and it is the only side that knows which still exist under the name it handed out.
 	OpenLog(ctx context.Context, in *OpenLogRequest, opts ...grpc.CallOption) (*OpenLogResponse, error)
 	OpenLogsFolder(ctx context.Context, in *OpenLogsFolderRequest, opts ...grpc.CallOption) (*OpenLogsFolderResponse, error)
 	// Delivers what changed, for as long as the shell holds the call.
-	// events.proto states why every event carries a whole state, and why a shell that acted
-	// still waits for the event.
+	// events.proto states why every event carries a whole state,
+	// and why a shell that acted still waits for the event.
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
-	// Delivers how loud every decode is, on a fixed cadence, for as long as the shell holds
-	// the call.
+	// Delivers how loud every decode is, on a fixed cadence,
+	// for as long as the shell holds the call.
 	//
 	// A stream of its own rather than an event kind, and the difference is cadence.
 	// Subscribe carries whole states when something changed, and a level changes continuously:
-	// folding it in would push the receive state at metering rate and make every consumer of
-	// that state re-render for a number none of them read.
+	// folding it in would push the receive state at metering rate,
+	// and make every consumer of that state re-render for a number none of them read.
 	//
-	// A read and not an effect, so it belongs on this service rather than on the frame
-	// channel.
-	// That channel carries frames alone, and a level is not one; being frequent is not what
-	// put it there.
+	// A read, so it belongs on this service rather than on the frame channel.
+	// That channel carries frames alone, and a level is not one.
+	// Frequency alone is no reason to leave this service.
 	//
-	// One call covers every decode, so a tile appearing needs no second subscription and a
-	// tile leaving needs no cancellation.
-	// Each tick is the whole set: a decode with no audio track has no entry, and one that is
-	// silent has an entry reading negative infinity.
-	// The backend coalesces to the newest tick, so a reader that fell behind receives the
-	// present rather than a queue of the past.
+	// One call covers every decode,
+	// so a tile appearing needs no second subscription and a tile leaving needs no cancellation.
+	// Each tick is the whole set:
+	// a decode with no audio track has no entry, and a silent one reads negative infinity.
+	// The backend coalesces to the newest tick,
+	// so a reader that fell behind receives the present rather than a queue of the past.
 	SubscribeAudioLevels(ctx context.Context, in *SubscribeAudioLevelsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AudioLevels], error)
-	// Delivers where the publishing machine's pointer is, for as long as the shell holds the
-	// call.
+	// Delivers where the publishing machine's pointer is,
+	// for as long as the shell holds the call.
 	//
-	// A stream of its own for the reason the levels are one, and one degree more so: the whole
-	// point of sending a position instead of drawing it into the picture is that it costs no
-	// frame, so it moves at its own rate rather than the stream's.
-	// A 240 Hz pointer over a 30 fps stream is the win, and folding it into Subscribe would
-	// push the publish state at that rate for a figure nothing else reads.
-	//
-	// Each message carries the moment it was read, so a viewer can hold it back to the frame
-	// it belongs to.
-	// Whether to is the viewer's: a pointer that leads the picture is what a viewer with no
-	// delay budget wants and what one watching a recording does not.
+	// A stream of its own for the reason the levels are one, and one degree more so:
+	// sending a position instead of drawing it into the picture costs no frame,
+	// so it moves at its own rate rather than the stream's.
+	// A 240 Hz pointer over a 30 fps stream is the win,
+	// and folding it into Subscribe would push the publish state at that rate,
+	// for a figure nothing else reads.
 	//
 	// It carries positions only while a publish whose cursor mode is metadata is running.
-	// Any other mode draws the pointer into the frames or leaves it out, and the stream stays
-	// open and silent rather than being refused, since a shell subscribes once and the mode
-	// may change under it.
+	// Any other mode draws the pointer into the frames or leaves it out,
+	// and the stream stays open and silent rather than being refused,
+	// since a shell subscribes once and the mode may change under it.
 	SubscribePointer(ctx context.Context, in *SubscribePointerRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PointerPosition], error)
 }
 
@@ -627,26 +621,6 @@ func (c *controlServiceClient) StopTestStreams(ctx context.Context, in *StopTest
 	return out, nil
 }
 
-func (c *controlServiceClient) JoinGroup(ctx context.Context, in *JoinGroupRequest, opts ...grpc.CallOption) (*JoinGroupResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(JoinGroupResponse)
-	err := c.cc.Invoke(ctx, ControlService_JoinGroup_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *controlServiceClient) LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*LeaveGroupResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LeaveGroupResponse)
-	err := c.cc.Invoke(ctx, ControlService_LeaveGroup_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *controlServiceClient) ProbeEncoders(ctx context.Context, in *ProbeEncodersRequest, opts ...grpc.CallOption) (*ProbeEncodersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ProbeEncodersResponse)
@@ -789,275 +763,271 @@ type ControlService_SubscribePointerClient = grpc.ServerStreamingClient[PointerP
 // for forward compatibility.
 //
 // The whole surface a shell may reach.
-// There is no second way in: no shared file the shell parses, no relay endpoint it calls
-// directly, no environment variable it reads to learn a port.
+// There is no second way in:
+// no shared file the shell parses, no relay endpoint it calls directly,
+// no environment variable it reads to learn a port.
 //
-// The methods divide into three kinds, and the division is the boundary rule
-// (docs/ipc-api.md):
+// The methods divide into three kinds,
+// and the division is the boundary rule (docs/ipc-api.md):
 //
-//	Reads    hand the shell something to draw. They compute, they change nothing, and
-//	         they are cheap enough to call on a keystroke or a mount.
-//	Effects  do the one thing the user asked for, and are the only methods that change
-//	         the world. The measurements are among them: probing the uplink, timing the
-//	         encoder and running the encoder probe each start real work, take seconds,
-//	         and leave behind something a later read sees.
+//	Reads    hand the shell something to draw.
+//	         They compute, they change nothing,
+//	         and they are cheap enough to call on a keystroke or a mount.
+//	Effects  do the one thing the user asked for,
+//	         and are the only methods that change the world.
+//	         The measurements are among them:
+//	         probing the uplink, timing the encoder, probing the encoders.
+//	         Each starts real work, takes seconds, and leaves a result a later read sees.
 //	Streams  carry what changed, for as long as the shell holds the call.
 //
-// A method that is neither a read nor one of the listed effects does not belong here, and a
-// shell that wants one is a shell about to hold state the backend owns.
+// A method that is neither a read nor one of the listed effects does not belong here,
+// and a shell that wants one is about to hold state the backend owns.
 type ControlServiceServer interface {
 	// First call on a connection.
-	// It settles which contract version both sides are on before any other method is reached,
+	// Settles which contract version both sides are on before any other method is reached,
 	// so a mismatch is stated rather than arriving as a field that is silently empty.
 	Hello(context.Context, *HelloRequest) (*HelloResponse, error)
-	// Every fixed fact about this machine and the encoding model, as known now.
-	// It probes nothing: ProbeEncoders does that, and what it finds arrives here on the next
-	// call and on the event stream for every shell, including the ones that did not ask.
+	// Every fixed fact about this machine and the encoding model, as the backend holds them.
+	// Probes nothing.
+	// ProbeEncoders does, and what it finds arrives here on the next call
+	// and on the event stream for every shell, including the ones that did not ask.
 	GetCatalog(context.Context, *GetCatalogRequest) (*GetCatalogResponse, error)
-	// The settings the backend holds: the starting draft for a form, and the values a fresh
-	// shell opens on.
+	// The settings the backend holds:
+	// the starting draft for a form, and the values a fresh shell opens on.
 	GetSettings(context.Context, *GetSettingsRequest) (*GetSettingsResponse, error)
-	// Turns a settings draft into the complete description of the screen: every field, every
-	// option, every greying and its reason, the diagnostics and the derived figures.
+	// Turns a settings draft into the complete description of the screen:
+	// every field, every option, every greying and its reason,
+	// the diagnostics and the derived figures.
 	//
 	// No side effect, and safe to call on every keystroke.
-	// It reads what has been probed rather than probing, and it saves nothing: a resolve that
-	// wrote would make every intermediate keystroke a persisted setting.
+	// Reads what has been probed rather than probing, and saves nothing:
+	// a resolve that wrote would make every intermediate keystroke a persisted setting.
 	ResolveForm(context.Context, *ResolveFormRequest) (*ResolveFormResponse, error)
 	// The user's saved configurations.
-	// The notice states why the store could not be read, in which case the empty list means
-	// nothing readable remained rather than nothing saved, and the difference is the user's to
-	// see.
+	// The notice states why the store could not be read,
+	// in which case the empty list means nothing readable remained rather than nothing saved,
+	// and the difference is the user's to see.
 	ListPresets(context.Context, *ListPresetsRequest) (*ListPresetsResponse, error)
 	// Whether a stream is in force, and whether the held settings have moved off it.
-	// A shell reads it when it mounts and receives the same message on the event stream
-	// thereafter.
+	// A shell reads it when it mounts,
+	// and receives the same message on the event stream thereafter.
 	GetPublishState(context.Context, *GetPublishStateRequest) (*PublishState, error)
 	// The latest relay snapshot.
-	// The backend polls the relay on its own interval, so several shells reading do not
-	// multiply the polling and the byte-delta bitrates stay computed against one steady
-	// interval.
+	// The backend polls the relay on its own interval,
+	// so several shells reading do not multiply the polling,
+	// and the byte-delta bitrates stay computed against one steady interval.
 	GetRelayStatus(context.Context, *GetRelayStatusRequest) (*RelayStatus, error)
 	GetViewerState(context.Context, *GetViewerStateRequest) (*ViewerState, error)
 	GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error)
 	// Who this machine shares a group with, as the presence loop last read it.
-	// A read and no membership call of its own: presence is stated on the loop that already polls
-	// the relay, and a shell asking would be a second thing deciding when this machine joins.
+	// A read and no membership call of its own:
+	// the group key and the display name in the settings are what put this machine in a group,
+	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error)
 	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
-	// A preview outlives the window that asked for it, exactly as a decode does, so a shell
-	// that crashed with screens being read leaves them running, and the next one closes what
-	// nothing is drawing.
+	// A preview outlives the window that asked for it, exactly as a decode does,
+	// so a shell that crashed with screens being read leaves them running,
+	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error)
 	// Persists the settings the shell holds.
-	// It does not touch a running stream: what reaches a live pipeline is asked for
-	// separately, by ApplyToStream, because both engines run a child built from an argv and
-	// neither takes a value back afterwards.
+	// Touches no running stream:
+	// what reaches a live pipeline is asked for separately, by ApplyToStream,
+	// because both engines run a child built from an argv,
+	// and neither takes a value back afterwards.
 	SaveSettings(context.Context, *SaveSettingsRequest) (*SaveSettingsResponse, error)
 	// Replaces a same-named preset.
 	SavePreset(context.Context, *SavePresetRequest) (*SavePresetResponse, error)
 	DeletePreset(context.Context, *DeletePresetRequest) (*DeletePresetResponse, error)
 	// Persists the settings and starts the encoder on them.
-	// Refused while a stream is already in force, a retry backoff included, because that is a
-	// stream the user asked for and has not stopped.
+	// Refused while a stream is already in force, a retry backoff included,
+	// because that is a stream the user asked for and has not stopped.
 	StartPublish(context.Context, *StartPublishRequest) (*StartPublishResponse, error)
-	// Restarts the running stream on new settings, which is how an edit reaches a live
-	// pipeline.
-	// A separate method from SaveSettings because the user's two intentions differ: keep this
-	// for next time, and put this on the air now.
+	// Restarts the running stream on new settings, which is how an edit reaches a live pipeline.
+	// A separate method from SaveSettings because the user's two intentions differ:
+	// keep this for next time, and put this on the air now.
 	//
-	// The command is rendered before anything is torn down, so a combination no engine can
-	// build refuses the call and leaves the stream running what it has.
-	// A launch that fails after the teardown leaves nothing publishing: the pipeline carrying
-	// the stream is gone by then, and there is no earlier one to return to.
+	// The command is rendered before anything is torn down,
+	// so a combination no engine can build refuses the call,
+	// and the stream goes on running what it has.
+	// A launch that fails after the teardown leaves nothing publishing:
+	// the pipeline carrying the stream is gone by then, and there is no earlier one to return to.
 	ApplyToStream(context.Context, *ApplyToStreamRequest) (*ApplyToStreamResponse, error)
 	// Ends the stream, whether it is running or waiting out a backoff.
 	// A stop is the one answer the retry budget has no say in.
 	StopPublish(context.Context, *StopPublishRequest) (*StopPublishResponse, error)
 	// Opens an external viewer for one stream over one transport.
-	// The transport is per viewer and independent of the publish leg, so one stream can be
-	// watched over any leg the relay serves it on.
-	// A leg that cannot carry the stream's format is refused with the format named, rather
-	// than opening a viewer that connects and receives nothing.
+	// The transport is per viewer and independent of the publish leg,
+	// so one stream can be watched over any leg the relay serves it on.
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a viewer that connects and receives nothing.
 	StartWatch(context.Context, *StartWatchRequest) (*StartWatchResponse, error)
 	StopWatch(context.Context, *StopWatchRequest) (*StopWatchResponse, error)
-	// Opens the relay's own player page for one stream in the machine's default browser, over
-	// one of the legs the relay serves a page for (Catalog.browser_watch_transports).
+	// Opens the relay's own player page for one stream in the machine's default browser,
+	// over one of the legs the relay serves a page for (Catalog.browser_watch_transports).
 	// A leg that cannot carry the stream's format is refused the way StartWatch refuses one.
 	//
-	// It opens a page and starts no viewer this process owns, which is the whole difference
-	// from StartWatch: nothing appears in ViewerState, and there is no stop.
-	// A tab belongs to the browser that owns it, and this backend can neither read whether it
-	// is still open nor close it, so it says nothing about either.
+	// It opens a page and starts no viewer this process owns,
+	// which is the whole difference from StartWatch:
+	// nothing appears in ViewerState, and there is no stop.
+	// A tab belongs to the browser that owns it,
+	// and this backend can neither read whether it is still open nor close it,
+	// so it says nothing about either.
 	//
-	// Repeating the call opens the page again, a departure from the idempotency the rest of
-	// this contract holds to (docs/development-principles.md).
-	// OpenLog and OpenLogsFolder depart the same way for the same reason: the effect lands in
-	// a program this one does not own, and there is no state to read back that would let a
-	// second call decide it had already happened.
+	// Repeating the call opens the page again,
+	// a departure from the idempotency elsewhere on this contract
+	// (docs/development-principles.md).
+	// OpenLog and OpenLogsFolder depart the same way for the same reason:
+	// the effect lands in a program this one does not own,
+	// and no state reads back to tell a second call that it had already happened.
 	OpenInBrowser(context.Context, *OpenInBrowserRequest) (*OpenInBrowserResponse, error)
 	// Opens a decode for one stream on one leg, inside the backend.
-	// The tile path's counterpart of StartWatch, and the difference is where the frames end
-	// up: a watch opens a player window the backend does not draw in, a receive decodes into
-	// this process, from where the frame channel hands the frames to the shell
-	// (docs/viewer-architecture.md).
+	// The tile path's counterpart of StartWatch, and the difference is where the frames end up:
+	// a watch opens a player window the backend does not draw in,
+	// a receive decodes into this process,
+	// from where the frame channel hands the frames to the shell (docs/viewer-architecture.md).
 	//
-	// What it opens is a decode and not a tile.
-	// Where the frames are drawn, how large, beside which others and in what order is the
-	// shell's whole job.
+	// The shell's whole job is where the frames are drawn:
+	// how large, beside which others, in what order.
 	//
-	// A leg that cannot carry the stream's format is refused with the format named, rather
-	// than opening a pipeline that connects and decodes nothing.
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a pipeline that connects and decodes nothing.
 	StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error)
 	// A pair nothing is decoding succeeds and does nothing: the state it names already holds.
 	StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error)
-	// Reads one of this machine's monitors into a picture the frame channel can hand over, so
-	// a screen is chosen by looking at it instead of by its number.
-	// Nothing is encoded and nothing is sent anywhere: the capture element feeds the render
-	// chain inside the backend, and the handles go to the shell.
+	// Reads one of this machine's monitors into a picture the frame channel can hand over,
+	// so a screen is chosen by looking at it instead of by its number.
+	// Nothing is encoded and nothing is sent anywhere:
+	// the capture element feeds the render chain inside the backend,
+	// and the handles go to the shell.
 	//
-	// An effect and not a flag on a read, by the test every method here is put to: it opens a
-	// screen capture that goes on running until something closes it, and what is running
-	// reaches every shell as MonitorPreviewState.
+	// An effect, on the test every method here is put to:
+	// it opens a screen capture that goes on running until something closes it,
+	// and what is running reaches every shell as MonitorPreviewState.
 	// The frame channel opens none of it, for the reason it opens no relay decode.
 	//
 	// Idempotent.
-	// A monitor already being previewed is the state this asks for, so a second call changes
-	// nothing and succeeds.
-	// A monitor no output is enumerated under is INVALID_ARGUMENT, and a machine whose session
-	// has no way to read one screen apart from another is FAILED_PRECONDITION, which a shell
-	// reads off Catalog.no_monitor_preview instead of discovering by asking.
+	// A monitor already being previewed is the state this asks for,
+	// so a second call changes nothing and succeeds.
+	// A monitor no output is enumerated under is INVALID_ARGUMENT.
+	// FAILED_PRECONDITION where the session has no way to read one screen apart from another,
+	// which a shell reads off Catalog.no_monitor_preview instead of discovering by asking.
 	StartMonitorPreview(context.Context, *StartMonitorPreviewRequest) (*StartMonitorPreviewResponse, error)
-	// A monitor nothing is previewing succeeds and does nothing: the state it names already
-	// holds.
+	// A monitor nothing is previewing succeeds and does nothing: the state it names already holds.
 	StopMonitorPreview(context.Context, *StopMonitorPreviewRequest) (*StopMonitorPreviewResponse, error)
 	// Sets how loud one decode plays, and whether it plays at all.
 	//
 	// An effect on the receiver rather than anything the frame channel carries.
-	// The audio branch ends in a sink of its own inside this process, because the backend runs
-	// on the machine the shell is on and carrying samples across the process boundary would be
-	// a longer way to the same output device (docs/viewer-architecture.md).
+	// The audio branch ends in a sink of its own inside this process
+	// (docs/viewer-architecture.md).
+	// The backend runs on the machine the shell is on,
+	// so carrying samples across the process boundary would be a longer way to the same device.
 	//
-	// The volume is a property of the decode and not of a window drawing it.
-	// Two windows on one decode share one audio branch, so a per-window volume would be two
-	// controls over one element, each showing a value the other had overwritten.
+	// Two windows on one decode share one audio branch,
+	// so a per-window volume would be two controls over one element,
+	// each showing a value the other had overwritten.
 	//
-	// Idempotent in both directions: a request for the loudness a decode already has succeeds
-	// and does nothing, and a volume set before the decoder has exposed an audio pad is held
-	// and applied when it does.
-	// A decode that does not exist is NOT_FOUND with the pair named, that being a request
-	// about something absent rather than a state that already holds.
+	// Idempotent in both directions:
+	// a request for the loudness a decode already has succeeds and does nothing,
+	// and a volume set before the decoder has exposed an audio pad is held until it does.
+	// A decode that does not exist is NOT_FOUND with the pair named,
+	// that being a request about something absent rather than a state that already holds.
 	SetReceiveAudio(context.Context, *SetReceiveAudioRequest) (*SetReceiveAudioResponse, error)
-	// Launches synthetic publishers, which exercise the viewing paths without a screen
-	// capture.
+	// Launches synthetic publishers, which exercise the viewing paths without a screen capture.
 	// A running set is replaced.
 	StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error)
 	StopTestStreams(context.Context, *StopTestStreamsRequest) (*StopTestStreamsResponse, error)
-	// Joins the group the settings name, drawing this machine's member identity where it holds
-	// none and stating its presence at once.
-	// Idempotent: joining a group this machine is already in succeeds and draws nothing.
-	// A display name another member holds is INVALID_ARGUMENT naming the name, and a settings
-	// pair carrying no group key or no display name is FAILED_PRECONDITION.
-	JoinGroup(context.Context, *JoinGroupRequest) (*JoinGroupResponse, error)
-	// Leaves the group, releasing this machine's presence and dropping the identity it held in
-	// it, which the relay answers by closing what this machine had open there.
-	// Idempotent: leaving a group this machine is not in succeeds and closes nothing.
-	LeaveGroup(context.Context, *LeaveGroupRequest) (*LeaveGroupResponse, error)
-	// Test-encodes on every engine and records what this machine can really run, so a form can
-	// grey NVENC on a machine with no NVIDIA GPU.
+	// Test-encodes on every engine and records what this machine can really run,
+	// so a form can grey NVENC on a machine with no NVIDIA GPU.
 	//
-	// An effect and not a flag on GetCatalog: it costs seconds on its first call and nothing
-	// afterwards, it replaces the result ResolveForm answers from, and the answer it lands
-	// reaches every shell on the event stream.
-	// A read carrying it meant one shell's request changed what a different shell's next
-	// resolve said, with nothing on the wire to announce it.
+	// An effect, on the test every method here is put to:
+	// it costs seconds on its first call and nothing afterwards,
+	// it replaces the result ResolveForm answers from,
+	// and the answer it lands reaches every shell on the event stream.
+	// A flag on GetCatalog would let one shell's request change another shell's next resolve,
+	// with nothing on the wire to announce it.
 	ProbeEncoders(context.Context, *ProbeEncodersRequest) (*ProbeEncodersResponse, error)
-	// Probes this machine's real upload throughput, so a shell can replace the user's guessed
-	// uplink figure with a measured one.
+	// Probes this machine's real upload throughput,
+	// so a shell can replace the user's guessed uplink figure with a measured one.
 	//
-	// It and MeasureEncodeRate both run the real thing, take seconds, and are refused while a
-	// stream is publishing: one would compete with the stream for the line and the other with
-	// the encoder for the silicon.
+	// It and MeasureEncodeRate both run the real thing, take seconds,
+	// and are refused while a stream is publishing:
+	// one would compete with the stream for the line,
+	// and the other with the encoder for the silicon.
 	// The refusal is FAILED_PRECONDITION with that as the reason.
 	MeasureUplink(context.Context, *MeasureUplinkRequest) (*MeasureUplinkResponse, error)
-	// Times the configured encoder on generated frames of the captured monitor's size, so a
-	// shell can say whether the target frame rate is above what this machine encodes at these
-	// settings.
+	// Times the configured encoder on generated frames of the captured monitor's size,
+	// so a shell can say whether the target frame rate is above what this machine reaches.
 	MeasureEncodeRate(context.Context, *MeasureEncodeRateRequest) (*MeasureEncodeRateResponse, error)
 	// Dials every leg of the relay the draft names and answers what each listener said.
 	//
-	// An effect on the same test the measurements meet: it reaches the network, it takes seconds
-	// against a listener that is not there, and what it reports is a reading of the moment rather
-	// than a fact a later read answers from.
-	// Unlike them it competes with nothing, so a live stream does not refuse it: a handshake per
-	// leg is not a load on the line or on the encoder.
+	// An effect on the same test the measurements meet:
+	// it reaches the network, it takes seconds against a listener that is not there,
+	// and it reports a reading of the moment rather than a fact a later read answers from.
+	// Unlike them it competes with nothing, so a live stream does not refuse it:
+	// a handshake per leg is no load on the line or on the encoder.
 	//
-	// Each leg is dialled where the transport carrying it says its listener answers, so a check
-	// reaches what a stream reaches, and it is asked in its own protocol because an open socket
-	// proves nothing (backend/internal/reach, docs/network-architecture.md).
+	// Each leg is dialled where the transport carrying it says its listener answers,
+	// so a check reaches what a stream reaches,
+	// and it is asked in its own protocol because an open socket proves nothing
+	// (backend/internal/reach, docs/network-architecture.md).
 	CheckRelay(context.Context, *CheckRelayRequest) (*CheckRelayResponse, error)
-	// Drops the stored screen-capture consent, so the next capture asks the compositor to pick
-	// again.
-	// It is how a share aimed at the wrong window or monitor is corrected.
+	// Drops the stored screen-capture consent,
+	// so the next capture asks the compositor to pick again.
+	// How a share aimed at the wrong window or monitor is corrected.
 	ForgetPortalConsent(context.Context, *ForgetPortalConsentRequest) (*ForgetPortalConsentResponse, error)
 	// Draws a group key at the relay's group service and answers it, without storing it.
 	//
-	// A call and not a side effect of publishing: possession of the key is membership, so a key
-	// this app minted on its own would put a stream in a group nobody else can reach and say so
-	// only afterwards.
+	// A call of its own, because possession of the key is membership:
+	// a key minted as a side effect of publishing would put a stream in a group nobody reaches,
+	// and say so only afterwards.
 	// The shell shows what came back and writes it to the settings field like any other value,
 	// which keeps the one write that changes a machine's group in the same place as every other.
 	CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error)
-	// OpenLog opens one run log in the machine's default application, OpenLogsFolder the
-	// directory holding them.
-	// They are backend methods because the files are the backend's: it writes them, it rotates
-	// them, and it is the only side that knows which of them still exist under the name it
-	// handed out.
+	// OpenLog opens one run log in the machine's default application,
+	// OpenLogsFolder the directory holding them.
+	// Backend methods because the files are the backend's:
+	// it writes them, it rotates them,
+	// and it is the only side that knows which still exist under the name it handed out.
 	OpenLog(context.Context, *OpenLogRequest) (*OpenLogResponse, error)
 	OpenLogsFolder(context.Context, *OpenLogsFolderRequest) (*OpenLogsFolderResponse, error)
 	// Delivers what changed, for as long as the shell holds the call.
-	// events.proto states why every event carries a whole state, and why a shell that acted
-	// still waits for the event.
+	// events.proto states why every event carries a whole state,
+	// and why a shell that acted still waits for the event.
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
-	// Delivers how loud every decode is, on a fixed cadence, for as long as the shell holds
-	// the call.
+	// Delivers how loud every decode is, on a fixed cadence,
+	// for as long as the shell holds the call.
 	//
 	// A stream of its own rather than an event kind, and the difference is cadence.
 	// Subscribe carries whole states when something changed, and a level changes continuously:
-	// folding it in would push the receive state at metering rate and make every consumer of
-	// that state re-render for a number none of them read.
+	// folding it in would push the receive state at metering rate,
+	// and make every consumer of that state re-render for a number none of them read.
 	//
-	// A read and not an effect, so it belongs on this service rather than on the frame
-	// channel.
-	// That channel carries frames alone, and a level is not one; being frequent is not what
-	// put it there.
+	// A read, so it belongs on this service rather than on the frame channel.
+	// That channel carries frames alone, and a level is not one.
+	// Frequency alone is no reason to leave this service.
 	//
-	// One call covers every decode, so a tile appearing needs no second subscription and a
-	// tile leaving needs no cancellation.
-	// Each tick is the whole set: a decode with no audio track has no entry, and one that is
-	// silent has an entry reading negative infinity.
-	// The backend coalesces to the newest tick, so a reader that fell behind receives the
-	// present rather than a queue of the past.
+	// One call covers every decode,
+	// so a tile appearing needs no second subscription and a tile leaving needs no cancellation.
+	// Each tick is the whole set:
+	// a decode with no audio track has no entry, and a silent one reads negative infinity.
+	// The backend coalesces to the newest tick,
+	// so a reader that fell behind receives the present rather than a queue of the past.
 	SubscribeAudioLevels(*SubscribeAudioLevelsRequest, grpc.ServerStreamingServer[AudioLevels]) error
-	// Delivers where the publishing machine's pointer is, for as long as the shell holds the
-	// call.
+	// Delivers where the publishing machine's pointer is,
+	// for as long as the shell holds the call.
 	//
-	// A stream of its own for the reason the levels are one, and one degree more so: the whole
-	// point of sending a position instead of drawing it into the picture is that it costs no
-	// frame, so it moves at its own rate rather than the stream's.
-	// A 240 Hz pointer over a 30 fps stream is the win, and folding it into Subscribe would
-	// push the publish state at that rate for a figure nothing else reads.
-	//
-	// Each message carries the moment it was read, so a viewer can hold it back to the frame
-	// it belongs to.
-	// Whether to is the viewer's: a pointer that leads the picture is what a viewer with no
-	// delay budget wants and what one watching a recording does not.
+	// A stream of its own for the reason the levels are one, and one degree more so:
+	// sending a position instead of drawing it into the picture costs no frame,
+	// so it moves at its own rate rather than the stream's.
+	// A 240 Hz pointer over a 30 fps stream is the win,
+	// and folding it into Subscribe would push the publish state at that rate,
+	// for a figure nothing else reads.
 	//
 	// It carries positions only while a publish whose cursor mode is metadata is running.
-	// Any other mode draws the pointer into the frames or leaves it out, and the stream stays
-	// open and silent rather than being refused, since a shell subscribes once and the mode
-	// may change under it.
+	// Any other mode draws the pointer into the frames or leaves it out,
+	// and the stream stays open and silent rather than being refused,
+	// since a shell subscribes once and the mode may change under it.
 	SubscribePointer(*SubscribePointerRequest, grpc.ServerStreamingServer[PointerPosition]) error
 	mustEmbedUnimplementedControlServiceServer()
 }
@@ -1152,12 +1122,6 @@ func (UnimplementedControlServiceServer) StartTestStreams(context.Context, *Star
 }
 func (UnimplementedControlServiceServer) StopTestStreams(context.Context, *StopTestStreamsRequest) (*StopTestStreamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopTestStreams not implemented")
-}
-func (UnimplementedControlServiceServer) JoinGroup(context.Context, *JoinGroupRequest) (*JoinGroupResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method JoinGroup not implemented")
-}
-func (UnimplementedControlServiceServer) LeaveGroup(context.Context, *LeaveGroupRequest) (*LeaveGroupResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method LeaveGroup not implemented")
 }
 func (UnimplementedControlServiceServer) ProbeEncoders(context.Context, *ProbeEncodersRequest) (*ProbeEncodersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ProbeEncoders not implemented")
@@ -1717,42 +1681,6 @@ func _ControlService_StopTestStreams_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlService_JoinGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(JoinGroupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ControlServiceServer).JoinGroup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ControlService_JoinGroup_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).JoinGroup(ctx, req.(*JoinGroupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ControlService_LeaveGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LeaveGroupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ControlServiceServer).LeaveGroup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ControlService_LeaveGroup_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).LeaveGroup(ctx, req.(*LeaveGroupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ControlService_ProbeEncoders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ProbeEncodersRequest)
 	if err := dec(in); err != nil {
@@ -2048,14 +1976,6 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopTestStreams",
 			Handler:    _ControlService_StopTestStreams_Handler,
-		},
-		{
-			MethodName: "JoinGroup",
-			Handler:    _ControlService_JoinGroup_Handler,
-		},
-		{
-			MethodName: "LeaveGroup",
-			Handler:    _ControlService_LeaveGroup_Handler,
 		},
 		{
 			MethodName: "ProbeEncoders",

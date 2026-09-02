@@ -32,7 +32,7 @@ Three kinds of method, the rule in executable form:
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `OpenInBrowser`, `CreateGroup`, `JoinGroup`, `LeaveGroup` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `OpenInBrowser`, `CreateGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
 The table lists samples.
@@ -49,9 +49,10 @@ A read that replaces the answer another shell's next resolve would give, with no
 It opens a connection on every leg of the relay and waits out the ones with nothing behind them, so no shell may ask on a keystroke.
 What it answers is a reading of the moment, held by whoever asked rather than by a state a later read serves.
 
-**Membership is two effects and a read.**
-`JoinGroup` draws this machine's identity in the group the settings name and states its first presence, `LeaveGroup` releases that presence and drops the identity, and `GetMembersState` answers the group as the backend last read it.
-Nothing on the contract refreshes presence.
+**Membership is a settings write and a read.**
+The group key and the display name are what put this machine in a group, so `SaveSettings` is what joins one and leaves one,
+and `GetMembersState` answers the group as the backend last read it.
+Nothing on the contract joins, leaves or refreshes presence.
 The backend states it on the loop that already polls the relay, so a method for it would be a second thing deciding when this machine is in a group (`membership.md`).
 
 ## Why

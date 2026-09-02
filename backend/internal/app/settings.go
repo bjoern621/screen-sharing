@@ -29,10 +29,20 @@ func (a *App) GetSettings() settings.Settings {
 // a silent write leaves the other shell holding a stale draft to overwrite this one with.
 // The announcement carries no settings, since a shell re-reads the state an event names,
 // which keeps the persisted copy and the announced one from being two answers.
+//
+// A group key that changed is a group left.
+// Possession of the key is membership, so this write is the whole of leaving one and joining another:
+// the presence stated under the old key is released here,
+// and the next pass of the presence loop states presence under the new one (members.go).
 func (a *App) SaveSettings(s settings.Settings) error {
 	a.settingsMu.Lock()
+	before := a.settings.Relay
 	a.settings = s
 	a.settingsMu.Unlock()
+
+	if before.GroupKey != s.Relay.GroupKey {
+		a.releaseGroup(before)
+	}
 
 	a.emitPublishState()
 	a.emit(wire.SettingsChangedEvent())

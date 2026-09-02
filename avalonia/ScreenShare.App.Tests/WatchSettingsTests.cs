@@ -291,12 +291,12 @@ public sealed class WatchSettingsTests
     public async Task KeepingTheSettingsClosesThePanel()
     {
         var both = await BothAsync();
-        both.Viewer.ToggleWatchSettings.Execute(null);
-        Assert.True(both.Viewer.IsWatchSettingsOpen);
+        both.Viewer.WatchColumn.Toggle.Execute(null);
+        Assert.True(both.Viewer.WatchColumn.IsShowing);
 
         both.Viewer.Watch.SaveCommand.Execute(null);
 
-        Assert.False(both.Viewer.IsWatchSettingsOpen);
+        Assert.False(both.Viewer.WatchColumn.IsShowing);
     }
 
     /// <summary>
@@ -308,11 +308,11 @@ public sealed class WatchSettingsTests
     {
         var backend = new SeededBackend("linux") { SaveRefusal = "the settings file could not be written" };
         var both = await BothAsync(backend);
-        both.Viewer.ToggleWatchSettings.Execute(null);
+        both.Viewer.WatchColumn.Toggle.Execute(null);
 
         both.Viewer.Watch.SaveCommand.Execute(null);
 
-        Assert.True(both.Viewer.IsWatchSettingsOpen);
+        Assert.True(both.Viewer.WatchColumn.IsShowing);
         Assert.True(both.Viewer.Watch.HasNotice);
     }
 
@@ -324,12 +324,12 @@ public sealed class WatchSettingsTests
     public async Task ClosingThePanelKeepsNothing()
     {
         var both = await BothAsync();
-        both.Viewer.ToggleWatchSettings.Execute(null);
+        both.Viewer.WatchColumn.Toggle.Execute(null);
 
         await ChooseAsync(both, "viewer.render_chain", "sys");
         both.Viewer.Watch.CloseCommand.Execute(null);
 
-        Assert.False(both.Viewer.IsWatchSettingsOpen);
+        Assert.False(both.Viewer.WatchColumn.IsShowing);
         Assert.Empty(both.Backend.Saved);
         Assert.True(both.Viewer.Watch.IsUnkept);
     }
@@ -339,10 +339,10 @@ public sealed class WatchSettingsTests
     public async Task ClosingAClosedPanelIsNotAnOpen()
     {
         var both = await BothAsync();
-        Assert.False(both.Viewer.IsWatchSettingsOpen);
+        Assert.False(both.Viewer.WatchColumn.IsShowing);
 
         both.Viewer.Watch.CloseCommand.Execute(null);
 
-        Assert.False(both.Viewer.IsWatchSettingsOpen);
+        Assert.False(both.Viewer.WatchColumn.IsShowing);
     }
 }

@@ -48,9 +48,9 @@
 
       <TextBlock Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding Estimate}" />
 
-      <TextBlock Classes="reason"
-                 Text="{Binding Reason}"
-                 IsVisible="{Binding !IsEnabled}" />
+      <SelectableTextBlock Classes="reason"
+                           Text="{Binding Reason}"
+                           IsVisible="{Binding !IsEnabled}" />
 
     </StackPanel>
   </Border>

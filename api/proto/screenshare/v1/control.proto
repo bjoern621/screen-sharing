@@ -84,8 +84,8 @@ service ControlService {
 
   // Who this machine shares a group with, as the presence loop last read it.
   // A read and no membership call of its own:
-  // presence is stated on the loop that already polls the relay,
-  // and a shell asking would be a second thing deciding when this machine joins.
+  // the group key and the display name in the settings are what put this machine in a group,
+  // and presence is stated on the loop that already polls the relay.
   rpc GetMembersState(GetMembersStateRequest) returns (MembersState);
 
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
@@ -220,20 +220,6 @@ service ControlService {
   rpc StartTestStreams(StartTestStreamsRequest) returns (StartTestStreamsResponse);
 
   rpc StopTestStreams(StopTestStreamsRequest) returns (StopTestStreamsResponse);
-
-  // Joins the group the settings name,
-  // drawing this machine's member identity where it holds none,
-  // and stating its presence at once.
-  // Idempotent: joining a group this machine is already in succeeds and draws nothing.
-  // A display name another member holds is INVALID_ARGUMENT naming the name.
-  // FAILED_PRECONDITION where the settings carry no group key or no display name.
-  rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse);
-
-  // Leaves the group,
-  // releasing this machine's presence and dropping the identity it held in it,
-  // which the relay answers by closing what this machine had open there.
-  // Idempotent: leaving a group this machine is not in succeeds and closes nothing.
-  rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse);
 
   // Test-encodes on every engine and records what this machine can really run,
   // so a form can grey NVENC on a machine with no NVIDIA GPU.
@@ -602,14 +588,6 @@ message StartTestStreamsResponse {}
 message StopTestStreamsRequest {}
 
 message StopTestStreamsResponse {}
-
-message JoinGroupRequest {}
-
-message JoinGroupResponse {}
-
-message LeaveGroupRequest {}
-
-message LeaveGroupResponse {}
 
 message ProbeEncodersRequest {}
 

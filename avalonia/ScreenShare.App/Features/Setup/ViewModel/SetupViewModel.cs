@@ -14,6 +14,8 @@ using ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 using ScreenShare.App.Features.Setup.RelayCheck.ViewModel;
 using ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
 using ScreenShare.App.Features.Setup.StepStrip.ViewModel;
+using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Setup.ViewModel;
@@ -244,6 +246,13 @@ public sealed class SetupViewModel : Observable
         // (CostRail/ViewModel/CostRailViewModel.cs).
         Rail = new CostRailViewModel(new PresetsViewModel(backend, form, session, dispatch));
 
+        // Beside the form where the window carries both, over it where it does not
+        // (Shell/Model/SideColumns.cs).
+        RailColumn = new SideColumnViewModel(
+            SideColumns.SetupRail,
+            "Show the cost, the checks and the presets",
+            "Hide the cost, the checks and the presets");
+
         Review = new ReviewStepViewModel(SelectCommandOf, Back, StartSharingAsync, dispatch);
 
         // Both edges of an effect this flow renders: a start locks the commit
@@ -326,6 +335,13 @@ public sealed class SetupViewModel : Observable
     public RelayCheckViewModel RelayCheck { get; }
 
     public CostRailViewModel Rail { get; }
+
+    /// <summary>
+    /// Where the rail stands: beside the step's form, or over it on a window with the width for one column
+    /// (<c>docs/design-language.md</c>, "Narrow windows").
+    /// The footer walking the steps travels with it, both belonging to the column beside the form.
+    /// </summary>
+    public SideColumnViewModel RailColumn { get; }
 
     public ReviewStepViewModel Review { get; }
 
@@ -410,6 +426,12 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>Names the step it goes to rather than saying "Next".</summary>
     public string ContinueLabel { get => _continueLabel; private set => Set(ref _continueLabel, value); }
+
+    /// <summary>
+    /// States the width the window has, which decides where the rail stands.
+    /// Idempotent: the same width twice moves nothing.
+    /// </summary>
+    public void SetWindowWidth(double width) => RailColumn.SetWindowWidth(width);
 
     /// <summary>
     /// The one render function.

@@ -273,26 +273,6 @@ public interface IBackend
     Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default);
 
     /// <summary>
-    /// Joins the group the settings name, drawing this machine's member identity where it holds none and stating
-    /// its presence at once.
-    ///
-    /// Names a state and is safe to repeat: joining a group this machine is already in is that state holding.
-    /// The membership itself arrives on the event stream, so a window that pressed the button
-    /// and a window that did not learn it the same way.
-    ///
-    /// A name another member holds, and settings naming no group key or no name for this machine,
-    /// arrive as <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
-    /// </summary>
-    Task JoinGroupAsync(CancellationToken cancellation = default);
-
-    /// <summary>
-    /// Leaves the group, releasing this machine's presence and dropping the identity it held in it,
-    /// which the relay answers by closing what this machine had open there.
-    /// Safe to repeat: leaving a group this machine is outside is that state holding.
-    /// </summary>
-    Task LeaveGroupAsync(CancellationToken cancellation = default);
-
-    /// <summary>
     /// Opens an external viewer for one stream over one transport.
     /// A leg that cannot carry the stream's format is refused with the format named,
     /// rather than opening a viewer that connects and receives nothing.

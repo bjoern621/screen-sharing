@@ -76,7 +76,7 @@ message RelaySettings {
   // and the two would disagree the moment the host was edited.
   bool tls = 10;
   // Secret whose possession is membership of a group, as the key service handed it over.
-  // Empty is a machine that has joined none.
+  // Empty is a machine in no group, and taking a key out of here is what leaves one.
   //
   // A group is a path prefix,
   // so this decides where every stream of this machine lives on that relay,
@@ -85,11 +85,11 @@ message RelaySettings {
   // so a preset carries none: applying a preset must not move a machine between groups.
   string group_key = 8;
   // What this machine calls itself in the group above:
-  // claimed on the first join, shown beside every stream it publishes,
+  // claimed on the first statement of presence, shown beside every stream it publishes,
   // and read by no other member as identity.
   //
-  // Empty is a machine that has been given no name.
-  // Joining a group asks for one, a name being claimed first-come inside a group,
+  // Empty is a machine that has been given no name, and it states no presence:
+  // a member is listed under a name, claimed first-come inside a group,
   // so there is nothing to fill this with that another member may not already hold.
   string display_name = 12;
 

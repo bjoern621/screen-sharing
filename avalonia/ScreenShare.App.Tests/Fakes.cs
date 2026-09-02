@@ -180,12 +180,6 @@ internal sealed class DeferredBackend : IBackend
     public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.TestStreamsAsync(cancellation);
 
-    public Task JoinGroupAsync(CancellationToken cancellation = default)
-        => _seed.JoinGroupAsync(cancellation);
-
-    public Task LeaveGroupAsync(CancellationToken cancellation = default)
-        => _seed.LeaveGroupAsync(cancellation);
-
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PresetsAsync(cancellation);
 
@@ -406,12 +400,6 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
         => _seed.TestStreamsAsync(cancellation);
-
-    public Task JoinGroupAsync(CancellationToken cancellation = default)
-        => _seed.JoinGroupAsync(cancellation);
-
-    public Task LeaveGroupAsync(CancellationToken cancellation = default)
-        => _seed.LeaveGroupAsync(cancellation);
 
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => _seed.PresetsAsync(cancellation);

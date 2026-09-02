@@ -183,9 +183,9 @@
                     <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
                     <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
                   </Grid>
-                  <TextBlock Classes="reason"
-                             IsVisible="{Binding HasReason}"
-                             Text="{Binding Reason}" />
+                  <SelectableTextBlock Classes="reason"
+                                       IsVisible="{Binding HasReason}"
+                                       Text="{Binding Reason}" />
                   <TextBlock Classes="cardbody"
                              IsVisible="{Binding HasDetail}"
                              Text="{Binding Detail}" />
@@ -234,11 +234,11 @@
                              Text="{Binding ActionNotice}" />
       </StackPanel>
 
-      <TextBlock Classes="reason"
-                 TextWrapping="Wrap"
-                 TextTrimming="None"
-                 IsVisible="{Binding HasReason}"
-                 Text="{Binding Reason}" />
+      <SelectableTextBlock Classes="reason"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           IsVisible="{Binding HasReason}"
+                           Text="{Binding Reason}" />
 
       <!--
         A note, not a third treatment of inapplicability: the field is live and the value does reach the encoder

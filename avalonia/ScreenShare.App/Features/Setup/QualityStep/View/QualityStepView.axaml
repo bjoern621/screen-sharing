@@ -98,10 +98,10 @@
                              VerticalAlignment="Center" />
                 </Grid>
                 <!-- Gap rides on the refusal, so a card carrying only the description carries none. -->
-                <TextBlock Classes="reason"
-                           Margin="0,0,0,6"
-                           IsVisible="{Binding HasReason}"
-                           Text="{Binding Reason}" />
+                <SelectableTextBlock Classes="reason"
+                                     Margin="0,0,0,6"
+                                     IsVisible="{Binding HasReason}"
+                                     Text="{Binding Reason}" />
                 <TextBlock Classes="cardbody"
                            IsVisible="{Binding HasDetail}"
                            Text="{Binding Detail}" />
@@ -181,10 +181,10 @@
           <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource CautionBrush}" Text="{Binding QuantizerCeilingLabel}" />
         </Grid>
 
-        <TextBlock Classes="reason"
-                   Margin="0,6,0,0"
-                   IsVisible="{Binding Quantizer.HasReason}"
-                   Text="{Binding Quantizer.Reason}" />
+        <SelectableTextBlock Classes="reason"
+                             Margin="0,6,0,0"
+                             IsVisible="{Binding Quantizer.HasReason}"
+                             Text="{Binding Quantizer.Reason}" />
       </StackPanel>
 
       <ItemsControl ItemsSource="{Binding Selects}" Margin="-5,16,-5,0">
@@ -239,10 +239,10 @@
                 </Button.Flyout>
               </Button>
 
-              <TextBlock Classes="reason"
-                         Margin="0,6,0,0"
-                         IsVisible="{Binding HasReason}"
-                         Text="{Binding Reason}" />
+              <SelectableTextBlock Classes="reason"
+                                   Margin="0,6,0,0"
+                                   IsVisible="{Binding HasReason}"
+                                   Text="{Binding Reason}" />
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"
                          TextTrimming="None"

@@ -197,17 +197,9 @@ type Backend interface {
 	ForgetPortalConsent() error
 	// CreateGroup draws a group key at the relay's group service,
 	// and answers it beside the prefix it derives, storing neither.
-	// What a machine's group is remains a settings write like any other.
+	// What a machine's group is remains a settings write like any other:
+	// the key is what puts it in a group, and taking one out is what leaves.
 	CreateGroup(relay settings.Relay) (groupKey, groupID string, err error)
-	// JoinGroup draws this machine's member identity in the group the settings name,
-	// and states its presence.
-	// LeaveGroup releases that presence and drops the identity.
-	// Both are idempotent: a group already joined draws nothing, and one never joined releases nothing.
-	//
-	// A display name another member holds comes back as a Refused,
-	// carried across as INVALID_ARGUMENT rather than as the machine's state (refusal.go).
-	JoinGroup() error
-	LeaveGroup() error
 	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
 	// holding them.
 	OpenLog(path string) error

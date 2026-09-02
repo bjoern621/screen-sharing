@@ -26,32 +26,34 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// FrameService is the second service on the control socket, carrying handles and not pixels.
+// FrameService is the second service on the control socket, carrying frame handles.
 //
 // A decoded frame stays in the GPU memory the decoder allocated.
-// What crosses here is the name of that memory, a shared texture handle on Windows or a dmabuf
-// file descriptor on Linux, with the bookkeeping that says whose turn it is to touch it.
-// Pixels never enter a message, never reach system memory and never reach ControlService.
+// What crosses here is the name of that memory,
+// a shared texture handle on Windows or a dmabuf file descriptor on Linux,
+// with the bookkeeping that says whose turn it is to touch it.
+// No pixel crosses either service.
 //
 // Nothing here describes a tile or a grid.
-// A subscription names a picture some effect already opened, and the size it asks to be
-// rendered at is a count of pixels rather than a layout
+// A subscription names a picture some effect already opened,
+// and the size it asks to be rendered at is a count of pixels rather than a layout
 // (docs/ipc-api.md, docs/viewer-architecture.md).
 type FrameServiceClient interface {
 	// Frames subscribes one consumer to one decode.
 	//
 	// Bidirectional because the protocol is a loan: the backend lends a slot of shared memory
-	// and writes into it again only once the consumer hands it back, so the release rides the
-	// call the frame did.
+	// and writes into it again only once the consumer hands it back,
+	// so the release rides the call the frame did.
 	// A release on a second call could outlive the subscription it belongs to.
 	//
-	// One call per decode rather than one call for all of them, so a tile that ends cancels
-	// its own subscription and a consumer that dies mid-frame is one dead stream rather than
-	// every stream stalling on a slot nobody returns.
+	// One call per decode rather than one call for all of them,
+	// so a tile that ends cancels its own subscription,
+	// and a consumer that dies mid-frame is one dead stream
+	// rather than every stream stalling on a slot nobody returns.
 	//
 	// FAILED_PRECONDITION where nothing is producing what the subscription named.
-	// This service opens none of the three pictures: StartReceive opens a relay decode, the
-	// publish opens its own preview, and StartMonitorPreview opens a monitor's.
+	// FrameService opens no picture: StartReceive opens a relay decode,
+	// the publish opens its own preview, and StartMonitorPreview opens a monitor's.
 	Frames(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[FramesRequest, FrameEvent], error)
 }
 
@@ -80,32 +82,34 @@ type FrameService_FramesClient = grpc.BidiStreamingClient[FramesRequest, FrameEv
 // All implementations must embed UnimplementedFrameServiceServer
 // for forward compatibility.
 //
-// FrameService is the second service on the control socket, carrying handles and not pixels.
+// FrameService is the second service on the control socket, carrying frame handles.
 //
 // A decoded frame stays in the GPU memory the decoder allocated.
-// What crosses here is the name of that memory, a shared texture handle on Windows or a dmabuf
-// file descriptor on Linux, with the bookkeeping that says whose turn it is to touch it.
-// Pixels never enter a message, never reach system memory and never reach ControlService.
+// What crosses here is the name of that memory,
+// a shared texture handle on Windows or a dmabuf file descriptor on Linux,
+// with the bookkeeping that says whose turn it is to touch it.
+// No pixel crosses either service.
 //
 // Nothing here describes a tile or a grid.
-// A subscription names a picture some effect already opened, and the size it asks to be
-// rendered at is a count of pixels rather than a layout
+// A subscription names a picture some effect already opened,
+// and the size it asks to be rendered at is a count of pixels rather than a layout
 // (docs/ipc-api.md, docs/viewer-architecture.md).
 type FrameServiceServer interface {
 	// Frames subscribes one consumer to one decode.
 	//
 	// Bidirectional because the protocol is a loan: the backend lends a slot of shared memory
-	// and writes into it again only once the consumer hands it back, so the release rides the
-	// call the frame did.
+	// and writes into it again only once the consumer hands it back,
+	// so the release rides the call the frame did.
 	// A release on a second call could outlive the subscription it belongs to.
 	//
-	// One call per decode rather than one call for all of them, so a tile that ends cancels
-	// its own subscription and a consumer that dies mid-frame is one dead stream rather than
-	// every stream stalling on a slot nobody returns.
+	// One call per decode rather than one call for all of them,
+	// so a tile that ends cancels its own subscription,
+	// and a consumer that dies mid-frame is one dead stream
+	// rather than every stream stalling on a slot nobody returns.
 	//
 	// FAILED_PRECONDITION where nothing is producing what the subscription named.
-	// This service opens none of the three pictures: StartReceive opens a relay decode, the
-	// publish opens its own preview, and StartMonitorPreview opens a monitor's.
+	// FrameService opens no picture: StartReceive opens a relay decode,
+	// the publish opens its own preview, and StartMonitorPreview opens a monitor's.
 	Frames(grpc.BidiStreamingServer[FramesRequest, FrameEvent]) error
 	mustEmbedUnimplementedFrameServiceServer()
 }

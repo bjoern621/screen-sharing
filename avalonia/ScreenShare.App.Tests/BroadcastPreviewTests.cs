@@ -179,12 +179,6 @@ public sealed class BroadcastPreviewTests
         public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
             => _seed.TestStreamsAsync(cancellation);
 
-        public Task JoinGroupAsync(CancellationToken cancellation = default)
-            => _seed.JoinGroupAsync(cancellation);
-
-        public Task LeaveGroupAsync(CancellationToken cancellation = default)
-            => _seed.LeaveGroupAsync(cancellation);
-
         public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
             => _seed.PresetsAsync(cancellation);
 

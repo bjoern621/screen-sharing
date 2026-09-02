@@ -47,6 +47,14 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     private readonly FormSession _form;
 
+    /// <summary>
+    /// Width the window has, in device-independent pixels.
+    /// The window owns it and states it on every change (<see cref="Resize"/>).
+    /// Infinite until the first pass measures one, so a window paints the arrangement each screen states and
+    /// narrows on the pass that has a measurement.
+    /// </summary>
+    private double _width = double.PositiveInfinity;
+
     private object _body;
 
     public ShellViewModel()
@@ -201,6 +209,32 @@ public sealed class ShellViewModel : Observable
     }
 
     /// <summary>
+    /// States how wide the window is, which is what every screen arranges its columns against
+    /// (<c>docs/design-language.md</c>, "Narrow windows").
+    /// A tiling desktop hands a window whatever its layout leaves, so this is read continuously rather than
+    /// assumed from the size the app asked for.
+    /// Idempotent.
+    /// </summary>
+    public void Resize(double width)
+    {
+        Assert.That(width > 0, "a window states a width it has", width);
+
+        // A width that has not moved renders nothing, so a window resized by its height alone costs one compare.
+        if (_width == width)
+        {
+            return;
+        }
+
+        _width = width;
+
+        // Pushed into the destinations rather than into their next render pass: each one renders what the width
+        // decides, and the chrome around them stands at every width.
+        Setup.SetWindowWidth(_width);
+        Broadcast.SetWindowWidth(_width);
+        Viewer.SetWindowWidth(_width);
+    }
+
+    /// <summary>
     /// One render function.
     /// Safe to run twice: every child's apply is idempotent, so an unchanged pass writes no property and fires no
     /// binding.
@@ -212,6 +246,12 @@ public sealed class ShellViewModel : Observable
         //
         // The stream name is the backend's, never one composed here.
         TitleBar.Show(_current, _session.Publish?.Live?.Publish?.Name is { Length: > 0 } name ? name : Idle);
+
+        // The window's width, pushed before the pass that arranges against it.
+        // Every destination and not the showing one alone, for the reason their renders run on every pass.
+        Setup.SetWindowWidth(_width);
+        Broadcast.SetWindowWidth(_width);
+        Viewer.SetWindowWidth(_width);
 
         // Every destination, not the showing one alone.
         // A destination rendered only while on screen comes back stale, and the body swap draws the state it last

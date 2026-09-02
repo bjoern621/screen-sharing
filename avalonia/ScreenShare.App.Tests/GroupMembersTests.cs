@@ -1,5 +1,4 @@
 using ScreenShare.Api.V1;
-using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Viewer.Members.ViewModel;
 using Xunit;
 
@@ -9,14 +8,11 @@ namespace ScreenShare.App.Tests;
 /// The group is a reading and never a list this shell keeps:
 /// every member's own app states its presence, and one that stopped drops out by not appearing.
 /// The card renders whatever the last answer named, says which row is this machine,
-/// and offers exactly one of the two actions.
+/// and presses nothing: the group key and the name in the settings are what put this machine in a group.
 /// </summary>
 public sealed class GroupMembersTests
 {
-    /// <summary>Inline, so a press has been answered by the time it returns.</summary>
-    private static readonly Action<Action> Inline = action => action();
-
-    private static MembersViewModel Card(IBackend backend) => new(backend, Inline);
+    private static MembersViewModel Card() => new();
 
     private static Member Member(string name, bool publishing = false, bool self = false) => new()
     {
@@ -36,7 +32,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void ARowPerMemberSaysWhoIsSendingAndWhichIsThisMachine()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         card.Reported = Group(joined: true, Member("Björn", publishing: true, self: true), Member("Ada"));
         card.Apply();
@@ -57,7 +53,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void AMemberWithNoNameIsListedUnderItsIdentity()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         card.Reported = Group(joined: true, new Member { MemberId = "TWFOWD4E7QSXK4YQ" });
         card.Apply();
@@ -65,38 +61,14 @@ public sealed class GroupMembersTests
         Assert.Equal("TWFOWD4E7QSXK4YQ", Assert.Single(card.Rows).Name);
     }
 
-    [Fact]
-    public void AMachineOutsideTheGroupIsOfferedJoinAndNotLeave()
-    {
-        var card = Card(new SeededBackend("linux"));
-
-        card.Reported = Group(joined: false);
-        card.Apply();
-
-        Assert.True(card.CanJoin);
-        Assert.False(card.CanLeave);
-    }
-
-    [Fact]
-    public void AMachineInTheGroupIsOfferedLeaveAndNotJoin()
-    {
-        var card = Card(new SeededBackend("linux"));
-
-        card.Reported = Group(joined: true, Member("Björn", self: true));
-        card.Apply();
-
-        Assert.False(card.CanJoin);
-        Assert.True(card.CanLeave);
-    }
-
     /// <summary>
     /// A name another member holds leaves the list empty on a group that has people in it,
     /// so the refusal is the whole of what the reader can act on.
     /// </summary>
     [Fact]
-    public void ARefusedNameIsSaidBesideTheActions()
+    public void ARefusedNameIsSaidBesideTheList()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         var state = Group(joined: false);
         state.Refusal = new Text { Code = TextCode.GroupNameTaken };
@@ -108,9 +80,9 @@ public sealed class GroupMembersTests
     }
 
     [Fact]
-    public void AGroupJoinedWithNoNameSetSaysWhatIsMissing()
+    public void AGroupKeyWithNoNameBesideItSaysWhatIsMissing()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         var state = Group(joined: false);
         state.Refusal = new Text { Code = TextCode.GroupNameMissing };
@@ -122,9 +94,9 @@ public sealed class GroupMembersTests
 
     /// <summary>Three absences, and a reader has a different thing to do next in each.</summary>
     [Fact]
-    public void AnUnreadGroupAnUnjoinedOneAndAnEmptyOneReadDifferently()
+    public void AnUnreadGroupAnUnsetOneAndAnEmptyOneReadDifferently()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         card.Apply();
         var unread = card.Notice;
@@ -143,49 +115,6 @@ public sealed class GroupMembersTests
         Assert.All([unread, outside, empty], notice => Assert.NotEqual("", notice));
     }
 
-    [Fact]
-    public void PressingJoinAsksTheBackendToJoin()
-    {
-        var backend = new SeededBackend("linux");
-        var card = Card(backend);
-
-        card.Reported = Group(joined: false);
-        card.Apply();
-        card.Join.Execute(null);
-
-        Assert.Equal(1, backend.Joins);
-        Assert.Equal(0, backend.Leaves);
-    }
-
-    [Fact]
-    public void PressingLeaveAsksTheBackendToLeave()
-    {
-        var backend = new SeededBackend("linux");
-        var card = Card(backend);
-
-        card.Reported = Group(joined: true, Member("Björn", self: true));
-        card.Apply();
-        card.Leave.Execute(null);
-
-        Assert.Equal(1, backend.Leaves);
-        Assert.Equal(0, backend.Joins);
-    }
-
-    /// <summary>A refused press is the backend's own sentence, shown as it arrived.</summary>
-    [Fact]
-    public void ARefusedPressShowsWhatTheBackendSaid()
-    {
-        var backend = new SeededBackend("linux") { GroupRefusal = "that name is taken in this group" };
-        var card = Card(backend);
-
-        card.Reported = Group(joined: false);
-        card.Apply();
-        card.Join.Execute(null);
-
-        Assert.True(card.HasRefusal);
-        Assert.Equal("that name is taken in this group", card.Refusal);
-    }
-
     /// <summary>
     /// Rows are records, so an unchanged answer leaves the bound list where it is,
     /// and nothing under the pointer repaints.
@@ -193,7 +122,7 @@ public sealed class GroupMembersTests
     [Fact]
     public void ASecondPassOverOneAnswerRebuildsNothing()
     {
-        var card = Card(new SeededBackend("linux"));
+        var card = Card();
 
         card.Reported = Group(joined: true, Member("Björn", self: true), Member("Ada"));
         card.Apply();

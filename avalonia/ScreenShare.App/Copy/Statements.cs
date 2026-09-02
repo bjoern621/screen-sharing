@@ -478,19 +478,19 @@ public static class Statements
             TextCode.PublishRefused =>
                 "These settings cannot be published as they stand.",
 
-            // Names the one move that puts the reader back in:
+            // Names the two settings membership follows from:
             // everything else about a close is the child's own words, printed beside this.
             TextCode.GroupMembershipLapsed =>
                 "This computer is not a member of the group, so the relay closes its streams there. "
-                + "Join the group to send and watch.",
+                + "Check the group key and the name under Relay.",
 
             // Names the group: the member holding the name is an id on the wire,
             // and an id beside a name a reader chose is a string they cannot act on.
             TextCode.GroupNameTaken =>
-                "Another member of this group holds that name. Pick a different one to join under.",
+                "Another member of this group holds that name. Pick a different one under Relay.",
 
             TextCode.GroupNameMissing =>
-                "Joining a group needs a name for this computer. Set one under Relay.",
+                "A group needs a name for this computer. Set one under Relay.",
 
             // The nested statement is the relay's own, carrying what the reader can do about it.
             // Quoted through the same recursion a cost or a reach is (Sentences).

@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Features.Viewer.Members.ViewModel;
 using ScreenShare.App.Features.Viewer.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
@@ -109,19 +111,17 @@ public sealed class ViewerViewModel : Observable
 
         // Above the list of what the relay carries,
         // so a stream's row and the member publishing it are read in one glance.
-        Members = new MembersViewModel(backend, dispatch);
+        Members = new MembersViewModel();
 
         // Whether the panel is open is this screen's state, so the panel is handed only a way to say it is done.
         // A panel holding the flag would be the arrangement written in two places.
         Watch = new WatchSettingsViewModel(form, session, dispatch, CloseWatchSettings);
 
-        // A toggle, the reader meaning either way.
-        // The close path names the state instead (CloseWatchSettings).
-        ToggleWatchSettings = new DelegateCommand(() =>
-        {
-            IsWatchSettingsOpen = !IsWatchSettingsOpen;
-            Apply();
-        });
+        // Beside the grid where the window carries both, over it where it does not (Shell/Model/SideColumns.cs).
+        WatchColumn = new SideColumnViewModel(
+            SideColumns.ViewerWatch,
+            "How this computer receives",
+            "Close the watching settings");
 
         // News that the draft or the form behind it moved: a row's legs and a tile's leg are both read off it.
         // Raised on the UI loop by the form session, so nothing to marshal here.
@@ -196,16 +196,35 @@ public sealed class ViewerViewModel : Observable
     private TileViewModel? _fullscreenTile;
     private bool _isRailCollapsed;
 
+    /// <summary>
+    /// Width the window last stated, infinite until it states one (<see cref="SetWindowWidth"/>).
+    /// </summary>
+    private double _window = double.PositiveInfinity;
+
     /// <summary>Whether a tile fills this window, taking the rail and the grid off it.</summary>
     public bool HasFullscreen { get => _hasFullscreen; private set => Set(ref _hasFullscreen, value); }
 
     public TileViewModel? FullscreenTile { get => _fullscreenTile; private set => Set(ref _fullscreenTile, value); }
 
     /// <summary>
-    /// Whether the rail shows names or has been collapsed to its toggle.
+    /// Whether the reader collapsed the rail to its toggle.
     /// A reader watching a wall of streams wants the width, a reader looking for another wants the list.
     /// </summary>
     public bool IsRailCollapsed { get => _isRailCollapsed; private set => Set(ref _isRailCollapsed, value); }
+
+    /// <summary>
+    /// Whether the rail draws the names.
+    /// Two facts read as one: what the reader asked for,
+    /// and whether the window carries the names and a tile beside them
+    /// (<c>Features/Shell/Model/SideColumns.cs</c>).
+    /// </summary>
+    public bool ShowsRailNames => !IsRailCollapsed && SideColumns.ViewerRail.FitsBeside(_window);
+
+    /// <summary>
+    /// Whether the collapse is offered.
+    /// A window too narrow for the names has none to take away, and a control that changes nothing reads as broken.
+    /// </summary>
+    public bool ShowsRailToggle => SideColumns.ViewerRail.FitsBeside(_window);
 
     /// <summary>
     /// Collapsed fits an entry with its name taken out: the dot, the action button, the gaps between them,
@@ -213,7 +232,7 @@ public sealed class ViewerViewModel : Observable
     /// The rail's header buttons are narrower than that.
     /// An entry keeps its shape and loses only its name.
     /// </summary>
-    public double RailWidth => IsRailCollapsed ? 88 : 240;
+    public double RailWidth => ShowsRailNames ? 240 : 88;
 
     public Icons RailGlyph => IsRailCollapsed ? Icons.IconChevronRight : Icons.IconChevronLeft;
 
@@ -228,8 +247,6 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public DelegateCommand LeaveFullscreen { get; }
 
-    private bool _isWatchSettingsOpen;
-
     /// <summary>
     /// Who this machine shares a group with, and the control that puts it in the group or takes it out.
     /// Never who is watching what: the group states presence and publication.
@@ -242,9 +259,12 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public WatchSettingsViewModel Watch { get; }
 
-    public bool IsWatchSettingsOpen { get => _isWatchSettingsOpen; private set => Set(ref _isWatchSettingsOpen, value); }
-
-    public DelegateCommand ToggleWatchSettings { get; }
+    /// <summary>
+    /// Where the panel stands, and whether it is open.
+    /// Beside the grid on a window carrying the rail, the tiles and the panel at once, and over the grid on one
+    /// that does not (<c>docs/design-language.md</c>, "Narrow windows").
+    /// </summary>
+    public SideColumnViewModel WatchColumn { get; }
 
     /// <summary>
     /// Shuts the settings panel, whether or not it was open.
@@ -253,11 +273,22 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     private void CloseWatchSettings()
     {
-        IsWatchSettingsOpen = false;
+        WatchColumn.Close();
         Apply();
     }
 
-    public string WatchSettingsTip => IsWatchSettingsOpen ? "Close the watching settings" : "How this computer receives";
+    /// <summary>
+    /// States the width the window has, which decides where the rail and the panel stand.
+    /// Idempotent: the same width twice moves nothing.
+    /// </summary>
+    public void SetWindowWidth(double width)
+    {
+        Assert.That(width > 0, "a window states a width it has", width);
+
+        _window = width;
+        WatchColumn.SetWindowWidth(width);
+        Apply();
+    }
 
     /// <summary>For a view that has to hand a tile to a window it is opening.</summary>
     public TileViewModel? TileOf(string stream) => _tiles.GetValueOrDefault(stream);
@@ -403,10 +434,11 @@ public sealed class ViewerViewModel : Observable
         Watch.Apply();
 
         // Raised by hand: a property with no field of its own has nothing to compare against.
+        OnPropertyChanged(nameof(ShowsRailNames));
+        OnPropertyChanged(nameof(ShowsRailToggle));
         OnPropertyChanged(nameof(RailWidth));
         OnPropertyChanged(nameof(RailGlyph));
         OnPropertyChanged(nameof(RailToggleTip));
-        OnPropertyChanged(nameof(WatchSettingsTip));
 
         WindowsChanged?.Invoke();
 

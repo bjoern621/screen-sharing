@@ -114,6 +114,26 @@ Every one is **reachable at all times**, broadcast included.
 That screen reports the stream that has ended as well as the one running, which is what a publisher goes looking for after a stream drops and what a live-only tab would take away.
 An expert tool teaches its own shape, and a tab that comes and goes reads as a bug.
 
+## Narrow windows
+
+A window is the width the desktop gives it.
+A tiling session hands one a quarter of the screen and offers no frame to drag, so every screen is drawn against the width it has.
+
+**A window too narrow for two columns draws one, and the side column becomes a panel over the body.**
+The body keeps the whole width, and the panel opens from a control on the surface it belongs to.
+Three columns work this way: setup's rail, broadcast's cards, the viewer's watch settings.
+Each states its own width and the body it needs beside it, and the threshold is those two added (`Features/Shell/Model/SideColumns.cs`).
+
+A column that draws unasked carries its control only while it is a panel, a press that changes nothing reading as broken.
+One that opens on request carries its control at every width.
+
+The foot is the row a panel never covers: the wizard's Back and Continue, and the commit on its terminal step.
+
+A rail carrying names drops the names rather than the window dropping the rail.
+
+Every band wraps where the window is narrower than its row: the status band's sentence, and the broadcast header's figures and actions.
+The floor the window asks the desktop for is the narrowest one column is drawn for (`Features/Shell/Model/WindowSize.cs`).
+
 ## Video surfaces
 
 Tiles are black in both themes, video defining its own background.
@@ -162,6 +182,7 @@ A caps negotiation or a relay address is not something anyone retypes off a scre
 Selectable text is a `SelectableTextBlock` carrying the role of the prose beside it, drawing its selection in the pair "Selection" states.
 It wraps: an ellipsis would eat the tail of the address the reader came for.
 What decides is whether the string reports a failure: a hint saying what a relay answered is error text, one explaining what a control does is not.
+A disabled control hands its subtree no pointer, so a reason drawn inside a refused card or dropdown row is read where it stands.
 
 Two states are close enough in English to separate by name.
 A stream is **live** when it is connected and frames are moving, true of every tile in the viewer and saying nothing about this machine.

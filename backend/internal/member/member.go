@@ -1,9 +1,8 @@
-// Package member is this machine's identity in each group it has joined.
+// Package member is this machine's identity in each group whose key it holds.
 //
-// One file per group under the config directory, holding the secret this app drew for itself there
-// and the name it claimed with it:
+// One file per group under the config directory, holding the secret this app drew for itself there:
 //
-//	<config>/screenshare/members/<group id>.json   {"memberSecret": "...", "displayName": "Björn"}
+//	<config>/screenshare/members/<group id>.json   {"memberSecret": "..."}
 //
 // The secret is issued by nobody.
 // Membership is stated over the member id it derives under the group key (internal/group),
@@ -11,8 +10,11 @@
 // Drawn once and kept: a second secret is a second member,
 // with the first one's connections still open at the relay.
 //
+// The name goes with the statement rather than into the file (settings.Relay.DisplayName),
+// so the one a member is listed under is the one their settings hold.
+//
 // Nothing here reaches the network.
-// Which groups this machine is in, and what it is known by in each, is all this package knows,
+// Which groups this machine is in is all this package knows,
 // and stating any of it is the group service's side (internal/groupclient).
 //
 // The files belong to a user who can edit, move or delete them,
@@ -47,11 +49,10 @@ const identityFileMode = 0o600
 // Identity is what this machine is inside one group.
 type Identity struct {
 	// Secret is base64, as the group service takes it and as group.ParseMemberSecret reads it.
-	Secret      string `json:"memberSecret"`
-	DisplayName string `json:"displayName"`
+	Secret string `json:"memberSecret"`
 }
 
-// Load answers the identity held for a group, and false where this machine has not joined it.
+// Load answers the identity held for a group, and false where this machine holds none.
 //
 // A file that will not read is an error and never a drawn identity:
 // a second secret drawn over a damaged file makes this machine a second member,
@@ -85,30 +86,30 @@ func Load(groupID string) (Identity, bool, error) {
 	return held, true, nil
 }
 
-// Join draws a secret where none is held and states the display name.
+// Draw draws a secret where none is held, and hands back the one held where there is one.
 //
-// Idempotent: the state it names is that this machine is a member of this group under this name,
-// so a second call keeps the secret it already drew and writes the name it was given.
-// A name is claimed inside the group rather than here,
-// and a claim another member holds is that service's refusal (internal/groupclient).
-func Join(groupID, displayName string) (Identity, error) {
+// Idempotent: the state it names is that this machine has an identity in this group,
+// so a second call writes nothing and answers the secret already drawn.
+// Drawing is not being in the group: presence is stated at the service over the id this derives,
+// and the name that goes with it is claimed there (internal/groupclient).
+func Draw(groupID string) (Identity, error) {
+	held, drawn, err := Load(groupID)
+	if err != nil {
+		return Identity{}, err
+	}
+	if drawn {
+		return held, nil
+	}
+
 	path, err := identityPath(groupID)
 	if err != nil {
 		return Identity{}, err
 	}
-
-	held, joined, err := Load(groupID)
+	secret, err := group.NewMemberSecret()
 	if err != nil {
-		return Identity{}, err
+		return Identity{}, fmt.Errorf("drawing this machine's identity in group %s: %w", groupID, err)
 	}
-	if !joined {
-		secret, err := group.NewMemberSecret()
-		if err != nil {
-			return Identity{}, fmt.Errorf("drawing this machine's identity in group %s: %w", groupID, err)
-		}
-		held.Secret = secret.String()
-	}
-	held.DisplayName = displayName
+	held.Secret = secret.String()
 
 	data, err := json.MarshalIndent(held, "", "  ")
 	assert.IsNil(err, "marshalling a plain identity struct cannot fail")
@@ -116,7 +117,7 @@ func Join(groupID, displayName string) (Identity, error) {
 		return Identity{}, err
 	}
 
-	assert.Assert(held.Secret != "", "a joined machine holds the secret it is known by", groupID)
+	assert.Assert(held.Secret != "", "a drawn identity carries the secret it is known by", groupID)
 	return held, nil
 }
 

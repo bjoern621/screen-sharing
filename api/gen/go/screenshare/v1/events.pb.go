@@ -23,14 +23,14 @@ const (
 
 // Names one Event payload, for a shell after a subset.
 //
-// An enum instead of the oneof's field names as strings, since a name typed into a
-// request is a name somebody can misspell.
+// An enum instead of the oneof's field names as strings,
+// since a name typed into a request is a name somebody can misspell.
 type EventKind int32
 
 const (
 	// Absent.
-	// Naming it refuses the subscription instead of serving everything: a request that
-	// failed to say what it wanted asked for nothing.
+	// Naming it refuses the subscription instead of serving everything:
+	// a request that failed to say what it wanted asked for nothing.
 	EventKind_EVENT_KIND_UNSPECIFIED           EventKind = 0
 	EventKind_EVENT_KIND_PUBLISH_STATE         EventKind = 1
 	EventKind_EVENT_KIND_PUBLISH_STATS         EventKind = 2
@@ -120,14 +120,15 @@ func (EventKind) EnumDescriptor() ([]byte, []int) {
 type ExitInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Failure text, empty after a clean exit.
-	// Prose for a person, never matched against.
+	// Prose for a person, drawn as it stands.
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	// Whole run log on disk, reached through OpenLog instead of by opening the path.
 	// Rotation is the backend's, so a path held here may name a file already moved.
 	LogPath string `protobuf:"bytes,2,opt,name=log_path,json=logPath,proto3" json:"log_path,omitempty"`
 	// What ended the run, in this app's vocabulary, absent where nothing here names it.
-	// Beside message rather than in place of it: the child's own words are data and stay raw
-	// (text.proto), and the statement is the half a reader can act on.
+	// Beside message rather than in place of it:
+	// the child's own words are data and stay raw (text.proto),
+	// and the statement is the half a reader can act on.
 	Cause         *Text `protobuf:"bytes,3,opt,name=cause,proto3" json:"cause,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -285,8 +286,8 @@ type TestStreamState struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	RunningCount int32                  `protobuf:"varint,1,opt,name=running_count,json=runningCount,proto3" json:"running_count,omitempty"`
 	// A row per slot the set holds, alive or not.
-	// running_count says how many are up and nothing about which, so a slot that died is visible
-	// here alone.
+	// running_count says how many are up and nothing about which,
+	// so a slot that died is visible here alone.
 	Slots         []*TestStreamSlot `protobuf:"bytes,2,rep,name=slots,proto3" json:"slots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -338,7 +339,7 @@ func (x *TestStreamState) GetSlots() []*TestStreamSlot {
 
 // One slot of the synthetic set.
 //
-// The slot is the identity and the child is not: a slot names its stream and picks its pattern,
+// A slot names its stream and picks its pattern,
 // so a relaunch comes back as the row the roster already shows.
 type TestStreamSlot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -353,7 +354,7 @@ type TestStreamSlot struct {
 	Attempt int32 `protobuf:"varint,4,opt,name=attempt,proto3" json:"attempt,omitempty"`
 	// Why the slot carries no publisher, absent while one is running.
 	Cause *Text `protobuf:"bytes,5,opt,name=cause,proto3" json:"cause,omitempty"`
-	// The child's own last words, raw and never matched against (text.proto).
+	// The child's own last words, raw and drawn as they stand (text.proto).
 	Message string `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
 	// Whole run log on disk, reached through OpenLog.
 	LogPath       string `protobuf:"bytes,7,opt,name=log_path,json=logPath,proto3" json:"log_path,omitempty"`
@@ -441,8 +442,8 @@ func (x *TestStreamSlot) GetLogPath() string {
 }
 
 // Held settings moved behind this shell's back.
-// No values ride along, leaving one way to learn them: read the settings, resolve the
-// form again.
+// No values ride along, leaving one way to learn them:
+// read the settings, resolve the form again.
 type SettingsChanged struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -481,8 +482,8 @@ func (*SettingsChanged) Descriptor() ([]byte, []int) {
 
 // A decode ended, and why.
 //
-// Carries no log path, where a publish exit and a viewer exit do: a decode is backend
-// code rather than a child process, and owns no run log to open.
+// Carries no log path, where a publish exit and a viewer exit do:
+// a decode is backend code rather than a child process, and owns no run log to open.
 type ReceiveExit struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Stream *StreamRef             `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
@@ -547,74 +548,74 @@ func (x *ReceiveExit) GetCause() *Text {
 
 // One decode, described by what its pipeline turned out to be.
 //
-// Below live everything is measured, not requested, and none of it echoes ViewerSettings:
-// element gaps push a chain down to a fallback, and silicon decoders download their own
-// frames.
+// Below live everything is measured, and none of it echoes ViewerSettings:
+// element gaps push a chain down to a fallback, and silicon decoders download their own frames.
 type ReceiveStream struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Stream name plus receiving leg, the identity StreamRef exists for.
 	Stream *StreamRef `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
 	// A decoded frame reached the end of the pipeline.
-	// False while connecting, and false on something arriving that cannot be decoded, where
-	// the fields below stay empty for want of a negotiation.
+	// False while connecting, and false on something arriving that cannot be decoded,
+	// where the fields below stay empty for want of a negotiation.
 	Live bool `protobuf:"varint,2,opt,name=live,proto3" json:"live,omitempty"`
 	// Render chain actually built, which a fallback can move away from ViewerSettings.
 	Chain string `protobuf:"bytes,3,opt,name=chain,proto3" json:"chain,omitempty"`
 	// Memory features negotiated at each end: decoder output pad, then sink input pad.
-	// Read together they expose a download or an upload in between, which is the test a
-	// chain claiming to hold frames on the device faces.
+	// Read together they expose a download or an upload in between,
+	// which is the test a chain claiming to hold frames on the device faces.
 	// Empty until both pads negotiate.
 	DecodeMemory string `protobuf:"bytes,4,opt,name=decode_memory,json=decodeMemory,proto3" json:"decode_memory,omitempty"`
 	RenderMemory string `protobuf:"bytes,5,opt,name=render_memory,json=renderMemory,proto3" json:"render_memory,omitempty"`
 	// Element decodebin settled on, plus whether silicon ran it.
-	// hardware locates the decoding only, never the frames afterwards, and decode_memory
-	// covers those.
+	// hardware locates the decoding only,
+	// and decode_memory covers the frames afterwards.
 	Decoder  string `protobuf:"bytes,6,opt,name=decoder,proto3" json:"decoder,omitempty"`
 	Hardware bool   `protobuf:"varint,7,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	// An audio pad appeared on the decoder and the branch behind it was built.
-	// Nothing accepts a volume before that, so a tile with no meter and no slider beats one
-	// offering a slider wired to nothing.
+	// Nothing accepts a volume before that,
+	// so a tile with no meter and no slider beats one offering a slider wired to nothing.
 	HasAudio bool `protobuf:"varint,8,opt,name=has_audio,json=hasAudio,proto3" json:"has_audio,omitempty"`
-	// Last values SetReceiveAudio was given, kept whether or not a branch exists to apply
-	// them to.
-	// An audio pad arriving later picks them up, which takes the ordering out of the
-	// caller's hands.
-	// Read back from here rather than remembered per caller, so two shells never disagree
-	// about how loud one decode is.
+	// Last values SetReceiveAudio was given, kept whether or not a branch exists to apply them to.
+	// An audio pad arriving later picks them up,
+	// which takes the ordering out of the caller's hands.
+	// Read back from here rather than remembered per caller,
+	// so two shells never disagree about how loud one decode is.
 	//
 	// volume is linear gain from zero, with one meaning untouched.
-	// muted stays separate from a volume of zero so that unmuting restores the chosen level
-	// instead of silence.
+	// muted stays separate from a volume of zero,
+	// so that unmuting restores the chosen level instead of silence.
 	Volume float64 `protobuf:"fixed64,9,opt,name=volume,proto3" json:"volume,omitempty"`
 	Muted  bool    `protobuf:"varint,10,opt,name=muted,proto3" json:"muted,omitempty"`
 	// Transfer characteristic of the decoded frames, spelled as GStreamer spells it:
 	// "bt709", "smpte2084", "arib-std-b67".
 	// Empty until the decoder's pad negotiates.
-	// hdr judges that curve, and only the two carrying range past a standard display turn
-	// it true, whatever primaries any of them arrive with.
+	// hdr judges that curve,
+	// and only the two carrying range past a standard display turn it true,
+	// whatever primaries any of them arrive with.
 	//
 	// Two fields for two questions.
-	// A verdict gates what a viewer may be offered and stays with the backend, as verdicts
-	// do.
-	// A characteristic is an identifier put in front of a reader, and naming the curve is
-	// the shell's word to choose.
+	// A verdict gates what a viewer may be offered and stays with the backend, as verdicts do.
+	// A characteristic is an identifier put in front of a reader,
+	// and naming the curve is the shell's word to choose.
 	Transfer string `protobuf:"bytes,11,opt,name=transfer,proto3" json:"transfer,omitempty"`
 	Hdr      bool   `protobuf:"varint,12,opt,name=hdr,proto3" json:"hdr,omitempty"`
 	// The rung rolling HDR down into standard-display range was built into this decode,
 	// StartReceive being where that choice enters.
-	// Built, not requested: without the element a machine builds the pipeline anyway, and
-	// the tile then reports the picture in front of the reader.
+	// Reports what was built: without the element a machine builds the pipeline anyway,
+	// and the tile then reports the picture in front of the reader.
 	ToneMap bool `protobuf:"varint,13,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
-	// Whether any element on this machine rolls the range down, plus the first one missing
-	// from the registry.
+	// Whether any element on this machine rolls the range down,
+	// plus the first one missing from the registry.
 	//
-	// Machine-wide facts on a per-decode message, because a tile decides its offer while
-	// reading a decode: the choice lives per tile and in memory, no settings field holds
-	// it, and a second call would answer one question.
+	// Machine-wide facts on a per-decode message,
+	// because a tile decides its offer while reading a decode:
+	// the choice lives per tile and in memory, no settings field holds it,
+	// and a second call would answer one question.
 	//
-	// tone_map_missing stays empty both where the rung works and where the platform names
-	// no rung, and can_tone_map separates the two: an undeclared rung leaves nothing to
-	// install, and the two readings lead somebody to different actions.
+	// tone_map_missing stays empty both where the rung works and where the platform names no rung,
+	// and can_tone_map separates the two:
+	// an undeclared rung leaves nothing to install,
+	// and the two readings lead somebody to different actions.
 	CanToneMap     bool   `protobuf:"varint,14,opt,name=can_tone_map,json=canToneMap,proto3" json:"can_tone_map,omitempty"`
 	ToneMapMissing string `protobuf:"bytes,15,opt,name=tone_map_missing,json=toneMapMissing,proto3" json:"tone_map_missing,omitempty"`
 	// Why this decode carries no picture, absent while one is opening.
@@ -813,14 +814,14 @@ func (x *ReceiveState) GetStreams() []*ReceiveStream {
 // One counter, named as its element names it.
 //
 // key is a GStreamer stats field: "packets-received-lost", "rtx-success-count".
-// It crosses untranslated, since the element owns what a counter is called and a shell
-// owns what it reads as (text.proto).
-// An unrecognised key is drawn as itself, which leaves a reader a row to search rather
-// than a row that disappeared.
+// It crosses untranslated,
+// since the element owns what a counter is called and a shell owns what it reads as (text.proto).
+// An unrecognised key is drawn as itself,
+// which leaves a reader a row to search rather than a row that disappeared.
 //
 // value arrives as a double whatever the element's own type was.
-// Counts, rates and millisecond figures are all these elements keep, and none climbs into
-// the range where a double loses a digit.
+// Counts, rates and millisecond figures are all these elements keep,
+// and none climbs into the range where a double loses a digit.
 type ReceiveStatValue struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -875,8 +876,8 @@ func (x *ReceiveStatValue) GetValue() float64 {
 
 // Counters belonging to one element.
 //
-// The leg decides which elements a pipeline holds: an SRT leg counts through srtsrc, an
-// RTSP leg through the jitterbuffers inside rtspsrc.
+// The leg decides which elements a pipeline holds:
+// an SRT leg counts through srtsrc, an RTSP leg through the jitterbuffers inside rtspsrc.
 // factory gives the kind and element separates two of that kind, which muxed RTSP needs:
 // a jitterbuffer per track, each losing packets on its own.
 type ReceiveStatGroup struct {
@@ -939,40 +940,39 @@ func (x *ReceiveStatGroup) GetValues() []*ReceiveStatValue {
 	return nil
 }
 
-// One sample off one running decode: the arriving stream, the decoder's output, the
-// sink's disposal of it, the pipeline's timing, and the counters the leg's own elements
-// keep.
+// One sample off one running decode:
+// the arriving stream, the decoder's output, the sink's disposal of it,
+// the pipeline's timing, and the counters the leg's own elements keep.
 //
-// A sample rather than a state, which is the entire reason ReceiveStream is a separate
-// message.
-// What a decode is settles at build time and moves only when the pipeline does, so it is
-// announced on that move.
-// What a decode is doing never settles and has to be read off the running pipeline on the
-// backend's clock, as PublishStats is read off the encoder.
+// A sample rather than a state, which is the entire reason ReceiveStream is a separate message.
+// What a decode is settles at build time and moves only when the pipeline does,
+// so it is announced on that move.
+// What a decode is doing never settles,
+// and has to be read off the running pipeline on the backend's clock,
+// as PublishStats is read off the encoder.
 //
-// Anything unnegotiated arrives as zero or empty, to be drawn as unknown rather than as a
-// measurement.
-// The rates use presence instead, being byte and frame deltas across two samples that a
-// first sample has nothing to subtract from: absence reads as not yet measured, where a
-// zero would claim a decode is receiving nothing.
+// Anything unnegotiated arrives as zero or empty,
+// to be drawn as unknown rather than as a measurement.
+// The rates use presence instead,
+// being byte and frame deltas across two samples that a first sample has nothing to subtract from:
+// absence reads as unmeasured, where a zero would claim a decode is receiving nothing.
 //
-// Rates are divided here and not per shell, as RelayStatus divides its own: per-reader
-// intervals would let one decode read two ways in two windows.
+// Rates are divided here and not per shell, as RelayStatus divides its own:
+// per-reader intervals would let one decode read two ways in two windows.
 type ReceiveStreamStats struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Stream name plus receiving leg, the identity StreamRef exists for.
 	Stream *StreamRef `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// GStreamer's name for the encoded stream, e.g. "H.265 (Main 4:4:4 profile)", with the
-	// caps name standing in wherever it has no name.
-	// A raw string and not a Text: outside this app's vocabulary, drawn as it stands, never
-	// matched against (text.proto).
+	// GStreamer's name for the encoded stream, e.g. "H.265 (Main 4:4:4 profile)",
+	// with the caps name standing in wherever it has no name.
+	// A raw string and not a Text: outside this app's vocabulary, drawn as it stands (text.proto).
 	CodecDescription string `protobuf:"bytes,2,opt,name=codec_description,json=codecDescription,proto3" json:"codec_description,omitempty"`
 	// The codec's own words for what the stream was encoded at.
 	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
 	Level   string `protobuf:"bytes,4,opt,name=level,proto3" json:"level,omitempty"`
 	// Totals over the encoded stream since the pipeline started.
-	// keyframes counts the ones decodable from cold, and a long gap between those is what a
-	// late viewer waits through.
+	// keyframes counts the ones decodable from cold,
+	// and a long gap between those is what a late viewer waits through.
 	VideoBytes  uint64 `protobuf:"varint,5,opt,name=video_bytes,json=videoBytes,proto3" json:"video_bytes,omitempty"`
 	VideoFrames uint64 `protobuf:"varint,6,opt,name=video_frames,json=videoFrames,proto3" json:"video_frames,omitempty"`
 	Keyframes   uint64 `protobuf:"varint,7,opt,name=keyframes,proto3" json:"keyframes,omitempty"`
@@ -982,19 +982,19 @@ type ReceiveStreamStats struct {
 	// Measured across the last interval.
 	VideoMbps *float64 `protobuf:"fixed64,9,opt,name=video_mbps,json=videoMbps,proto3,oneof" json:"video_mbps,omitempty"`
 	VideoFps  *float64 `protobuf:"fixed64,10,opt,name=video_fps,json=videoFps,proto3,oneof" json:"video_fps,omitempty"`
-	// Size out of the decoder, which is the encoded size and not whatever a tile scaled it
-	// to.
+	// Size out of the decoder, the encoded size rather than whatever a tile scaled it to.
 	Width  int32 `protobuf:"varint,11,opt,name=width,proto3" json:"width,omitempty"`
 	Height int32 `protobuf:"varint,12,opt,name=height,proto3" json:"height,omitempty"`
 	// GStreamer's name for the raw format, e.g. "Y444_10LE".
 	// depth is bits per component and subsampling the chroma sampling in J:a:b notation.
-	// Both are derived from the format instead of travelling beside it, so neither can
-	// contradict it.
+	// Both are derived from the format instead of travelling beside it,
+	// so neither can contradict it.
 	PixelFormat string `protobuf:"bytes,13,opt,name=pixel_format,json=pixelFormat,proto3" json:"pixel_format,omitempty"`
 	Depth       int32  `protobuf:"varint,14,opt,name=depth,proto3" json:"depth,omitempty"`
 	Subsampling string `protobuf:"bytes,15,opt,name=subsampling,proto3" json:"subsampling,omitempty"`
-	// Full colour description off the caps, with transfer lifted out of it as the part a
-	// viewer acts on, split for ReceiveStream's reason.
+	// Full colour description off the caps,
+	// with transfer lifted out of it as the part a viewer acts on,
+	// split for ReceiveStream's reason.
 	Colorimetry string `protobuf:"bytes,16,opt,name=colorimetry,proto3" json:"colorimetry,omitempty"`
 	Transfer    string `protobuf:"bytes,17,opt,name=transfer,proto3" json:"transfer,omitempty"`
 	ChromaSite  string `protobuf:"bytes,18,opt,name=chroma_site,json=chromaSite,proto3" json:"chroma_site,omitempty"`
@@ -1005,8 +1005,8 @@ type ReceiveStreamStats struct {
 	FpsNum int32 `protobuf:"varint,21,opt,name=fps_num,json=fpsNum,proto3" json:"fps_num,omitempty"`
 	FpsDen int32 `protobuf:"varint,22,opt,name=fps_den,json=fpsDen,proto3" json:"fps_den,omitempty"`
 	// Element decodebin settled on, plus whether silicon ran it.
-	// ReceiveStream's pair under a second owner, since counters named without their element
-	// are half a diagnosis.
+	// ReceiveStream's pair under a second owner,
+	// since counters named without their element are half a diagnosis.
 	Decoder  string `protobuf:"bytes,23,opt,name=decoder,proto3" json:"decoder,omitempty"`
 	Hardware bool   `protobuf:"varint,24,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	// Memory features negotiated at each end: decoder output pad, then sink input pad.
@@ -1014,15 +1014,13 @@ type ReceiveStreamStats struct {
 	DecodeMemory string `protobuf:"bytes,25,opt,name=decode_memory,json=decodeMemory,proto3" json:"decode_memory,omitempty"`
 	RenderMemory string `protobuf:"bytes,26,opt,name=render_memory,json=renderMemory,proto3" json:"render_memory,omitempty"`
 	// Render chain actually built, which a fallback can move away from the viewer settings.
-	// Its promises about colour and about the memory it works in follow from which chain it
-	// is, so the identifier travels alone, and the pair above measures those promises.
+	// Its promises about colour and about the memory it works in follow from which chain it is,
+	// so the identifier travels alone, and the pair above measures those promises.
 	Chain string `protobuf:"bytes,27,opt,name=chain,proto3" json:"chain,omitempty"`
-	// The rung rolling HDR down was built into this pipeline, so this reports what ran and
-	// not what was requested.
+	// The rung rolling HDR down was built into this pipeline, so this reports what ran.
 	ToneMap bool `protobuf:"varint,28,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
 	// Format and colorimetry the sink accepts, at the size it accepts them.
-	// That size parts from the decoded one wherever the chain scaled towards the drawing
-	// tile.
+	// That size parts from the decoded one wherever the chain scaled towards the drawing tile.
 	RenderFormat      string `protobuf:"bytes,29,opt,name=render_format,json=renderFormat,proto3" json:"render_format,omitempty"`
 	RenderColorimetry string `protobuf:"bytes,30,opt,name=render_colorimetry,json=renderColorimetry,proto3" json:"render_colorimetry,omitempty"`
 	RenderWidth       int32  `protobuf:"varint,31,opt,name=render_width,json=renderWidth,proto3" json:"render_width,omitempty"`
@@ -1033,26 +1031,27 @@ type ReceiveStreamStats struct {
 	Frames   uint64 `protobuf:"varint,33,opt,name=frames,proto3" json:"frames,omitempty"`
 	Rendered uint64 `protobuf:"varint,34,opt,name=rendered,proto3" json:"rendered,omitempty"`
 	Dropped  uint64 `protobuf:"varint,35,opt,name=dropped,proto3" json:"dropped,omitempty"`
-	// Frames per second the decoder took in and never handed on, which is the shedding that
-	// holds a live stream on the clock when the chain is short of the rate it is sent.
-	// A rate and no running total: a decoder holds a constant few frames at any moment, and
-	// that depth cancels between two readings where it would stand as a permanent count.
+	// Frames per second the decoder took in without handing on,
+	// the shedding that holds a live stream on the clock
+	// when the chain is short of the rate it is sent.
+	// A rate and no running total: a decoder holds a constant few frames at any moment,
+	// and that depth cancels between two readings where a total would carry it for good.
 	// Absent on the first sample of a run, as every other rate here is.
 	DiscardedFps *float64 `protobuf:"fixed64,51,opt,name=discarded_fps,json=discardedFps,proto3,oneof" json:"discarded_fps,omitempty"`
 	// Measured off the sink across the last interval.
 	RenderFps *float64 `protobuf:"fixed64,36,opt,name=render_fps,json=renderFps,proto3,oneof" json:"render_fps,omitempty"`
 	// The pipeline calls itself live, as every relay leg is.
-	// Catching up by pausing is closed to a live pipeline, so anything it cannot decode in
-	// time is dropped.
+	// Catching up by pausing is closed to a live pipeline,
+	// so anything it cannot decode in time is dropped.
 	Live bool `protobuf:"varint,37,opt,name=live,proto3" json:"live,omitempty"`
 	// Bounds the latency query came back with.
-	// Absent while no query is answered, before the pipeline reaches a state that gives the
-	// question an answer.
+	// Absent while no query is answered,
+	// before the pipeline reaches a state that gives the question an answer.
 	LatencyMinMs *float64 `protobuf:"fixed64,38,opt,name=latency_min_ms,json=latencyMinMs,proto3,oneof" json:"latency_min_ms,omitempty"`
 	LatencyMaxMs *float64 `protobuf:"fixed64,39,opt,name=latency_max_ms,json=latencyMaxMs,proto3,oneof" json:"latency_max_ms,omitempty"`
 	// Running time reached by the pipeline.
-	// A stall freezes it while uptime_sec goes on climbing beside it, which is what makes
-	// the stall visible.
+	// A stall freezes it while uptime_sec goes on climbing beside it,
+	// which is what makes the stall visible.
 	PositionSec *float64 `protobuf:"fixed64,40,opt,name=position_sec,json=positionSec,proto3,oneof" json:"position_sec,omitempty"`
 	// Wall clock since the pipeline started.
 	UptimeSec             float64  `protobuf:"fixed64,41,opt,name=uptime_sec,json=uptimeSec,proto3" json:"uptime_sec,omitempty"`
@@ -1065,12 +1064,12 @@ type ReceiveStreamStats struct {
 	AudioKbps             *float64 `protobuf:"fixed64,48,opt,name=audio_kbps,json=audioKbps,proto3,oneof" json:"audio_kbps,omitempty"`
 	// An entry per element of this pipeline whose counters are worth reading.
 	// The leg picks them: SRT reports its link, RTSP a jitterbuffer per track.
-	// A leg counting nothing contributes no group at all, never an empty one.
+	// A leg counting nothing contributes no group at all.
 	Groups []*ReceiveStatGroup `protobuf:"bytes,49,rep,name=groups,proto3" json:"groups,omitempty"`
-	// The stages between a screen somewhere and this window, as far as this machine can
-	// measure them.
-	// Always set, since a decode always measures its own pipeline; which stages inside it
-	// carry a figure is DelayBudget's own answer.
+	// The stages between a screen somewhere and this window,
+	// as far as this machine can measure them.
+	// Always set, since a decode always measures its own pipeline.
+	// Which stages inside it carry a figure is DelayBudget's own answer.
 	Delay         *DelayBudget `protobuf:"bytes,50,opt,name=delay,proto3" json:"delay,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1465,69 +1464,78 @@ func (x *ReceiveStreamStats) GetDelay() *DelayBudget {
 
 // What each stage of the path between a screen and a window costs a frame, in milliseconds.
 //
-// Every stage carries presence, because which of them are measurable depends on what the
-// stream carries rather than on the moment: a viewer measures its own leg and its own
-// pipeline, and reads the publishing machine's stages off the pictures it sent.
-// An absent stage is one nothing measured, never a stage that cost nothing.
+// Every stage carries presence:
+// which of them are measurable depends on what the stream carries rather than on the moment.
+// A viewer measures its own leg and its own pipeline,
+// and reads the publishing machine's stages off the pictures it sent.
+// An absent stage is one nothing measured.
 //
-// What crosses a relay is the coded picture, a re-mux being no re-encode, so the publisher
-// writes into each one what only it can know: the moment it finished encoding, and its own
-// running readings of the stages ahead of the wire.
-// path_ms is the subtraction against that moment, spanning both legs and the relay over any
-// transport, and relay_ms is what it leaves once the legs' own windows come off.
+// What crosses a relay is the coded picture, a re-mux being no re-encode,
+// so the publisher writes into each one what only it can know:
+// the moment it finished encoding,
+// and its own running readings of the stages ahead of the wire.
+// path_ms is the subtraction against that moment,
+// spanning both legs and the relay over any transport,
+// and relay_ms is what it leaves once the legs' own windows come off.
 type DelayBudget struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Capture to the encoded stream leaving the publishing pipeline: converting, encoding and
-	// parsing, measured against that pipeline's own clock.
+	// Capture to the encoded stream leaving the publishing pipeline:
+	// converting, encoding and parsing, measured against that pipeline's own clock.
 	//
-	// Measured on the machine holding the screen, and read here off either of two sources: its
-	// own run where this machine is that machine, and otherwise the clock stamped into each
-	// coded picture, which is what carries it over a relay.
+	// Measured on the machine holding the screen, and read here off either of two sources:
+	// its own run where this machine is that machine,
+	// and otherwise the clock stamped into each coded picture,
+	// which is what carries it over a relay.
 	// Absent on a stream this machine neither publishes nor can read a stamp out of.
 	PublishMs *float64 `protobuf:"fixed64,1,opt,name=publish_ms,json=publishMs,proto3,oneof" json:"publish_ms,omitempty"`
-	// The delivery window the publishing leg settled on with the relay: the delay every
-	// packet is held for so a lost one has room to arrive again.
-	// Reaches a viewer the same two ways publish_ms does, and is absent on a publishing
-	// transport that states no window.
+	// The delivery window the publishing leg settled on with the relay:
+	// the delay every packet is held for so a lost one has room to arrive again.
+	// Reaches a viewer the same two ways publish_ms does,
+	// and is absent on a publishing transport that states no window.
 	PublishLinkMs *float64 `protobuf:"fixed64,2,opt,name=publish_link_ms,json=publishLinkMs,proto3,oneof" json:"publish_link_ms,omitempty"`
-	// The same window on this reading leg, held by the transport before the pipeline is
-	// handed a packet at all.
-	// SRT is the leg that states one; a leg that buffers inside the pipeline instead reports
-	// that buffering under present_ms, where the pipeline's own latency query answers for it.
+	// The same window on this reading leg,
+	// held by the transport before the pipeline is handed a packet at all.
+	// SRT is the leg that states one.
+	// A leg that buffers inside the pipeline instead reports that buffering under present_ms,
+	// where the pipeline's own latency query answers for it.
 	WatchLinkMs *float64 `protobuf:"fixed64,3,opt,name=watch_link_ms,json=watchLinkMs,proto3,oneof" json:"watch_link_ms,omitempty"`
-	// The publishing machine's encoder handing a frame over to this machine's decoder being
-	// handed the same frame: the two legs and the relay between them, as one measurement.
+	// From the publishing machine's encoder handing a frame over,
+	// to this machine's decoder being handed the same frame:
+	// the two legs and the relay between them, as one measurement.
 	//
-	// Measured rather than derived, off a clock written into the coded picture, so it is
-	// present on somebody else's stream and over every transport.
-	// Absent on a codec with no unit to carry a clock, on a stream this app did not publish,
-	// and where the two machines' clocks disagree enough to put the encoder ahead of the
-	// decoder.
+	// Measured rather than derived, off a clock written into the coded picture,
+	// so it is present on somebody else's stream and over every transport.
+	// Absent on a codec with no unit to carry a clock,
+	// on a stream this app did not publish,
+	// and where the two machines' clocks disagree enough to put the encoder ahead of the decoder.
 	//
-	// relay_ms and total_ms are both taken off it, and it is what the panel draws neither of
-	// the two windows on top of. A reader may draw it or not, this stating what was measured
-	// rather than what a panel has room for.
+	// relay_ms and total_ms are both taken off it,
+	// and it is what the panel draws neither of the two windows on top of.
+	// A reader may draw it or not,
+	// this stating what was measured rather than what a panel has room for.
 	PathMs *float64 `protobuf:"fixed64,8,opt,name=path_ms,json=pathMs,proto3,oneof" json:"path_ms,omitempty"`
 	// What the relay itself spent, which is path_ms less the two legs' own windows.
-	// Present exactly where all three of those are: a leg stating no window leaves the relay's
-	// share inside path_ms rather than derived from a figure that is not there.
+	// Present exactly where all three of those are:
+	// a leg stating no window leaves the relay's share inside path_ms,
+	// rather than derived from a figure that is not there.
 	RelayMs *float64 `protobuf:"fixed64,9,opt,name=relay_ms,json=relayMs,proto3,oneof" json:"relay_ms,omitempty"`
-	// The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
-	// and the queues between them, measured.
+	// The source of this leg stamping a frame to the sink taking it:
+	// depacketizing, decoding and the queues between them, measured.
 	ReceiveMs *float64 `protobuf:"fixed64,4,opt,name=receive_ms,json=receiveMs,proto3,oneof" json:"receive_ms,omitempty"`
-	// The worst that same stage has cost any one frame since this decode started, which never
-	// comes down.
-	// receive_ms is a mean over the interval between two samples and holds steady while single
-	// frames run long, so the worst single frame is the reading that says whether a decode has
-	// ever been short of the rate it is sent, rather than short on average.
+	// The worst that same stage has cost any one frame since this decode started,
+	// which never comes down.
+	// receive_ms is a mean over the interval between two samples,
+	// and holds steady while single frames run long,
+	// so the worst single frame says whether a decode has ever been short of the rate it is sent,
+	// rather than short on average.
 	ReceivePeakMs *float64 `protobuf:"fixed64,7,opt,name=receive_peak_ms,json=receivePeakMs,proto3,oneof" json:"receive_peak_ms,omitempty"`
-	// What the sink still holds a frame for after it arrives, so that it is drawn at the
-	// moment the pipeline's latency window puts it.
-	// Work and wait together are that window, which is why a receive_ms rising to meet it is
-	// a decode about to start dropping frames.
+	// What the sink still holds a frame for after it arrives,
+	// so that it is drawn at the moment the pipeline's latency window puts it.
+	// Work and wait together are that window,
+	// which is why a receive_ms rising to meet it is a decode about to start dropping frames.
 	PresentMs *float64 `protobuf:"fixed64,5,opt,name=present_ms,json=presentMs,proto3,oneof" json:"present_ms,omitempty"`
-	// The stages above that carry a figure, added up, counting path_ms in place of the three
-	// stages it spans wherever it is present.
+	// The stages above that carry a figure, added up,
+	// counting path_ms in place of the three stages it spans wherever it is present.
 	// A floor where it is not: the relay's own share is then in the path and in no measurement,
 	// and a publisher on another machine takes the first stage out of reach as well.
 	// Absent where no stage was measured at all.
@@ -1632,8 +1640,8 @@ func (x *DelayBudget) GetTotalMs() float64 {
 // One sample across every decode.
 //
 // Whole per tick, like every state here, so an ended decode drops out by not appearing.
-// The set of decodes stays ReceiveState's answer; this reports their behaviour, joined on
-// the key.
+// The set of decodes stays ReceiveState's answer.
+// This reports their behaviour, joined on the key.
 type ReceiveStats struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Streams       []*ReceiveStreamStats  `protobuf:"bytes,1,rep,name=streams,proto3" json:"streams,omitempty"`
@@ -1680,16 +1688,16 @@ func (x *ReceiveStats) GetStreams() []*ReceiveStreamStats {
 
 // One monitor being read into pictures the frame channel can hand over.
 //
-// Far shorter than ReceiveStream, missing exactly what a decode has and a screen grab
-// lacks: no encoder produced these frames, leaving no decoder to name and no silicon
-// verdict, and no protocol carried them, leaving no leg.
+// Far shorter than ReceiveStream, missing exactly what a decode has and a screen grab lacks:
+// no encoder produced these frames, leaving no decoder to name and no silicon verdict,
+// and no protocol carried them, leaving no leg.
 type PreviewedMonitor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Enumeration index of the output, and the whole identity.
 	Monitor int32 `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
 	// A frame reached the end of the pipeline.
-	// Before that the capture element is still opening the screen, and a consumer
-	// subscribing in the meantime waits instead of being refused.
+	// Before that the capture element is still opening the screen,
+	// and a consumer subscribing in the meantime waits instead of being refused.
 	Live          bool `protobuf:"varint,2,opt,name=live,proto3" json:"live,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1741,11 +1749,11 @@ func (x *PreviewedMonitor) GetLive() bool {
 
 // Every monitor under preview.
 //
-// The full set, like every state here, so the shell that asked for a preview and the
-// shell that did not learn it the same way.
-// Also what a restarted shell converges against: a preview outlives the window that
-// wanted it, as a decode does, and the set is where the next shell finds the ones nobody
-// draws.
+// The full set, like every state here,
+// so the shell that asked for a preview and the shell that did not learn it the same way.
+// Also what a restarted shell converges against:
+// a preview outlives the window that wanted it, as a decode does,
+// and the set is where the next shell finds the ones nobody draws.
 type MonitorPreviewState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Monitors      []*PreviewedMonitor    `protobuf:"bytes,1,rep,name=monitors,proto3" json:"monitors,omitempty"`
@@ -1792,20 +1800,24 @@ func (x *MonitorPreviewState) GetMonitors() []*PreviewedMonitor {
 
 // Who this machine shares a group with.
 //
-// A reading rather than a list somebody keeps: every member's own app states its presence, the
-// lease lapses where it stops being stated, and a member who left drops out by not appearing.
+// A reading rather than a list somebody keeps:
+// every member's own app states its presence,
+// the lease lapses where it stops being stated,
+// and a member who left drops out by not appearing.
 type MembersState struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Members []*Member              `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
 	// Why the group service refused this machine's presence, absent where it took it.
 	// A refusal is what leaves the list empty on a group that has members in it.
 	Refusal *Text `protobuf:"bytes,2,opt,name=refusal,proto3" json:"refusal,omitempty"`
-	// This machine is in the group, so its presence is stated on every pass and the relay carries
-	// what it publishes.
-	// Quitting keeps it, and leaving clears it.
+	// This machine is in the group,
+	// so its presence is stated on every pass and the relay carries what it publishes.
+	// The group key and the display name are what set it,
+	// so it clears when the settings stop naming either.
 	Joined bool `protobuf:"varint,3,opt,name=joined,proto3" json:"joined,omitempty"`
-	// A connection list the relay serves would not answer, so every member's publishing reads false
-	// because nothing said otherwise rather than because nothing is being sent.
+	// A connection list the relay serves would not answer,
+	// so every member's publishing reads false because nothing said otherwise,
+	// rather than because nothing is being sent.
 	PublishingUnread bool `protobuf:"varint,4,opt,name=publishing_unread,json=publishingUnread,proto3" json:"publishing_unread,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1872,11 +1884,11 @@ func (x *MembersState) GetPublishingUnread() bool {
 // One member of the group.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Derived from a secret only that member holds, which is what makes it an identity nobody else
-	// can state.
+	// Derived from a secret only that member holds,
+	// which is what makes it an identity nobody else can state.
 	MemberId string `protobuf:"bytes,1,opt,name=member_id,json=memberId,proto3" json:"member_id,omitempty"`
 	// What that member calls itself, claimed per group and held by the first claim.
-	// Never an identity: the id says who a member is, whoever ends up holding the name.
+	// The id says who a member is, whoever ends up holding the name.
 	DisplayName string `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	// The relay is carrying a stream from this member.
 	Publishing bool `protobuf:"varint,3,opt,name=publishing,proto3" json:"publishing,omitempty"`
@@ -1947,10 +1959,10 @@ func (x *Member) GetSelf() bool {
 type Event struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Counts what this subscription has been sent, starting at one.
-	// Stamped per subscriber and not per broker, because filtered kinds never reach a
-	// subscription that named its own: a broker-wide number would skip on every event some
-	// filter dropped, and that skip cannot be told from the one a reader falling behind
-	// leaves.
+	// Stamped per subscriber and not per broker,
+	// because filtered kinds never reach a subscription that named its own:
+	// a broker-wide number would skip on every event some filter dropped,
+	// and that skip cannot be told from the one a reader falling behind leaves.
 	// Whole states make a gap harmless, and still worth noticing.
 	Sequence uint64 `protobuf:"varint,1,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	// Types that are valid to be assigned to Payload:
@@ -2179,8 +2191,9 @@ type Event_PublishExit struct {
 
 type Event_RelayStatus struct {
 	// A relay snapshot on the backend's poll interval.
-	// Pushed instead of polled per shell, which keeps the byte-delta bitrates divided by
-	// one steady interval rather than by each shell's cadence.
+	// Pushed instead of polled per shell,
+	// which keeps the byte-delta bitrates divided by one steady interval
+	// rather than by each shell's cadence.
 	RelayStatus *RelayStatus `protobuf:"bytes,5,opt,name=relay_status,json=relayStatus,proto3,oneof"`
 }
 
@@ -2197,11 +2210,10 @@ type Event_ViewerExit struct {
 }
 
 type Event_ReceiveState struct {
-	// Every decode, on each start, stop and newly learnt fact about one: a first frame, a
-	// fallback chain, a memory feature its pads settled on.
-	// viewer_state's counterpart on the receiving side, and it describes decodes rather
-	// than tiles, since arranging what arrives is the shell's and appears on no message
-	// here.
+	// Every decode, on each start, stop and newly learnt fact about one:
+	// a first frame, a fallback chain, a memory feature its pads settled on.
+	// viewer_state's counterpart on the receiving side, and it describes decodes rather than tiles,
+	// since arranging what arrives is the shell's and appears on no message here.
 	ReceiveState *ReceiveState `protobuf:"bytes,15,opt,name=receive_state,json=receiveState,proto3,oneof"`
 }
 
@@ -2212,20 +2224,20 @@ type Event_ReceiveExit struct {
 }
 
 type Event_ReceiveStats struct {
-	// A sample across every running decode on the backend's own interval, roughly one a
-	// second, and silence while nothing decodes.
+	// A sample across every running decode on the backend's own interval,
+	// roughly one a second, and silence while nothing decodes.
 	//
 	// Split from receive_state exactly as publish_stats splits from publish_state.
-	// Merged, the whole receive state would travel at sampling rate and every consumer
-	// would re-render for counters most of them never draw.
+	// Merged, the whole receive state would travel at sampling rate,
+	// and every consumer would re-render for counters most of them never draw.
 	ReceiveStats *ReceiveStats `protobuf:"bytes,18,opt,name=receive_stats,json=receiveStats,proto3,oneof"`
 }
 
 type Event_MonitorPreviewState struct {
 	// Every monitor under preview, on each open, close and first frame.
-	// No exit event accompanies it, unlike the two above: an ended preview leaves the set,
-	// and beyond the screen no longer being read there is nothing to report, no log to
-	// open, no viewer to account for, no retry to explain.
+	// No exit event accompanies it, unlike the two above:
+	// an ended preview leaves the set and has nothing else to report,
+	// no log to open, no viewer to account for, no retry to explain.
 	MonitorPreviewState *MonitorPreviewState `protobuf:"bytes,17,opt,name=monitor_preview_state,json=monitorPreviewState,proto3,oneof"`
 }
 
@@ -2241,15 +2253,15 @@ type Event_TestStreamExit struct {
 
 type Event_MembersState struct {
 	// Who this machine shares a group with, on every presence the group service answers.
-	// The whole membership, so a shell draws the group rather than merging arrivals and
-	// departures into what it held.
+	// The whole membership,
+	// so a shell draws the group rather than merging arrivals and departures into what it held.
 	MembersState *MembersState `protobuf:"bytes,19,opt,name=members_state,json=membersState,proto3,oneof"`
 }
 
 type Event_Catalog struct {
 	// The whole reference set again, once the encoder probe has filled in.
-	// The catalog travels rather than the probe result alone, because a shell holding a
-	// catalog has nowhere to merge half a state into.
+	// The catalog travels rather than the probe result alone,
+	// because a shell holding a catalog has nowhere to merge half a state into.
 	Catalog *Catalog `protobuf:"bytes,14,opt,name=catalog,proto3,oneof"`
 }
 

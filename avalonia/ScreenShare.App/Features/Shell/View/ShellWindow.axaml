@@ -11,11 +11,14 @@
         xmlns:viewer="using:ScreenShare.App.Features.Viewer.View"
         xmlns:viewerVm="using:ScreenShare.App.Features.Viewer.ViewModel"
         xmlns:chrome="using:Avalonia.Controls.Chrome"
+        xmlns:model="using:ScreenShare.App.Features.Shell.Model"
         x:Class="ScreenShare.App.Features.Shell.View.ShellWindow"
         x:DataType="shell:ShellViewModel"
         Title="{Binding TitleBar.Title}"
-        Width="1240" Height="760"
-        MinWidth="960" MinHeight="600"
+        Width="{x:Static model:WindowSize.Opening}"
+        Height="{x:Static model:WindowSize.OpeningHeight}"
+        MinWidth="{x:Static model:WindowSize.Floor}"
+        MinHeight="{x:Static model:WindowSize.FloorHeight}"
         Background="{StaticResource SurfaceBrush}"
         Foreground="{StaticResource ControlForegroundBrush}">
 

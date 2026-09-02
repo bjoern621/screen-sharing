@@ -928,14 +928,14 @@ func TestAnEncryptedRelayGreysUdpOnBothRtspLegs(t *testing.T) {
 }
 
 // Nothing a draft holds greys the name this machine goes by.
-// A name is claimed per group when joining and reaches no capture backend, encoder or leg,
+// A name is claimed per group and reaches no capture backend, encoder or leg,
 // so no combination on this screen rules it out and a stream in force blocks
 // it no more than any other field does (docs/field-availability.md,
 // "A live stream blocks no field").
 //
 // An empty one is a state and not a refusal.
-// Joining is where a missing name is refused (control.JoinGroup),
-// and greying the control there would leave the reader holding a refusal with nowhere to answer it.
+// A machine without a name states no presence in the group its key names (app.membershipFor),
+// and greying the control here would leave the reader holding that with nowhere to answer it.
 func TestTheDisplayNameIsEditableWhateverTheDraftHolds(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, name := range []string{"", "Björn"} {

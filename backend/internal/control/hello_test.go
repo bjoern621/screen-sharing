@@ -37,11 +37,8 @@ type fakeBackend struct {
 	publish wire.PublishSnapshot
 	// settings is what the backend holds, for the reads and for the refusals decided off them.
 	settings settings.Settings
-	// members is the group this machine shares,
-	// joins counts the joins and leaves asked for, how a test says a repeat drew nothing.
+	// members is the group this machine shares, as the presence loop last read it.
 	members wire.MembersSnapshot
-	joins   int
-	leaves  int
 	// legs is what a relay check answers, which no err field can stand in for:
 	// every leg comes back with a verdict of its own,
 	// and a relay that answers nothing is still a response.
@@ -123,18 +120,6 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
 }
 
-// The counts are what a test reads to say a second join drew nothing:
-// the backend is where idempotency lives,
-// so the contract's part is reaching it once per call and refusing above it.
-func (f *fakeBackend) JoinGroup() error {
-	f.joins++
-	return f.err
-}
-
-func (f *fakeBackend) LeaveGroup() error {
-	f.leaves++
-	return f.err
-}
 func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
 

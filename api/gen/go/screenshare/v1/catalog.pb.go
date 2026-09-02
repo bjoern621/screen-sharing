@@ -22,8 +22,8 @@ const (
 )
 
 // Publish engine: the implementation that builds and runs the pipeline.
-// The two wrap different encoders, so a pixel format, a colour range, a rate-control mode
-// or a whole codec can be one engine's and not the other's.
+// The two wrap different encoders, so a pixel format, a colour range,
+// a rate-control mode or a whole codec can be one engine's and not the other's.
 type Engine int32
 
 const (
@@ -33,11 +33,11 @@ const (
 	Engine_ENGINE_FFMPEG      Engine = 1
 	Engine_ENGINE_GSTREAMER   Engine = 2
 	// Every engine at once.
-	// A gap that binds on both takes it, so a gap that named no engine stays a different
-	// value.
+	// A gap that binds on both takes it,
+	// so a gap that named no engine stays a different value.
 	Engine_ENGINE_ANY Engine = 3
 	// The machine's default browser, on the player page the relay serves.
-	// It reads and never publishes, so it appears on a watch carriage row and nowhere else:
+	// A reader only, so it appears on a watch carriage row and nowhere else:
 	// no gap names it, no encoder probe runs against it, no capture backend is driven by it.
 	// ENGINE_ANY means the publish engines, the only ones a gap can bind on.
 	Engine_ENGINE_BROWSER Engine = 4
@@ -90,8 +90,8 @@ func (Engine) EnumDescriptor() ([]byte, []int) {
 
 // Which half of the path a fact is about: publisher to relay, or relay to viewer.
 // Carriage is per leg because the relay re-serves an ingested stream on every listener
-// whose protocol has a mapping for it, so one stream's two legs routinely run different
-// protocols.
+// whose protocol has a mapping for it,
+// so one stream's two legs routinely run different protocols.
 type Leg int32
 
 const (
@@ -142,16 +142,15 @@ func (Leg) EnumDescriptor() ([]byte, []int) {
 }
 
 // Who converts the captured frames to the encoder's layout on a GPU path.
-// It decides whether the memory setting may resolve to that path without a second question
-// to the user.
+// It decides whether the memory setting may resolve to that path without asking the user.
 type PathColour int32
 
 const (
 	PathColour_PATH_COLOUR_UNSPECIFIED PathColour = 0
 	// Device-side conversion that takes the settings' colour and states it.
 	PathColour_PATH_COLOUR_EXACT PathColour = 1
-	// No conversion on the device path: the encoder converts, in its own colour, and the
-	// settings' colour is what the path costs.
+	// No conversion on the device path:
+	// the encoder converts, in its own colour, and the settings' colour is what the path costs.
 	PathColour_PATH_COLOUR_ENCODER PathColour = 2
 )
 
@@ -196,26 +195,25 @@ func (PathColour) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{2}
 }
 
-// One thing a codec or an audio codec cannot do, with the reason a shell shows in place of
-// the option.
+// One thing a codec or an audio codec cannot do,
+// with the reason a shell shows in place of the option.
 //
 // A gap removes one value of one settings option rather than narrowing the row.
-// A value one engine reaches stays offered on that engine's capture backends, and the
-// engine that lacks it says why.
+// A value one engine reaches stays offered on that engine's capture backends,
+// and the engine that lacks it says why.
 type Gap struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// ENGINE_ANY means the format or the library has no such capability, rather than one
-	// builder failing to reach it.
+	// ENGINE_ANY means the format or the library has no such capability,
+	// rather than one builder failing to reach it.
 	Engine Engine `protobuf:"varint,1,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
 	// Settings field the value is taken from, named as PublishSettings names it.
-	// Empty takes the codec off that engine altogether, since no value of any option reaches
-	// an encoder that is not there.
+	// Empty takes the codec off that engine altogether,
+	// since no value of any option reaches an encoder that is not there.
 	Option string `protobuf:"bytes,2,opt,name=option,proto3" json:"option,omitempty"`
 	// The one value of option that is removed.
 	Value string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	// Which library or element lacks the capability, as a code (text.proto).
-	// It takes no arguments: the codec, the engine and the removed value are the fields
-	// above.
+	// It takes no arguments: the codec, the engine and the removed value are the fields above.
 	Reason        *Text `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -281,19 +279,19 @@ func (x *Gap) GetReason() *Text {
 
 // What one publish engine bounds one codec by.
 //
-// A row per engine rather than a map keyed by engine name: a proto map takes no enum key,
-// and the name-keyed form spelled the engine axis as a string beside the enum every other
-// message carries.
+// A row per engine rather than a map keyed by engine name: a proto map takes no enum key.
+// A name-keyed form would also spell the engine axis as a string,
+// where every other message carries the enum.
 //
 // Both figures carry presence.
-// An engine that bounds neither contributes no row, and an absent ceiling is not a ceiling
-// of zero.
+// An engine that bounds neither contributes no row,
+// and an absent ceiling is not a ceiling of zero.
 type EngineLimit struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Engine Engine                 `protobuf:"varint,1,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
 	// Ceiling of the constant-quality scale.
-	// The scale is the library's rather than the app's, so a shell reads it here instead of
-	// assuming a constant.
+	// The scale is the library's rather than the app's,
+	// so a shell reads it here instead of assuming a constant.
 	CqMax *int32 `protobuf:"varint,2,opt,name=cq_max,json=cqMax,proto3,oneof" json:"cq_max,omitempty"`
 	// Highest bitrate the encoder accepts on this engine.
 	BitrateLimitMbps *int32 `protobuf:"varint,3,opt,name=bitrate_limit_mbps,json=bitrateLimitMbps,proto3,oneof" json:"bitrate_limit_mbps,omitempty"`
@@ -352,24 +350,22 @@ func (x *EngineLimit) GetBitrateLimitMbps() int32 {
 	return 0
 }
 
-// One encoder the app knows about, with the fixed facts that decide what it may be asked
-// for.
+// One encoder the app knows about, with the fixed facts that decide what it may be asked for.
 type VideoCodec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Encoder as the engine names it: "hevc_nvenc".
-	// What a command line and a log line spell, and what a probe verdict is keyed by
-	// (EncoderAvailability).
+	// What a command line and a log line spell,
+	// and what a probe verdict is keyed by (EncoderAvailability).
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Encoder backend: software, nvenc, vaapi, qsv, amf, v4l2, rkmpp or vulkan.
 	// Every per-backend behaviour keys off the family rather than off a name suffix.
 	Family string `protobuf:"bytes,2,opt,name=family,proto3" json:"family,omitempty"`
 	// Bitstream this encoder produces: "h264", "hevc", "av1".
-	// Carriage is stated per format and not per encoder, because the format is what a
-	// transport carries.
+	// Carriage is stated per format, because the format is what a transport carries.
 	Format string `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
 	// The row's own half of the pair PublishSettings carries, format being the other:
-	// the family wherever that family is one encoder, and the library where several share a
-	// family ("nvenc", "x264", "svt-av1").
+	// the family wherever that family is one encoder,
+	// and the library where several share a family ("nvenc", "x264", "svt-av1").
 	Encoder string `protobuf:"bytes,10,opt,name=encoder,proto3" json:"encoder,omitempty"`
 	// False where this app builds no pipeline for the codec.
 	// Such a row exists so the table can state why it is absent.
@@ -469,13 +465,14 @@ func (x *VideoCodec) GetGaps() []*Gap {
 }
 
 // One decode path a viewer might have.
-// The decode table describes other people's hardware rather than this machine: a stream is
-// published once and watched on whatever the watchers have, so nothing here is probed and
-// nothing here forbids a choice.
+// The decode table describes other people's hardware rather than this machine:
+// a stream is published once and watched on whatever the watchers have,
+// so nothing here is probed and nothing here forbids a choice.
 //
 // A shell reads it to say what a publish choice costs a viewer.
-// Every format has a software decoder, so a pixel format no GPU takes is a viewer spending
-// cores, a trade the publisher may make once it is stated.
+// Every format has a software decoder,
+// so a pixel format no GPU takes is a viewer spending cores,
+// a trade the publisher may make once it is stated.
 type Decoder struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Decoder as the receiving pipeline names it.
@@ -552,8 +549,7 @@ type AudioEncoder struct {
 	Engine Engine                 `protobuf:"varint,1,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
 	// Encoder element, or ffmpeg encoder name.
 	Element string `protobuf:"bytes,2,opt,name=element,proto3" json:"element,omitempty"`
-	// Element that has to follow it where the muxer needs framed input, empty where none
-	// does.
+	// Element that has to follow it where the muxer needs framed input, empty where none does.
 	Parser        string `protobuf:"bytes,3,opt,name=parser,proto3" json:"parser,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -612,17 +608,18 @@ func (x *AudioEncoder) GetParser() string {
 
 // One codec the second track can be coded in.
 //
-// The source and the codec are two settings against two tables, because they answer
-// different questions: which sources exist is the platform's answer, which codecs reach the
-// relay is the engine's and the publish leg's.
+// The source and the codec are two settings against two tables,
+// because they answer different questions:
+// which sources exist is the platform's answer,
+// which codecs reach the relay is the engine's and the publish leg's.
 type AudioCodec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// What the transport tables name this track by, which is how a leg's carriage and this
-	// row meet.
+	// What the transport tables name this track by,
+	// which is how a leg's carriage and this row meet.
 	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
 	// Sample rate the capture branch resamples to.
-	// The row's figure and not the user's, so that both engines build the same branch.
+	// Fixed by the row, so that both engines build the same branch.
 	RateHz int32 `protobuf:"varint,3,opt,name=rate_hz,json=rateHz,proto3" json:"rate_hz,omitempty"`
 	// Rate the track is coded at, fixed by the row for the same reason.
 	BitrateKbps   int32           `protobuf:"varint,4,opt,name=bitrate_kbps,json=bitrateKbps,proto3" json:"bitrate_kbps,omitempty"`
@@ -755,8 +752,8 @@ func (x *EngineCodecs) GetUsable() map[string]bool {
 // One engine's probe result.
 //
 // The oneof is the invariant: an engine is either probed or carries the reason it was not.
-// An engine that could not be probed is not an engine with nothing usable, and a form must
-// not present it as one.
+// An engine that could not be probed is not an engine with nothing usable,
+// and a form must not present it as one.
 type EngineProbe struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Engine Engine                 `protobuf:"varint,1,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
@@ -840,10 +837,10 @@ type EngineProbe_Probed struct {
 }
 
 type EngineProbe_Unprobed struct {
-	// This engine could not be probed at all: its own tooling missing, rather than its
-	// encoders being absent.
-	// The tool's own "not found" text is a machine's answer rather than a fact about the
-	// domain, and goes to the run log.
+	// This engine could not be probed at all:
+	// its own tooling missing, rather than its encoders being absent.
+	// The tool's own "not found" text is a machine's answer rather than a fact about the domain,
+	// and goes to the run log.
 	Unprobed *Text `protobuf:"bytes,4,opt,name=unprobed,proto3,oneof"`
 }
 
@@ -852,8 +849,8 @@ func (*EngineProbe_Probed) isEngineProbe_Result() {}
 func (*EngineProbe_Unprobed) isEngineProbe_Result() {}
 
 // What this machine can really encode, as against what the codec table says exists.
-// The one probed part of the catalog, so a form can grey NVENC on a machine with no NVIDIA
-// GPU.
+// The one probed part of the catalog,
+// so a form can grey NVENC on a machine with no NVIDIA GPU.
 type EncoderAvailability struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Engines       []*EngineProbe         `protobuf:"bytes,3,rep,name=engines,proto3" json:"engines,omitempty"`
@@ -898,12 +895,11 @@ func (x *EncoderAvailability) GetEngines() []*EngineProbe {
 	return nil
 }
 
-// One capture backend and encoder family whose frames reach the encoder without leaving the
-// GPU.
+// One capture backend and encoder family whose frames reach the encoder without leaving the GPU.
 //
-// A table of pairs rather than of codecs because neither end decides alone: the portal
-// capture shares device memory with a VAAPI encoder and not with an x264 one, and a VAAPI
-// encoder shares it with the portal capture and not with ximagesrc.
+// A table of pairs rather than of codecs because neither end decides alone:
+// the portal capture shares device memory with a VAAPI encoder and not with an x264 one,
+// and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
 // A selection matching no row takes the system-memory copy.
 type GpuPath struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -911,12 +907,12 @@ type GpuPath struct {
 	Capture string                 `protobuf:"bytes,2,opt,name=capture,proto3" json:"capture,omitempty"`
 	Family  string                 `protobuf:"bytes,3,opt,name=family,proto3" json:"family,omitempty"`
 	Colour  PathColour             `protobuf:"varint,5,opt,name=colour,proto3,enum=screenshare.v1.PathColour" json:"colour,omitempty"`
-	// What carries the frames from the capture end to the encode end, so a row says which
-	// mechanism has to work rather than only that one does.
+	// What carries the frames from the capture end to the encode end,
+	// so a row says which mechanism has to work rather than only that one does.
 	// One code per row: the mechanism is exactly what differs between them.
 	Import *Text `protobuf:"bytes,7,opt,name=import,proto3" json:"import,omitempty"`
-	// What a PATH_COLOUR_ENCODER path takes instead of the settings' colour, carrying the
-	// pixel format and colour range the encoder signals.
+	// What a PATH_COLOUR_ENCODER path takes instead of the settings' colour,
+	// carrying the pixel format and colour range the encoder signals.
 	// Absent on an exact row, which takes nothing.
 	Cost          *Text `protobuf:"bytes,8,opt,name=cost,proto3" json:"cost,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -997,8 +993,8 @@ func (x *GpuPath) GetCost() *Text {
 
 // What one transport carries, on one leg, for one engine.
 //
-// The engine axis exists because a single list per leg would have to state the narrower of
-// the two: the engine that carries more would be refused a format it serializes correctly,
+// The engine axis exists because a single list per leg would state the narrower of the two:
+// the engine that carries more would be refused a format it serializes correctly,
 // and no form could give a reason for the refusal.
 type TransportCarriage struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
@@ -1006,8 +1002,8 @@ type TransportCarriage struct {
 	Leg    Leg                    `protobuf:"varint,2,opt,name=leg,proto3,enum=screenshare.v1.Leg" json:"leg,omitempty"`
 	Engine Engine                 `protobuf:"varint,3,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
 	// Bitstream formats this leg carries, and the second-track codecs.
-	// They travel together because what a listener carries as a bitstream and what it carries
-	// as a track are one fact about that listener.
+	// They travel together because what a listener carries as a bitstream
+	// and what it carries as a track are one fact about that listener.
 	Video         []string `protobuf:"bytes,4,rep,name=video,proto3" json:"video,omitempty"`
 	Audio         []string `protobuf:"bytes,5,rep,name=audio,proto3" json:"audio,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1082,22 +1078,22 @@ func (x *TransportCarriage) GetAudio() []string {
 // One way of getting pictures off this machine.
 type CaptureBackend struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The value PublishSettings.capture carries.
+	// Value PublishSettings.capture carries.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Publish engine that runs it.
-	// Most other availability hangs off this, because the two engines express the same
-	// rate-control modes through different properties.
+	// Most other availability hangs off this,
+	// because the two engines express the same rate-control modes through different properties.
 	Engine Engine `protobuf:"varint,2,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
-	// Publish legs this backend's engine can carry, which is why the portal path offers no
-	// WebRTC: GStreamer has no sink for it.
+	// Publish legs this backend's engine can carry,
+	// which is why the portal path offers no WebRTC: GStreamer has no sink for it.
 	Transports []string `protobuf:"bytes,3,rep,name=transports,proto3" json:"transports,omitempty"`
 	// Whether this backend can run on this platform and session at all.
-	// reason states why not: the operating system it needs, or the session it needs on that
-	// operating system.
+	// reason states why not: the operating system it needs,
+	// or the session it needs on that operating system.
 	Available bool  `protobuf:"varint,4,opt,name=available,proto3" json:"available,omitempty"`
 	Reason    *Text `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
-	// Privilege this backend needs and no probe can establish, absent for a backend behind
-	// none.
+	// Privilege this backend needs and no probe can establish,
+	// absent for a backend behind none.
 	// Not an unavailability: the process holds the privilege or the capture dies at launch,
 	// and nothing can tell which in advance.
 	Grant         *Text `protobuf:"bytes,7,opt,name=grant,proto3" json:"grant,omitempty"`
@@ -1184,10 +1180,12 @@ type Monitor struct {
 	Index  int32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	Width  int32 `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
 	Height int32 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
-	// Top-left corner in the virtual desktop, zero on a platform that selects an output by index and
-	// reports no such origin.
-	// Zero and not absent, unlike refresh_hz below: the origin is where a crop starts, and a platform
-	// that composes no virtual desktop starts every crop at 0,0, so the two answers are one.
+	// Top-left corner in the virtual desktop,
+	// zero on a platform that selects an output by index and reports no such origin.
+	// Zero and not absent, unlike refresh_hz below:
+	// the origin is where a crop starts,
+	// and a platform that composes no virtual desktop starts every crop at 0,0,
+	// so the two answers are one.
 	OffsetX int32 `protobuf:"varint,4,opt,name=offset_x,json=offsetX,proto3" json:"offset_x,omitempty"`
 	OffsetY int32 `protobuf:"varint,5,opt,name=offset_y,json=offsetY,proto3" json:"offset_y,omitempty"`
 	Primary bool  `protobuf:"varint,6,opt,name=primary,proto3" json:"primary,omitempty"`
@@ -1381,9 +1379,10 @@ func (x *TransportList) GetTransports() []string {
 
 // The whole reference set, fetched in one call.
 //
-// One message rather than a call per table because the tables are read together and
-// constrain each other: a shell fetching them separately could hold a codec list from
-// before a probe finished beside a probe result from after it.
+// One message rather than a call per table,
+// because the tables are read together and constrain each other:
+// a shell fetching them separately could hold a codec list from before a probe finished
+// beside a probe result from after it.
 type Catalog struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	Platform    *Platform              `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
@@ -1396,8 +1395,8 @@ type Catalog struct {
 	Captures    []*CaptureBackend      `protobuf:"bytes,8,rep,name=captures,proto3" json:"captures,omitempty"`
 	Carriage    []*TransportCarriage   `protobuf:"bytes,9,rep,name=carriage,proto3" json:"carriage,omitempty"`
 	// The closed value sets the domain model declares.
-	// They are on the wire so a shell can iterate them rather than restate them, and so a
-	// value added in Go reaches every shell without an edit.
+	// They are on the wire so a shell can iterate them rather than restate them,
+	// and so a value added in Go reaches every shell without an edit.
 	// The publish engines are not among them: they are the Engine enum.
 	Families      []string `protobuf:"bytes,11,rep,name=families,proto3" json:"families,omitempty"`
 	Modes         []string `protobuf:"bytes,12,rep,name=modes,proto3" json:"modes,omitempty"`
@@ -1406,37 +1405,36 @@ type Catalog struct {
 	CapabilityOptions []string `protobuf:"bytes,14,rep,name=capability_options,json=capabilityOptions,proto3" json:"capability_options,omitempty"`
 	// Legs an external viewer can be opened on.
 	WatchTransports []string `protobuf:"bytes,15,rep,name=watch_transports,json=watchTransports,proto3" json:"watch_transports,omitempty"`
-	// Narrows watch_transports per bitstream format: the relay re-serves a stream only on the
-	// listeners whose protocol has a mapping for it.
-	// Offering the whole list would put a viewer in front of a stream its protocol cannot
-	// carry, and the failure would read as a broken stream rather than an impossible
-	// combination.
+	// Narrows watch_transports per bitstream format:
+	// the relay re-serves a stream only on the listeners whose protocol has a mapping for it.
+	// Offering the whole list would put a viewer in front of a stream its protocol cannot carry,
+	// and the failure would read as a broken stream rather than an impossible combination.
 	WatchTransportsByFormat map[string]*TransportList `protobuf:"bytes,17,rep,name=watch_transports_by_format,json=watchTransportsByFormat,proto3" json:"watch_transports_by_format,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Legs the relay serves a player page for, which a browser opens as an address like any
-	// other.
-	// A third list because the reader is a third one: WHEP is an exchange no player opens and
-	// a browser runs it, and nothing here reads the relay's HLS segments except a browser and
-	// a player.
-	// What each of them carries is a carriage row under ENGINE_BROWSER, as it is for the
-	// other two readers.
+	// Legs the relay serves a player page for, which a browser opens as an address like any other.
+	// A third list because the reader is a third one:
+	// WHEP is an exchange no player opens and a browser runs it,
+	// and nothing here reads the relay's HLS segments except a browser and a player.
+	// What each of them carries is a carriage row under ENGINE_BROWSER,
+	// as it is for the other two readers.
 	BrowserWatchTransports []string `protobuf:"bytes,20,rep,name=browser_watch_transports,json=browserWatchTransports,proto3" json:"browser_watch_transports,omitempty"`
 	// Second-track capture kinds this platform offers, "none" among them.
 	AudioSources []string `protobuf:"bytes,18,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
-	// What this machine has inside those kinds, enumerated rather than declared: which kinds
-	// exist is the same on every machine of one operating system, and which outputs it plays
-	// into is not.
+	// What this machine has inside those kinds, enumerated rather than declared:
+	// which kinds exist is the same on every machine of one operating system,
+	// and which outputs it plays into is not.
 	//
-	// Each kind's own default is absent from this list, because it needs no enumeration: an
-	// entry naming no device takes it, and every served kind has one.
+	// Each kind's own default is absent from this list, because it needs no enumeration:
+	// an entry naming no device takes it, and every served kind has one.
 	// A kind with nothing here is a kind with one thing in it rather than none.
 	AudioDevices []*AudioDevice `protobuf:"bytes,22,rep,name=audio_devices,json=audioDevices,proto3" json:"audio_devices,omitempty"`
 	// Why this machine cannot show what a monitor holds, absent where it can.
-	// StartMonitorPreview refuses for the same reason, so a shell reads this and offers the
-	// plain list instead of asking and being told no.
+	// StartMonitorPreview refuses for the same reason,
+	// so a shell reads this and offers the plain list instead of asking and being told no.
 	//
 	// One statement for the machine rather than a flag per enumerated output.
-	// What decides it is the session: reading one screen apart from another needs a capture
-	// element that takes an output, and which one exists is the display server's answer and
+	// What decides it is the session:
+	// reading one screen apart from another needs a capture element that takes an output,
+	// and which one exists is the display server's answer,
 	// the same for every monitor plugged into it.
 	NoMonitorPreview *Text `protobuf:"bytes,21,opt,name=no_monitor_preview,json=noMonitorPreview,proto3" json:"no_monitor_preview,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -1606,22 +1604,21 @@ func (x *Catalog) GetNoMonitorPreview() *Text {
 	return nil
 }
 
-// One thing inside an audio capture kind: a sound device, or an application whose own
-// output is being recorded.
+// One thing inside an audio capture kind:
+// a sound device, or an application whose own output is being recorded.
 //
 // Enumerated rather than declared, which is the whole difference from the kinds beside it.
-// Which kinds exist is a fact about this app and its platforms; which devices are inside a
-// kind is a fact about this machine at this moment.
+// Which kinds exist is a fact about this app and its platforms.
+// Which devices are inside a kind is a fact about this machine at this moment.
 type AudioDevice struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Source kind this device is inside, one of Catalog.audio_sources.
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
-	// Handle a publish engine opens it by, which is what the settings hold (settings.proto,
-	// AudioSource.device).
+	// Handle a publish engine opens it by, which is what the settings hold
+	// (settings.proto, AudioSource.device).
 	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	// What the machine calls it, for a surface that would otherwise show a handle.
-	// A description and never an identity: two devices may answer to one name, and the handle
-	// is what separates them.
+	// Two devices may answer to one name, and the handle is what separates them.
 	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

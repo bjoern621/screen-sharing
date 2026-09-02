@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using ScreenShare.Api.V1;
-using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Viewer.Members.Model;
@@ -9,45 +8,24 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Viewer.Members.ViewModel;
 
 /// <summary>
-/// Who this machine shares a group with, and the one control that changes it.
+/// Who this machine shares a group with.
 ///
 /// <b>A reading and never a roster kept here.</b> Every member's own app states its presence, the lease lapses
 /// where it stops being stated, and a member who left drops out by not appearing,
 /// so this renders the last answer whole and merges nothing into it (<c>docs/ipc-api.md</c>, "Events").
 ///
-/// <b>Two actions and never three.</b> Nothing in a self-served group removes another member, so no row affords
-/// anything: what this machine decides is whether it is in the group itself.
-/// Join and Leave each name a state, so a press that finds it already true is a success.
+/// <b>No action of its own.</b> The group key and the name for this machine are what put it in a group,
+/// and both are settings, so this card has nothing to press: it says what the group is and what is missing.
+/// Nothing in a self-served group removes another member either, so no row affords anything.
 ///
-/// <b>One sentence for a refusal, from whichever side stated it last.</b> The presence loop carries the group
-/// service's standing refusal on the state, and a press carries the backend's own, the one the reader caused.
-/// A press that went through clears it, so the standing one comes back on the next pass that still has it.
+/// <b>One sentence for a refusal.</b> The presence loop carries whatever the group service or this machine's
+/// own settings refused the last statement of presence with, and the card shows that.
 /// </summary>
 public sealed class MembersViewModel : Observable
 {
-    private readonly Action<Action> _dispatch;
-
-    /// <summary>What the last press was refused with, empty while none was.</summary>
-    private string _pressRefusal = "";
-
-    /// <param name="dispatch">
-    /// Hands work to the UI loop.
-    /// An effect answers on whichever thread the transport completed on,
-    /// and a binding reading what is written here tolerates one thread.
-    /// </param>
-    public MembersViewModel(IBackend backend, Action<Action> dispatch)
+    public MembersViewModel()
     {
-        Assert.NotNull(backend, "a member card asks the backend to join and to leave");
-        Assert.NotNull(dispatch, "a member card needs a UI loop to marshal an answer back to");
-
-        _dispatch = dispatch;
         Rows = [];
-
-        // Each names the state it wants true.
-        // A press landing on a group this machine is already in or out of costs a round trip and changes nothing.
-        Join = new PendingCommand(() => PerformAsync(backend.JoinGroupAsync), dispatch, () => CanJoin);
-        Leave = new PendingCommand(() => PerformAsync(backend.LeaveGroupAsync), dispatch, () => CanLeave);
-
         Apply();
     }
 
@@ -77,31 +55,11 @@ public sealed class MembersViewModel : Observable
     private bool _hasRows;
     private string _refusal = "";
     private bool _hasRefusal;
-    private bool _isJoined;
-    private bool _canJoin;
-    private bool _canLeave;
 
     /// <summary>One row per member the group service named, in its order.</summary>
     public ObservableCollection<MemberRow> Rows { get; }
 
-    /// <summary>Puts this machine in the group the settings name, and lists it beside everyone else in it.</summary>
-    public PendingCommand Join { get; }
-
-    /// <summary>Takes this machine out of the group, which closes what the relay was carrying for it.</summary>
-    public PendingCommand Leave { get; }
-
     public string Title => Cards.MembersTitle;
-
-    public string JoinLabel => Cards.MembersJoin;
-
-    public string LeaveLabel => Cards.MembersLeave;
-
-    /// <summary>Decides which of the two actions is on screen.</summary>
-    public bool IsJoined { get => _isJoined; private set => Set(ref _isJoined, value); }
-
-    public bool CanJoin { get => _canJoin; private set => Set(ref _canJoin, value); }
-
-    public bool CanLeave { get => _canLeave; private set => Set(ref _canLeave, value); }
 
     /// <summary>Why there are no rows, empty while there are some.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
@@ -132,58 +90,19 @@ public sealed class MembersViewModel : Observable
         Reconcile.Onto(Rows, rendered);
         HasRows = Rows.Count > 0;
 
-        IsJoined = state?.Joined ?? false;
-        CanJoin = !IsJoined;
-        CanLeave = IsJoined;
-
         Notice = HasRows ? ""
             : state is null ? Cards.MembersUnread
-            : !IsJoined ? Cards.MembersOutside
+            : !state.Joined ? Cards.MembersOutside
             : Cards.MembersNone;
 
-        Refusal = _pressRefusal.Length > 0 ? _pressRefusal : Statements.Of(state?.Refusal);
+        Refusal = Statements.Of(state?.Refusal);
         HasRefusal = Refusal.Length > 0;
-
-        Join.Refresh();
-        Leave.Refresh();
 
         Assert.That(Rows.Count == members.Count, "a row per member the group named", Rows.Count, members.Count);
         Assert.That(Rows.Count(row => row.IsLast) == (Rows.Count == 0 ? 0 : 1),
             "exactly one row ends the list", Rows.Count);
         Assert.That(HasRows == (Notice.Length == 0),
             "rows and the sentence standing in for them are never both on screen", HasRows);
-        Assert.That(CanJoin != CanLeave, "one of the two actions is offered and never both", CanJoin, CanLeave);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
-    }
-
-    /// <summary>
-    /// Asks for one state of the membership and shows the refusal where there is one.
-    /// Nothing is written on the way out: what the group became arrives on the event stream,
-    /// so the window that pressed and the window that did not learn it the same way.
-    /// </summary>
-    private async Task PerformAsync(Func<CancellationToken, Task> effect)
-    {
-        try
-        {
-            await effect(default).ConfigureAwait(false);
-            Refused("");
-        }
-        catch (BackendUnavailableException e)
-        {
-            // Shown as it arrived: the backend names the taken name, what makes the refusal actionable.
-            Refused(e.Message);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private void Refused(string reason)
-    {
-        _dispatch(() =>
-        {
-            _pressRefusal = reason;
-            Apply();
-        });
     }
 }

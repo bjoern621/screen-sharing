@@ -40,7 +40,8 @@
     Everything else is the menu's, stated once in Design/Menus.axaml.
     A refused entry greys and keeps its place, and its reason is drawn by the caller's item template:
     a disabled Avalonia control is not hit-testable, so a tooltip on this row never opens
-    (docs/field-availability.md).
+    and the reason line is read where it stands
+    (docs/field-availability.md, docs/design-language.md "Status language").
     The menu's height is a minimum for the same reason, an entry carrying a reason being two lines
     tall.
 

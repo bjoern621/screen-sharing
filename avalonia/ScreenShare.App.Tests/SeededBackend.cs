@@ -601,39 +601,6 @@ internal sealed class SeededBackend : IBackend
     public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
         => Task.FromResult(Members);
 
-    /// <summary>
-    /// Why every join and leave is refused. Empty while they are accepted.
-    /// A test sets it to see what a card does with the backend's own sentence.
-    /// </summary>
-    public string GroupRefusal { get; set; } = "";
-
-    /// <summary>How often each was asked for, repeats included, what an idempotent press leaves alone.</summary>
-    public int Joins { get; private set; }
-
-    public int Leaves { get; private set; }
-
-    public Task JoinGroupAsync(CancellationToken cancellation = default)
-    {
-        if (GroupRefusal.Length > 0)
-        {
-            return Task.FromException(new BackendUnavailableException(GroupRefusal));
-        }
-
-        Joins++;
-        return Task.CompletedTask;
-    }
-
-    public Task LeaveGroupAsync(CancellationToken cancellation = default)
-    {
-        if (GroupRefusal.Length > 0)
-        {
-            return Task.FromException(new BackendUnavailableException(GroupRefusal));
-        }
-
-        Leaves++;
-        return Task.CompletedTask;
-    }
-
     /// <summary>Synthetic publishers, none until a test states a set.</summary>
     public TestStreamState TestStreams { get; set; } = new();
 

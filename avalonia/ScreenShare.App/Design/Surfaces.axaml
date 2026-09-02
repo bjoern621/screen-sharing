@@ -24,6 +24,15 @@
     <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
   </Style>
 
+  <!--
+    A side column drawn over the body rather than beside it, on a window with the width for one column
+    (docs/design-language.md, "Narrow windows").
+    The app's own fill, so what it covers stops showing through it.
+  -->
+  <Style Selector="Border.overbody">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+  </Style>
+
   <Style Selector="Border.navstrip">
     <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />

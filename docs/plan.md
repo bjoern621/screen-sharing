@@ -291,10 +291,10 @@ The leases are the one thing the service keeps, and it keeps the fact rather tha
 A group with no live member is not enforced, membership nobody stated being a different thing from a group nobody is in.
 
 **Built: the app's side of it.**
-This machine draws its own member secret the first time it joins a group and keeps it in a file per group, owner-only beside `settings.json`,
+This machine draws its own member secret the first time its settings name a group and keeps it in a file per group, owner-only beside `settings.json`,
 so its identity there is nobody else's to state.
-`JoinGroup` draws that identity and states the first presence over it, `LeaveGroup` releases the lease and drops the file,
-and the relay poll states presence on every pass in between.
+The relay poll draws that identity and states presence on every pass,
+and a settings write that changes the group key releases the lease and drops the file.
 The display name is an ordinary relay setting, claimed first-come in the group,
 so a name another member holds comes back as a refusal a reader can act on rather than as a silent rename.
 

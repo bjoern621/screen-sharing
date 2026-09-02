@@ -481,45 +481,6 @@ func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroup
 	return &screensharev1.CreateGroupResponse{Key: groupKey, Id: groupID}, nil
 }
 
-// JoinGroup joins the group the settings name, drawing this machine's member identity where it holds
-// none and stating its presence at once.
-//
-// A group this machine is already in is the state the call names, and succeeds, drawing nothing.
-//
-// The two preconditions are read off the settings above the call, where every request-earned refusal
-// in this file is made: a machine with no group key names no group to join,
-// and one with no display name has nothing to claim in it.
-// A name another member holds is the third refusal, the backend's to make,
-// the group service being the only side that knows who holds what, and it arrives as a Refused.
-func (s *Server) JoinGroup(ctx context.Context, req *screensharev1.JoinGroupRequest) (*screensharev1.JoinGroupResponse, error) {
-	relay := s.backend.Settings().Relay
-	if relay.GroupKey == "" {
-		return nil, failedPrecondition("a group is joined by its key, and none is set")
-	}
-	if relay.DisplayName == "" {
-		return nil, failedPrecondition("joining a group takes a name this machine goes by, and none is set")
-	}
-
-	if err := s.backend.JoinGroup(); err != nil {
-		if refused(err) {
-			return nil, invalidArgument("cannot join this group as '%s': %v", relay.DisplayName, err)
-		}
-		return nil, fromBackend("cannot join this group", err)
-	}
-	return &screensharev1.JoinGroupResponse{}, nil
-}
-
-// LeaveGroup releases this machine's presence and drops the identity it held in the group.
-// The relay answers by closing what this machine had open there.
-//
-// It refuses nothing, a leave by a machine in no group included, on the ground StopPublish does.
-func (s *Server) LeaveGroup(ctx context.Context, req *screensharev1.LeaveGroupRequest) (*screensharev1.LeaveGroupResponse, error) {
-	if err := s.backend.LeaveGroup(); err != nil {
-		return nil, fromBackend("cannot leave this group", err)
-	}
-	return &screensharev1.LeaveGroupResponse{}, nil
-}
-
 // OpenLog opens one run log in the machine's default application.
 //
 // The path comes off an ExitInfo the backend handed out and a shell constructs none,

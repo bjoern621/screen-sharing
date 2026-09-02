@@ -8,6 +8,7 @@
              xmlns:plots="using:ScreenShare.App.Features.Broadcast.Plots.View"
              xmlns:preview="using:ScreenShare.App.Features.Broadcast.Preview.View"
              xmlns:tests="using:ScreenShare.App.Features.Broadcast.TestStreams.View"
+             xmlns:ti="using:TablerIcons"
              xmlns:viewers="using:ScreenShare.App.Features.Broadcast.ViewerTable.View"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.ViewModel"
              x:Class="ScreenShare.App.Features.Broadcast.View.BroadcastView"
@@ -20,12 +21,31 @@
             BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="0,0,0,1"
             Padding="12,11">
-      <Grid ColumnDefinitions="*,Auto">
-        <header:HeaderStatsView Grid.Column="0" DataContext="{Binding Stats}" />
-        <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
-                    Spacing="{StaticResource GapControl}"
-                    VerticalAlignment="Center">
+      <!--
+        A dock and not a grid: an auto column measures its child against no width at all,
+        and the actions are what has to wrap where the window is too narrow for the row.
+      -->
+      <DockPanel>
+        <WrapPanel DockPanel.Dock="{Binding ActionsDock}"
+                   Margin="{Binding ActionsInset}"
+                   ItemSpacing="{StaticResource GapControl}"
+                   LineSpacing="{StaticResource GapTight}"
+                   VerticalAlignment="Center">
+
+          <!--
+            Opens the cards on a window that draws them over the figures
+            (docs/design-language.md, "Narrow windows").
+            Beside the stream's own actions because it is not one: it moves what this screen shows and reaches
+            no stream.
+          -->
+          <Button Theme="{StaticResource IconButton}"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding CardsColumn.ShowsToggle}"
+                  Command="{Binding CardsColumn.Toggle}"
+                  ToolTip.Tip="{Binding CardsColumn.ToggleTip}">
+            <ti:TablerIcon Classes="button" Icon="{Binding CardsColumn.ToggleGlyph}" />
+          </Button>
+
           <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}" />
           <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}" />
           <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}" />
@@ -33,8 +53,10 @@
                   Content="Stop sharing"
                   Command="{Binding StopCommand}"
                   controls:Pending.IsActive="{Binding StopCommand.IsRunning}" />
-        </StackPanel>
-      </Grid>
+        </WrapPanel>
+
+        <header:HeaderStatsView DataContext="{Binding Stats}" />
+      </DockPanel>
     </Border>
 
     <!--
@@ -50,35 +72,57 @@
       <SelectableTextBlock Classes="hint danger" Text="{Binding Refusal}" />
     </Border>
 
-    <!-- Fixed left column: it keeps the preview at 16:9 and the config values from reflowing on resize. -->
-    <Grid ColumnDefinitions="396,*" Margin="{StaticResource InsetPanel}">
+    <!--
+      Fixed left column: it keeps the preview at 16:9 and the config values from reflowing on resize.
+      Over the figures on a window with the width for one column, opened from the header
+      (docs/design-language.md, "Narrow windows").
+      The figures keep the body, a running stream's readings being what this screen is opened for.
+    -->
+    <controls:SideColumnPanel Margin="{StaticResource InsetPanel}"
+                              Beside="{Binding CardsColumn.IsBeside}"
+                              SideOnLeft="{Binding CardsColumn.IsOnLeft}"
+                              SideWidth="{Binding CardsColumn.Width}"
+                              Gap="{StaticResource GapControl}">
 
       <!--
-        Auto rows and a scroll, so every card takes its natural height.
-        Handed the column's leftover instead, the config card clips its last rows in silence.
+        The log takes what the plots and the table leave, down to a floor.
+        Under that floor the column is taller than the window and scrolls, so a short window costs the reader
+        the bottom of a list rather than the card itself.
+        The minimum is the viewport, so a window with room to spare still hands the leftover to the log.
       -->
-      <ScrollViewer Grid.Column="0"
+      <ScrollViewer Name="FiguresScroll"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
-          <preview:PreviewView Grid.Row="0" DataContext="{Binding Preview}" Margin="0,0,0,10" />
-          <nudge:NudgeView Grid.Row="1" DataContext="{Binding Nudge}" Margin="0,0,0,10" />
-          <config:ConfigCardView Grid.Row="2" DataContext="{Binding Config}" />
-          <!--
-            Under the configuration, being about publishers this machine runs beside the one above,
-            rather than about the one above.
-          -->
-          <tests:TestStreamsView Grid.Row="3" DataContext="{Binding TestStreams}" Margin="0,10,0,0" />
+        <Grid RowDefinitions="Auto,Auto,*" MinHeight="{Binding #FiguresScroll.Viewport.Height}">
+          <plots:PlotsView Grid.Row="0" DataContext="{Binding Plots}" Margin="0,0,0,10" />
+          <viewers:ViewerTableView Grid.Row="1" DataContext="{Binding Viewers}" Margin="0,0,0,10" />
+          <log:SessionLogView Grid.Row="2" DataContext="{Binding Log}" MinHeight="140" />
         </Grid>
       </ScrollViewer>
 
-      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="10,0,0,0">
-        <plots:PlotsView Grid.Row="0" DataContext="{Binding Plots}" Margin="0,0,0,10" />
-        <viewers:ViewerTableView Grid.Row="1" DataContext="{Binding Viewers}" Margin="0,0,0,10" />
-        <log:SessionLogView Grid.Row="2" DataContext="{Binding Log}" />
-      </Grid>
+      <Border Classes.overbody="{Binding !CardsColumn.IsBeside}"
+              IsVisible="{Binding CardsColumn.IsShowing}">
 
-    </Grid>
+        <!--
+          Auto rows and a scroll, so every card takes its natural height.
+          Handed the column's leftover instead, the config card clips its last rows in silence.
+        -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+            <preview:PreviewView Grid.Row="0" DataContext="{Binding Preview}" Margin="0,0,0,10" />
+            <nudge:NudgeView Grid.Row="1" DataContext="{Binding Nudge}" Margin="0,0,0,10" />
+            <config:ConfigCardView Grid.Row="2" DataContext="{Binding Config}" />
+            <!--
+              Under the configuration, being about publishers this machine runs beside the one above,
+              rather than about the one above.
+            -->
+            <tests:TestStreamsView Grid.Row="3" DataContext="{Binding TestStreams}" Margin="0,10,0,0" />
+          </Grid>
+        </ScrollViewer>
+      </Border>
+
+    </controls:SideColumnPanel>
 
   </DockPanel>
 </UserControl>

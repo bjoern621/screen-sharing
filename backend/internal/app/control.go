@@ -200,9 +200,6 @@ func (b controlBackend) CreateGroup(relay settings.Relay) (groupKey, groupID str
 	return b.app.CreateGroup(relay)
 }
 
-func (b controlBackend) JoinGroup() error  { return b.app.JoinGroup() }
-func (b controlBackend) LeaveGroup() error { return b.app.LeaveGroup() }
-
 func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }
 func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder() }
 

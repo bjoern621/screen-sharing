@@ -74,9 +74,9 @@
                          TextTrimming="CharacterEllipsis" />
 
               <!-- Under the card and not a tip: a screen that cannot be picked takes no pointer. -->
-              <TextBlock Classes="reason"
-                         IsVisible="{Binding HasReason}"
-                         Text="{Binding Reason}" />
+              <SelectableTextBlock Classes="reason"
+                                   IsVisible="{Binding HasReason}"
+                                   Text="{Binding Reason}" />
             </StackPanel>
           </Button>
         </DataTemplate>

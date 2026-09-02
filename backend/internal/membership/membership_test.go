@@ -791,7 +791,8 @@ func TestAClosedConnectionIsNamedTheWayTheIndexNamesIt(t *testing.T) {
 
 // A release reaching the registry while a statement is between its lock and its answer
 // is two well-formed requests crossing, which is what this app does to itself on every leave:
-// LeaveGroup sends DELETE /members while the 2 s poll has a PUT /members in flight.
+// a group key taken out of the settings sends DELETE /members
+// while the 2 s poll has a PUT /members in flight.
 // The statement answers the group without this member in it rather than ending the process.
 func TestAStatementCrossingAReleaseAnswers(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)

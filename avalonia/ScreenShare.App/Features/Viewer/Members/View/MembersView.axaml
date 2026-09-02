@@ -1,6 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Viewer.Members.Model"
              xmlns:vm="using:ScreenShare.App.Features.Viewer.Members.ViewModel"
              x:Class="ScreenShare.App.Features.Viewer.Members.View.MembersView"
@@ -52,24 +51,6 @@
     <!-- Why the list is empty: unread, outside the group, or a group nobody is in. -->
     <SelectableTextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
                          IsVisible="{Binding !HasRows}" Margin="2,0" />
-
-    <!--
-      One action, the one this machine is not already in the state of.
-      A group is left by the machine in it and by nobody else, so no row here affords anything.
-    -->
-    <Button Content="{Binding JoinLabel}"
-            HorizontalAlignment="Stretch"
-            HorizontalContentAlignment="Center"
-            IsVisible="{Binding CanJoin}"
-            Command="{Binding Join}"
-            controls:Pending.IsActive="{Binding Join.IsRunning}" />
-
-    <Button Content="{Binding LeaveLabel}"
-            HorizontalAlignment="Stretch"
-            HorizontalContentAlignment="Center"
-            IsVisible="{Binding CanLeave}"
-            Command="{Binding Leave}"
-            controls:Pending.IsActive="{Binding Leave.IsRunning}" />
 
     <!-- Why this machine is outside the group, in the words of whichever side stated it. -->
     <SelectableTextBlock Classes="hint danger" Text="{Binding Refusal}" TextWrapping="Wrap"

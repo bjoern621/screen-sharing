@@ -290,13 +290,6 @@ public sealed class ControlBackend : IBackend
             cancellation);
     }
 
-    /// <inheritdoc />
-    public Task JoinGroupAsync(CancellationToken cancellation = default)
-        => ReadAsync(c => c.JoinGroupAsync(new JoinGroupRequest(), cancellationToken: cancellation), cancellation);
-
-    /// <inheritdoc />
-    public Task LeaveGroupAsync(CancellationToken cancellation = default)
-        => ReadAsync(c => c.LeaveGroupAsync(new LeaveGroupRequest(), cancellationToken: cancellation), cancellation);
 
     /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)

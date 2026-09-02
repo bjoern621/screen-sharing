@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
@@ -12,6 +14,8 @@ using ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
 using ScreenShare.App.Features.Broadcast.TestStreams.ViewModel;
 using ScreenShare.App.Features.Broadcast.ViewerTable.ViewModel;
 using ScreenShare.App.Features.Fields.Model;
+using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Broadcast.ViewModel;
@@ -83,6 +87,11 @@ public sealed class BroadcastViewModel : Observable
     /// <summary>Cancels a resolve in flight when the running pipeline moves off it.</summary>
     private CancellationTokenSource? _cancel;
 
+    /// <summary>
+    /// Width the window last stated, infinite until it states one (<see cref="SetWindowWidth"/>).
+    /// </summary>
+    private double _window = double.PositiveInfinity;
+
     /// <summary>Raised once per press, never during a render.</summary>
     public event Action<BroadcastAction>? ActionRequested;
 
@@ -123,6 +132,13 @@ public sealed class BroadcastViewModel : Observable
         // The one publish above them is the real one.
         TestStreams = new TestStreamsViewModel();
         Log = new SessionLogViewModel(OpenLogAsync, dispatch);
+
+        // Beside the figures where the window carries both, over them where it does not
+        // (Shell/Model/SideColumns.cs).
+        CardsColumn = new SideColumnViewModel(
+            SideColumns.BroadcastCards,
+            "Show the preview, the configuration and the test streams",
+            "Hide the preview, the configuration and the test streams");
 
         // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one
         // of the three works.
@@ -170,6 +186,37 @@ public sealed class BroadcastViewModel : Observable
     public ViewerTableViewModel Viewers { get; }
 
     public PlotsViewModel Plots { get; }
+
+    /// <summary>
+    /// Where the preview, the configuration and the test streams stand: beside the live figures,
+    /// or over them on a window with the width for one column (<c>docs/design-language.md</c>, "Narrow windows").
+    /// The figures keep the body, a stream's readings being what this screen is opened for.
+    /// </summary>
+    public SideColumnViewModel CardsColumn { get; }
+
+    /// <summary>
+    /// Which edge of the header band the live actions take.
+    /// Beside the figures where the window carries both, under them where it does not: actions that took the row
+    /// would leave the figures a column one figure wide.
+    /// </summary>
+    public Dock ActionsDock => SideColumns.BroadcastActions.FitsBeside(_window) ? Dock.Right : Dock.Bottom;
+
+    /// <summary>Gap over the actions, which they need only while they stand under the figures.</summary>
+    public Thickness ActionsInset => ActionsDock == Dock.Bottom ? new Thickness(0, 10, 0, 0) : default;
+
+    /// <summary>
+    /// States the width the window has, which decides where the cards and the actions stand.
+    /// Idempotent: the same width twice moves nothing.
+    /// </summary>
+    public void SetWindowWidth(double width)
+    {
+        Assert.That(width > 0, "a window states a width it has", width);
+
+        _window = width;
+        CardsColumn.SetWindowWidth(width);
+        OnPropertyChanged(nameof(ActionsDock));
+        OnPropertyChanged(nameof(ActionsInset));
+    }
 
     /// <summary>
     /// Synthetic publishers this machine runs, a row per slot.

@@ -495,7 +495,8 @@ message MembersState {
   Text refusal = 2;
   // This machine is in the group,
   // so its presence is stated on every pass and the relay carries what it publishes.
-  // Quitting keeps it, and leaving clears it.
+  // The group key and the display name are what set it,
+  // so it clears when the settings stop naming either.
   bool joined = 3;
   // A connection list the relay serves would not answer,
   // so every member's publishing reads false because nothing said otherwise,

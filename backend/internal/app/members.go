@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
@@ -10,7 +9,6 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
-	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/member"
@@ -22,11 +20,13 @@ import (
 // Membership is a lease this machine holds: stated on every pass of the relay poll,
 // gone when it stops being stated (docs/plan.md).
 //
-// The identity file says this machine is in a group, so quitting keeps it and leaving deletes it.
+// The settings say which group this machine is in: the key names it and the display name is what it
+// is listed under, so the pass that finds both draws the secret and states presence over it.
+// A key the settings stop naming is a group left, which SaveSettings releases the presence in.
 // No timer of its own: the loop that already polls the relay is the heartbeat.
 //
-// membersMu orders presence, join and leave as one statement about one machine,
-// so a pass in flight when a leave arrives lands before the release rather than after it.
+// membersMu orders a pass and a release as one statement about one machine,
+// so a pass in flight when the group key changes lands before the release rather than after it.
 
 // membership is the presence this machine last stated and the group the service answered with.
 //
@@ -204,25 +204,32 @@ func (a *App) membershipFor(s settings.Settings, held membership) (membership, e
 	if !ok {
 		return membership{}, nil
 	}
-	identity, joined, err := member.Load(id)
-	if err != nil {
-		// Debug and not a warning: on the poll, a file that will not read fails on every pass.
-		// Join and Leave carry the same failure to whoever asked for one, where a person meets it.
-		logger.Debugf("the member identity for group %s is not readable: %v", id, err)
-		return membership{Group: id}, nil
-	}
-	if !joined {
-		// A group key with no identity: in the group's paths and not in the group.
-		return membership{Group: id}, nil
-	}
 	if s.Relay.DisplayName == "" {
+		// A member is listed under a name, so a machine without one states nothing and draws nothing.
 		// Refused here rather than at the service, which refuses an empty name too:
 		// a round trip every two seconds buys nothing over a fact this side already holds.
 		return membership{
 			Group:   id,
-			Joined:  true,
 			Refusal: text.Of(screensharev1.TextCode_TEXT_CODE_GROUP_NAME_MISSING),
 		}, errNameMissing
+	}
+
+	identity, drawn, err := member.Load(id)
+	if err != nil {
+		// Debug and not a warning: on the poll, a file that will not read fails on every pass.
+		logger.Debugf("the member identity for group %s is not readable: %v", id, err)
+		return membership{Group: id}, nil
+	}
+	if !drawn {
+		// The key and the name are the whole of being in this group,
+		// so the pass that finds both draws the secret it states presence over.
+		if identity, err = member.Draw(id); err != nil {
+			logger.Debugf("the member identity for group %s is not drawn: %v", id, err)
+			return membership{Group: id}, nil
+		}
+		// The token this machine holds was minted before it had a member id,
+		// so the next command trades again and names the secret drawn here.
+		a.forgetRelayToken()
 	}
 
 	answer, err := a.groups.State(base, s.Relay.GroupKey, identity.Secret, s.Relay.DisplayName)
@@ -255,14 +262,9 @@ func standing(held membership, id string) membership {
 	return held
 }
 
-// The two states joining needs and cannot supply itself.
-// A shell meets them as the contract's own refusals,
-// decided off the same settings above the call (control/effects.go),
-// and a caller reaching the backend directly gets these.
-var (
-	errNoGroup     = errors.New("a group is joined by its key, and none is set")
-	errNameMissing = errors.New("joining a group takes a name this machine goes by, and none is set")
-)
+// errNameMissing is the pass over a group key with no name beside it,
+// the one state a pass meets that the settings and not the service decide.
+var errNameMissing = errors.New("a member of a group is listed under a name, and none is set")
 
 // presenceTaken is the group as the service answered it.
 // Self is decided here against the member id the answer names for this machine,
@@ -292,127 +294,51 @@ func presenceTaken(id string, answer groupclient.Membership) membership {
 	}
 }
 
-// JoinGroup draws this machine's identity in the group the settings name
-// and states its presence at once.
-//
-// Idempotent: a group this machine is already in draws nothing,
-// keeps the relay token minted on the identity it holds,
-// and states the presence the loop states every pass anyway.
-// The identity file states the name the group took,
-// so it is written once the claim holds:
-// a refused name would otherwise be what this machine states presence under on every later pass.
-// A name another member holds is a Refused, carried as INVALID_ARGUMENT (control/refusal.go);
-// an identity drawn by that same call goes with it,
-// so nothing is left claiming a name this machine does not hold.
-func (a *App) JoinGroup() error {
-	a.settingsMu.Lock()
-	s := a.settings
-	a.settingsMu.Unlock()
-
-	if _, ok := s.Relay.GroupService(); !ok {
-		return fmt.Errorf("membership is stated at a group service, and this relay names none")
-	}
-	id, ok := groupID(s.Relay)
-	if !ok {
-		return errNoGroup
-	}
-	if s.Relay.DisplayName == "" {
-		return errNameMissing
-	}
-
-	a.membersMu.Lock()
-	defer a.membersMu.Unlock()
-
-	identity, held, err := member.Load(id)
-	if err != nil {
-		return err
-	}
-	if !held {
-		if identity, err = member.Join(id, s.Relay.DisplayName); err != nil {
-			return err
-		}
-	}
-
-	// The same statement the poll makes, over the identity that exists here.
-	next, why := a.membershipFor(s, a.membership())
-	if why != nil && !held {
-		// Drawn by this call and not taken by the service.
-		// Kept, it would leave this machine stating presence under a name it never claimed.
-		if forget := member.Forget(id); forget != nil {
-			logger.Warnf("the member identity drawn in group %s is not removed: %v", id, forget)
-		}
-		next = membership{Group: id}
-	}
-	a.landMembership(next)
-
-	if why != nil {
-		if groupclient.NameTaken(why) {
-			return control.Refuse("%v", why)
-		}
-		return why
-	}
-
-	if identity.DisplayName != s.Relay.DisplayName {
-		// The name the group took, written once the claim holds.
-		if _, err := member.Join(id, s.Relay.DisplayName); err != nil {
-			return err
-		}
-	}
-	if !held {
-		// The token this machine holds was minted before it had a member id,
-		// so the next command trades again and names the secret drawn here.
-		a.forgetRelayToken()
-	}
-
-	logger.Infof("joined the group %s as '%s'", id, s.Relay.DisplayName)
-	return nil
-}
-
-// LeaveGroup releases this machine's presence and drops the identity it held,
+// releaseGroup releases the presence this machine stated in the group r names
+// and drops the identity it drew there,
 // which the relay answers by closing what this machine had open in the group.
 //
-// Idempotent: a group this machine is not in is already the state the call names,
-// so nothing is released and nothing fails.
-// A release that did not reach the service leaves the identity in place,
-// so asking again does the whole of it rather than half.
-func (a *App) LeaveGroup() error {
-	a.settingsMu.Lock()
-	s := a.settings
-	a.settingsMu.Unlock()
+// The one caller is a settings write that changed the group key (settings.go),
+// r being the relay those settings named before it.
+// Nothing else leaves a group: possession of the key is membership,
+// so the key going is the whole of leaving.
+//
+// Idempotent: a group nothing was drawn in is already the state this names.
+// Every failure here is an Umgebungsfehler nobody can act on at this point:
+// the user has already moved to another group, and a lease nothing restates runs out on its own,
+// so each is a log line rather than a settings write refused over it.
+func (a *App) releaseGroup(r settings.Relay) {
+	id, ok := groupID(r)
+	if !ok {
+		return
+	}
 
 	a.membersMu.Lock()
 	defer a.membersMu.Unlock()
 
-	id, ok := groupID(s.Relay)
-	if !ok {
-		a.landMembership(membership{})
-		return nil
-	}
-	identity, held, err := member.Load(id)
+	identity, drawn, err := member.Load(id)
 	if err != nil {
-		return err
+		logger.Warnf("the member identity for group %s is not readable, so its presence is not released: %v", id, err)
+		return
 	}
-	if !held {
-		a.landMembership(membership{Group: id})
-		return nil
+	if !drawn {
+		a.landMembership(membership{})
+		return
 	}
 
-	base, ok := s.Relay.GroupService()
-	if !ok {
-		return fmt.Errorf("membership is released at a group service, and this relay names none")
-	}
-	if err := a.groups.Release(base, s.Relay.GroupKey, identity.Secret); err != nil {
-		return err
+	if base, ok := r.GroupService(); ok {
+		if err := a.groups.Release(base, r.GroupKey, identity.Secret); err != nil {
+			logger.Warnf("presence in group %s is not released, so its lease runs out on its own: %v", id, err)
+		}
 	}
 	if err := member.Forget(id); err != nil {
-		return err
+		logger.Warnf("the member identity in group %s is not dropped: %v", id, err)
 	}
 	// The token this machine holds names a member id the group does not carry.
 	a.forgetRelayToken()
 
-	a.landMembership(membership{Group: id})
+	a.landMembership(membership{})
 	logger.Infof("left the group %s", id)
-	return nil
 }
 
 // groupID is the public digest of the group key the settings name, ok=false where none is set.

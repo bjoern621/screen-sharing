@@ -38,9 +38,9 @@
                    Text="{Binding Note}"
                    VerticalAlignment="Center" />
       </Grid>
-      <TextBlock Classes="reason"
-                 IsVisible="{Binding HasReason}"
-                 Text="{Binding Reason}" />
+      <SelectableTextBlock Classes="reason"
+                           IsVisible="{Binding HasReason}"
+                           Text="{Binding Reason}" />
       <TextBlock Classes="cardbody"
                  IsVisible="{Binding HasDetail}"
                  Text="{Binding Detail}" />

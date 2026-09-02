@@ -105,10 +105,10 @@ var availabilityRules = map[string]func(availability) state{
 		return availabilityDisabled(say(encryptionFollowsTheAddress))
 	},
 	KeyGroupKey: func(availability) state { return availabilityLive() },
-	// A name is claimed per group when joining, so no capture backend, encoder
+	// A name is claimed per group, so no capture backend, encoder
 	// or leg on this screen rules one out.
-	// An empty name greys nothing either: it is refused where a group is joined (control.JoinGroup),
-	// and this control is where that refusal is answered.
+	// An empty name greys nothing either: it is what leaves this machine outside the group
+	// the key names, and this control is where that is answered.
 	KeyDisplayName: func(availability) state { return availabilityLive() },
 	KeyAPIPort:     func(availability) state { return availabilityLive() },
 	// Every listener port follows both legs, because the relay serves one listener per protocol

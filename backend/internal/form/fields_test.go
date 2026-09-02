@@ -317,9 +317,8 @@ func TestTheDisplayNameIsAFreeTextRelaySetting(t *testing.T) {
 
 // An empty name is a state: this machine has been given none,
 // and this control is where one is typed.
-// Joining a group is where a missing name is refused (control.JoinGroup),
-// so a form that repaired it or greyed the control would refuse it a second time,
-// in the one place it can be filled in.
+// A name is what a member of a group is listed under, so an empty one leaves this machine outside it,
+// and a form that repaired it or greyed the control would take away the one place it can be filled in.
 func TestAnEmptyDisplayNameIsDrawnAsItStands(t *testing.T) {
 	draft := settings.Defaults()
 	draft.Relay.DisplayName = ""

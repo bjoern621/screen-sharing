@@ -151,7 +151,7 @@
                 <ItemsControl ItemsSource="{Binding Reasons}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
-                      <TextBlock Classes="reason" TextWrapping="Wrap" TextTrimming="None" Text="{Binding}" />
+                      <SelectableTextBlock Classes="reason" TextWrapping="Wrap" TextTrimming="None" Text="{Binding}" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -296,7 +296,7 @@
                             <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
                             <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
                           </Grid>
-                          <TextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
+                          <SelectableTextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
                           <TextBlock Classes="cardbody" IsVisible="{Binding HasDetail}" Text="{Binding Detail}" />
                         </StackPanel>
                       </Button>
@@ -319,7 +319,7 @@
                 </Button>
               </StackPanel>
 
-              <TextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
+              <SelectableTextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
 
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"

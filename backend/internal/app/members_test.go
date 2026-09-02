@@ -174,10 +174,10 @@ func inGroupApp(t *testing.T, groups groupService) *App {
 	}
 }
 
-// joinIdentity draws what a machine that has joined this group holds.
-func joinIdentity(t *testing.T) {
+// drawIdentity draws what a machine whose settings have named this group for a pass holds.
+func drawIdentity(t *testing.T) {
 	t.Helper()
-	if _, err := member.Join(aGroupID, "Björn"); err != nil {
+	if _, err := member.Draw(aGroupID); err != nil {
 		t.Fatalf("drawing this machine's identity in group %s: %v", aGroupID, err)
 	}
 }
@@ -201,14 +201,14 @@ func TestAMachineInNoGroupNamesNoCauseForAStoppedStream(t *testing.T) {
 	}
 }
 
-// A machine with a group key and no identity in that group trades a token as the group itself,
+// A machine with a group key it states no presence under trades a token as the group itself,
 // which the relay closes the moment any member states presence.
-// Joining is what fixes it.
-func TestAGroupNeverJoinedReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
+// A name is what fixes it.
+func TestAGroupNoPresenceIsStatedInReadsAStoppedStreamAsALapsedMembership(t *testing.T) {
 	m := membership{Group: aGroupID}
 
 	if got := m.failure().GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED {
-		t.Errorf("a group this machine never joined reads a stopped stream as %v, want a lapsed membership", got)
+		t.Errorf("a group nothing is stated in reads a stopped stream as %v, want a lapsed membership", got)
 	}
 }
 
@@ -289,7 +289,7 @@ func TestAPassThatDidNotReachTheServiceKeepsTheLeaseItGranted(t *testing.T) {
 		return groupclient.Membership{}, notAnswering()
 	}}
 	a := inGroupApp(t, groups)
-	joinIdentity(t)
+	drawIdentity(t)
 	a.setMembership(membership{
 		Group:   aGroupID,
 		Joined:  true,
@@ -321,7 +321,7 @@ func TestALeaseNoPassRestatedLapses(t *testing.T) {
 		return groupclient.Membership{}, notAnswering()
 	}}
 	a := inGroupApp(t, groups)
-	joinIdentity(t)
+	drawIdentity(t)
 	a.setMembership(membership{
 		Group:  aGroupID,
 		Joined: true,
@@ -347,7 +347,7 @@ func TestAPassThatReadANameDropsTheRefusalForWantOfOne(t *testing.T) {
 		return groupclient.Membership{}, notAnswering()
 	}}
 	a := inGroupApp(t, groups)
-	joinIdentity(t)
+	drawIdentity(t)
 	a.setMembership(membership{
 		Group:   aGroupID,
 		Joined:  true,
@@ -367,7 +367,7 @@ func TestARefusalTheServiceStatedIsLanded(t *testing.T) {
 		return groupclient.Membership{}, nameTaken()
 	}}
 	a := inGroupApp(t, groups)
-	joinIdentity(t)
+	drawIdentity(t)
 
 	a.statePresence()
 
@@ -380,27 +380,53 @@ func TestARefusalTheServiceStatedIsLanded(t *testing.T) {
 	}
 }
 
-// The pass reads the identity file, so a group key with no identity beside it lands the fact
-// that this machine is in the group's paths and not in the group.
-// Nothing is stated at the service: there is no member to state.
-func TestAPassOverAGroupNeverJoinedLandsThatItIsNotIn(t *testing.T) {
+// A group key and a name are the whole of being in a group,
+// so the pass that finds both draws the secret it states presence over rather than waiting to be told to.
+func TestAPassDrawsTheIdentityTheGroupKeyNames(t *testing.T) {
 	groups := &fakeGroups{}
 	a := inGroupApp(t, groups)
 
 	a.statePresence()
 
 	held := a.membership()
-	if held.Joined {
-		t.Error("a machine that never joined reports being in the group")
+	if !held.Joined {
+		t.Error("a machine whose settings name a group and a name reports being outside it")
 	}
 	if held.Group != aGroupID {
 		t.Errorf("a pass over group %s landed group %q, want the group the settings name", aGroupID, held.Group)
 	}
-	if got := held.failure().GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED {
-		t.Errorf("a machine that never joined reads a stopped stream as %v, want a lapsed membership", got)
+	if failure := held.failure(); failure != nil {
+		t.Errorf("a machine stating presence reads a stopped stream as %v, want the child's own words alone", failure.GetCode())
+	}
+	if _, drawn, err := member.Load(aGroupID); !drawn || err != nil {
+		t.Errorf("the pass drew no identity in the group the settings name: %v", err)
+	}
+	if want := []string{"state"}; strings.Join(groups.asked(), ",") != strings.Join(want, ",") {
+		t.Errorf("the service was asked %v, want %v", groups.asked(), want)
+	}
+}
+
+// A name is what a member is listed under, so a machine without one has nothing to state.
+// Nothing is drawn either: an identity the group never took is a file naming a group nobody joined.
+func TestAPassWithNoNameStatesNothing(t *testing.T) {
+	groups := &fakeGroups{}
+	a := inGroupApp(t, groups)
+	a.settings.Relay.DisplayName = ""
+
+	a.statePresence()
+
+	held := a.membership()
+	if held.Joined {
+		t.Error("a machine with no name reports being in the group")
+	}
+	if got := held.Refusal.GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_NAME_MISSING {
+		t.Errorf("a machine with no name lands %v, want the name being missing", got)
+	}
+	if _, drawn, err := member.Load(aGroupID); drawn || err != nil {
+		t.Errorf("a machine with no name drew an identity: %v", err)
 	}
 	if asked := groups.asked(); len(asked) != 0 {
-		t.Errorf("a machine with no member secret asked the service %v, want nothing stated", asked)
+		t.Errorf("a machine with no name asked the service %v, want nothing stated", asked)
 	}
 }
 
@@ -429,34 +455,6 @@ func TestATileSaysNothingWhileTheRelayHasNotAnswered(t *testing.T) {
 
 	if failure := a.receiveFailure("bob", false); failure != nil {
 		t.Errorf("a decode on an unpolled relay says %v, want nothing", failure.GetCode())
-	}
-}
-
-// A machine in no group is already what leaving names,
-// so nothing is released and nothing fails, on the first call and on the second.
-func TestLeavingAGroupThisMachineIsNotInSucceeds(t *testing.T) {
-	a := &App{events: events.New()}
-
-	for attempt := 1; attempt <= 2; attempt++ {
-		if err := a.LeaveGroup(); err != nil {
-			t.Fatalf("leave %d answered %v, want the machine in no group", attempt, err)
-		}
-		if held := a.membership(); held.Joined {
-			t.Errorf("after leave %d this machine reports being in a group", attempt)
-		}
-	}
-}
-
-// A group is joined by its group key, so a machine with none has nowhere to draw an identity
-// and states no presence rather than stating it nowhere.
-func TestJoiningWithNoGroupStatesNoPresence(t *testing.T) {
-	a := &App{events: events.New()}
-
-	if err := a.JoinGroup(); err == nil {
-		t.Fatal("a machine naming no group joined one, want the call refused")
-	}
-	if held := a.membership(); held.Joined {
-		t.Error("a machine naming no group reports being in one")
 	}
 }
 
@@ -493,10 +491,10 @@ func TestATileSaysMembershipLapsedBeforeItSaysTheStreamLeft(t *testing.T) {
 	}
 }
 
-// Presence, join and leave are one statement in one order.
-// A pass in flight when a leave arrives lands before the release,
-// so the machine that left is not stated back into the group by the answer it was waiting for.
-func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
+// Presence and the release a new group key causes are one statement in one order.
+// A pass in flight when the key changes lands before the release,
+// so the machine that left the group is not stated back into it by the answer it was waiting for.
+func TestAReleaseIsNotOvertakenByThePassInFlight(t *testing.T) {
 	entered := make(chan struct{})
 	proceed := make(chan struct{})
 	groups := &fakeGroups{}
@@ -507,7 +505,7 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	}
 
 	a := inGroupApp(t, groups)
-	joinIdentity(t)
+	drawIdentity(t)
 
 	pass := make(chan struct{})
 	go func() {
@@ -517,7 +515,11 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	<-entered
 
 	left := make(chan error, 1)
-	go func() { left <- a.LeaveGroup() }()
+	go func() {
+		next := a.GetSettings()
+		next.Relay.GroupKey = ""
+		left <- a.SaveSettings(next)
+	}()
 
 	// The window the leave has to overtake the pass in flight,
 	// which it takes where nothing holds the two in one order.
@@ -525,14 +527,14 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	close(proceed)
 
 	if err := <-left; err != nil {
-		t.Fatalf("leaving the group answered %v, want it left", err)
+		t.Fatalf("taking the group key out of the settings answered %v, want the group left", err)
 	}
 	<-pass
 
 	if held := a.membership(); held.Joined {
 		t.Error("a machine that left reports being in the group, so the pass in flight landed after the release")
 	}
-	if _, joined, err := member.Load(aGroupID); joined || err != nil {
+	if _, drawn, err := member.Load(aGroupID); drawn || err != nil {
 		t.Errorf("a machine that left holds an identity in the group it left: %v", err)
 	}
 	if groups.overlapped {
@@ -543,105 +545,102 @@ func TestALeaveIsNotOvertakenByThePassInFlight(t *testing.T) {
 	}
 }
 
-// The identity file states the name the group took, so a name another member holds does not land
-// in it: the machine goes on stating presence under the name it holds.
-func TestAJoinRefusedForItsNameStoresNothing(t *testing.T) {
+// The pass that draws this machine's identity is the one every later token names,
+// so the token held before it is spent, and the pass after it keeps the one that names the member.
+func TestThePassThatDrawsAnIdentityDropsTheTokenMintedWithoutAMember(t *testing.T) {
 	groups := &fakeGroups{}
 	a := inGroupApp(t, groups)
 
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("joining the group answered %v, want it joined", err)
-	}
-
-	groups.state = func() (groupclient.Membership, error) { return groupclient.Membership{}, nameTaken() }
-	a.settings.Relay.DisplayName = "Anna"
-
-	if err := a.JoinGroup(); err == nil {
-		t.Fatal("joining under a name another member holds succeeded, want the claim refused")
-	}
-
-	held, joined, err := member.Load(aGroupID)
-	if err != nil || !joined {
-		t.Fatalf("the identity read back as %+v, joined=%v: %v", held, joined, err)
-	}
-	if held.DisplayName != "Björn" {
-		t.Errorf("the identity file states %q, want the name the group took", held.DisplayName)
-	}
-}
-
-// A name the group took is what the identity file states,
-// so the next pass claims the name this machine is known by rather than the one it dropped.
-func TestAJoinUnderANewNameStoresTheNameTheGroupTook(t *testing.T) {
-	a := inGroupApp(t, &fakeGroups{})
-
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("joining the group answered %v, want it joined", err)
-	}
-	a.settings.Relay.DisplayName = "Anna"
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("joining under another name answered %v, want the name claimed", err)
-	}
-
-	held, joined, err := member.Load(aGroupID)
-	if err != nil || !joined {
-		t.Fatalf("the identity read back as %+v, joined=%v: %v", held, joined, err)
-	}
-	if held.DisplayName != "Anna" {
-		t.Errorf("the identity file states %q, want the name the group took", held.DisplayName)
-	}
-}
-
-// A second join over unchanged settings changes nothing.
-// The relay token names the member id this machine already holds,
-// so dropping it would spend a round trip on a credential that is good.
-func TestASecondJoinKeepsTheRelayToken(t *testing.T) {
-	groups := &fakeGroups{}
-	a := inGroupApp(t, groups)
-
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("first join answered %v, want the group joined", err)
-	}
-	drawn := groups.dropped()
-
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("second join answered %v, want the state the first one reached", err)
-	}
-
-	if dropped := groups.dropped() - drawn; dropped != 0 {
-		t.Errorf("a second join dropped the relay token %d times, want the token it already holds", dropped)
-	}
-}
-
-// The first join draws the identity every later token names, so the token held before it is spent.
-func TestAFirstJoinDropsTheTokenMintedWithoutAMember(t *testing.T) {
-	groups := &fakeGroups{}
-	a := inGroupApp(t, groups)
-
-	if err := a.JoinGroup(); err != nil {
-		t.Fatalf("joining the group answered %v, want it joined", err)
-	}
+	a.statePresence()
 
 	if dropped := groups.dropped(); dropped != 1 {
-		t.Errorf("the join that drew this machine's identity dropped the relay token %d times, want once", dropped)
+		t.Errorf("the pass that drew this machine's identity dropped the relay token %d times, want once", dropped)
+	}
+
+	a.statePresence()
+
+	if dropped := groups.dropped(); dropped != 1 {
+		t.Errorf("a second pass dropped the relay token %d times in all, want the token it already holds", dropped)
 	}
 }
 
-// An identity drawn by a join the service refused is dropped with it,
-// so nothing is left stating presence under a name this machine never claimed.
-func TestAJoinRefusedDrawsNoIdentity(t *testing.T) {
+// A name another member holds is refused at the service and nowhere else,
+// so the secret this machine drew stays: it is what the pass under a name that is free states presence over.
+func TestAPassRefusedForItsNameKeepsTheSecretItDrew(t *testing.T) {
 	groups := &fakeGroups{state: func() (groupclient.Membership, error) {
 		return groupclient.Membership{}, nameTaken()
 	}}
 	a := inGroupApp(t, groups)
 
-	if err := a.JoinGroup(); err == nil {
-		t.Fatal("joining under a name another member holds succeeded, want the claim refused")
+	a.statePresence()
+
+	drawn, held, err := member.Load(aGroupID)
+	if err != nil || !held {
+		t.Fatalf("a refused pass left no identity behind: %+v, %v, %v", drawn, held, err)
+	}
+	if got := a.membership().Refusal.GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_NAME_TAKEN {
+		t.Errorf("a name another member holds lands %v, want the name being taken", got)
 	}
 
-	if _, joined, err := member.Load(aGroupID); joined || err != nil {
-		t.Errorf("a refused join left this machine holding an identity: %v", err)
+	groups.state = nil
+	a.settings.Relay.DisplayName = "Anna"
+	a.statePresence()
+
+	again, _, err := member.Load(aGroupID)
+	if err != nil {
+		t.Fatalf("the identity after a name that was free: %v", err)
 	}
-	if held := a.membership(); held.Joined {
-		t.Error("a refused join reports this machine in the group")
+	if again.Secret != drawn.Secret {
+		t.Error("a second name drew a second secret, so the group holds two members for one machine")
+	}
+}
+
+// A group key is what says which group this machine is in,
+// so taking one out of the settings releases the presence stated under it
+// and drops the identity that was drawn for it.
+func TestANewGroupKeyReleasesTheGroupItLeaves(t *testing.T) {
+	groups := &fakeGroups{}
+	a := inGroupApp(t, groups)
+	a.statePresence()
+	dropped := groups.dropped()
+
+	next := a.GetSettings()
+	next.Relay.GroupKey = ""
+	if err := a.SaveSettings(next); err != nil {
+		t.Fatalf("taking the group key out of the settings answered %v, want it saved", err)
+	}
+
+	if want := []string{"state", "release"}; strings.Join(groups.asked(), ",") != strings.Join(want, ",") {
+		t.Errorf("the service was asked %v, want %v", groups.asked(), want)
+	}
+	if _, held, err := member.Load(aGroupID); held || err != nil {
+		t.Errorf("a machine whose settings name another group holds an identity in the one they named: %v", err)
+	}
+	if groups.dropped()-dropped != 1 {
+		t.Errorf("the group key that changed dropped the relay token %d times, want once", groups.dropped()-dropped)
+	}
+	if got := a.membership(); got.Joined {
+		t.Error("a machine whose settings name no group reports being in one")
+	}
+}
+
+// The group key that did not change names the group this machine is already in,
+// so a settings write over it releases nothing and leaves the presence the pass states standing.
+func TestSettingsThatKeepTheGroupKeyReleaseNothing(t *testing.T) {
+	groups := &fakeGroups{}
+	a := inGroupApp(t, groups)
+	a.statePresence()
+
+	next := a.GetSettings()
+	next.Relay.DisplayName = "Björn on the laptop"
+	if err := a.SaveSettings(next); err != nil {
+		t.Fatalf("saving settings that keep the group key answered %v, want them saved", err)
+	}
+
+	if want := []string{"state"}; strings.Join(groups.asked(), ",") != strings.Join(want, ",") {
+		t.Errorf("the service was asked %v, want %v", groups.asked(), want)
+	}
+	if _, held, err := member.Load(aGroupID); !held || err != nil {
+		t.Errorf("a settings write over the same group key dropped the identity drawn in it: %v", err)
 	}
 }
