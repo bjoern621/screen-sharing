@@ -30,7 +30,8 @@ depends=(
   'gst-plugins-ugly'    # x264enc, which the publish engine and the encode probe need
   'gst-rtsp-server'     # rtspclientsink: every RTSP publish and test stream
   'gst-libav'           # avdec_h264/avdec_h265: the only decoders for 4:4:4 H.264 and RGB HEVC
-  'gst-plugin-webrtchttp' # whipclientsink and whepsrc: both WebRTC legs
+  'gst-plugin-rswebrtc'   # whipclientsink: the WHIP publish leg
+  'gst-plugin-webrtchttp' # whepsrc: the WHEP watch leg
   'gst-plugin-rsrtp'    # rtpav1pay, which is how AV1 rides RTSP
   'gst-plugin-rav1e'    # rav1enc
   'gst-plugin-pipewire' # pipewiresrc: the portal capture backend

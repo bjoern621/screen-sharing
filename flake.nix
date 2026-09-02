@@ -143,6 +143,23 @@
                     patchShebangs ext/vulkan/shaders/bin2array.py
                   '';
                 });
+                # nixpkgs drops the webrtc plugin from its default plugin list over test failures,
+                # and that plugin is the one carrying whipclientsink.
+                # webrtchttp still builds, so a stock closure reads WHEP and publishes nothing.
+                # An explicit list bypasses that exclusion
+                # and holds the plugins this repository names and no others.
+                # Tests stay off, being what nixpkgs excluded the plugin over.
+                gst-plugins-rs =
+                  (prev.gst_all_1.gst-plugins-rs.override {
+                    plugins = [
+                      "webrtc" # whipclientsink
+                      "webrtchttp" # whepsrc
+                      "rav1e" # rav1enc
+                      "rtp" # rtpav1pay, rtpav1depay
+                      "dav1d" # dav1ddec
+                    ];
+                  }).overrideAttrs
+                    { doCheck = false; };
               };
             })
           ];
