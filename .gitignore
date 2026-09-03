@@ -18,6 +18,13 @@ build/windows/redist/ffmpeg-LICENSE.txt
 # release artifacts: the tarball and zip the packaging scripts assemble
 build/dist/
 
+# What task package:flatpak writes: flatpak-builder's per-module build state, the tree it
+# assembles into, and the repository it exports through before the bundle is written.
+# The state directory is what CI caches so ffmpeg is compiled once (.github/workflows/release.yml).
+.flatpak-builder/
+build/flatpak-build/
+build/flatpak-repo/
+
 # What `task relay` draws for a relay on this machine: the certificate its TLS listeners hold,
 # the key the group service signs tokens with, and the pair MediaMTX generates for its MoQ
 # listener in whatever directory it runs from. Private keys among them, and every one of them is

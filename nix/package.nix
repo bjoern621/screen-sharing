@@ -18,7 +18,6 @@
   pkg-config,
   ffmpeg-full,
   gst_all_1,
-  imagemagick,
   glib-networking,
   libnice,
   pipewire,
@@ -278,8 +277,6 @@ symlinkJoin {
     shell
   ];
 
-  nativeBuildInputs = [ imagemagick ];
-
   # The join puts both binaries in one bin directory, the layout the shell's lookup expects.
   # The desktop entry is what a menu launch goes through, and every Linux channel installs it,
   # so a menu shows the same app whichever built it.
@@ -287,14 +284,11 @@ symlinkJoin {
     install -Dm444 ${../packaging/linux/screen-sharing.desktop} \
       $out/share/applications/screen-sharing.desktop
 
-    # The master is 1024px and hicolor's index declares 48 through 512.
-    # A size the index does not name is a directory no lookup walks,
-    # so an icon installed at 1024 alone is one a launcher answers with its placeholder.
+    # `task icons` draws these from build/appicon.png and they are committed,
+    # so no channel needs ImageMagick at build time.
     for size in ${lib.concatStringsSep " " (map toString iconSizes)}; do
-      dir=$out/share/icons/hicolor/''${size}x''${size}/apps
-      mkdir -p $dir
-      magick ${../build/appicon.png} -resize ''${size}x''${size} $dir/screen-sharing.png
-      chmod 444 $dir/screen-sharing.png
+      install -Dm444 ${../build/icons}/''${size}.png \
+        $out/share/icons/hicolor/''${size}x''${size}/apps/screen-sharing.png
     done
 
     install -Dm444 ${../LICENSE} $out/share/licenses/screen-sharing/LICENSE

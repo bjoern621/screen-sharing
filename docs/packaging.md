@@ -258,6 +258,16 @@ Capture goes through the portal, so the sandbox needs no capability.
 No recipe here.
 The model is the Flatpak's without the runtime: ffmpeg goes inside the image next to the binary, and the same obligations follow it.
 
+### Container images
+
+The relay, the proxy and the group service, built by `nix build .#relay-image` and its two siblings under `nix/`.
+Each writes a `docker-archive` tarball, which is the format `docker load` reads.
+
+`.github/workflows/images.yml` publishes them to `ghcr.io/bjoern621/screenshare-relay`, `-proxy` and `-groupd`.
+The tag is `VERSION`, and only a published release pushes one, so a tag names a release and never moves.
+A cluster pins an exact tag against that.
+The release page carries the channels a person installs, so these are reached through the registry.
+
 ## Building on Windows
 
 The backend links GStreamer through cgo and no cross toolchain builds that from Linux, so the Windows binary is built on Windows against MSYS2's toolchain.

@@ -19,6 +19,14 @@ runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 command: screenshare-avalonia
 
+# No debug extension, which is what every Linux channel here settles on:
+# half of what ships is a .NET publish carrying no DWARF to split out
+# (packaging/arch/PKGBUILD, packaging/fedora/screen-sharing.spec).
+# The split runs on the host's eu-strip as well,
+# which an Ubuntu runner carries no elfutils for.
+build-options:
+  no-debuginfo: true
+
 finish-args:
   # The relay: every publish and every watch crosses it, and the group service answers beside it.
   - --share=network
@@ -89,11 +97,12 @@ modules:
         path: ../../build/dist
       - type: file
         path: ../linux/screen-sharing.desktop
-      - type: file
-        path: ../../build/appicon.png
+      - type: dir
+        path: ../../build/icons
+        dest: icons
     build-commands:
       - install -d /app/lib/screen-sharing
-      - cp -r screen-sharing-*-linux-x64/. /app/lib/screen-sharing/
+      - cp -r screen-sharing-*-portable/. /app/lib/screen-sharing/
       - chmod 755 /app/lib/screen-sharing/screenshare-backend /app/lib/screen-sharing/screenshare-avalonia
       # A launcher rather than a symlink:
       # the shell starts the backend from beside itself,
@@ -104,6 +113,8 @@ modules:
       # The desktop entry and the icon carry the application id, which is the name an install looks for.
       - install -Dm644 screen-sharing.desktop /app/share/applications/de.bjoernblessin.ScreenSharing.desktop
       - desktop-file-edit --set-icon=de.bjoernblessin.ScreenSharing /app/share/applications/de.bjoernblessin.ScreenSharing.desktop
-      - install -Dm644 appicon.png /app/share/icons/hicolor/1024x1024/apps/de.bjoernblessin.ScreenSharing.png
+      # hicolor's index declares 48 through 512,
+      # and a size it omits is a directory no lookup walks.
+      - for size in 48 64 128 256 512; do install -Dm644 "icons/$size.png" "/app/share/icons/hicolor/${size}x${size}/apps/de.bjoernblessin.ScreenSharing.png"; done
       - install -Dm644 /app/lib/screen-sharing/LICENSE /app/share/licenses/screen-sharing/LICENSE
       - install -Dm644 /app/lib/screen-sharing/THIRD-PARTY-NOTICES.md /app/share/doc/screen-sharing/THIRD-PARTY-NOTICES.md

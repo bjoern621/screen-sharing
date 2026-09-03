@@ -1,20 +1,17 @@
-# Builds every channel the repository packages, and attaches them to a published release.
+# Every channel the repository packages, attached to a published release.
 #
-# The jobs are independent and each produces one artifact. A push builds them to prove
-# they still build; a release tagged after VERSION builds the same artifacts and attaches
-# them to that release, so what a reader downloads is what this workflow built and not a
-# second, hand-made copy.
+# A tag builds them and attaches what built.
+# `workflow_dispatch` builds the same set and attaches nothing,
+# which is the run to make before tagging.
 #
-# Every binary is built on the system it runs on. The backend links GStreamer through
-# cgo, and no cross toolchain builds that (docs/packaging.md), so there is no
-# cross-compiling job here and no matrix over targets.
+# Every binary is built on the system it runs on.
+# The backend links GStreamer through cgo,
+# and no cross toolchain builds that (docs/packaging.md),
+# so there is no matrix over targets here.
 
-name: build
+name: release
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -23,51 +20,20 @@ permissions:
   contents: read
 
 jobs:
-  # The version every artifact is named after, read once so the jobs cannot disagree.
-  #
-  # VERSION owns it. The two distro recipes carry a copy because a reader running makepkg
-  # or rpmbuild by hand has only the recipe in front of them, and a copy that is never
-  # read against its source is a copy that drifts, so this job reads all three. A release
-  # tag is checked the same way: a release tagged v1.2.3 built from a tree that says 1.2.0
-  # would produce artifacts whose names contradict their contents.
   version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.read.outputs.version }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - id: read
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version=$(cat VERSION)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/version.yml
 
-          grep -qx "pkgver=$version" packaging/arch/PKGBUILD ||
-            { echo "packaging/arch/PKGBUILD does not say $version" >&2; exit 1; }
-          grep -qE "^Version: +$version\$" packaging/fedora/screen-sharing.spec ||
-            { echo "packaging/fedora/screen-sharing.spec does not say $version" >&2; exit 1; }
-
-          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
-            echo "release $TAG does not match VERSION ($version)" >&2
-            exit 1
-          fi
-
-  # The Linux tarball, and the checks. Both toolchains are installed here anyway, which
-  # is why the checks run in this job rather than one of their own.
-  #
-  # The image is named rather than taken as -latest because cgo compiles against the
-  # GStreamer development files the image itself carries, and go-gst binds `GstIdStr`,
-  # which GStreamer 1.26 introduced. An image older than that builds no backend at all.
-  linux:
+  # The portable tarball, for a distribution this repository packages nothing for.
+  # The Flatpak assembles what this job stages, so it is an input to that job as well.
+  tarball:
     needs: version
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The development files cgo compiles against, for the pkg-config modules
-      # backend/internal/receive and backend/internal/pointer name. The runtime plugin
-      # set is not installed: nothing here starts a pipeline.
+      # backend/internal/receive and backend/internal/pointer name.
+      # The runtime plugin set stays out: nothing here starts a pipeline.
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -81,29 +47,12 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache: true
-          # The module is not at the repository root, and the cache key is read from the
-          # checksum file rather than found.
           cache-dependency-path: backend/go.sum
 
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           # The SDK the Nix build carries, so both channels compile with one toolchain.
           dotnet-version: "10.0.302"
-
-      # The Go suite is not run here, and that is deliberate rather than an omission: its
-      # tests encode and decode through real ffmpeg and GStreamer pipelines and measure
-      # what the encoders on the machine produce, so what they answer on a runner with no
-      # GPU and no plugin set is nothing about this commit. They belong on a machine that
-      # has both. What a runner can say is that every package still compiles.
-      #
-      # The shell's suite is view models against fakes, which needs neither.
-      - name: Check
-        env:
-          CGO_ENABLED: "1"
-        run: |
-          go build -C backend ./...
-          go vet -C backend ./...
-          dotnet test avalonia/ScreenShare.App.sln
 
       - name: Package
         run: bash scripts/package-linux.sh
@@ -114,27 +63,57 @@ jobs:
           path: build/dist/*.tar.gz
           if-no-files-found: error
 
-      # The Flatpak assembles the directory the step above staged, so it runs in this job
-      # rather than in one of its own: a second job would rebuild both binaries to get it.
-      #
-      # The runtime carries GStreamer and the extension carries the codecs the runtime leaves
-      # out, so what is compiled here is ffmpeg and ffplay alone, which no extension ships
-      # (packaging/flatpak).
+  # The Flatpak, for the distributions the tarball leaves out:
+  # that artifact takes GStreamer from the machine and the backend links symbols 1.26 introduced.
+  #
+  # It takes the tarball above rather than building the app again.
+  # The runtime carries GStreamer and the extension carries the codecs it leaves out,
+  # so what is compiled here is ffmpeg and ffplay alone, which no extension ships
+  # (packaging/flatpak).
+  flatpak:
+    needs: [version, tarball]
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-tarball
+          path: incoming
+
+      # Into build/dist, where the manifest's `dir` source reads it,
+      # and holding the staged directory alone: the manifest globs for it.
+      - name: Unpack the tarball
+        run: |
+          mkdir -p build/dist
+          tar -xzf incoming/*.tar.gz -C build/dist
+
       - name: Install flatpak-builder
         run: |
+          sudo apt-get update
           sudo apt-get install --no-install-recommends -y flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists \
             flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user --noninteractive flathub \
             org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
 
+      # flatpak-builder keeps each module's build state here and skips a module whose
+      # definition is unchanged, which is what stops ffmpeg compiling on every run.
+      # The key is the manifest: editing the ffmpeg module is what has to rebuild it.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .flatpak-builder
+          key: flatpak-${{ hashFiles('packaging/flatpak/de.bjoernblessin.ScreenSharing.yml') }}
+          restore-keys: flatpak-
+
       - name: Package Flatpak
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          version=$(cat VERSION)
           flatpak-builder --user --force-clean --repo=build/flatpak-repo \
             build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
           flatpak build-bundle build/flatpak-repo \
-            "build/dist/screen-sharing-$version-x86_64.flatpak" de.bjoernblessin.ScreenSharing
+            "build/dist/screen-sharing-$VERSION-x86_64.flatpak" de.bjoernblessin.ScreenSharing
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -153,8 +132,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # The toolchain and the GStreamer development files the backend links, and the
-      # gst-launch-1.0.exe it spawns. The same package list docs/packaging.md names.
+      # The toolchain and the GStreamer development files the backend links,
+      # and the gst-launch-1.0.exe it spawns.
+      # The same package list docs/packaging.md names.
       - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         id: msys2
         with:
@@ -180,7 +160,6 @@ jobs:
 
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          # The SDK the Nix build carries, so both channels compile with one toolchain.
           dotnet-version: "10.0.302"
 
       - uses: go-task/setup-task@70f2430ad412f838533de8c0515c749ffb2b8bd3 # v1.1.0
@@ -209,34 +188,10 @@ jobs:
           if (-not $license) { throw "the downloaded ffmpeg build carries no LICENSE.txt" }
           Copy-Item $license.FullName build/windows/redist/ffmpeg-LICENSE.txt
 
-      # Compilation only, for the reason the Linux job's step states. The MSYS2 prefix is
-      # appended rather than prepended, which is what the dev task does and for the same
-      # reason: MSYS2 ships an ffmpeg of its own and a prefix in front would take over
-      # every capture and encode.
-      #
-      # cgo takes its compiler and its pkg-config by path instead of by name, as
-      # Taskfile.yml does. The image carries Strawberry Perl's `gcc` and `pkg-config`
-      # ahead of the appended prefix, and that pkg-config resolves against
-      # C:/Strawberry/c/lib/pkgconfig, where no GStreamer module lives.
-      - name: Check
-        env:
-          CGO_ENABLED: "1"
-          CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
-          PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
-        run: |
-          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
-
-          # A pwsh step reports the exit code of its last command, so a failed build in
-          # front of a passing test suite reports green. Each one is checked instead.
-          go build -C backend ./...
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go vet -C backend ./...
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet test avalonia/ScreenShare.App.sln
-
-      # MSYS2_ROOT is what the build and bundle tasks resolve the toolchain, the plugin
-      # prefix and MSYS2's own sh through. The action installs somewhere other than the
-      # default C:/msys64, so it is named here rather than assumed.
+      # MSYS2_ROOT is what the build and bundle tasks resolve the toolchain,
+      # the plugin prefix and MSYS2's own sh through.
+      # The action installs somewhere other than the default C:/msys64,
+      # so it is named here rather than assumed.
       - name: Package
         env:
           MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
@@ -254,31 +209,46 @@ jobs:
   nix:
     needs: version
     runs-on: ubuntu-latest
+    env:
+      # Lifted into env because a step's `if` cannot read secrets.
+      # Empty on a pull request from a fork, where the build runs and pushes nothing.
+      ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+
+      # The flake overlays GStreamer to turn on the Vulkan and QSV plugins, and builds
+      # gst-plugins-rs from an explicit plugin list, neither of which the public binary
+      # cache carries. The Attic cache below is where those land, so a run downloads
+      # what an earlier run compiled.
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-
-      # The flake overlays GStreamer to turn on the Vulkan and QSV plugins, which the
-      # binary cache does not carry, so a first build compiles gst-plugins-bad from
-      # source. The store is cached between runs for that reason.
-      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'nix/*.nix') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 5G
+            extra-substituters = https://nix-cache.bjoernblessin.de/screen-sharing
+            extra-trusted-public-keys = screen-sharing:0wAX2u4GPUvsZmRMsjut6HjhdYfBErcjQCHTXiJ0yPM=
 
       - run: nix build .#screen-sharing --print-build-logs
+
+      # The whole closure, so a machine with none of it downloads rather than compiles:
+      # a fresh runner, a contributor's checkout, a laptop after a garbage collection.
+      - name: Push to the cache
+        if: env.ATTIC_TOKEN != ''
+        run: |
+          nix run .#attic-client -- login \
+            hh https://nix-cache.bjoernblessin.de "$ATTIC_TOKEN"
+          nix run .#attic-client -- push hh:screen-sharing result
 
   # The Arch package. The source is the tarball this job writes rather than a downloaded
   # release: makepkg uses a file already sitting beside the PKGBUILD and downloads
   # nothing, so the package is built from the commit under test.
+  #
+  # Pinned by digest, as every action here is:
+  # a base image that moves can redden a release with no commit behind it.
+  # archlinux:base-devel as of this pin.
   arch:
     needs: version
     runs-on: ubuntu-latest
-    container: archlinux:base-devel
+    container: archlinux@sha256:ee205c220399524a683cf495d411691b921baed8ab47cdc6d732efa782fae484
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -312,11 +282,11 @@ jobs:
           if-no-files-found: error
 
   # The Fedora package, built the same way and for the same reason: rpmbuild reads
-  # SOURCES and downloads nothing.
+  # SOURCES and downloads nothing. fedora:latest as of this pin.
   fedora:
     needs: version
     runs-on: ubuntu-latest
-    container: fedora:latest
+    container: fedora@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -348,14 +318,19 @@ jobs:
           path: "*.rpm"
           if-no-files-found: error
 
-  # A published release gets what the jobs above built. Nothing is rebuilt here, so the
-  # files attached to a release are the ones that passed.
+  # A published release gets what the jobs above built.
+  # Nothing is rebuilt here, so the files attached to a release are the ones that passed.
   #
-  # Only the assets are written. The release text belongs to whoever published it, and a
-  # re-run that rewrote it would lose what they typed.
+  # always(), so a red channel costs its own asset alone.
+  # A strict `needs` cost every asset over one broken channel,
+  # and a release with four downloads beside a red run says more than a release with none.
+  #
+  # Only the assets are written.
+  # The release text belongs to whoever published it,
+  # and a re-run that rewrote it would lose what they typed.
   release:
-    if: github.event_name == 'release'
-    needs: [version, linux, windows, nix, arch, fedora]
+    if: ${{ always() && github.event_name == 'release' }}
+    needs: [version, tarball, flatpak, windows, nix, arch, fedora]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -369,3 +344,21 @@ jobs:
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: artifacts/*
+          fail_on_unmatched_files: false
+
+      # After the upload, so a channel that built is attached whatever this reports.
+      # One list: adding a channel is one edit,
+      # and a pattern matching nothing names the job that went red.
+      - name: Every channel attached
+        run: |
+          missing=
+          for pattern in \
+            '*-linux-x86_64-portable.tar.gz' \
+            '*.flatpak' \
+            '*-windows-x86_64.zip' \
+            '*.pkg.tar.zst' \
+            '*.rpm'
+          do
+            compgen -G "artifacts/$pattern" >/dev/null || missing="$missing $pattern"
+          done
+          [ -z "$missing" ] || { echo "the release carries no:$missing" >&2; exit 1; }

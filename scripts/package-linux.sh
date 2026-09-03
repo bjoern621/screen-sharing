@@ -18,7 +18,7 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 version=$(cat "$root/VERSION")
 out=${1:-$root/build/dist}
-name=screen-sharing-$version-linux-x64
+name=screen-sharing-$version-linux-x86_64-portable
 stage=$out/$name
 
 # A stale directory would ship whatever a previous version left in it,

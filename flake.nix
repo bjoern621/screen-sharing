@@ -335,9 +335,9 @@
         # A NixOS host installs it through the overlay below.
         packages.groupd = pkgs.callPackage ./nix/groupd.nix { };
 
-        # The three halves of a relay deployment as container images,
+        # A relay deployment's three processes as container images,
         # for a relay on Kubernetes instead of on a host of its own.
-        # They are the same three processes a NixOS relay host runs,
+        # They are what a NixOS relay host runs,
         # and they expect the same loopback between them,
         # so a pod holding all three is the host layout unchanged.
         #
@@ -354,6 +354,12 @@
         packages.groupd-image = pkgs.callPackage ./nix/groupd-image.nix {
           screenshare-groupd = self.packages.${system}.groupd;
         };
+
+        # The client the release workflow pushes the build closure to the Attic cache with.
+        # An output rather than `nix run nixpkgs#attic-client`,
+        # which would resolve against whatever the registry points at that day
+        # (docs/packaging.md, "Version pinning").
+        packages.attic-client = pkgs.attic-client;
 
         apps.default = {
           type = "app";

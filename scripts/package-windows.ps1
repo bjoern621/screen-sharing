@@ -20,7 +20,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $version = (Get-Content (Join-Path $root 'VERSION')).Trim()
 $bin = Join-Path $root 'build/bin'
 $dist = Join-Path $root 'build/dist'
-$name = "screen-sharing-$version-windows-x64"
+$name = "screen-sharing-$version-windows-x86_64"
 $zip = Join-Path $dist "$name.zip"
 
 # Each of these comes from a task this one depends on,

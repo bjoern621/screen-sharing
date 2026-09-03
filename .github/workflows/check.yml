@@ -1,0 +1,146 @@
+# What a push has to satisfy: both binaries compile, and both suites pass.
+#
+# Packaging is release.yml's. A push answers whether the code builds,
+# and what a tag produces is a question a tag asks.
+#
+# Every binary is built on the system it runs on.
+# The backend links GStreamer through cgo,
+# and no cross toolchain builds that (docs/packaging.md),
+# so there is no matrix over targets here.
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    uses: ./.github/workflows/version.yml
+
+  linux:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Two sets. The development files cgo compiles against, for the pkg-config modules
+      # backend/internal/receive and backend/internal/pointer name.
+      # Then what the Go suite needs to answer at all:
+      # ffmpeg and the plugin set its pipelines build, and an X server for the x11grab paths.
+      #
+      # The image is named rather than taken as -latest.
+      # go-gst binds `GstIdStr`, which GStreamer 1.26 introduced,
+      # and an image older than that builds no backend.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libegl-dev \
+            libx11-dev \
+            ffmpeg \
+            gstreamer1.0-tools \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            xvfb
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          # The module is not at the repository root,
+          # and the cache key is read from the checksum file rather than found.
+          cache-dependency-path: backend/go.sum
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          # The SDK the Nix build carries, so both channels compile with one toolchain.
+          dotnet-version: "10.0.302"
+
+      # xvfb-run because x11grab refuses to build arguments without a DISPLAY,
+      # and the builders under test go through that refusal (backend/internal/ffmpeg).
+      #
+      # The `hardware` tag stays off. What it gates needs a DRM card node to answer,
+      # which a runner has none of (backend/internal/ffmpeg/gpu_test.go).
+      # `task backend:test` is the local run that includes it.
+      #
+      # The shell's suite is view models against fakes and needs neither.
+      - name: Check
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go build -C backend ./...
+          go vet -C backend ./...
+          xvfb-run -a go test -C backend ./...
+          dotnet test avalonia/ScreenShare.App.sln
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # The GStreamer development files the backend links against.
+      # The plugin set and gst-launch-1.0 belong to the packaged build, so release.yml
+      # installs more than this; what a compile needs is the headers and the import libraries.
+      #
+      # update: false, the action caching its package set:
+      # a full `pacman -Syu` on every push spends more than the compile it precedes.
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        id: msys2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-gstreamer
+            mingw-w64-x86_64-gst-plugins-base
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: "10.0.302"
+
+      # Compilation and the shell's suite. The Go suite spawns ffmpeg and builds pipelines,
+      # neither of which is installed here.
+      #
+      # The MSYS2 prefix is appended rather than prepended, which is what the dev task does
+      # and for the same reason: MSYS2 ships an ffmpeg of its own
+      # and a prefix in front would take over every capture and encode.
+      #
+      # cgo takes its compiler and its pkg-config by path instead of by name,
+      # as Taskfile.yml does. The image carries Strawberry Perl's `gcc` and `pkg-config`
+      # ahead of the appended prefix, and that pkg-config resolves against
+      # C:/Strawberry/c/lib/pkgconfig, where no GStreamer module lives.
+      - name: Check
+        env:
+          CGO_ENABLED: "1"
+          CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
+          PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
+        run: |
+          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+
+          # A pwsh step reports the exit code of its last command,
+          # so a failed build in front of a passing test suite reports green.
+          # Each one is checked instead.
+          go build -C backend ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go vet -C backend ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet test avalonia/ScreenShare.App.sln

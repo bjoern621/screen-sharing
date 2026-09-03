@@ -254,6 +254,22 @@ tasks:
       # so both executables go into build/windows/redist first (that directory's README).
       - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
 
+  backend:test:
+    desc: Run the backend's tests, the hardware ones included
+    # The `hardware` tag gates what needs a DRM card node to answer at all
+    # (backend/internal/ffmpeg/gpu_test.go), which is what CI leaves out.
+    dir: backend
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -tags hardware ./...
+
+  icons:
+    desc: Redraw build/icons from the master at the sizes hicolor declares
+    # The results are committed, so no packaging recipe carries an ImageMagick build dependency.
+    cmds:
+      - for size in 48 64 128 256 512; do magick build/appicon.png -resize ${size}x${size} build/icons/${size}.png; done
+
   package:linux:
     desc: Build the Linux release tarball into build/dist
     # The tarball is for distributions this repository packages nothing for.

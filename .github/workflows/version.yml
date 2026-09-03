@@ -1,0 +1,47 @@
+# The version every artifact is named after, read once so no job can disagree.
+#
+# Called by check.yml and release.yml rather than written into both.
+# A check kept in two files is one that drifts.
+
+name: version
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: What VERSION holds, and what every artifact is named after.
+        value: ${{ jobs.read.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: read
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(cat VERSION)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # VERSION owns the number.
+          # The two distro recipes carry a copy because a reader running makepkg or rpmbuild
+          # by hand has only the recipe in front of them,
+          # and a copy nothing reads against its source is one that drifts,
+          # so all three are read here.
+          grep -qx "pkgver=$version" packaging/arch/PKGBUILD ||
+            { echo "packaging/arch/PKGBUILD does not say $version" >&2; exit 1; }
+          grep -qE "^Version: +$version\$" packaging/fedora/screen-sharing.spec ||
+            { echo "packaging/fedora/screen-sharing.spec does not say $version" >&2; exit 1; }
+
+          # A release tagged v1.2.3 built from a tree saying 1.2.0
+          # produces artifacts whose names contradict their contents.
+          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
+            echo "release $TAG does not match VERSION ($version)" >&2
+            exit 1
+          fi

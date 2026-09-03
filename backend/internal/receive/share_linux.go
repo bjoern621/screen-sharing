@@ -120,9 +120,17 @@ func (s *dmabufSharer) open(sample *gst.Sample, slots int) (Pool, error) {
 	count := int(s.pool.slot_count)
 	assert.Assert(count == slots, "an opened pool holds the slots it was asked for", count, slots)
 
+	// A driver that exports no descriptor for a GL frame answers success carrying -1.
+	// Which machine is running decides that, so it leaves here as an error,
+	// and lendDescriptors keeps asserting on what this has already checked.
 	descriptors := make([]int, 0, count)
 	for i := range count {
-		descriptors = append(descriptors, int(s.pool.fds[i]))
+		fd := int(s.pool.fds[i])
+		if fd < 0 {
+			s.close()
+			return Pool{}, fmt.Errorf("this machine exports no dmabuf for slot %d of a GL frame", i)
+		}
+		descriptors = append(descriptors, fd)
 	}
 	s.lent, err = lendDescriptors(descriptors)
 	if err != nil {

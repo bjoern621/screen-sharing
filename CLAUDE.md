@@ -172,7 +172,7 @@ The number is pre-1.0, so the parts read:
 Several pushes can share one bump.
 What decides is whether the release a user downloads would differ.
 
-The bump is its own commit, and the `version` job in `.github/workflows/build.yml` names every file that has to agree.
+The bump is its own commit, and `.github/workflows/version.yml` names every file that has to agree.
 Tagging and publishing the release on GitHub stays the user's: the tag `vX.Y.Z` is what builds the installers and pushes the relay images.
 
 # Never drive the GUI

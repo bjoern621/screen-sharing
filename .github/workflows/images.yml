@@ -1,11 +1,13 @@
-# The relay and the group service as container images, for a Kubernetes deployment of them.
+# The relay, the proxy and the group service as container images, for a Kubernetes deployment.
 #
-# Separate from build.yml because these are the only artifacts built through Nix, and because
-# they are the only ones that need write access to a registry.
+# Separate from release.yml because these are the only artifacts needing registry write access,
+# and because they are cheap enough to build on every push.
 #
-# A push builds both to prove they still build. A published release pushes them, so an image
-# tag names a release and never moves: the cluster repository pins an exact tag and Renovate
-# bumps it, and a tag rewritten on every commit to main would make that pin a lie.
+# A push builds all three to prove they still build,
+# which is what keeps the flake under test between releases.
+# A published release pushes them, so an image tag names a release and never moves:
+# the cluster repository pins an exact tag and Renovate bumps it,
+# and a tag rewritten on every commit to main would make that pin a lie.
 
 name: images
 
@@ -25,8 +27,8 @@ jobs:
   images:
     runs-on: ubuntu-latest
     strategy:
-      # Independent images. One failing to build says nothing about the other, and a
-      # cancelled sibling hides which.
+      # Independent images. One failing to build says nothing about the others,
+      # and a cancelled sibling hides which.
       fail-fast: false
       matrix:
         include:

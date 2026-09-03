@@ -11,7 +11,7 @@ Every publisher sends to one relay and every viewer reads from it, so somebody h
 
 ## Windows
 
-1. Download `screen-sharing-<version>-windows-x64.zip`.
+1. Download `screen-sharing-<version>-windows-x86_64.zip`.
 2. Extract it anywhere.
 3. Run `screenshare-avalonia.exe`.
 
@@ -96,8 +96,8 @@ sudo apt install ffmpeg gstreamer1.0-tools \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
   gstreamer1.0-libav gstreamer1.0-rtsp gstreamer1.0-pipewire libnice10
 
-tar xf screen-sharing-<version>-linux-x64.tar.gz
-./screen-sharing-<version>-linux-x64/screenshare-avalonia
+tar xf screen-sharing-<version>-linux-x86_64-portable.tar.gz
+./screen-sharing-<version>-linux-x86_64-portable/screenshare-avalonia
 ```
 
 Debian and Ubuntu package no `gst-plugins-rs` either, so the WebRTC transports are absent there too.

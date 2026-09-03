@@ -8,7 +8,7 @@
 # (the note at the end).
 
 pkgname=screen-sharing
-pkgver=0.5.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="Self-hosted, high-quality group screen sharing"
 arch=('x86_64')
@@ -51,8 +51,7 @@ depends=(
 # The development files are in the same packages as the runtime,
 # so what the cgo build compiles against comes from depends.
 # Only the two toolchains are build-only.
-# imagemagick draws the icon down to the sizes hicolor's index declares (package()).
-makedepends=('go' 'dotnet-sdk-10.0' 'imagemagick')
+makedepends=('go' 'dotnet-sdk-10.0')
 # No split debug package.
 # Half of what is installed here is a .NET publish output carrying no DWARF to split out,
 # and the Fedora spec disables its debuginfo package for the same reason.
@@ -112,14 +111,13 @@ package() {
 
   install -Dm644 packaging/linux/screen-sharing.desktop \
     "$pkgdir/usr/share/applications/$pkgname.desktop"
-  # The master is 1024px and hicolor's index declares 48 through 512.
-  # A size the index does not name is a directory no lookup walks,
-  # so an icon installed at 1024 alone is one a launcher answers with its placeholder.
+  # hicolor's index declares 48 through 512,
+  # and a size it omits is a directory no lookup walks.
+  # `task icons` draws these from build/appicon.png and they are committed,
+  # so no channel needs ImageMagick at build time.
   for size in 48 64 128 256 512; do
-    install -dm755 "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps"
-    magick build/appicon.png -resize "${size}x${size}" \
+    install -Dm644 "build/icons/$size.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
-    chmod 644 "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
   done
   install -Dm644 docs/install.md \
     "$pkgdir/usr/share/doc/$pkgname/install.md"
