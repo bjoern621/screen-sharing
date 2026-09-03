@@ -10,13 +10,13 @@ package form
 // A shell that regrouped or reordered them would be arguing about the model rather than the layout.
 //
 // The order follows the domain and not the screen.
-// A stream is named, then the picture is chosen, then how that picture is coded,
+// The picture is chosen, then how that picture is coded,
 // then what rides beside it, then how it leaves this machine, then how it comes back,
 // and last where the relay carrying all of it sits.
 // Each step is answerable with the ones before it settled and none of the ones after it,
 // so a shell walks the groups as a wizard without the backend having said so.
 //
-// The name leads because it depends on no other field,
+// The capture leads because it depends on no other field,
 // and every greying further down follows a choice made after it.
 // The relay trails because it is one question, which machine carries the stream
 // and on which of its listeners, answered throughout by defaults that hold for the relay
@@ -41,7 +41,6 @@ package form
 // Such a group is written as it is edited, or a corrected address reaches the backend
 // only through a publish that is refused for not reaching the relay it would replace.
 var groups = []group{
-	{key: GroupStream},
 	{key: GroupSource},
 	{key: GroupQuality},
 	{key: GroupAudio},

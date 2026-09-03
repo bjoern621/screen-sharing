@@ -20,10 +20,10 @@ public sealed class ResetGroupTests
 {
     private static readonly Action<Action> Inline = action => action();
 
-    /// <summary>Applied group. <see cref="StreamStep"/> is a staged one, for the negative case.</summary>
+    /// <summary>Applied group. <see cref="SourceStep"/> is a staged one, for the negative case.</summary>
     private const string RelayStep = "relay";
 
-    private const string StreamStep = "stream";
+    private const string SourceStep = "source";
 
     private sealed record Flow(SetupViewModel Setup, FormSession Form, SeededBackend Backend);
 
@@ -64,14 +64,14 @@ public sealed class ResetGroupTests
     {
         var flow = await FlowAsync();
 
-        flow.Form.Write("publish.name", new FieldValue { Text = "bjoern" });
+        flow.Form.Write("publish.fps", new FieldValue { Number = 120 });
         flow.Form.Write("relay.host", new FieldValue { Text = "elsewhere.example" });
         await flow.Form.Settled;
 
         flow.Form.Reset(RelayStep);
         await flow.Form.Settled;
 
-        Assert.Equal("bjoern", flow.Form.Draft!.Publish.Name);
+        Assert.Equal(120, flow.Form.Draft!.Publish.Fps);
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ public sealed class ResetGroupTests
         var relay = flow.Setup.CurrentGroup!;
         Assert.True(relay.HasAction);
 
-        flow.Setup.CurrentStep = StreamStep;
+        flow.Setup.CurrentStep = SourceStep;
         Assert.False(flow.Setup.CurrentGroup!.HasAction);
     }
 

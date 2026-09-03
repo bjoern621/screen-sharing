@@ -22,7 +22,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 			RtspPort: 8554,
 		},
 		Publish: settings.Publish{
-			Name:                "nixos",
+			Monitor:             3,
 			Transport:           "srt",
 			RtspPublishProtocol: "tcp",
 		},
@@ -137,7 +137,7 @@ func TestTheSetCarriesASoundingStreamItBringsUpWithItself(t *testing.T) {
 func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
-		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+		Publish: settings.Publish{Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 
 	silent := TestSurface{Pattern: "smpte", Format: testChroma8, Colorimetry: testSDR}
@@ -161,7 +161,7 @@ func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
-		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+		Publish: settings.Publish{Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 
 	surface := soundingSurface(t)
@@ -217,7 +217,7 @@ func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
-		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+		Publish: settings.Publish{Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 	args, err := BuildTestStreamArgs(s, "test-3-audio", surface)
 	if err != nil {
@@ -301,7 +301,7 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
-		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+		Publish: settings.Publish{Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 	args, err := BuildTestStreamArgs(s, "test-2-hdr", surface)
 	if err != nil {

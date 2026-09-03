@@ -23,7 +23,6 @@ func previewApp() *App {
 // previewSettings names a codec with a local carriage; without one there is no preview to bring up.
 func previewSettings() settings.Settings {
 	s := settings.Defaults()
-	s.Publish.Name = "preview-lifecycle-test"
 	s.Publish.UseCodec("libx264")
 	return s
 }

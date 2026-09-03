@@ -16,7 +16,6 @@ package settings
 import (
 	"fmt"
 	"net"
-	"os"
 	"runtime"
 	"strings"
 
@@ -47,6 +46,21 @@ type Settings struct {
 	Relay   Relay   `json:"relay"`
 	Publish Publish `json:"publish"`
 	Viewer  Viewer  `json:"viewer"`
+
+	// streamName overrides what StreamName derives, for a stream this machine did not capture:
+	// a synthetic test pattern (internal/publish/teststream.go), which no fact about Publish could
+	// ever name.
+	// Never on the wire and never stored: WithStreamName is the only way in, and no struct tag here
+	// gives it a json key.
+	streamName string
+}
+
+// WithStreamName is s publishing under name rather than under what StreamName would derive.
+func (s Settings) WithStreamName(name string) Settings {
+	assert.Assert(name != "", "an override still names a stream")
+
+	s.streamName = name
+	return s
 }
 
 // Relay is where the relay is and which of its listeners answers on which port.
@@ -238,6 +252,33 @@ func (r Relay) Path(name string) string {
 	return path
 }
 
+// StreamName is what a viewer's list shows this machine's own stream beside:
+// this machine's own claim in its group and the stream's own name together, or the stream's own name
+// alone outside a group, there being no claim to show it beside.
+//
+// On Settings and not on Publish or Relay alone, needing a fact from each:
+// what is captured (Publish.Name) and what this machine is known by where it published it
+// (Relay.DisplayName), which a preset carries the first of and never the second.
+// Two machines choosing the same monitor still land on two names, DisplayName being claimed
+// first-come and unique inside a group (internal/membership, ErrNameTaken).
+//
+// WithStreamName stands in front of both facts for a stream neither could name.
+func (s Settings) StreamName() string {
+	if s.streamName != "" {
+		return s.streamName
+	}
+	if s.Relay.DisplayName == "" {
+		return s.Publish.Name()
+	}
+	return s.Relay.DisplayName + "/" + s.Publish.Name()
+}
+
+// PublishPath is where this machine's own stream lives on the relay,
+// which every transport builds its publish URL from.
+func (s Settings) PublishPath() string {
+	return s.Relay.Path(s.StreamName())
+}
+
 // SrtPassphrase keys this machine's SRT legs, derived and never stored or typed.
 //
 // SRT is the one leg no reverse proxy wraps, being UDP with no TLS,
@@ -283,7 +324,6 @@ func (r Relay) Prefix() string {
 // Publish is what this machine sends to the relay and how it is encoded.
 // A preset is one of these and nothing else.
 type Publish struct {
-	Name      string `json:"name"`
 	Transport string `json:"transport"` // publish leg, publisher to relay: a registry key, "srt"
 	// Format is the bitstream every viewer decodes and a transport carries, "h264".
 	// Encoder is what produces it on this machine, at the grain a picker offers one:
@@ -399,6 +439,18 @@ type Viewer struct {
 	PreviewRoute string `json:"previewRoute"`
 }
 
+// Name is the stream's own name, past whatever this machine is known by in its group (Settings.StreamName):
+// what a viewer's list shows this stream under, once the machine's own claim is peeled off.
+//
+// Derived from what is captured rather than typed, so a viewer's list needs no free text kept in step
+// with what the picture actually is, and a second simultaneous stream a future capture adds gets its
+// own name from its own capture rather than one two streams could type alike.
+// Monitor is the whole of what is captured today, every backend reading captured surfaces off it
+// (publish.gstcapture.go), so it is the whole of what the name is derived from.
+func (p Publish) Name() string {
+	return fmt.Sprintf("monitor-%d", p.Monitor)
+}
+
 // Codec is the encoder the format and the encoder fields name between them,
 // as every engine, probe and log line spells it: "hevc_nvenc".
 // Empty for a pair no row carries,
@@ -478,11 +530,6 @@ func (p Publish) CapabilityOptions() map[string]string {
 // Defaults is what a fresh installation starts with.
 // The capture backend is the one this OS runs.
 func Defaults() Settings {
-	host, err := os.Hostname()
-	if err != nil {
-		host = "me"
-	}
-
 	capture := "ddagrab"
 	if runtime.GOOS != "windows" {
 		capture = "x11grab"
@@ -496,7 +543,7 @@ func Defaults() Settings {
 			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{
-			Name: host, Transport: "srt", Format: "hevc", Encoder: capabilities.FamilyNvenc,
+			Transport: "srt", Format: "hevc", Encoder: capabilities.FamilyNvenc,
 			Mode: "lossless", Chroma: "gbrp",
 			ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 			Gop: 0, Bframes: 0,
@@ -541,9 +588,9 @@ func Defaults() Settings {
 	// left on the old step the day the row moved that mode.
 	d.Publish.Effort, d.Publish.Tune = LadderSteps(d.Publish.Codec(), d.Publish.Mode)
 
-	assert.Assert(d.Publish.Name != "" && d.Publish.Codec() != "" && d.Publish.Capture != "",
+	assert.Assert(d.Publish.Name() != "" && d.Publish.Codec() != "" && d.Publish.Capture != "",
 		"a fresh installation names what it publishes, what encodes it and what captures it",
-		d.Publish.Name, d.Publish.Format, d.Publish.Encoder, d.Publish.Capture)
+		d.Publish.Name(), d.Publish.Format, d.Publish.Encoder, d.Publish.Capture)
 	assert.Assert(d.Relay.Host != "", "a fresh installation names a relay to reach")
 	return d
 }

@@ -39,7 +39,7 @@ public sealed class BroadcastFiguresTests
     /// </summary>
     private static PublishState Live(int? ceilingMbps = null)
     {
-        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
         if (ceilingMbps is { } ceiling)
         {
             live.RateCeilingMbps = ceiling;

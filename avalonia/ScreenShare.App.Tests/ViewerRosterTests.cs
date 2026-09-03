@@ -63,7 +63,7 @@ public sealed class ViewerRosterTests
 
     private static PublishState Live() => new()
     {
-        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } },
+        Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" },
     };
 
     private static ViewerTableViewModel Table(RelayStatus? relay)

@@ -22,7 +22,6 @@ func grouped(t *testing.T) (settings.Settings, group.Key) {
 	}
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
-	s.Publish.Name = "standup"
 	s.Relay.GroupKey = groupKey.String()
 	return s, groupKey
 }
@@ -42,7 +41,7 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 			assertGrouped(t, name+" publish", strings.Join(p.PublishArgs(s), " "), groupKey)
 		}
 		if w, ok := tr.(Watcher); ok {
-			assertGrouped(t, name+" watch", w.WatchURL(s, s.Relay.Path(s.Publish.Name)), groupKey)
+			assertGrouped(t, name+" watch", w.WatchURL(s, s.PublishPath()), groupKey)
 		}
 	}
 }
@@ -54,10 +53,9 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 func TestAnUnnamedRelayPublishesUnderTheName(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = ""
-	s.Publish.Name = "standup"
 	s.Relay.GroupKey = ""
 
-	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
+	if got := s.Relay.Path("standup"); got != "standup" {
 		t.Errorf("a relay nobody named publishes to %q, want the bare name", got)
 	}
 }
@@ -67,10 +65,9 @@ func TestAnUnnamedRelayPublishesUnderTheName(t *testing.T) {
 // name.
 func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	s := settings.Defaults()
-	s.Publish.Name = "standup"
 	s.Relay.GroupKey = "not a group key"
 
-	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
+	if got := s.Relay.Path("standup"); got != "standup" {
 		t.Errorf("an unreadable group key publishes to %q, want the bare name", got)
 	}
 }
@@ -83,10 +80,9 @@ func TestNoGroupPublishesPublicly(t *testing.T) {
 	for _, host := range []string{"relay.example", "192.168.1.9"} {
 		s := settings.Defaults()
 		s.Relay.Host = host
-		s.Publish.Name = "standup"
 		s.Relay.GroupKey = ""
 
-		if got := s.Relay.Path(s.Publish.Name); got != group.PublicPrefix+"standup" {
+		if got := s.Relay.Path("standup"); got != group.PublicPrefix+"standup" {
 			t.Errorf("a keyless publish to %s goes to %q, want the public prefix", host, got)
 		}
 	}
@@ -98,10 +94,9 @@ func TestNoGroupPublishesPublicly(t *testing.T) {
 func TestABrokenKeyNeverFallsToThePublicPrefix(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
-	s.Publish.Name = "standup"
 	s.Relay.GroupKey = "not a group key"
 
-	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
+	if got := s.Relay.Path("standup"); got != "standup" {
 		t.Errorf("a broken group key publishes to %q, want the bare name and never the public prefix", got)
 	}
 }

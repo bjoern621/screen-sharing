@@ -97,7 +97,6 @@ public sealed class Vocabulary
         var publish = settings.Publish;
         return group.Key switch
         {
-            "stream" => publish.Name,
             "source" => Join(Words.Capture(publish.Capture), Picture(publish)),
             "quality" => Join(Words.Format(publish.Format), Quality(publish, CeilingOf(group))),
             "audio" => AudioShorthand(publish),

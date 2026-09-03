@@ -25,7 +25,7 @@ import (
 // It is the only other copy of that list, so the bijection below is a check rather
 // than a tautology: a key added to keys.go and to no table fails here.
 var fieldDeclaredKeys = []string{
-	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
+	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
 	KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
@@ -42,7 +42,7 @@ var fieldDeclaredKeys = []string{
 
 // fieldDeclaredGroups is every group key, written out for the same reason.
 var fieldDeclaredGroups = []string{
-	GroupStream, GroupSource, GroupQuality, GroupAudio,
+	GroupSource, GroupQuality, GroupAudio,
 	GroupTransport, GroupWatch, GroupRelay,
 }
 
@@ -236,7 +236,7 @@ func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 // so a key the surface has never heard of renders as an unnamed run of fields.
 func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	declared := []string{
-		GroupStream, GroupSource, GroupQuality, GroupAudio,
+		GroupSource, GroupQuality, GroupAudio,
 		GroupTransport, GroupWatch, GroupRelay,
 	}
 	seen := make(map[string]bool, len(groups))

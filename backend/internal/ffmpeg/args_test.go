@@ -30,7 +30,6 @@ func baseStream() settings.Settings {
 			SrtPort: 8890,
 		},
 		Publish: settings.Publish{
-			Name:       "alice",
 			Transport:  "srt",
 			Format:     "h264",
 			Encoder:    "x264",

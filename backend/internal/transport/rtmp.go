@@ -50,7 +50,7 @@ func (RTMP) Formats() Formats { return rtmpFormats }
 // PublishArgs muxes to FLV, the container RTMP carries, and names the stream by URL path.
 func (RTMP) PublishArgs(s settings.Settings) []string {
 	args := append([]string{"-f", "flv"}, ffmpegTlsVerify(s)...)
-	return append(args, rtmpURL(s, s.Relay.Path(s.Publish.Name)))
+	return append(args, rtmpURL(s, s.PublishPath()))
 }
 
 func (RTMP) WatchURL(s settings.Settings, streamName string) string {

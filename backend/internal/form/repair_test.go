@@ -30,6 +30,11 @@ func repairChanged(before, after settings.Settings) []string {
 	groups := from.Descriptor().Fields()
 	for i := range groups.Len() {
 		g := groups.Get(i)
+		// stream_name sits beside the three groups but is computed rather than staged, and carries no
+		// sub-fields for this walk to descend into.
+		if g.Message() == nil {
+			continue
+		}
 		fromGroup, toGroup := from.Get(g).Message(), to.Get(g).Message()
 		fields := g.Message().Fields()
 		for j := range fields.Len() {

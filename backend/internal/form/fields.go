@@ -106,15 +106,6 @@ const (
 )
 
 var fieldTable = []field{
-	// The stream: the one field that depends on nothing else, and the only setting other people see.
-	// Which relay carries it is the group at the far end of the table.
-	{
-		key:     KeyName,
-		group:   GroupStream,
-		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Name) },
-	},
-
 	// The capture: what is grabbed, how much of it, and how the frames reach the encoder.
 	{
 		key:     KeyCapture,

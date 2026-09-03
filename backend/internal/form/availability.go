@@ -96,7 +96,6 @@ var availabilityRules = map[string]func(availability) state{
 	// The connection group.
 	// A listener port is a knob of one protocol and hides with it, the hidden treatment's own case:
 	// a user on SRT has no reason to read what the RTMP listener's port means.
-	KeyName:      func(availability) state { return availabilityLive() },
 	KeyRelayHost: func(availability) state { return availabilityLive() },
 	// Encryption follows the relay's address and is stored nowhere (settings.Relay.Tls),
 	// so there is nothing here to set: the box says what the connection does,

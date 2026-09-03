@@ -237,7 +237,7 @@ public sealed class BroadcastPreviewTests
     /// <summary>Stream in force under this suite's name, with a local preview behind it.</summary>
     private static PublishState Live(bool previewed = true)
     {
-        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = Stream } };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = Stream };
         if (previewed)
         {
             live.Preview = new PublishState.Types.Preview { Port = 45678 };

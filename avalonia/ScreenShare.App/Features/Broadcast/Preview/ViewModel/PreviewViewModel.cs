@@ -464,7 +464,7 @@ public sealed class PreviewViewModel : Observable
     /// A live publish always names itself, so the empty string is a state no tile is made for rather than one
     /// drawn with a blank heading.
     /// </summary>
-    private string Publishing() => _session.Publish?.Live?.Publish?.Name ?? "";
+    private string Publishing() => _session.Publish?.Live?.StreamName ?? "";
 
     /// <summary>
     /// Picture the chosen route has running behind it, null for nothing to draw.

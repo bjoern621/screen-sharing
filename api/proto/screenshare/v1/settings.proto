@@ -27,6 +27,15 @@ message Settings {
   RelaySettings relay = 1;
   PublishSettings publish = 2;
   ViewerSettings viewer = 3;
+
+  // What a viewer opens this stream under, and what the group list shows it beside:
+  // this machine's own claimed name in its group, a slash, then the stream's own name,
+  // or the stream's own name alone outside a group.
+  // Computed from what is captured and from relay.display_name, so it needs both groups beside it,
+  // which a preset does not carry and PublishSettings alone cannot answer for.
+  //
+  // The backend's alone: a shell reads it and writes nothing back that changes anything.
+  string stream_name = 4;
 }
 
 // A field key is the field name this file spells, under the name Settings gives its group:
@@ -104,9 +113,6 @@ message RelaySettings {
 // A preset is one of these and nothing else,
 // so the relay's address and this machine's watch settings stay out of a saved configuration.
 message PublishSettings {
-  // Stream's path on the relay, and what a viewer asks for.
-  string name = 1;
-
   // Publish leg, publisher to relay, keyed as the transport registry names it:
   // "srt", "rtsp", "rtmp", "webrtc".
   string publish_transport = 10;
@@ -216,6 +222,11 @@ message PublishSettings {
   // so the form greys the rest with what each one is missing.
   string cursor = 38;
 
+  // 1 was the free-text stream name.
+  // A viewer's identity for a stream is derived and computed rather than typed
+  // (Settings.stream_name, needing the relay group beside it that a preset does not carry),
+  // so nothing crosses on this message for it.
+  //
   // 2 to 9 were the relay host and its listeners,
   // and 30, 32, 33, 35 and 36 the watch leg's own knobs.
   // An older build read those numbers as a relay port or a watch leg,
@@ -234,8 +245,9 @@ message PublishSettings {
   // both being narrower than it was:
   // a build sending "hevc_nvenc" into either field
   // would name a format nothing produces or an encoder no family answers to.
-  reserved 2 to 9, 11, 24, 30, 32, 33, 35, 36;
+  reserved 1 to 9, 11, 24, 30, 32, 33, 35, 36;
   reserved
+    "name",
     "audio",
     "codec",
     "relay_host",

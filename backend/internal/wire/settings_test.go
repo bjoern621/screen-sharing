@@ -33,7 +33,6 @@ func populatedSettings() settings.Settings {
 			DisplayName: "fixture-member",
 		},
 		Publish: settings.Publish{
-			Name:                "fixture-stream",
 			Transport:           "srt",
 			Format:              "hevc",
 			Encoder:             "nvenc",
@@ -81,6 +80,11 @@ func populatedSettings() settings.Settings {
 func eachField(s settings.Settings, visit func(name string, value reflect.Value)) {
 	v := reflect.ValueOf(s)
 	for i := range v.NumField() {
+		// streamName is unexported: WithStreamName is its only way in, and it holds no group of its
+		// own for this walk to descend into.
+		if v.Type().Field(i).PkgPath != "" {
+			continue
+		}
 		group := v.Type().Field(i).Name
 		g := v.Field(i)
 		for j := range g.NumField() {
@@ -128,6 +132,15 @@ func TestARoundTripKeepsEveryField(t *testing.T) {
 				t.Errorf("%s = %v after a round trip, want %v", name, gotValue, wantValue)
 			}
 		})
+	}
+}
+
+// Settings.stream_name carries what StreamName derives, computed rather than read off a stored
+// field, so there is no domain field for the round trip above to walk.
+func TestTheWireCarriesTheComputedStreamName(t *testing.T) {
+	s := populatedSettings()
+	if got, want := Settings(s).GetStreamName(), s.StreamName(); got != want {
+		t.Errorf("stream_name on the wire = %q, want %q", got, want)
 	}
 }
 

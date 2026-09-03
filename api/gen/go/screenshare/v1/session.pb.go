@@ -1041,8 +1041,12 @@ type PublishState_Live struct {
 	// whether a ceiling reaches the encoder is a fact about the mode and the element,
 	// so a shell deriving it would be deciding what this stream is doing.
 	RateCeilingMbps *float64 `protobuf:"fixed64,6,opt,name=rate_ceiling_mbps,json=rateCeilingMbps,proto3,oneof" json:"rate_ceiling_mbps,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// What a viewer opened this stream under, the same derivation Settings.stream_name carries,
+	// read off the two groups above rather than restated: this machine's own claim in its group
+	// and the stream's own name together.
+	StreamName    string `protobuf:"bytes,7,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PublishState_Live) Reset() {
@@ -1117,11 +1121,18 @@ func (x *PublishState_Live) GetRateCeilingMbps() float64 {
 	return 0
 }
 
+func (x *PublishState_Live) GetStreamName() string {
+	if x != nil {
+		return x.StreamName
+	}
+	return ""
+}
+
 var File_screenshare_v1_session_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\x1a\x19screenshare/v1/text.proto\"\xc6\x06\n" +
+	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\x1a\x19screenshare/v1/text.proto\"\xe7\x06\n" +
 	"\fPublishState\x125\n" +
 	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a\x7f\n" +
 	"\x05Retry\x12\x18\n" +
@@ -1136,14 +1147,16 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\rdecode_memory\x18\x04 \x01(\tR\fdecodeMemory\x12#\n" +
 	"\rrender_memory\x18\x05 \x01(\tR\frenderMemory\x12\x18\n" +
 	"\adecoder\x18\x06 \x01(\tR\adecoder\x12\x1a\n" +
-	"\bhardware\x18\a \x01(\bR\bhardware\x1a\xdb\x02\n" +
+	"\bhardware\x18\a \x01(\bR\bhardware\x1a\xfc\x02\n" +
 	"\x04Live\x129\n" +
 	"\apublish\x18\x01 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x123\n" +
 	"\x05relay\x18\x04 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x12\x18\n" +
 	"\apending\x18\x02 \x01(\bR\apending\x128\n" +
 	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retry\x12>\n" +
 	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreview\x12/\n" +
-	"\x11rate_ceiling_mbps\x18\x06 \x01(\x01H\x00R\x0frateCeilingMbps\x88\x01\x01B\x14\n" +
+	"\x11rate_ceiling_mbps\x18\x06 \x01(\x01H\x00R\x0frateCeilingMbps\x88\x01\x01\x12\x1f\n" +
+	"\vstream_name\x18\a \x01(\tR\n" +
+	"streamNameB\x14\n" +
 	"\x12_rate_ceiling_mbpsR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
 	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xc1\x04\n" +
 	"\fPublishStats\x12\x1f\n" +

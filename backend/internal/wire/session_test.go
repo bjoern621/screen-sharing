@@ -134,12 +134,8 @@ func TestNothingPublishingCarriesNoLiveStream(t *testing.T) {
 // which makes "an attempt belongs to a retry" unrepresentable rather than asserted.
 func TestARetryHangsOffTheLiveStream(t *testing.T) {
 	live := PublishState(PublishSnapshot{Live: &LiveSnapshot{
-		Settings: settings.Settings{
-			Publish: settings.Publish{
-				Name: "bob",
-			},
-		},
-		Retry: &RetrySnapshot{Attempt: 2, Budget: 3},
+		Settings: settings.Settings{},
+		Retry:    &RetrySnapshot{Attempt: 2, Budget: 3},
 	}})
 
 	if live.GetLive() == nil {
@@ -156,11 +152,7 @@ func TestARetryHangsOffTheLiveStream(t *testing.T) {
 		t.Errorf("a pending relaunch carries attempt %d of %d, want 2 of 3", retry.GetAttempt(), retry.GetBudget())
 	}
 
-	carrying := PublishState(PublishSnapshot{Live: &LiveSnapshot{Settings: settings.Settings{
-		Publish: settings.Publish{
-			Name: "bob",
-		},
-	}}})
+	carrying := PublishState(PublishSnapshot{Live: &LiveSnapshot{Settings: settings.Settings{}}})
 	if carrying.GetLive().GetRetry() != nil {
 		t.Error("a stream carrying frames carries a retry, want none")
 	}

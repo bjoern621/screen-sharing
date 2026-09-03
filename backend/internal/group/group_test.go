@@ -108,15 +108,27 @@ func TestAStreamWithNoGroupIsRefused(t *testing.T) {
 	}
 }
 
-// A name carrying a separator lands a segment deeper than the group's permission covers,
-// which is a stream inside a group its own grant does not reach.
-func TestANameIsOneSegment(t *testing.T) {
+// A name is the stream's own, or the publishing member's own name and the stream's own together.
+// Both stay inside the group's permission, which is written against the group's prefix and covers
+// everything under it however deep, so two segments build a path the same grant reaches.
+// A third lands nowhere a viewer's list peels back to (app.ownNames trims one prefix, not two),
+// and an empty segment at either end names nothing.
+func TestANameIsOneOrTwoSegments(t *testing.T) {
 	key := mustKey(t)
-	if _, err := key.Path("team/standup"); err == nil {
-		t.Error("a stream name carrying a separator was accepted")
+	if _, err := key.Path("bjoern/monitor-0"); err != nil {
+		t.Errorf("a two-segment name was refused: %v", err)
+	}
+	if _, err := key.Path("bjoern/desk/monitor-0"); err == nil {
+		t.Error("a three-segment name was accepted")
 	}
 	if _, err := key.Path(""); err == nil {
 		t.Error("a stream with no name of its own was accepted")
+	}
+	if _, err := key.Path("/monitor-0"); err == nil {
+		t.Error("a name starting on the separator was accepted")
+	}
+	if _, err := key.Path("bjoern/"); err == nil {
+		t.Error("a name ending on the separator was accepted")
 	}
 }
 

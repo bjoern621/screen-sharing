@@ -78,7 +78,7 @@ public sealed class FailureTextTests
     [Fact]
     public void ARetryingPublishSaysWhyUnderTheAttemptCounter()
     {
-        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
         live.Retry = new PublishState.Types.Retry
         {
             Attempt = 2,
@@ -101,7 +101,7 @@ public sealed class FailureTextTests
     [Fact]
     public void AStreamThatIsNotRelaunchingCarriesNoCause()
     {
-        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
 
         var stats = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(new PublishState { Live = live }, null, null) };
 
@@ -119,7 +119,7 @@ public sealed class FailureTextTests
     [Fact]
     public void ARelaunchWithNoStatementStillCountsItsAttempt()
     {
-        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
         live.Retry = new PublishState.Types.Retry { Attempt = 1, Budget = 3 };
 
         var stats = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(new PublishState { Live = live }, null, null) };

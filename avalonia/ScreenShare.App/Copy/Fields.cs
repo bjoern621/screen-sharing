@@ -57,10 +57,6 @@ public static class Fields
 
     private static readonly Dictionary<string, Entry> Entries = new()
     {
-        ["publish.name"] = new(
-            "Stream name",
-            "The name viewers open. It becomes the last part of the address they are sent, so keep it short and free of spaces."),
-
         ["relay.tls"] = new(
             "Relay uses TLS",
             "Whether the relay answers on one address behind a certificate, or directly on the ports below. It follows the relay address rather than being set here. A relay on this computer or the local network is reached directly. Anything further away is always encrypted."),
@@ -241,10 +237,6 @@ public static class Fields
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()
     {
-        ["stream"] = new(
-            "Stream",
-            "What this stream is called. The one setting viewers see, and the last part of the address they are sent."),
-
         ["source"] = new(
             "Capture",
             "Which screen is shared and how the frames reach the encoder. The capture method fixes which encoder software runs, so the rest of the form follows from it."),

@@ -98,6 +98,10 @@ message PublishState {
     // whether a ceiling reaches the encoder is a fact about the mode and the element,
     // so a shell deriving it would be deciding what this stream is doing.
     optional double rate_ceiling_mbps = 6;
+    // What a viewer opened this stream under, the same derivation Settings.stream_name carries,
+    // read off the two groups above rather than restated: this machine's own claim in its group
+    // and the stream's own name together.
+    string stream_name = 7;
 
     // 1 held the flat StreamSettings, and carries its publish half above.
     reserved "settings";

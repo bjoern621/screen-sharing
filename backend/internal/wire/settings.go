@@ -27,9 +27,10 @@ import (
 // an Umgebungsfehler the app survives rather than a broken internal contract worth panicking on.
 func Settings(s settings.Settings) *screensharev1.Settings {
 	return &screensharev1.Settings{
-		Relay:   RelaySettings(s.Relay),
-		Publish: PublishSettings(s.Publish),
-		Viewer:  ViewerSettings(s.Viewer),
+		Relay:      RelaySettings(s.Relay),
+		Publish:    PublishSettings(s.Publish),
+		Viewer:     ViewerSettings(s.Viewer),
+		StreamName: s.StreamName(),
 	}
 }
 
@@ -52,8 +53,6 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 // PublishSettings carries one way of publishing out, the whole of what a preset holds.
 func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 	return &screensharev1.PublishSettings{
-		Name: p.Name,
-
 		PublishTransport: p.Transport,
 		Format:           p.Format,
 		Encoder:          p.Encoder,
@@ -144,8 +143,6 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 // ToPublish reads the publish group back off the contract, and a preset arrives the same way.
 func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 	return settings.Publish{
-		Name: m.GetName(),
-
 		Transport:  m.GetPublishTransport(),
 		Format:     m.GetFormat(),
 		Encoder:    m.GetEncoder(),

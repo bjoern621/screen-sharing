@@ -71,7 +71,7 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 	// under ffmpeg's own names (pkt_size, sndbuf, ffs).
 	url := SRT{}.ListenerURL(s) + fmt.Sprintf(
 		"?streamid=%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
-		srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
+		srtStreamID(s, "publish", s.PublishPath()),
 		s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 
 	return []string{"-f", "mpegts", url}
@@ -87,7 +87,7 @@ func (SRT) GstSink(s settings.Settings) []string {
 		"!", "srtsink",
 		"uri=" + SRT{}.ListenerURL(s),
 		"mode=caller",
-		"streamid=" + srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
+		"streamid=" + srtStreamID(s, "publish", s.PublishPath()),
 		fmt.Sprintf("latency=%d", s.Publish.SrtPublishLatencyMs),
 		"wait-for-connection=false",
 	}, srtPassphraseProperty(s)...)
@@ -143,7 +143,7 @@ func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(
 // not read back, and a relay across the internet refuses the leg here rather than sending
 // the stream in the clear to a path the relay refuses anyway.
 func (SRT) ValidatePublishSettings(s settings.Settings) error {
-	id := srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name))
+	id := srtStreamID(s, "publish", s.PublishPath())
 	if !srtStreamIDFits(id) {
 		return fmt.Errorf("the SRT stream id is %d bytes and the protocol carries %d: shorten the stream name by %d characters",
 			len(id), srtStreamIDBytes, len(id)-srtStreamIDBytes)

@@ -61,10 +61,10 @@ public sealed class AppliedWriteTests
     {
         var flow = await FlowAsync();
 
-        Write(flow, "publish.name", "bjoern");
+        flow.Form.Write("publish.fps", new FieldValue { Number = 120 });
 
         Assert.Empty(flow.Backend.Saved);
-        Assert.Equal("bjoern", flow.Form.Draft!.Publish.Name);
+        Assert.Equal(120, flow.Form.Draft!.Publish.Fps);
     }
 
     /// <summary>

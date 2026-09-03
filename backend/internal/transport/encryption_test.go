@@ -20,7 +20,6 @@ import (
 func behindTheProxy() settings.Settings {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
-	s.Publish.Name = "standup"
 	return s
 }
 
@@ -45,12 +44,12 @@ func relays() map[string]settings.Settings {
 // being no cleartext listener anywhere to address.
 func TestEveryRelayAddressesItsEncryptedMediaListeners(t *testing.T) {
 	for deployment, s := range relays() {
-		rtsp := rtspURL(s, s.Relay.Path(s.Publish.Name))
+		rtsp := rtspURL(s, s.PublishPath())
 		if want := fmt.Sprintf("rtsps://%s:%d/", s.Relay.Host, s.Relay.RtspPort); !strings.HasPrefix(rtsp, want) {
 			t.Errorf("%s addresses RTSP as %q, want the encrypted listener at %q", deployment, rtsp, want)
 		}
 
-		rtmp := rtmpURL(s, s.Relay.Path(s.Publish.Name))
+		rtmp := rtmpURL(s, s.PublishPath())
 		if want := fmt.Sprintf("rtmps://%s:%d/", s.Relay.Host, s.Relay.RtmpPort); !strings.HasPrefix(rtmp, want) {
 			t.Errorf("%s addresses RTMP as %q, want the encrypted listener at %q", deployment, rtmp, want)
 		}

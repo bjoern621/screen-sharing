@@ -245,7 +245,7 @@ public sealed class ShellViewModel : Observable
         // between two facts that have to agree.
         //
         // The stream name is the backend's, never one composed here.
-        TitleBar.Show(_current, _session.Publish?.Live?.Publish?.Name is { Length: > 0 } name ? name : Idle);
+        TitleBar.Show(_current, _session.Publish?.Live?.StreamName is { Length: > 0 } name ? name : Idle);
 
         // The window's width, pushed before the pass that arranges against it.
         // Every destination and not the showing one alone, for the reason their renders run on every pass.

@@ -112,11 +112,11 @@ func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 // so the comparison is held to the whole line rather than to the encoder arguments alone.
 func TestSamePipelineSeesWhatThePipelineIsBuiltFrom(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
-		"name":      func(s *settings.Settings) { s.Publish.Name = "other" },
-		"relayHost": func(s *settings.Settings) { s.Relay.Host = "10.0.0.2" },
-		"fps":       func(s *settings.Settings) { s.Publish.Fps = 30 },
-		"encoder":   func(s *settings.Settings) { s.Publish.UseCodec("libx265") },
-		"bitrateM":  func(s *settings.Settings) { s.Publish.BitrateM = 40 },
+		"displayName": func(s *settings.Settings) { s.Relay.DisplayName = "other" },
+		"relayHost":   func(s *settings.Settings) { s.Relay.Host = "10.0.0.2" },
+		"fps":         func(s *settings.Settings) { s.Publish.Fps = 30 },
+		"encoder":     func(s *settings.Settings) { s.Publish.UseCodec("libx265") },
+		"bitrateM":    func(s *settings.Settings) { s.Publish.BitrateM = 40 },
 		// Not 2*fps: the auto value already resolves to that interval, so it is the one explicit value
 		// building the pipeline it replaces.
 		"gop":       func(s *settings.Settings) { s.Publish.Gop = 90 },

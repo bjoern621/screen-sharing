@@ -24,13 +24,10 @@ func TestWebRTCPublishArgs(t *testing.T) {
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
-		Publish: settings.Publish{
-			Name: "alice",
-		},
 	}
 	args := WebRTC{}.PublishArgs(s)
 
-	want := []string{"-f", "whip", "http://10.0.0.5:8889/public/alice/whip"}
+	want := []string{"-f", "whip", "http://10.0.0.5:8889/public/monitor-0/whip"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -42,9 +39,6 @@ func TestWebRTCGstSink(t *testing.T) {
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
-		Publish: settings.Publish{
-			Name: "alice",
-		},
 	}
 	sink := WebRTC{}.GstSink(s)
 
@@ -53,7 +47,7 @@ func TestWebRTCGstSink(t *testing.T) {
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
-		"signaller::whip-endpoint=http://10.0.0.5:8889/public/alice/whip",
+		"signaller::whip-endpoint=http://10.0.0.5:8889/public/monitor-0/whip",
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)
@@ -66,9 +60,6 @@ func TestWebRTCGstSource(t *testing.T) {
 		Relay: settings.Relay{
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
-		},
-		Publish: settings.Publish{
-			Name: "alice",
 		},
 	}
 	src := WebRTC{}.GstSource(s, "bob")
@@ -96,7 +87,6 @@ func TestWebRTCCapabilities(t *testing.T) {
 			WebrtcPort: 8889,
 		},
 		Publish: settings.Publish{
-			Name:      "alice",
 			Transport: "webrtc",
 		},
 	}

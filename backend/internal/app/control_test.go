@@ -30,11 +30,7 @@ func (liveHandle) Stop()         {}
 // A budget beside it would name attempts nothing is spending,
 // and the contract refuses to carry one.
 func TestALiveStreamCarriesNoRetryFigures(t *testing.T) {
-	a := &App{run: &publishRun{settings: settings.Settings{
-		Publish: settings.Publish{
-			Name: "bob",
-		},
-	}, handle: liveHandle{}}}
+	a := &App{run: &publishRun{settings: settings.Settings{}, handle: liveHandle{}}}
 
 	state := a.GetPublishState()
 	if !state.Publishing || state.Retrying {
@@ -52,11 +48,7 @@ func TestALiveStreamCarriesNoRetryFigures(t *testing.T) {
 // TestAPendingRetryCarriesTheAttemptAndTheBudget: between attempts the attempt and the budget
 // are what the state has to say, and they reach the contract unchanged.
 func TestAPendingRetryCarriesTheAttemptAndTheBudget(t *testing.T) {
-	a := &App{retry: &publishRetry{settings: settings.Settings{
-		Publish: settings.Publish{
-			Name: "bob",
-		},
-	}, attempts: 2}}
+	a := &App{retry: &publishRetry{settings: settings.Settings{}, attempts: 2}}
 
 	state := a.GetPublishState()
 	if !state.Publishing || !state.Retrying {
@@ -82,7 +74,7 @@ func TestAPendingRetryCarriesTheAttemptAndTheBudget(t *testing.T) {
 // pipeline died, where the exit event reaches only the shells listening when it fired.
 func TestARetryCarriesWhyOnEveryAttempt(t *testing.T) {
 	a := &App{retry: &publishRetry{
-		settings: settings.Settings{Publish: settings.Publish{Name: "bob"}},
+		settings: settings.Settings{},
 		attempts: 1,
 		cause:    text.Of(screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED),
 		message:  "the relay closed the connection",

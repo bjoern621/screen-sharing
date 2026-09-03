@@ -78,7 +78,7 @@ func (RTSP) PublishArgs(s settings.Settings) []string {
 		args = append(args, "-strict", "experimental")
 	}
 	args = append(args, ffmpegTlsVerify(s)...)
-	return append(args, rtspURL(s, s.Relay.Path(s.Publish.Name)))
+	return append(args, rtspURL(s, s.PublishPath()))
 }
 
 // GstSink is one element: rtspclientsink is muxer and sink at once, payloading every attached
@@ -89,7 +89,7 @@ func (RTSP) GstSink(s settings.Settings) []string {
 		"rtspclientsink", "name=" + GstMuxName,
 		"protocols=" + s.Publish.RtspPublishProtocol,
 		gstTlsValidation(s),
-		"location=" + rtspURL(s, s.Relay.Path(s.Publish.Name)),
+		"location=" + rtspURL(s, s.PublishPath()),
 	}
 }
 

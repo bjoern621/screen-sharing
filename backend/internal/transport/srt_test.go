@@ -17,7 +17,6 @@ func testStream() settings.Settings {
 			SrtPort: 8890,
 		},
 		Publish: settings.Publish{
-			Name:                "alice",
 			Transport:           "srt",
 			SrtPublishLatencyMs: 300,
 		},
@@ -60,7 +59,7 @@ func TestSRTPublishArgs(t *testing.T) {
 	url := args[2]
 	for _, want := range []string{
 		"srt://10.0.0.5:8890",
-		"streamid=publish:public/alice",
+		"streamid=publish:public/monitor-0",
 		"pkt_size=1316",
 		"latency=300000", // ffmpeg's srt protocol counts microseconds
 	} {

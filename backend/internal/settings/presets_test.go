@@ -19,7 +19,7 @@ func TestPresetRoundTrip(t *testing.T) {
 	isolateConfig(t)
 
 	want := Defaults().Publish
-	want.Name = "kept"
+	want.Monitor = 3
 	if err := SavePreset("mine", want); err != nil {
 		t.Fatalf("SavePreset: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestPresetRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPresets: %v", err)
 	}
-	if len(presets) != 1 || presets[0].Name != "mine" || presets[0].Settings.Name != "kept" {
+	if len(presets) != 1 || presets[0].Name != "mine" || presets[0].Settings.Monitor != 3 {
 		t.Errorf("presets = %+v, want one entry named mine", presets)
 	}
 }

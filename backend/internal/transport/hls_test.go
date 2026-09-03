@@ -13,9 +13,6 @@ func hlsTestStream() settings.Settings {
 			Host:    "10.0.0.5",
 			HlsPort: 8888,
 		},
-		Publish: settings.Publish{
-			Name: "alice",
-		},
 	}
 }
 

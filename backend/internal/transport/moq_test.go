@@ -14,9 +14,6 @@ func moqTestStream() settings.Settings {
 			Host:    "10.0.0.5",
 			MoqPort: 8892,
 		},
-		Publish: settings.Publish{
-			Name: "alice",
-		},
 	}
 }
 

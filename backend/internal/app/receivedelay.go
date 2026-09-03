@@ -34,7 +34,7 @@ func (a *App) publishedPathLocked() (string, publishDelay) {
 		return "", publishDelay{}
 	}
 	s := a.run.settings
-	return s.Relay.Path(s.Publish.Name), a.run.delay
+	return s.PublishPath(), a.run.delay
 }
 
 // receiveDelayOf is the budget of one decode:

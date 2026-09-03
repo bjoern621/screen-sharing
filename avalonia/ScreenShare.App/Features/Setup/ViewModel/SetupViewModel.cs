@@ -490,7 +490,7 @@ public sealed class SetupViewModel : Observable
         // Every one is read through rather than cached, so a relay that came back unlocks the button on the next pass
         // and a stream that ended puts "restart" back to "start sharing", with nothing to remember.
         var gate = PublishGate.Of(IsPublishable, _form.Unavailable, _session.Publish, _session.Relay, Starting);
-        Review.Apply(gate, _form.Draft?.Publish?.Name ?? "", _refusal, Summaries(drawn, form));
+        Review.Apply(gate, _form.Draft?.StreamName ?? "", _refusal, Summaries(drawn, form));
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));
 

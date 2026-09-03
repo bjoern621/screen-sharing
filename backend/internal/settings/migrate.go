@@ -24,7 +24,6 @@ type flat struct {
 	RtmpPort   *int    `json:"rtmpPort"`
 	HlsPort    *int    `json:"hlsPort"`
 
-	Name                *string `json:"name"`
 	Transport           *string `json:"transport"`
 	Codec               *string `json:"codec"`
 	Mode                *string `json:"mode"`
@@ -89,7 +88,6 @@ func decodeFlat(data []byte) (Settings, bool) {
 	set(&s.Relay.RtmpPort, f.RtmpPort)
 	set(&s.Relay.HlsPort, f.HlsPort)
 
-	set(&s.Publish.Name, f.Name)
 	set(&s.Publish.Transport, f.Transport)
 	set(&s.Publish.FlatCodec, f.Codec)
 	set(&s.Publish.Mode, f.Mode)

@@ -47,7 +47,7 @@ public sealed class StartSharingTests
 
     private static PublishState Live(string name) => new()
     {
-        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = name } },
+        Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = name },
     };
 
     [Fact]
@@ -188,7 +188,7 @@ public sealed class StartSharingTests
         flow.Review.StartSharingCommand.Execute(null);
 
         var applied = Assert.Single(backend.Applied);
-        Assert.Equal(flow.Review.StreamName, applied.Publish.Name);
+        Assert.Equal(flow.Review.StreamName, applied.StreamName);
         Assert.Empty(backend.Started);
         Assert.Equal("", flow.Review.Refusal);
     }
@@ -275,7 +275,7 @@ public sealed class StartSharingTests
         flow.Review.StartSharingCommand.Execute(null);
 
         var started = Assert.Single(backend.Started);
-        Assert.Equal(flow.Review.StreamName, started.Publish.Name);
+        Assert.Equal(flow.Review.StreamName, started.StreamName);
         Assert.Empty(backend.Applied);
         Assert.Equal(1, announced);
         Assert.Equal("", flow.Review.Refusal);
@@ -362,7 +362,7 @@ public sealed class StartSharingTests
         Assert.True(flow.Review.CanStartSharing);
     }
 
-    /// <summary>The promised name is the path a viewer asks for, and moves with the destination field.</summary>
+    /// <summary>The promised name is the path a viewer asks for, computed rather than typed.</summary>
     [Fact]
     public void TheCommitNamesTheStreamTheDraftCarries()
     {

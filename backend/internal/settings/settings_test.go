@@ -71,7 +71,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	isolateConfig(t)
 
 	want := Defaults()
-	want.Publish.Name = "roundtrip"
+	want.Publish.Monitor = 3
 	want.Relay.Host = "relay.example"
 	want.Publish.BitrateM = 80
 	want.Publish.Fps = 144
@@ -535,6 +535,40 @@ func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	}
 	if got := (Relay{}).Prefix(); got != "" {
 		t.Errorf("a relay nobody named derives the prefix %q, want none", got)
+	}
+}
+
+// The name is derived from what is captured, so two settings differing only in which monitor is
+// selected land on two different names, and reading it twice off the same settings agrees.
+func TestTheStreamNameFollowsTheMonitor(t *testing.T) {
+	for monitor, want := range map[int]string{0: "monitor-0", 1: "monitor-1", 3: "monitor-3"} {
+		if got := (Publish{Monitor: monitor}).Name(); got != want {
+			t.Errorf("monitor %d names the stream %q, want %q", monitor, got, want)
+		}
+	}
+}
+
+// The claim a machine holds in its group leads the stream's own name, so two machines capturing the
+// same monitor still land on two names, the claim being unique per group (internal/membership).
+// A machine holding no claim shows the bare name, there being nothing to lead it with.
+func TestTheFullStreamNameLeadsWithTheDisplayName(t *testing.T) {
+	s := Settings{Relay: Relay{DisplayName: "bjoern"}, Publish: Publish{Monitor: 0}}
+	if got, want := s.StreamName(), "bjoern/monitor-0"; got != want {
+		t.Errorf("stream name = %q, want %q", got, want)
+	}
+
+	s.Relay.DisplayName = ""
+	if got, want := s.StreamName(), "monitor-0"; got != want {
+		t.Errorf("an unclaimed machine names its stream %q, want the bare %q", got, want)
+	}
+}
+
+// The publish path is the stream name carried through the relay's own prefixing,
+// the one derivation transport builders read rather than composing the two themselves.
+func TestPublishPathCarriesTheStreamNameThroughThePrefix(t *testing.T) {
+	s := Settings{Relay: Relay{Host: "relay.example", DisplayName: "bjoern"}, Publish: Publish{Monitor: 2}}
+	if got, want := s.PublishPath(), s.Relay.Path(s.StreamName()); got != want {
+		t.Errorf("publish path = %q, want %q", got, want)
 	}
 }
 

@@ -127,7 +127,7 @@ func (a *App) startPublishLocked(s settings.Settings) error {
 		return fmt.Errorf("already publishing")
 	}
 
-	logger.Debugf("'%s' is already publishing on these settings", s.Publish.Name)
+	logger.Debugf("'%s' is already publishing on these settings", s.Publish.Name())
 	return nil
 }
 
@@ -230,7 +230,7 @@ func (a *App) applyLiveLocked(s settings.Settings) bool {
 	}
 
 	a.run.settings = s
-	logger.Infof("applied the change to the running publish of '%s' without relaunching it", s.Publish.Name)
+	logger.Infof("applied the change to the running publish of '%s' without relaunching it", s.Publish.Name())
 	return true
 }
 
@@ -279,7 +279,7 @@ func (a *App) restartPublish(s settings.Settings) error {
 	// so the preview goes with the pipeline it was reading rather than to one that will not send to it.
 	a.stopPreviewLocked()
 
-	logger.Infof("restarting the publish of '%s' on the settings the form holds", s.Publish.Name)
+	logger.Infof("restarting the publish of '%s' on the settings the form holds", s.Publish.Name())
 	return a.launchLocked(s, 0)
 }
 
@@ -290,8 +290,8 @@ func (a *App) restartPublish(s settings.Settings) error {
 // a callback that fires first blocks on that lock,
 // and finds the run it belongs to rather than a window with none.
 func (a *App) launchLocked(s settings.Settings, attempts int) error {
-	assert.Assert(a.run == nil || !a.run.handle.Running(), "a publish starts with no other one running", s.Publish.Name)
-	assert.Assert(a.retry == nil, "a publish starts with no relaunch pending", s.Publish.Name)
+	assert.Assert(a.run == nil || !a.run.handle.Running(), "a publish starts with no other one running", s.Publish.Name())
+	assert.Assert(a.retry == nil, "a publish starts with no relaunch pending", s.Publish.Name())
 	assert.Assert(attempts >= 0 && attempts <= len(publishBackoff), "a launch carries the retries it cost", attempts)
 
 	pub, err := publish.For(s.Publish.Capture)
@@ -343,7 +343,7 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	}
 	run.handle = handle
 
-	logger.Infof("publishing '%s' via %s (%s, %s, %d fps)", s.Publish.Name, s.Publish.Transport, s.Publish.Mode, s.Publish.Chroma, s.Publish.Fps)
+	logger.Infof("publishing '%s' via %s (%s, %s, %d fps)", s.Publish.Name(), s.Publish.Transport, s.Publish.Mode, s.Publish.Chroma, s.Publish.Fps)
 	return nil
 }
 

@@ -23,7 +23,7 @@ import (
 // the test reading it checks that the availability table and keys.go cover each other,
 // which a list derived from either could not.
 var availabilityAllKeys = []string{
-	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
+	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
 	KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
@@ -51,7 +51,6 @@ var (
 // which would otherwise make half of these tests describe the developer.
 func availabilityDraft(capture, codec, chroma, transportName string) settings.Settings {
 	s := settings.Defaults()
-	s.Publish.Name = "test"
 	s.Publish.Capture = capture
 	s.Publish.UseCodec(codec)
 	s.Publish.Chroma = chroma

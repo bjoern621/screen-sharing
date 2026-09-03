@@ -148,7 +148,7 @@ public sealed record BroadcastSnapshot
         var settings = live?.Publish;
         var retry = live?.Retry;
 
-        var stream = settings?.Name ?? "";
+        var stream = live?.StreamName ?? "";
         var path = PathOf(relay, stream);
 
         return new BroadcastSnapshot

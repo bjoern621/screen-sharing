@@ -126,7 +126,7 @@ func BuildTestStreamArgs(s settings.Settings, name string, surface TestSurface) 
 		"a test stream states the surface it draws into", name, surface.Pattern)
 
 	s.Publish.Transport = "rtsp"
-	s.Publish.Name = name
+	s = s.WithStreamName(name)
 	// RTSP's publish-leg settings are the sink's input and arrive from the caller as they do on any
 	// other publish: pinning the transport does not vouch for the values read under it.
 	if err := transport.ValidatePublishSettings(s); err != nil {

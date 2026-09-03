@@ -52,6 +52,10 @@ public sealed class PresetsTests
     private static void Write(Card card, string key, string value)
         => card.Form.Write(key, new FieldValue { Text = value });
 
+    /// <summary>One numeric field write, for a staged control no text field reaches.</summary>
+    private static void WriteNumber(Card card, string key, long value)
+        => card.Form.Write(key, new FieldValue { Number = value });
+
     /// <summary>
     /// Nothing on the contract announces a preset, so a card that waited to be told would show an empty list
     /// to a reader who has saved twenty.
@@ -61,8 +65,8 @@ public sealed class PresetsTests
     public async Task TheCardListsWhatTheStoreHeldWhenItOpened()
     {
         var backend = new SeededBackend("linux");
-        await backend.SavePresetAsync("work", new PublishSettings { Name = "work" });
-        await backend.SavePresetAsync("lan", new PublishSettings { Name = "lan" });
+        await backend.SavePresetAsync("work", new PublishSettings { Fps = 30 });
+        await backend.SavePresetAsync("lan", new PublishSettings { Fps = 120 });
 
         var card = await CardAsync(backend);
 
@@ -115,7 +119,7 @@ public sealed class PresetsTests
         card.Presets.SaveCommand.Execute(null);
         await card.Presets.Settled;
 
-        Write(card, "publish.name", "moved");
+        WriteNumber(card, "publish.fps", 120);
         card.Presets.Name = "work";
         Assert.Equal("Replace", card.Presets.SaveLabel);
 
@@ -126,7 +130,7 @@ public sealed class PresetsTests
         Assert.Equal("work", row.Name);
 
         var stored = Assert.Single((await card.Backend.PresetsAsync()).Saved);
-        Assert.Equal("moved", stored.Settings.Name);
+        Assert.Equal(120, stored.Settings.Fps);
     }
 
     /// <summary>Text left in the box would offer to replace the preset that was just written.</summary>
@@ -167,8 +171,8 @@ public sealed class PresetsTests
     public async Task DeletingTakesTheRowOff()
     {
         var backend = new SeededBackend("linux");
-        await backend.SavePresetAsync("work", new PublishSettings { Name = "work" });
-        await backend.SavePresetAsync("lan", new PublishSettings { Name = "lan" });
+        await backend.SavePresetAsync("work", new PublishSettings { Fps = 30 });
+        await backend.SavePresetAsync("lan", new PublishSettings { Fps = 120 });
 
         var card = await CardAsync(backend);
 
@@ -191,20 +195,20 @@ public sealed class PresetsTests
         // Saved off the draft with one field moved,
         // so the repair returns the preset itself rather than a walked-to-legal version of it.
         var kept = Publish(card).Clone();
-        kept.Name = "from-preset";
+        kept.Fps = 120;
         await card.Backend.SavePresetAsync("work", kept);
 
         card.Presets.RereadCommand.Execute(null);
         await card.Presets.Settled;
 
         Write(card, "relay.host", "relay.example");
-        Write(card, "publish.name", "typed-since");
+        WriteNumber(card, "publish.fps", 50);
         await card.Form.Settled;
 
         Row(card, "work").Apply.Execute(null);
         await card.Form.Settled;
 
-        Assert.Equal("from-preset", card.Form.Draft!.Publish.Name);
+        Assert.Equal(120, card.Form.Draft!.Publish.Fps);
         Assert.Equal("relay.example", card.Form.Draft.Relay.Host);
     }
 
@@ -223,7 +227,7 @@ public sealed class PresetsTests
 
         Assert.True(Row(card, "work").IsCurrent);
 
-        Write(card, "publish.name", "moved");
+        WriteNumber(card, "publish.fps", 120);
         await card.Form.Settled;
 
         Assert.False(Row(card, "work").IsCurrent);
@@ -259,7 +263,7 @@ public sealed class PresetsTests
     public async Task ARefusedSaveSaysWhyAndKeepsTheList()
     {
         var backend = new SeededBackend("linux");
-        await backend.SavePresetAsync("work", new PublishSettings { Name = "work" });
+        await backend.SavePresetAsync("work", new PublishSettings { Fps = 30 });
 
         var card = await CardAsync(backend);
         backend.PresetRefusal = "cannot save the preset 'lan': the presets file is read-only";
@@ -284,7 +288,7 @@ public sealed class PresetsTests
     public async Task ADeleteTheStoreRefusesLeavesTheRowAndTheReasonUp()
     {
         var backend = new SeededBackend("linux");
-        await backend.SavePresetAsync("work", new PublishSettings { Name = "work" });
+        await backend.SavePresetAsync("work", new PublishSettings { Fps = 30 });
 
         var card = await CardAsync(backend);
         await backend.DeletePresetAsync("work");
@@ -330,7 +334,7 @@ public sealed class PresetsTests
     public async Task RenderingTwiceOverOneStoreLeavesTheRowsAlone()
     {
         var backend = new SeededBackend("linux");
-        await backend.SavePresetAsync("work", new PublishSettings { Name = "work" });
+        await backend.SavePresetAsync("work", new PublishSettings { Fps = 30 });
 
         var card = await CardAsync(backend);
         var before = card.Presets.Rows.ToList();

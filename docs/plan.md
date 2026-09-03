@@ -234,7 +234,7 @@ SRT's stream-id budget picks the algorithm.
 A token reaches the relay inside the SRT stream id, every SRT implementation caps that field at 512 bytes, and an RS256 signature is 342 characters on its own:
 the transport carrying most of this app's streams could not carry its own credential.
 An ES256 token measures 418 bytes with a group's prefix and a stream name beside it, which is what the stream-id budget bounds.
-The name has no length rule of its own: an empty one and one carrying a path separator are refused, and nothing else.
+The name has no length rule of its own: an empty one, one starting or ending on a path separator, and one carrying more than one are refused, and nothing else.
 What overflows is caught on the publish leg instead, where the two meet:
 `transport.SRT.ValidatePublishSettings` assembles the stream id before a publish starts and refuses one past 512 bytes, naming how many characters the name has to lose.
 

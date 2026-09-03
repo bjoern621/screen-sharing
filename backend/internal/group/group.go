@@ -277,7 +277,8 @@ func (k Key) SrtPassphrase() string {
 // a different question with no Key to ask it of.
 var ErrNoGroup = errors.New("a group's path is derived from its key, and no group key was given")
 
-// Path is where a stream of this group lives on the relay: id, slash, the stream's own name.
+// Path is where a stream of this group lives on the relay: id, slash, name,
+// name being the stream's own or the publishing member's own ahead of it.
 func (k Key) Path(name string) (string, error) {
 	if len(k) == 0 {
 		return "", ErrNoGroup
@@ -307,18 +308,20 @@ func PublicPath(name string) (string, error) {
 	return path, nil
 }
 
-// checkStreamName holds a name against what one path segment may be.
+// checkStreamName holds a name against what may follow a group's own prefix:
+// the stream's own name alone, or the publishing member's own name and the stream's own together.
 //
-// The name comes from a settings file the user owns,
-// so a bad one is an Umgebungsfehler and leaves as an error.
-// A name carrying a separator would publish into a prefix nobody granted,
-// so it is refused rather than escaped.
+// The name is computed by this app rather than typed by its user,
+// so a bad one is an Entwicklungsfehler everywhere but the boundary a stored file crosses,
+// where it is carried as an error like every other value that file could hold.
+// Two segments stay inside the permission a group's prefix grants, covering everything under it
+// however deep, so a third buys no wider a claim and is refused along with an empty one at either end.
 func checkStreamName(name string) error {
-	if name == "" {
+	if name == "" || strings.HasPrefix(name, separator) || strings.HasSuffix(name, separator) {
 		return errors.New("a stream has a name of its own inside its group")
 	}
-	if strings.Contains(name, separator) {
-		return fmt.Errorf("a stream name is one path segment, and %q is more than one", name)
+	if strings.Count(name, separator) > 1 {
+		return fmt.Errorf("a stream name is one or two path segments, and %q is more", name)
 	}
 	return nil
 }

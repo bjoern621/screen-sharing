@@ -23,7 +23,6 @@ func rtspStream() settings.Settings {
 			RtspPort: 8322,
 		},
 		Publish: settings.Publish{
-			Name:                "alice",
 			Transport:           "rtsp",
 			RtspPublishProtocol: "tcp",
 		},
@@ -36,7 +35,7 @@ func rtspStream() settings.Settings {
 
 // rtspPath is where the fixture's stream lives on the relay: every relay authenticates, so
 // a machine in no group publishes under the prefix anybody may watch.
-const rtspPath = "public/alice"
+const rtspPath = "public/monitor-0"
 
 func TestRTSPRegistered(t *testing.T) {
 	tr, ok := Get("rtsp")

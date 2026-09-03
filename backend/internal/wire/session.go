@@ -121,6 +121,7 @@ func PublishState(p PublishSnapshot) *screensharev1.PublishState {
 		Relay:           RelaySettings(p.Live.Settings.Relay),
 		Pending:         p.Live.Pending,
 		RateCeilingMbps: p.Live.RateCeilingMbps,
+		StreamName:      p.Live.Settings.StreamName(),
 	}
 	if r := p.Live.Retry; r != nil {
 		live.Retry = &screensharev1.PublishState_Retry{

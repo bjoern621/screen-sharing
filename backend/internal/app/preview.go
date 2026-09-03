@@ -67,7 +67,7 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 	format, carried := publish.PreviewCarried(s.Publish.Codec())
 	if !carried {
 		logger.Warnf("no local preview for '%s': %s produces %s, which has no local carriage",
-			s.Publish.Name, s.Publish.Codec(), format)
+			s.Publish.Name(), s.Publish.Codec(), format)
 		return publish.PreviewLeg{}
 	}
 
@@ -78,18 +78,18 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 	// but the preview's first seconds go missing for no visible reason.
 	port, err := publish.AllocatePreviewPort()
 	if err != nil {
-		logger.Warnf("no local preview for '%s': %v", s.Publish.Name, err)
+		logger.Warnf("no local preview for '%s': %v", s.Publish.Name(), err)
 		return publish.PreviewLeg{}
 	}
 	source, err := publish.PreviewSource(s.Publish.Codec(), port)
 	if err != nil {
-		logger.Warnf("no local preview for '%s': %v", s.Publish.Name, err)
+		logger.Warnf("no local preview for '%s': %v", s.Publish.Name(), err)
 		return publish.PreviewLeg{}
 	}
 
 	run := &previewRun{port: port}
 	receiver, err := a.decodes.Open(decode.PreviewID(), receive.Stream{
-		Name:      s.Publish.Name,
+		Name:      s.Publish.Name(),
 		Transport: previewLeg,
 		Source:    source,
 	}, receive.Open{Chain: s.Viewer.RenderChain}, decode.Events{
@@ -102,13 +102,13 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 		},
 	})
 	if err != nil {
-		logger.Warnf("no local preview for '%s': %v", s.Publish.Name, err)
+		logger.Warnf("no local preview for '%s': %v", s.Publish.Name(), err)
 		return publish.PreviewLeg{}
 	}
 	run.receiver = receiver
 
 	a.preview = run
-	logger.Infof("previewing '%s' locally on 127.0.0.1:%d", s.Publish.Name, port)
+	logger.Infof("previewing '%s' locally on 127.0.0.1:%d", s.Publish.Name(), port)
 	return publish.PreviewLeg{Port: port}
 }
 

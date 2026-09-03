@@ -17,7 +17,6 @@ import (
 var frozen = map[string]bool{
 	"relay.host":      true,
 	"relay.group_key": true,
-	"publish.name":    true,
 }
 
 // runForm walks the settings space one legal move at a time and checks what the resolver owes.

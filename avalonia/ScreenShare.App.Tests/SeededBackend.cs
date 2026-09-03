@@ -343,9 +343,10 @@ internal sealed class SeededBackend : IBackend
             HlsPort = 8888,
             MoqPort = 8892,
         },
+        // The backend's own computed identity, derived from the monitor below rather than typed.
+        StreamName = "monitor-0",
         Publish = new PublishSettings
         {
-            Name = Environment.MachineName.Length > 0 ? Environment.MachineName : "me",
             PublishTransport = "srt",
             Format = "hevc",
             Encoder = "nvenc",
@@ -1573,17 +1574,6 @@ internal sealed class SeededBackend : IBackend
                 },
             ],
         },
-        // Stream's name is staged like everything else the wizard configures,
-        // being part of the pipeline a commit starts.
-        new()
-        {
-            Key = "stream",
-            Fields =
-            [
-                new() { Key = "publish.name", Control = ControlKind.Text },
-            ],
-        },
-
         // Relay's address, applied rather than staged.
         // The backend dials this address on its own poll, so a write that waited for a publish would gate
         // the publish on reaching the relay it was about to change (form.proto, FieldGroup.applied).

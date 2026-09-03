@@ -87,9 +87,9 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 	assert.IsNotNil(run, "an exit belongs to the run that produced it")
 
 	if err == nil {
-		logger.Infof("publish of '%s' ended (log: %s)", run.settings.Publish.Name, logPath)
+		logger.Infof("publish of '%s' ended (log: %s)", run.settings.Publish.Name(), logPath)
 	} else {
-		logger.Warnf("publish of '%s' failed: %v\n%s\nfull log: %s", run.settings.Publish.Name, err, stderrTail, logPath)
+		logger.Warnf("publish of '%s' failed: %v\n%s\nfull log: %s", run.settings.Publish.Name(), err, stderrTail, logPath)
 	}
 
 	message := ""
@@ -151,13 +151,13 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 // and finds the retry it belongs to rather than a window with none.
 func (a *App) scheduleRetryLocked(s settings.Settings, spent int, wait time.Duration, cause *screensharev1.Text, message string) {
 	assert.Assert(spent >= 0 && spent < len(publishBackoff), "a publish retry indexes the backoff", spent, len(publishBackoff))
-	assert.Assert(a.retry == nil, "a publish schedules its retry with none pending", s.Publish.Name)
+	assert.Assert(a.retry == nil, "a publish schedules its retry with none pending", s.Publish.Name())
 
 	r := &publishRetry{settings: s, attempts: spent + 1, cause: cause, message: message}
 	a.retry = r
 	r.timer = time.AfterFunc(wait, func() { a.firePublishRetry(r) })
 
-	logger.Infof("retry %d of %d for the publish of '%s' in %s", r.attempts, len(publishBackoff), s.Publish.Name, wait)
+	logger.Infof("retry %d of %d for the publish of '%s' in %s", r.attempts, len(publishBackoff), s.Publish.Name(), wait)
 }
 
 // firePublishRetry relaunches the publish r holds, unless the app has moved off it.
@@ -170,7 +170,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	stale := a.retry != r
 	a.procMu.Unlock()
 	if stale {
-		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name)
+		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name())
 		return
 	}
 
@@ -186,7 +186,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	a.forgetRelayToken()
 	s, err := a.settingsForCommand(r.settings)
 	if err != nil {
-		logger.Warnf("retry %d of the publish of '%s' has no relay token: %v", r.attempts, r.settings.Publish.Name, err)
+		logger.Warnf("retry %d of the publish of '%s' has no relay token: %v", r.attempts, r.settings.Publish.Name(), err)
 		// No connection was opened, so nothing here is the relay closing one:
 		// the trade's own sentence says what happened,
 		// and the statement beside it is made only where membership stopped the trade.
@@ -200,7 +200,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	// long enough for a stop or a manual start to have moved the app off this retry.
 	if a.retry != r {
 		a.procMu.Unlock()
-		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name)
+		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name())
 		return
 	}
 	a.retry = nil
@@ -210,7 +210,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	if err != nil {
 		// The child never started, so no exit is coming to carry the chain further,
 		// and it ends here rather than on a budget nothing is spending.
-		logger.Warnf("retry %d of the publish of '%s' did not start: %v", r.attempts, r.settings.Publish.Name, err)
+		logger.Warnf("retry %d of the publish of '%s' did not start: %v", r.attempts, r.settings.Publish.Name(), err)
 		a.emit(wire.PublishExitEvent(err.Error(), "", a.membership().failure()))
 	}
 	a.emitPublishState()

@@ -36,8 +36,6 @@ const (
 	KeyHlsPort     = "relay.hls_port"
 	KeyMoqPort     = "relay.moq_port"
 
-	KeyName = "publish.name"
-
 	KeyTransport = "publish.publish_transport"
 	// The encode, as the two controls it is: which bitstream, and what produces it.
 	// The pair addresses one row of the capability table, and that row is stored nowhere
@@ -100,7 +98,6 @@ const (
 // A screen is grouped by what the user is deciding and a message by what the value belongs to,
 // so neither list is derived from the other and one group may hold keys from several messages.
 const (
-	GroupStream    = "stream"
 	GroupSource    = "source"
 	GroupQuality   = "quality"
 	GroupAudio     = "audio"

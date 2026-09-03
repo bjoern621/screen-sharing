@@ -15,7 +15,6 @@ func srtStream() settings.Settings {
 			SrtPort: 8890,
 		},
 		Publish: settings.Publish{
-			Name:                "alice",
 			Transport:           "srt",
 			SrtPublishLatencyMs: 300,
 		},

@@ -70,7 +70,7 @@ func (WebRTC) PublishArgs(s settings.Settings) []string {
 	if token, ok := credentialToken(s); ok {
 		args = append(args, "-authorization", token)
 	}
-	return append(args, whipURL(s, s.Relay.Path(s.Publish.Name)))
+	return append(args, whipURL(s, s.PublishPath()))
 }
 
 // GstSink names whipclientsink, muxer and sink in one as rtspclientsink is: it takes a parsed
@@ -84,7 +84,7 @@ func (WebRTC) PublishArgs(s settings.Settings) []string {
 func (WebRTC) GstSink(s settings.Settings) []string {
 	sink := []string{
 		"whipclientsink", "name=" + GstMuxName,
-		"signaller::whip-endpoint=" + whipURL(s, s.Relay.Path(s.Publish.Name)),
+		"signaller::whip-endpoint=" + whipURL(s, s.PublishPath()),
 	}
 	if token, ok := credentialToken(s); ok {
 		sink = append(sink, "signaller::auth-token="+token)

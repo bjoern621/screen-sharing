@@ -315,7 +315,7 @@ public sealed class CostRailTests
 
     private static PublishState Live(string name) => new()
     {
-        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = name } },
+        Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = name },
     };
 
     /// <summary>Reads the running state once, stops before the reconnect delay, then renders.</summary>

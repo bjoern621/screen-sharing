@@ -41,10 +41,18 @@ const (
 // Which values a field may take is not encoded here:
 // it depends on the other fields, and Form is where that answer lives.
 type Settings struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Relay         *RelaySettings         `protobuf:"bytes,1,opt,name=relay,proto3" json:"relay,omitempty"`
-	Publish       *PublishSettings       `protobuf:"bytes,2,opt,name=publish,proto3" json:"publish,omitempty"`
-	Viewer        *ViewerSettings        `protobuf:"bytes,3,opt,name=viewer,proto3" json:"viewer,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Relay   *RelaySettings         `protobuf:"bytes,1,opt,name=relay,proto3" json:"relay,omitempty"`
+	Publish *PublishSettings       `protobuf:"bytes,2,opt,name=publish,proto3" json:"publish,omitempty"`
+	Viewer  *ViewerSettings        `protobuf:"bytes,3,opt,name=viewer,proto3" json:"viewer,omitempty"`
+	// What a viewer opens this stream under, and what the group list shows it beside:
+	// this machine's own claimed name in its group, a slash, then the stream's own name,
+	// or the stream's own name alone outside a group.
+	// Computed from what is captured and from relay.display_name, so it needs both groups beside it,
+	// which a preset does not carry and PublishSettings alone cannot answer for.
+	//
+	// The backend's alone: a shell reads it and writes nothing back that changes anything.
+	StreamName    string `protobuf:"bytes,4,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -98,6 +106,13 @@ func (x *Settings) GetViewer() *ViewerSettings {
 		return x.Viewer
 	}
 	return nil
+}
+
+func (x *Settings) GetStreamName() string {
+	if x != nil {
+		return x.StreamName
+	}
+	return ""
 }
 
 // RelaySettings is where the relay is and which of its listeners are on which port.
@@ -274,8 +289,6 @@ func (x *RelaySettings) GetDisplayName() string {
 // so the relay's address and this machine's watch settings stay out of a saved configuration.
 type PublishSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Stream's path on the relay, and what a viewer asks for.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Publish leg, publisher to relay, keyed as the transport registry names it:
 	// "srt", "rtsp", "rtmp", "webrtc".
 	PublishTransport string `protobuf:"bytes,10,opt,name=publish_transport,json=publishTransport,proto3" json:"publish_transport,omitempty"`
@@ -410,13 +423,6 @@ func (x *PublishSettings) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PublishSettings.ProtoReflect.Descriptor instead.
 func (*PublishSettings) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *PublishSettings) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
 }
 
 func (x *PublishSettings) GetPublishTransport() string {
@@ -871,11 +877,13 @@ var File_screenshare_v1_settings_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\n" +
-	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\xb2\x01\n" +
+	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\xd3\x01\n" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xd2\x02\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\x12\x1f\n" +
+	"\vstream_name\x18\x04 \x01(\tR\n" +
+	"streamName\"\xd2\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -890,9 +898,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	" \x01(\bR\x03tls\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayNameJ\x04\b\t\x10\n" +
-	"R\x0esrt_passphrase\"\xdf\b\n" +
-	"\x0fPublishSettings\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
+	"R\x0esrt_passphrase\"\xd1\b\n" +
+	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +
 	" \x01(\tR\x10publishTransport\x12\x16\n" +
 	"\x06format\x18) \x01(\tR\x06format\x12\x18\n" +
@@ -922,8 +929,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vuplink_mbps\x18\" \x01(\x05R\n" +
 	"uplinkMbps\x12+\n" +
 	"\x11output_resolution\x18% \x01(\tR\x10outputResolution\x12\x16\n" +
-	"\x06cursor\x18& \x01(\tR\x06cursorJ\x04\b\x02\x10\n" +
-	"J\x04\b\v\x10\fJ\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x05audioR\x05codecR\n" +
+	"\x06cursor\x18& \x01(\tR\x06cursorJ\x04\b\x01\x10\n" +
+	"J\x04\b\v\x10\fJ\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x04nameR\x05audioR\x05codecR\n" +
 	"relay_hostR\n" +
 	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\n" +
 	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\xbc\x02\n" +

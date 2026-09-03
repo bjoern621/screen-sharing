@@ -14,15 +14,12 @@ func rtmpTestStream() settings.Settings {
 			Host:     "10.0.0.5",
 			RtmpPort: 1936,
 		},
-		Publish: settings.Publish{
-			Name: "alice",
-		},
 	}
 }
 
 // rtmpPath is where the fixture's stream lives on the relay: every relay authenticates, so
 // a machine in no group publishes under the prefix anybody may watch.
-const rtmpPath = "public/alice"
+const rtmpPath = "public/monitor-0"
 
 func TestRTMPRegistered(t *testing.T) {
 	tr, ok := Get("rtmp")

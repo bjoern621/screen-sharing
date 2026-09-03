@@ -279,7 +279,7 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 	// Read while the stream still runs:
 	// the viewer count, the round trip and the loss are looked up by path,
 	// and a stopped stream has none.
-	s.checkRelayView(ctx, readField(settings, "publish.name"), fields, settings)
+	s.checkRelayView(ctx, settings.GetStreamName(), fields, settings)
 
 	stats, exits, attempts := events.read()
 	healthy := s.checkStream(stats, exits, attempts, delta, family, mode, target, ceiling, fields, settings)

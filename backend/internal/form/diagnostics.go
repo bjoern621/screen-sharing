@@ -18,7 +18,7 @@ import (
 // An anchor no shell has a widget for renders the diagnostic nowhere and reports nothing,
 // so every anchor a rule below writes is held against this list.
 var warningAnchors = []string{
-	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
+	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
