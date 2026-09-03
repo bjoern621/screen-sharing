@@ -129,14 +129,18 @@ public static class Cards
 
     /// <summary>
     /// What the viewer table says in place of rows.
-    /// One sentence per absence, each leaving the publisher a different thing to do next:
+    /// One sentence per absence, three of them leaving the publisher something to do next:
     /// start a stream, wait for the relay to be asked, or send somebody the link.
+    /// The fourth has no next step, the relay counting its viewers without naming them.
     /// </summary>
     public const string ViewersIdle = "Nothing is publishing, so nobody can be watching this computer.";
 
     public const string ViewersUnasked = "The relay has not been asked yet, so there is nobody to list.";
 
     public const string ViewersNone = "Nobody is connected to this stream yet.";
+
+    public const string ViewersUnnamed =
+        "The relay counts viewers without naming them, so the count above is all there is.";
 
     // --- The group -----------------------------------------------------------------
 

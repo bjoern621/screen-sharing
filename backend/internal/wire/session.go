@@ -203,10 +203,17 @@ func RelayStatus(s relay.Status) *screensharev1.RelayStatus {
 	}
 }
 
+// RelayPath carries one live stream across.
+//
+// A roster either names every reader the path counts or names none of them,
+// the two sources answering different amounts of one truth:
+// the relay's own API reads the count and the roster off one array,
+// and the group index answers the count with the roster left at the service
+// (internal/relay, Status.FromIndex).
 func RelayPath(p relay.Path) *screensharev1.RelayPath {
 	assert.Assert(p.Readers >= 0, "a path counts the readers it is serving", p.Readers)
-	assert.Assert(len(p.Roster) == p.Readers,
-		"a path's roster names every reader it counts", len(p.Roster), p.Readers)
+	assert.Assert(len(p.Roster) == p.Readers || len(p.Roster) == 0,
+		"a path's roster names every reader it counts or none of them", len(p.Roster), p.Readers)
 
 	roster := make([]*screensharev1.RelayReader, 0, len(p.Roster))
 	for _, reader := range p.Roster {

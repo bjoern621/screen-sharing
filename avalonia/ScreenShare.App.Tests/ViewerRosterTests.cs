@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
@@ -475,5 +476,24 @@ public sealed class ViewerRosterTests
         var changes = Audience.Of([Reading(Serving(Rtmp("10.0.0.2:2")))], "");
 
         Assert.Empty(changes);
+    }
+
+    /// <summary>
+    /// A member reads the group service's index, which counts the readers of a path and leaves their names
+    /// at the service (<c>docs/ipc-api.md</c>).
+    /// The count then stands with no rows behind it, an unavailable roster wearing the look of an empty one,
+    /// and this card is where that difference is stated.
+    /// </summary>
+    [Fact]
+    public void ACountWithNoRosterBehindItSaysTheViewersAreUnnamed()
+    {
+        var path = new RelayPath { Name = "desk", OwnName = "desk", Ready = true, Readers = 2 };
+        var relay = new RelayStatus { Reachable = true };
+        relay.Paths.Add(path);
+
+        var table = Table(relay);
+
+        Assert.False(table.HasRows);
+        Assert.Equal(Cards.ViewersUnnamed, table.Notice);
     }
 }

@@ -211,3 +211,32 @@ func TestAViewerIsIdentifiedByBothItsHalves(t *testing.T) {
 		t.Errorf("a viewer's identity round-tripped to %+v, want %+v", got, want[0])
 	}
 }
+
+// The group index answers how many are reading a stream, with the roster left at the service,
+// so a member's snapshot carries a counted reader with no row behind it
+// (internal/relay, Status.FromIndex).
+// A conversion demanding the roster crashes the app the first time a group stream is watched.
+func TestACountedReaderCrossesWithNoRosterBehindIt(t *testing.T) {
+	path := RelayPath(relay.Path{Name: "group/desk", OwnName: "desk", Ready: true, Readers: 3})
+
+	if path.GetReaders() != 3 {
+		t.Errorf("an index path counts %d readers, want 3", path.GetReaders())
+	}
+	if len(path.GetReaderRoster()) != 0 {
+		t.Errorf("an index path names %d readers, want none", len(path.GetReaderRoster()))
+	}
+}
+
+// A roster shorter than the count is a third source neither existing one can produce:
+// the relay's own API reads both off one array,
+// and the index answers the count alone.
+// Crossing it would draw a table quietly missing the readers it has no rows for.
+func TestAPartialRosterIsRefused(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("a roster naming one of three readers crossed")
+		}
+	}()
+
+	RelayPath(relay.Path{Name: "desk", Readers: 3, Roster: []relay.Reader{{Type: "srtConn", ID: "a"}}})
+}

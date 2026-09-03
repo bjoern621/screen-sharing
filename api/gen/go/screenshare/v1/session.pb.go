@@ -417,9 +417,11 @@ type RelayPath struct {
 	// Meaningful only against a steady poll interval,
 	// which is why the backend owns the polling and a shell reads the result.
 	InMbps float64 `protobuf:"fixed64,6,opt,name=in_mbps,json=inMbps,proto3" json:"in_mbps,omitempty"`
-	// Who those readers are, one entry per reader counted above.
-	// Both are read off the one array the relay answered with,
-	// so the count is the roster's length by construction.
+	// Who those readers are, one entry per reader counted above,
+	// and empty on a snapshot whose source answers the count alone.
+	// The relay's own API reads both off one array, so its rosters name every reader counted.
+	// A member reads the group service's index instead,
+	// which counts the readers of a path and leaves the roster behind it at the service.
 	ReaderRoster  []*RelayReader `protobuf:"bytes,7,rep,name=reader_roster,json=readerRoster,proto3" json:"reader_roster,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

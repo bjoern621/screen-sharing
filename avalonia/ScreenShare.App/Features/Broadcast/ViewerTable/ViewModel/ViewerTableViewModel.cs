@@ -98,9 +98,9 @@ public sealed class ViewerTableViewModel : Observable
 
     /// <summary>
     /// Why there are no rows, empty while there are some.
-    /// Says an empty roster and never a missing measurement: the relay names its readers, so a viewer
-    /// that connects gets a row and an empty table is an empty path.
-    /// The three absences are asked in the order they stop being true as a stream comes up.
+    /// The absences are asked in the order they stop being true as a stream comes up.
+    /// A count standing with no rows behind it is a snapshot whose source answers no roster,
+    /// which reads as an empty path unless the sentence says otherwise (<c>docs/ipc-api.md</c>).
     /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
@@ -129,6 +129,7 @@ public sealed class ViewerTableViewModel : Observable
         Notice = HasRows ? ""
             : !IsLive ? Cards.ViewersIdle
             : Readers is null ? Cards.ViewersUnasked
+            : Readers > 0 ? Cards.ViewersUnnamed
             : Cards.ViewersNone;
 
         Assert.That(Rows.Count == reported.Count, "a row per reported viewer", Rows.Count, reported.Count);

@@ -254,6 +254,9 @@ The relay answered the question the snapshot is about, and a listener switched o
 So `reachable` states whether the relay answered, and presence on each figure states whether that figure was measured.
 Two facts, kept separate.
 
+A member has no relay API to ask and reads the group service's index, which answers `readers` and no roster at all.
+Its paths carry an empty `reader_roster` beside a count, so a roster is complete or absent.
+
 ## Events
 
 Two rules keep the event stream from becoming a second definition of the state.
