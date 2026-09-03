@@ -13,7 +13,7 @@ Where a build lands, plus the Windows pieces a build needs that are not source.
 | `dist/` | release archives and the Windows installer, written by the packaging scripts |
 | `windows/redist/` | ffmpeg and ffplay, fetched once per machine and kept |
 | `appicon.png` | the source image the platform icons derive from |
-| `icons/` | what `task icons` draws from it: the hicolor sizes, and `mirrorme.ico` for the Windows installer |
+| `icons/` | the hicolor sizes `task icons` draws from it, which every Linux channel installs |
 
 `bin/` and `dist/` are outputs and carry nothing worth keeping.
 `windows/redist/` is fetched rather than built.

@@ -14,7 +14,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $version = if ($env:VERSION) { $env:VERSION.Trim() } else { 'dev' }
 $dist = Join-Path $root 'build/dist'
 $stage = Join-Path $dist "mirrorme-$version-windows-x86_64"
-$script = Join-Path $root 'packaging/windows/mirrorme.iss'
+$recipe = Join-Path $root 'packaging/windows/mirrorme.iss'
 
 # The file-version resource takes three or four fields of digits, each at most 65535,
 # and a run behind no release is stamped 0.0.0.dev.<commit> (.github/workflows/version.yml).
@@ -31,7 +31,11 @@ if (-not (Test-Path $stage)) {
 # and then at the two prefixes its own installer writes to.
 # Chocolatey's package puts it on neither,
 # so both are walked before this gives up (.github/workflows/release.yml installs it that way).
-$iscc = (Get-Command 'iscc.exe' -ErrorAction SilentlyContinue)?.Source
+#
+# Windows PowerShell 5.1 syntax throughout, which is the interpreter Taskfile.yml starts this
+# under: `?.` and the other 7-only operators are parse errors there, raised before any line runs.
+$command = Get-Command 'iscc.exe' -ErrorAction SilentlyContinue
+$iscc = if ($command) { $command.Source } else { $null }
 if (-not $iscc) {
     foreach ($base in $env:ProgramFiles, ${env:ProgramFiles(x86)}) {
         if (-not $base) { continue }
@@ -43,7 +47,7 @@ if (-not $iscc) {
     throw "ISCC.exe not found: install Inno Setup 6 (choco install innosetup)"
 }
 
-& $iscc "/DVersion=$version" "/DNumericVersion=$numeric" "/DStage=$stage" "/DOutputDir=$dist" $script
+& $iscc "/DVersion=$version" "/DNumericVersion=$numeric" "/DStage=$stage" "/DOutputDir=$dist" $recipe
 if ($LASTEXITCODE -ne 0) {
     throw "iscc failed with exit code $LASTEXITCODE"
 }

@@ -13,11 +13,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!--
       The Windows executable's own icon, which is what Explorer, the taskbar and the
-      installer's Start-menu shortcut all draw (packaging/windows/mirrorme.iss). The same
-      file every Linux channel installs into hicolor, drawn by `task icons`. A publish for
-      a non-Windows runtime writes an ELF apphost and skips it.
+      installer's Start-menu shortcut all draw (packaging/windows/mirrorme.iss). Drawn from
+      build/appicon.png by `task icons`, and inside this project rather than beside the
+      hicolor sizes: nix/package.nix hands the build api/, backend/ and avalonia/ alone, so a
+      path under build/ is one the Nix build cannot open. A publish for a non-Windows runtime
+      writes an ELF apphost and skips it.
     -->
-    <ApplicationIcon>../../build/icons/mirrorme.ico</ApplicationIcon>
+    <ApplicationIcon>Assets/mirrorme.ico</ApplicationIcon>
     <!--
       The frame channel's consumer side is the only pointer work in this app, and both
       halves of it need one: a frame's descriptors arrive in a kernel control message that

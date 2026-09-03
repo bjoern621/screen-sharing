@@ -222,10 +222,12 @@ tasks:
     # The results are committed, so no packaging recipe carries an ImageMagick build dependency.
     cmds:
       - for size in 48 64 128 256 512; do magick build/appicon.png -resize ${size}x${size} build/icons/${size}.png; done
-      # One file carrying every size Windows picks between,
-      # which is what the installer stamps on itself and on its Add/Remove entry
+      # One file carrying every size Windows picks between:
+      # the executable's own icon, and what the installer stamps on itself
       # (packaging/windows/mirrorme.iss).
-      - magick build/appicon.png -define icon:auto-resize=256,128,64,48,32,16 build/icons/mirrorme.ico
+      # Inside the shell's project rather than beside the hicolor sizes,
+      # nix/package.nix handing the build api/, backend/ and avalonia/ alone.
+      - magick build/appicon.png -define icon:auto-resize=256,128,64,48,32,16 avalonia/ScreenShare.App/Assets/mirrorme.ico
 
   package:linux:
     desc: Build the Linux release tarball into build/dist

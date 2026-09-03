@@ -117,4 +117,9 @@ if [ "$copied" -eq 0 ]; then
     exit 1
 fi
 
-echo "bundled $copied libraries, ${tools[*]} and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"
+# Counted by the shell rather than by find:
+# Windows carries a find.exe of its own, ahead of MSYS2's on the PATH Task hands this,
+# and it answers "File not found - *.dll" and a count of zero over a directory holding plugins.
+plugins=("$bin"/gstreamer-1.0/*.dll)
+
+echo "bundled $copied libraries, ${tools[*]} and ${#plugins[@]} GStreamer plugins into $bin"

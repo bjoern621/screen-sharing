@@ -51,7 +51,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 LicenseFile={#Stage}\LICENSE
 OutputDir={#OutputDir}
 OutputBaseFilename=mirrorme-{#Version}-windows-x86_64-setup
-SetupIconFile=..\..\build\icons\mirrorme.ico
+SetupIconFile=..\..\avalonia\ScreenShare.App\Assets\mirrorme.ico
 UninstallDisplayIcon={app}\mirrorme.exe
 UninstallDisplayName=MirrorMe
 ; LZMA2 over a tree carrying the whole GStreamer plugin set,
