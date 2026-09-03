@@ -68,7 +68,6 @@ func (s Settings) WithStreamName(name string) Settings {
 type Relay struct {
 	Host       string `json:"host"`
 	SrtPort    int    `json:"srtPort"`    // relay's SRT listener, UDP
-	ApiPort    int    `json:"apiPort"`    // relay's HTTP API, TCP
 	RtspPort   int    `json:"rtspPort"`   // relay's RTSP listener, TCP
 	WebrtcPort int    `json:"webrtcPort"` // relay's WHIP+WHEP HTTP listener, TCP
 	RtmpPort   int    `json:"rtmpPort"`   // relay's RTMP listener, TCP
@@ -277,6 +276,22 @@ func (s Settings) StreamName() string {
 // which every transport builds its publish URL from.
 func (s Settings) PublishPath() string {
 	return s.Relay.Path(s.StreamName())
+}
+
+// WatchPath is where a stream somebody asked to watch lives on the relay,
+// which every transport builds its watch, receive and browser URL from.
+//
+// PublishPath's counterpart for a stream this machine did not capture.
+// A shell names a stream the way a viewer's list carries it,
+// inside the prefix this machine reaches under (wire.RelayStatus),
+// and the relay serves it under that prefix,
+// so the one derivation that puts the prefix back on is here rather than at each builder.
+func (s Settings) WatchPath(streamName string) string {
+	assert.Assert(streamName != "", "a watch path names the stream it opens")
+
+	path := s.Relay.Path(streamName)
+	assert.Assert(path != "", "a named stream reaches a path", streamName)
+	return path
 }
 
 // SrtPassphrase keys this machine's SRT legs, derived and never stored or typed.
@@ -539,7 +554,7 @@ func Defaults() Settings {
 		Relay: Relay{
 			// Ports: the listeners deploy/mediamtx-groups.yml binds,
 			// that file being the configuration every relay runs.
-			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890, ApiPort: 9997,
+			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890,
 			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{

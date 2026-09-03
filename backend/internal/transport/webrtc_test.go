@@ -128,7 +128,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
 	}
-	if want := "http://10.0.0.5:8889/bob/"; page != want {
+	if want := "http://10.0.0.5:8889/public/bob/"; page != want {
 		t.Errorf("BrowserURL = %q, want %q", page, want)
 	}
 	if !CanWatch("webrtc", EngineBrowser) {
@@ -143,7 +143,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 func TestWebRTCPageTakesAPrefixBehindTheProxy(t *testing.T) {
 	s := settings.Settings{Relay: settings.Relay{Host: "relay.example.com", WebrtcPort: 8889, HlsPort: 8888}}
 
-	page, ok := BrowserURL("webrtc", s, "public/bob")
+	page, ok := BrowserURL("webrtc", s, "bob")
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
 	}

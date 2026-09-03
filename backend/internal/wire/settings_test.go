@@ -23,7 +23,6 @@ func populatedSettings() settings.Settings {
 		Relay: settings.Relay{
 			Host:        "relay.fixture",
 			SrtPort:     1001,
-			ApiPort:     1002,
 			RtspPort:    1003,
 			WebrtcPort:  1004,
 			RtmpPort:    1005,

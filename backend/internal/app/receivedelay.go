@@ -21,20 +21,19 @@ import (
 // and no leg carries a relay timestamp to subtract.
 // So the total is a floor.
 
-// publishedPathLocked is the relay path this machine publishes to and what its leg costs a frame,
-// and the empty path where nothing is published.
+// publishedStreamLocked is the stream this machine publishes and what its leg costs a frame,
+// and the empty name where nothing is published.
 //
-// The relay path rather than the stream's bare name, because a decode is keyed on it.
-// A group publishes under a prefix,
-// so bare names would credit its publish to another group's stream of the same name.
+// Named as a decode is keyed, inside the prefix this machine reaches under,
+// so one string decides whether a decode is of this machine's own stream.
 //
 // procMu is held by the caller.
-func (a *App) publishedPathLocked() (string, publishDelay) {
+func (a *App) publishedStreamLocked() (string, publishDelay) {
 	if a.run == nil {
 		return "", publishDelay{}
 	}
 	s := a.run.settings
-	return s.PublishPath(), a.run.delay
+	return s.StreamName(), a.run.delay
 }
 
 // receiveDelayOf is the budget of one decode:

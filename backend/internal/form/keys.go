@@ -29,7 +29,6 @@ const (
 	KeyGroupKey    = "relay.group_key"
 	KeyDisplayName = "relay.display_name"
 	KeySrtPort     = "relay.srt_port"
-	KeyAPIPort     = "relay.api_port"
 	KeyRtspPort    = "relay.rtsp_port"
 	KeyWebrtcPort  = "relay.webrtc_port"
 	KeyRtmpPort    = "relay.rtmp_port"

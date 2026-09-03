@@ -109,9 +109,9 @@ public sealed class RelayCheckTests
 
         flow.RelayCheck.CheckCommand.Execute(null);
 
-        var api = flow.RelayCheck.Legs[2].Text;
-        Assert.Contains(Statements.Of(new Text { Code = TextCode.RelayLegLoopbackOnly }), api);
-        Assert.DoesNotContain(nameof(TextCode.RelayLegLoopbackOnly), api);
+        var groups = flow.RelayCheck.Legs[2].Text;
+        Assert.Contains(Statements.Of(new Text { Code = TextCode.RelayLegNoRelay }), groups);
+        Assert.DoesNotContain(nameof(TextCode.RelayLegNoRelay), groups);
     }
 
     /// <summary>

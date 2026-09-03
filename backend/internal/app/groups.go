@@ -85,9 +85,8 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 	paths := make([]relay.Path, 0, len(streams))
 	for _, stream := range streams {
 		paths = append(paths, relay.Path{
-			// The index answers the name inside the group,
-			// and a viewer opens the whole relay path, group prefix included.
-			Name:    s.Relay.Path(stream.Name),
+			// The index answers the name inside the group, which is the name a snapshot carries.
+			Name:    stream.Name,
 			Ready:   stream.Ready,
 			Tracks:  stream.Tracks,
 			Format:  stream.Format,
@@ -98,33 +97,35 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 	return relay.Status{Reachable: true, FromIndex: true, Paths: paths}
 }
 
-// relayStatusFor is one snapshot, off whichever source this relay has.
-// The deployment decides: a relay behind the proxy answers its API to nobody,
-// and one without a proxy has no index to ask.
+// relayStatusFor is one snapshot, off the group service's index.
+//
+// A relay nobody named is asked nothing, and the zero snapshot is the answer:
+// unreachable, with no failure to name about a relay that is not there (watch.go, lastRelayStatus).
 func (a *App) relayStatusFor(s settings.Settings) relay.Status {
-	prefix := s.Relay.Prefix()
-	if base, ok := s.Relay.GroupService(); ok {
-		return ownNames(a.groupIndexStatus(s, base), prefix)
+	base, ok := s.Relay.GroupService()
+	if !ok {
+		return relay.Status{}
 	}
-	return ownNames(a.relay.Fetch(s.Relay.Host, s.Relay.ApiPort), prefix)
+	return insidePrefix(a.groupIndexStatus(s, base), s.Relay.Prefix())
 }
 
-// ownNames fills in each path's name inside prefix, where the snapshot's source stops mattering:
-// the index answers names inside the group and the relay's API answers whole paths.
-// A group is a path prefix, so every row of a member's list carries it and separates none of them,
-// while Name keeps the whole path a viewer is opened with.
+// insidePrefix names every path by what it is called inside prefix.
+//
+// One name per stream, and it is the one a publish states (settings.Settings.StreamName):
+// a group is a path prefix, so every row of a member's list carries it and separates none of them,
+// and a name matched against a live publish under two spellings matches under neither.
+// What reaches the relay puts the prefix back on (settings.Settings.WatchPath).
 //
 // Trimmed rather than cut at the first separator:
-// a path under somebody else's prefix, seen only by an operator reading the relay's own API,
-// would otherwise print under a name of this group's.
-func ownNames(status relay.Status, prefix string) relay.Status {
+// a path under somebody else's prefix would otherwise print under a name of this group's.
+func insidePrefix(status relay.Status, prefix string) relay.Status {
 	for i, path := range status.Paths {
-		own := strings.TrimPrefix(path.Name, prefix)
-		if own == "" {
+		inside := strings.TrimPrefix(path.Name, prefix)
+		if inside == "" {
 			// Nothing but the prefix names no stream, so there is nothing to shorten to.
-			own = path.Name
+			inside = path.Name
 		}
-		status.Paths[i].OwnName = own
+		status.Paths[i].Name = inside
 	}
 	return status
 }

@@ -148,7 +148,7 @@ public sealed class StreamRowViewModel : Observable
         WatchLabel = tiled ? "Take out of the grid" : "Watch in the grid";
         WatchGlyph = tiled ? Icons.IconX : Icons.IconPlayerPlay;
 
-        Label = row.OwnName;
+        Label = row.Name;
         Detail = row.Detail;
         Tracks = row.Tracks;
         Readers = row.Readers == 1 ? "1 reader" : $"{row.Readers} readers";

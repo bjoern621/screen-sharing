@@ -72,24 +72,16 @@ func TestARelayOnThisNetworkIsDialledOnItsOwnPorts(t *testing.T) {
 	}
 }
 
-// Relay answers its API to loopback alone (deploy/mediamtx-groups.yml), so a check dialling it
-// from anywhere else would cross a relay that is behaving.
-func TestTheRelayApiIsDialledOnThisMachineAlone(t *testing.T) {
-	for host, want := range map[string]Reason{
-		"127.0.0.1":                    ReasonNone,
-		"localhost":                    ReasonNone,
-		"192.168.1.9":                  ReasonLoopbackOnly,
-		"streamrelay.bjoernblessin.de": ReasonLoopbackOnly,
-	} {
+// The relay's own HTTP API is no leg of this check.
+// What is live comes off the group service's index, and nothing this app runs dials the API
+// (internal/app, groups.go).
+func TestTheRelayApiIsNoLeg(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "localhost", "192.168.1.9", "streamrelay.bjoernblessin.de"} {
 		s := settings.Defaults()
 		s.Relay.Host = host
 
-		e, ok := endpointFor(Endpoints(s), legAPI)
-		if !ok {
-			t.Fatalf("no %s row for relay %q", legAPI, host)
-		}
-		if e.Unaddressed != want {
-			t.Errorf("relay %q leaves the API %v, want %v", host, e.Unaddressed, want)
+		if e, ok := endpointFor(Endpoints(s), "api"); ok {
+			t.Errorf("relay %q checks its API at %q", host, e.Address)
 		}
 	}
 }
@@ -138,7 +130,7 @@ func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 			t.Errorf("leg %q is dialled at %q and unaddressed for %v", e.Leg, e.Address, e.Unaddressed)
 		}
 	}
-	if want := len(transport.Listeners(s)) + 2; len(seen) != want {
+	if want := len(transport.Listeners(s)) + 1; len(seen) != want {
 		t.Errorf("%d legs answered, want %d", len(seen), want)
 	}
 }
@@ -309,7 +301,7 @@ func TestCheckAnswersARowPerLeg(t *testing.T) {
 	s.Relay.Host = ""
 
 	rows := Check(t.Context(), s)
-	if want := len(transport.Listeners(s)) + 2; len(rows) != want {
+	if want := len(transport.Listeners(s)) + 1; len(rows) != want {
 		t.Fatalf("%d rows, want %d", len(rows), want)
 	}
 	for _, r := range rows {

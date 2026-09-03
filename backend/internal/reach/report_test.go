@@ -13,7 +13,7 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	err := Report(&out, []Result{
 		{Leg: "rtsp", Address: "rtsps://relay:8322", Verdict: Reachable, Detail: "RTSP/1.0 200 OK", Took: 41 * time.Millisecond},
 		{Leg: "srt", Address: "srt://relay:8890", Verdict: Unreachable, Detail: "i/o timeout", Took: 5 * time.Second},
-		{Leg: legAPI, Verdict: Unaddressed, Unaddressed: ReasonLoopbackOnly},
+		{Leg: legGroups, Verdict: Unaddressed, Unaddressed: ReasonNoRelay},
 	})
 	if err != nil {
 		t.Fatalf("Report: %v", err)
@@ -34,7 +34,7 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	if !strings.Contains(lines[1], "i/o timeout") {
 		t.Errorf("the unreachable row is %q, want the dial's own words", lines[1])
 	}
-	if !strings.Contains(lines[2], reasons[ReasonLoopbackOnly]) {
+	if !strings.Contains(lines[2], reasons[ReasonNoRelay]) {
 		t.Errorf("the unaddressed row is %q, want why nothing was dialled", lines[2])
 	}
 }
@@ -42,7 +42,7 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 // Exit status is the answer for a caller that reads no table: a leg that did not answer
 // is a failure, a leg nothing dialled is not.
 func TestOnlyALegThatWasDialledCanFail(t *testing.T) {
-	if Failed([]Result{{Leg: legAPI, Verdict: Unaddressed, Unaddressed: ReasonLoopbackOnly}}) {
+	if Failed([]Result{{Leg: legGroups, Verdict: Unaddressed, Unaddressed: ReasonNoRelay}}) {
 		t.Error("a leg addressed nowhere reads as a failure")
 	}
 	if !Failed([]Result{{Leg: "srt", Verdict: Unreachable}}) {

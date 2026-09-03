@@ -109,7 +109,6 @@ var availabilityRules = map[string]func(availability) state{
 	// An empty name greys nothing either: it is what leaves this machine outside the group
 	// the key names, and this control is where that is answered.
 	KeyDisplayName: func(availability) state { return availabilityLive() },
-	KeyAPIPort:     func(availability) state { return availabilityLive() },
 	// Every listener port follows both legs, because the relay serves one listener per protocol
 	// in both directions and the number here is what each of them is addressed on (reachesOver).
 	// HLS reaches the same rule from the other side: the relay serves it and ingests nothing over it,

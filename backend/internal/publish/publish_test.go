@@ -80,7 +80,6 @@ func TestSamePipelineHoldsForUnchangedSettings(t *testing.T) {
 // the same comparison decides whether the stream is restarted under the user.
 func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
-		"apiPort":            func(s *settings.Settings) { s.Relay.ApiPort = 19997 },
 		"hlsPort":            func(s *settings.Settings) { s.Relay.HlsPort = 18888 },
 		"uplinkMbps":         func(s *settings.Settings) { s.Publish.UplinkMbps = 500 },
 		"gridTransport":      func(s *settings.Settings) { s.Viewer.TileWatchTransport = "srt" },

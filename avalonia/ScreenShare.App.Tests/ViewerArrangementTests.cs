@@ -43,7 +43,7 @@ public sealed class ViewerArrangementTests
             var relay = new RelayStatus { Reachable = true };
             foreach (var path in paths)
             {
-                relay.Paths.Add(new RelayPath { Name = path, OwnName = path, Ready = true });
+                relay.Paths.Add(new RelayPath { Name = path, Ready = true });
             }
 
             return Task.FromResult(relay);

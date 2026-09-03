@@ -101,12 +101,12 @@ func (WebRTC) GstSink(s settings.Settings) []string {
 // the relay answers 400 "codecs not supported by client".
 // Dropping the audio proposal moves video into the first section, at the cost of this leg carrying
 // video alone.
-func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
-	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+func (WebRTC) GstSource(s settings.Settings, path string) []string {
+	assert.Assert(path != "", "a receive source names the path it decodes")
 
 	source := []string{
 		"whepsrc",
-		"whep-endpoint=" + whepURL(s, streamName),
+		"whep-endpoint=" + whepURL(s, path),
 		"audio-caps=EMPTY",
 	}
 	if token, ok := credentialToken(s); ok {
@@ -121,10 +121,10 @@ func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 // otherwise redirect to.
 //
 // The credential is the address's userinfo, the one form a browser carries (credential.go).
-func (WebRTC) BrowserURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a player page names the stream it opens")
+func (WebRTC) BrowserURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a player page names the path it opens")
 
-	return httpPageOrigin(s, s.Relay.WebrtcPort) + webrtcPageRoot(s) + "/" + streamName + "/"
+	return httpPageOrigin(s, s.Relay.WebrtcPort) + webrtcPageRoot(s) + "/" + path + "/"
 }
 
 // webrtcPageRoot is what the page hangs under: the listener's root, and "/webrtc" behind the proxy,

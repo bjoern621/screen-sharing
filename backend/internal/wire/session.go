@@ -222,7 +222,6 @@ func RelayPath(p relay.Path) *screensharev1.RelayPath {
 
 	return &screensharev1.RelayPath{
 		Name:         p.Name,
-		OwnName:      p.OwnName,
 		Ready:        p.Ready,
 		Tracks:       p.Tracks,
 		Format:       p.Format,

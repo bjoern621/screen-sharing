@@ -232,7 +232,6 @@ public static class Fields
         ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. On an encrypted relay the stream rides inside TLS, so the default is 1936 rather than the cleartext port."),
         ["relay.hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. A watching port only."),
         ["relay.moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, TCP and UDP on the same number. The default is 8892. A watching port only, and only a browser reaches it. It stays part of the address on an encrypted relay, because this leg cannot pass the proxy and the relay answers it directly."),
-        ["relay.api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),
     };
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()

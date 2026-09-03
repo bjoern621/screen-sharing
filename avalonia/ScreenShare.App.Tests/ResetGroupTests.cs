@@ -49,7 +49,7 @@ public sealed class ResetGroupTests
 
         flow.Form.Write("relay.host", new FieldValue { Text = "elsewhere.example" });
         flow.Form.Write("relay.srt_port", new FieldValue { Number = 9001 });
-        flow.Form.Write("relay.api_port", new FieldValue { Number = 9002 });
+        flow.Form.Write("relay.rtsp_port", new FieldValue { Number = 9002 });
         await flow.Form.Settled;
 
         flow.Form.Reset(RelayStep);

@@ -101,6 +101,8 @@ message PublishState {
     // What a viewer opened this stream under, the same derivation Settings.stream_name carries,
     // read off the two groups above rather than restated: this machine's own claim in its group
     // and the stream's own name together.
+    // The string RelayPath.name carries for this stream, so a snapshot's row is found by matching
+    // on it.
     string stream_name = 7;
 
     // 1 held the flat StreamSettings, and carries its publish half above.
@@ -219,17 +221,19 @@ message RelayReader {
 
 // RelayPath is one stream the relay is carrying.
 message RelayPath {
-  string name = 1;
   // The stream's own name inside the prefix this machine reaches under,
-  // which is what a list of that prefix's streams shows:
-  // a group is a path prefix,
-  // so the prefix leads every row and tells a reader nothing about any of them.
-  // Equal to name where nothing was taken off:
+  // what a publish states and what every viewer method takes.
+  // A group is a path prefix,
+  // so the prefix leads every row and tells a reader nothing about any of them,
+  // and the backend puts it back on to reach the relay
+  // (internal/settings, Settings.WatchPath).
+  // The whole path where nothing came off:
   // a relay that authenticates nobody carries bare names,
   // and an operator's own view carries several prefixes at once.
-  // name stays the identity every viewer method takes,
-  // so a screen prints this and opens that.
-  string own_name = 8;
+  string name = 1;
+  // 8 was own_name, drawn beside name while a screen printed one and opened the other.
+  reserved 8;
+  reserved "own_name";
   // Whether a publisher is connected and the path is being served.
   // A path the relay knows about is not necessarily a path with a stream on it.
   bool ready = 2;
@@ -271,6 +275,7 @@ message RelayStatus {
 // because the relay re-serves each stream on all its listeners,
 // and a stream can be watched over several transports at once.
 message StreamRef {
+  // The stream's own name inside the prefix this machine reaches under, as RelayPath.name spells it.
   string stream_name = 3;
   string transport = 2;
 

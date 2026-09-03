@@ -51,8 +51,6 @@ message RelaySettings {
   string host = 1;
   // UDP port of the relay's SRT listener.
   int32 srt_port = 2;
-  // TCP port of the relay's HTTP API, which the live snapshot reads.
-  int32 api_port = 3;
   int32 rtsp_port = 4;
   int32 webrtc_port = 5;
   int32 rtmp_port = 6;
@@ -107,6 +105,13 @@ message RelaySettings {
   // so there is nothing a shell could type or show.
   reserved 9;
   reserved "srt_passphrase";
+
+  // 3 was the port of the relay's own HTTP API.
+  // What is live comes off the group service's index, which a member's token reaches
+  // and the API does not, so nothing on this side dials the API and no setting names its port
+  // (docs/plan.md).
+  reserved 3;
+  reserved "api_port";
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded.

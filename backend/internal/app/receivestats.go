@@ -107,7 +107,7 @@ func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.Re
 	// and belong to a decode only where that decode is of the stream this machine sends.
 	// Read once for the whole sample: a.run is the same run for every decode in it.
 	a.procMu.Lock()
-	published, publishing := a.publishedPathLocked()
+	published, publishing := a.publishedStreamLocked()
 	a.procMu.Unlock()
 
 	out := make([]wire.ReceiveStreamStats, 0, len(running))

@@ -26,8 +26,7 @@ var relayLegVerdicts = map[reach.Verdict]screensharev1.RelayLegVerdict{
 // relayLegReasons is why a leg went undialled, as the statement a shell writes the sentence for.
 // ReasonNone is absent: a dialled leg, whose row carries what came back instead.
 var relayLegReasons = map[reach.Reason]screensharev1.TextCode{
-	reach.ReasonNoRelay:      screensharev1.TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY,
-	reach.ReasonLoopbackOnly: screensharev1.TextCode_TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY,
+	reach.ReasonNoRelay: screensharev1.TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY,
 }
 
 // RelayLegs carries a check across, one message per leg, in the order the check answered.

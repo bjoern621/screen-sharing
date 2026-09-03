@@ -54,7 +54,7 @@ public sealed class ViewerRosterTests
 
     private static RelayStatus Serving(params RelayReader[] readers)
     {
-        var path = new RelayPath { Name = "desk", OwnName = "desk", Ready = true, Readers = readers.Length };
+        var path = new RelayPath { Name = "desk", Ready = true, Readers = readers.Length };
         path.ReaderRoster.AddRange(readers);
 
         var relay = new RelayStatus { Reachable = true };
@@ -487,7 +487,7 @@ public sealed class ViewerRosterTests
     [Fact]
     public void ACountWithNoRosterBehindItSaysTheViewersAreUnnamed()
     {
-        var path = new RelayPath { Name = "desk", OwnName = "desk", Ready = true, Readers = 2 };
+        var path = new RelayPath { Name = "desk", Ready = true, Readers = 2 };
         var relay = new RelayStatus { Reachable = true };
         relay.Paths.Add(path);
 

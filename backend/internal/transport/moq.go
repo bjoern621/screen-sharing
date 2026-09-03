@@ -58,10 +58,10 @@ func (MoQ) Formats() Formats { return moqFormats }
 //
 // The credential is the userinfo rather than a query, where the HTTP servers read one
 // (credential.go).
-func (MoQ) BrowserURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a player page names the stream it opens")
+func (MoQ) BrowserURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a player page names the path it opens")
 
-	return moqOrigin(s) + "/" + streamName + "/"
+	return moqOrigin(s) + "/" + path + "/"
 }
 
 // ListenerURL is the relay's MoQ listener, "https://relay:8892".

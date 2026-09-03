@@ -482,10 +482,6 @@ public sealed class ViewerViewModel : Observable
             rows.Add(new StreamRow
             {
                 Name = path.Name,
-
-                // Empty from a backend without the proto field, so the whole path stands in,
-                // a blank row being nothing at all.
-                OwnName = path.OwnName.Length > 0 ? path.OwnName : path.Name,
                 IsReady = path.Ready,
                 Tracks = path.Tracks,
                 Format = path.Format,

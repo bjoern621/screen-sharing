@@ -38,7 +38,6 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	return &screensharev1.RelaySettings{
 		Host:        r.Host,
 		SrtPort:     int32(r.SrtPort),
-		ApiPort:     int32(r.ApiPort),
 		RtspPort:    int32(r.RtspPort),
 		WebrtcPort:  int32(r.WebrtcPort),
 		RtmpPort:    int32(r.RtmpPort),
@@ -129,7 +128,6 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
 		Host:        m.GetHost(),
 		SrtPort:     int(m.GetSrtPort()),
-		ApiPort:     int(m.GetApiPort()),
 		RtspPort:    int(m.GetRtspPort()),
 		WebrtcPort:  int(m.GetWebrtcPort()),
 		RtmpPort:    int(m.GetRtmpPort()),

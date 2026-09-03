@@ -8,6 +8,10 @@
 // GstSource, never read off the settings.
 // An identifier here that does not name a leg belongs to whichever leg its caller is on.
 //
+// A watch builder takes the relay path, and the package-level WatchURL, BrowserURL, GstSource and
+// ReceiveSource take the name a viewer's list carries and derive it once
+// (settings.Settings.WatchPath), so a caller holding a name cannot reach a builder without it.
+//
 // Implementations register in init() (srt.go), so a protocol is added as one file here and no
 // caller changes.
 //
@@ -104,7 +108,7 @@ type PublishValidator interface {
 
 // Watcher yields the input URL a player opens.
 type Watcher interface {
-	WatchURL(s settings.Settings, streamName string) string
+	WatchURL(s settings.Settings, path string) string
 }
 
 // EngineBrowser is a watch engine: the machine's default browser on the player page the relay
@@ -127,13 +131,13 @@ var WatchEngines = []string{capabilities.EngineFfmpeg, capabilities.EngineGst, E
 // The page is the relay's own and not anything this app serves, so what it plays is a property
 // of the relay's listener and of the browser running it, which is what the browser carriage states.
 type BrowserWatcher interface {
-	BrowserURL(s settings.Settings, streamName string) string
+	BrowserURL(s settings.Settings, path string) string
 }
 
 // GstWatcher serializes to the source elements a receiving GStreamer pipeline decodes from.
 // The fragment ends at the encoded stream, and the receiver appends the decode and sink elements.
 type GstWatcher interface {
-	GstSource(s settings.Settings, streamName string) []string
+	GstSource(s settings.Settings, path string) []string
 }
 
 // GstWatchResolver is the same fragment for a leg whose address settings do not hold, because
@@ -144,7 +148,7 @@ type GstWatcher interface {
 // over comes back as an error rather than as a fragment nothing can open.
 // A transport implements this or GstWatcher and never both, which keeps one leg to one builder.
 type GstWatchResolver interface {
-	ResolveGstSource(s settings.Settings, streamName string) ([]string, error)
+	ResolveGstSource(s settings.Settings, path string) ([]string, error)
 }
 
 var registry = map[string]Transport{}
@@ -313,6 +317,12 @@ func CanWatch(name, engine string) bool {
 // false where that transport has no GStreamer watch form.
 // The transport is named explicitly and never read off s.Transport, for WatchURL's reason.
 func GstSource(name string, s settings.Settings, streamName string) ([]string, bool) {
+	return gstSource(name, s, s.WatchPath(streamName))
+}
+
+// gstSource is GstSource with the relay path already derived,
+// so a caller that derived one for a second builder derives it once.
+func gstSource(name string, s settings.Settings, path string) ([]string, bool) {
 	t, ok := Get(name)
 	if !ok {
 		return nil, false
@@ -323,8 +333,8 @@ func GstSource(name string, s settings.Settings, streamName string) ([]string, b
 	}
 	// The receiving side asserts a stream has a source fragment, so an implementation yielding none
 	// fails here instead of in the grid process.
-	src := g.GstSource(s, streamName)
-	assert.Assert(len(src) > 0, "a watching transport yields source elements", name, streamName)
+	src := g.GstSource(s, path)
+	assert.Assert(len(src) > 0, "a watching transport yields source elements", name, path)
 	return src, true
 }
 
@@ -340,7 +350,8 @@ func ReceiveSource(name string, s settings.Settings, streamName string) ([]strin
 	assert.Assert(name != "", "a receive source names the leg it decodes over")
 	assert.Assert(streamName != "", "a receive source names the stream it decodes", name)
 
-	if src, ok := GstSource(name, s, streamName); ok {
+	path := s.WatchPath(streamName)
+	if src, ok := gstSource(name, s, path); ok {
 		return src, nil
 	}
 	t, ok := Get(name)
@@ -351,11 +362,11 @@ func ReceiveSource(name string, s settings.Settings, streamName string) ([]strin
 	if !ok {
 		return nil, fmt.Errorf("transport %q has no GStreamer watch form, so no pipeline can receive over it", name)
 	}
-	src, err := r.ResolveGstSource(s, streamName)
+	src, err := r.ResolveGstSource(s, path)
 	if err != nil {
 		return nil, err
 	}
-	assert.Assert(len(src) > 0, "a resolved receive source yields source elements", name, streamName)
+	assert.Assert(len(src) > 0, "a resolved receive source yields source elements", name, path)
 	return src, nil
 }
 
@@ -372,7 +383,7 @@ func WatchURL(name string, s settings.Settings, streamName string) (string, bool
 	if !ok {
 		return "", false
 	}
-	url := w.WatchURL(s, streamName)
+	url := w.WatchURL(s, s.WatchPath(streamName))
 	assert.Assert(url != "", "a watching transport yields a viewer URL", name, streamName)
 	return url, true
 }
@@ -389,7 +400,7 @@ func BrowserURL(name string, s settings.Settings, streamName string) (string, bo
 	if !ok {
 		return "", false
 	}
-	url := w.BrowserURL(s, streamName)
+	url := w.BrowserURL(s, s.WatchPath(streamName))
 	assert.Assert(url != "", "a transport with a player page yields its address", name, streamName)
 	return url, true
 }

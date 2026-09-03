@@ -61,13 +61,13 @@ func (HLS) Formats() Formats { return hlsFormats }
 //
 // The stream name is asserted and not checked: an unnamed stream is refused by every watch effect
 // at the control boundary, so an empty one arriving here is a caller that skipped that boundary.
-func (HLS) WatchURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a watch URL names the stream it opens")
+func (HLS) WatchURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a watch URL names the path it opens")
 
 	// No credential in the address.
 	// A player opens this URL and the relay's HTTP servers take a token in a header (credential.go),
 	// handed to the player beside the URL (internal/watch).
-	return HLS{}.ListenerURL(s) + "/" + streamName + "/index.m3u8"
+	return HLS{}.ListenerURL(s) + "/" + path + "/index.m3u8"
 }
 
 // ListenerURL is where the relay serves HLS: its own port, or the proxy's name where one fronts it
@@ -80,12 +80,12 @@ func (HLS) ListenerURL(s settings.Settings) string {
 //
 // urisourcebin rather than hlsdemux2 straight: the demuxer refuses to build outside a streams-aware
 // parent, and what leaves the bin is the encoded stream every other source fragment ends at.
-func (HLS) ResolveGstSource(s settings.Settings, streamName string) ([]string, error) {
-	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+func (HLS) ResolveGstSource(s settings.Settings, path string) ([]string, error) {
+	assert.Assert(path != "", "a receive source names the path it decodes")
 
-	media, err := hlsMediaSource(s, HLS{}.WatchURL(s, streamName))
+	media, err := hlsMediaSource(s, HLS{}.WatchURL(s, path))
 	if err != nil {
-		return nil, fmt.Errorf("no hls source for %q: %w", streamName, err)
+		return nil, fmt.Errorf("no hls source for %q: %w", path, err)
 	}
 	return []string{"urisourcebin", "uri=" + media}, nil
 }
@@ -95,8 +95,8 @@ func (HLS) ResolveGstSource(s settings.Settings, streamName string) ([]string, e
 // The trailing slash saves a redirect, that address being where the relay would send the browser.
 //
 // The credential is the address's userinfo, the one form a browser carries (credential.go).
-func (HLS) BrowserURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a player page names the stream it opens")
+func (HLS) BrowserURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a player page names the path it opens")
 
-	return httpPageOrigin(s, s.Relay.HlsPort) + "/" + streamName + "/"
+	return httpPageOrigin(s, s.Relay.HlsPort) + "/" + path + "/"
 }

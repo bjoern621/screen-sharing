@@ -35,7 +35,7 @@ func TestCheckRelayRefusesARequestWithNoDraft(t *testing.T) {
 func TestARelayAnsweringNothingIsStillAnAnswer(t *testing.T) {
 	backend := &fakeBackend{legs: []reach.Result{
 		{Leg: "rtsp", Address: "rtsps://relay:8322", Verdict: reach.Unreachable, Detail: "i/o timeout"},
-		{Leg: "api", Verdict: reach.Unaddressed, Unaddressed: reach.ReasonLoopbackOnly},
+		{Leg: "groups", Verdict: reach.Unaddressed, Unaddressed: reach.ReasonNoRelay},
 	}}
 	server := New(backend, events.New(), "test")
 

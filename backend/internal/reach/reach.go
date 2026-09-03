@@ -12,7 +12,6 @@ package reach
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"slices"
 	"strings"
@@ -25,12 +24,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// Two legs no transport carries: the service every publisher asks for a token before reaching any
-// listener, and the relay's own HTTP API.
-const (
-	legGroups = "groups"
-	legAPI    = "api"
-)
+// The one leg no transport carries: the service every publisher asks for a token before reaching
+// any listener.
+const legGroups = "groups"
 
 // Verdict is what one leg's probe found.
 type Verdict int
@@ -51,7 +47,7 @@ const (
 // A value added above and left out of one is a failing test rather than a row nobody can draw.
 var (
 	Verdicts = []Verdict{Reachable, Unreachable, Unaddressed}
-	Reasons  = []Reason{ReasonNoRelay, ReasonLoopbackOnly}
+	Reasons  = []Reason{ReasonNoRelay}
 )
 
 // Reason is why a leg is dialled nowhere.
@@ -61,14 +57,11 @@ const (
 	ReasonNone Reason = iota
 	// ReasonNoRelay: settings name no relay, so no leg has an address.
 	ReasonNoRelay
-	// ReasonLoopbackOnly: relay binds this listener to loopback, so it answers on the relay's own
-	// machine alone (deploy/mediamtx-groups.yml).
-	ReasonLoopbackOnly
 )
 
 // Endpoint is one leg and where this deployment addresses it.
 type Endpoint struct {
-	// Leg is the transport's registry name, or legGroups / legAPI.
+	// Leg is the transport's registry name, or legGroups.
 	Leg string
 	// Address is where the leg answers, as a reader would type it: "rtsps://relay:8322".
 	// Empty exactly where Unaddressed names a reason.
@@ -164,11 +157,11 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 func resolve(s settings.Settings) []resolved {
 	listeners := transport.Listeners(s)
 
-	rows := make([]resolved, 0, len(listeners)+2)
+	rows := make([]resolved, 0, len(listeners)+1)
 	for name, address := range listeners {
 		rows = append(rows, resolved{leg: name, target: target{url: address, insecure: s.Relay.OnTrustedNetwork()}})
 	}
-	rows = append(rows, groupService(s.Relay), relayAPI(s.Relay))
+	rows = append(rows, groupService(s.Relay))
 
 	// A relay nobody named leaves every leg without an address, whatever the ports beside it would
 	// otherwise build.
@@ -193,18 +186,6 @@ func groupService(r settings.Relay) resolved {
 		return resolved{leg: legGroups, reason: ReasonNoRelay}
 	}
 	return resolved{leg: legGroups, target: target{url: base + "/jwks.json", insecure: r.OnTrustedNetwork()}}
-}
-
-// relayAPI is the relay's own HTTP API, bound to loopback wherever the relay runs
-// (deploy/mediamtx-groups.yml), so nothing off that machine dials it and a check that did would
-// cross a relay doing as it is told.
-//
-// Route is the one internal/relay reads paths from.
-func relayAPI(r settings.Relay) resolved {
-	if !r.OnThisMachine() {
-		return resolved{leg: legAPI, reason: ReasonLoopbackOnly}
-	}
-	return resolved{leg: legAPI, target: target{url: fmt.Sprintf("http://%s:%d/v3/paths/list", r.Host, r.ApiPort)}}
 }
 
 // run is one row: the probe the address's protocol names, timed, carrying whatever came back.

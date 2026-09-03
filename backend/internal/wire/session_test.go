@@ -217,7 +217,7 @@ func TestAViewerIsIdentifiedByBothItsHalves(t *testing.T) {
 // (internal/relay, Status.FromIndex).
 // A conversion demanding the roster crashes the app the first time a group stream is watched.
 func TestACountedReaderCrossesWithNoRosterBehindIt(t *testing.T) {
-	path := RelayPath(relay.Path{Name: "group/desk", OwnName: "desk", Ready: true, Readers: 3})
+	path := RelayPath(relay.Path{Name: "desk", Ready: true, Readers: 3})
 
 	if path.GetReaders() != 3 {
 		t.Errorf("an index path counts %d readers, want 3", path.GetReaders())

@@ -122,9 +122,7 @@ type RelaySettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Host  string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	// UDP port of the relay's SRT listener.
-	SrtPort int32 `protobuf:"varint,2,opt,name=srt_port,json=srtPort,proto3" json:"srt_port,omitempty"`
-	// TCP port of the relay's HTTP API, which the live snapshot reads.
-	ApiPort    int32 `protobuf:"varint,3,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
+	SrtPort    int32 `protobuf:"varint,2,opt,name=srt_port,json=srtPort,proto3" json:"srt_port,omitempty"`
 	RtspPort   int32 `protobuf:"varint,4,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
 	WebrtcPort int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
 	RtmpPort   int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
@@ -217,13 +215,6 @@ func (x *RelaySettings) GetHost() string {
 func (x *RelaySettings) GetSrtPort() int32 {
 	if x != nil {
 		return x.SrtPort
-	}
-	return 0
-}
-
-func (x *RelaySettings) GetApiPort() int32 {
-	if x != nil {
-		return x.ApiPort
 	}
 	return 0
 }
@@ -883,11 +874,10 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
 	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\x12\x1f\n" +
 	"\vstream_name\x18\x04 \x01(\tR\n" +
-	"streamName\"\xd2\x02\n" +
+	"streamName\"\xc7\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
-	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
-	"\bapi_port\x18\x03 \x01(\x05R\aapiPort\x12\x1b\n" +
+	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x1b\n" +
 	"\trtsp_port\x18\x04 \x01(\x05R\brtspPort\x12\x1f\n" +
 	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
@@ -898,7 +888,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	" \x01(\bR\x03tls\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayNameJ\x04\b\t\x10\n" +
-	"R\x0esrt_passphrase\"\xd1\b\n" +
+	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\xd1\b\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +
 	" \x01(\tR\x10publishTransport\x12\x16\n" +

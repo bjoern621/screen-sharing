@@ -49,7 +49,6 @@ type App struct {
 	// The file it names was moved aside rather than replaced.
 	storeNotice *screensharev1.Text
 
-	relay *relay.Client
 	// This app's side of the group key, token and index service, holding the token last minted
 	// (groups.go).
 	// One client per process: a second would trade the same group key for a second token and double
@@ -176,7 +175,6 @@ func New(version string) *App {
 		version:          version,
 		settings:         s,
 		storeNotice:      notice,
-		relay:            relay.New(),
 		groups:           groupclient.New(),
 		relayStop:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),

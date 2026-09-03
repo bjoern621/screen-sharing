@@ -574,9 +574,6 @@ public static class Statements
             TextCode.RelayLegNoRelay =>
                 "No relay is set, so there is no address to check.",
 
-            TextCode.RelayLegLoopbackOnly =>
-                "This listener answers only on the relay's own computer, so it cannot be reached from here.",
-
             // A backend newer than this build.
             // The code is printed so it can be searched for and reported.
             _ => text.Code.ToString(),

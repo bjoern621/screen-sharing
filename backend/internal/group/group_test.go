@@ -111,7 +111,7 @@ func TestAStreamWithNoGroupIsRefused(t *testing.T) {
 // A name is the stream's own, or the publishing member's own name and the stream's own together.
 // Both stay inside the group's permission, which is written against the group's prefix and covers
 // everything under it however deep, so two segments build a path the same grant reaches.
-// A third lands nowhere a viewer's list peels back to (app.ownNames trims one prefix, not two),
+// A third lands nowhere a viewer's list peels back to (app.insidePrefix trims one prefix and no more),
 // and an empty segment at either end names nothing.
 func TestANameIsOneOrTwoSegments(t *testing.T) {
 	key := mustKey(t)

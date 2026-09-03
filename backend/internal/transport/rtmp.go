@@ -53,17 +53,17 @@ func (RTMP) PublishArgs(s settings.Settings) []string {
 	return append(args, rtmpURL(s, s.PublishPath()))
 }
 
-func (RTMP) WatchURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a watch URL names the stream it opens")
+func (RTMP) WatchURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a watch URL names the path it opens")
 
-	return rtmpURL(s, streamName)
+	return rtmpURL(s, path)
 }
 
 // GstSource is one element: rtmp2src yields the FLV stream that decodebin then demuxes and decodes.
-func (RTMP) GstSource(s settings.Settings, streamName string) []string {
-	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+func (RTMP) GstSource(s settings.Settings, path string) []string {
+	assert.Assert(path != "", "a receive source names the path it decodes")
 
-	return []string{"rtmp2src", "location=" + rtmpURL(s, streamName), gstTlsValidation(s)}
+	return []string{"rtmp2src", "location=" + rtmpURL(s, path), gstTlsValidation(s)}
 }
 
 // ListenerURL is the relay's RTMPS listener, "rtmps://relay:1936".

@@ -336,7 +336,6 @@ internal sealed class SeededBackend : IBackend
         {
             Host = RelayHost,
             SrtPort = 8890,
-            ApiPort = 9997,
             RtspPort = 8322,
             WebrtcPort = 8889,
             RtmpPort = 1936,
@@ -590,9 +589,9 @@ internal sealed class SeededBackend : IBackend
         },
         new()
         {
-            Leg = "api",
+            Leg = "groups",
             Verdict = RelayLegVerdict.Unaddressed,
-            Unaddressed = new Text { Code = TextCode.RelayLegLoopbackOnly },
+            Unaddressed = new Text { Code = TextCode.RelayLegNoRelay },
         },
     ];
 
@@ -1590,7 +1589,6 @@ internal sealed class SeededBackend : IBackend
                 new() { Key = "relay.webrtc_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtmp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.hls_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "relay.api_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
             ],
         },
     ];

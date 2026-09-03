@@ -572,6 +572,27 @@ func TestPublishPathCarriesTheStreamNameThroughThePrefix(t *testing.T) {
 	}
 }
 
+// A stream a viewer named reaches the relay under the prefix this machine publishes under.
+// The name comes off a viewer's list, inside that prefix (internal/app, insidePrefix),
+// so one derivation puts it back on rather than each transport builder.
+func TestAWatchPathPutsThePrefixBackOn(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := Settings{Relay: Relay{Host: "relay.example", GroupKey: groupKey.String(), DisplayName: "bjoern"}}
+
+	if got, want := s.WatchPath("alice/monitor-1"), s.Relay.Prefix()+"alice/monitor-1"; got != want {
+		t.Errorf("a viewer opens %q, want %q", got, want)
+	}
+
+	// This machine's own stream is watched the way anybody else's is,
+	// so the end-to-end preview reaches the path the publish writes to.
+	if got, want := s.WatchPath(s.StreamName()), s.PublishPath(); got != want {
+		t.Errorf("watching this machine's own stream opens %q, and it publishes to %q", got, want)
+	}
+}
+
 // The SRT passphrase follows the group key the way the path does,
 // one derivation answering both ends of the leg,
 // so nothing about it is stored and nothing about it is typed.

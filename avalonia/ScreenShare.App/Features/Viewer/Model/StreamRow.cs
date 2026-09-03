@@ -14,15 +14,12 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// </summary>
 public sealed record StreamRow
 {
-    /// <summary>Path name, and the stream name a viewer is opened for.</summary>
-    public required string Name { get; init; }
-
     /// <summary>
-    /// Name to print: the path with the prefix taken off, that prefix being a group key's digest the backend
-    /// derives.
-    /// Equal to <see cref="Name"/> where there is no prefix, so a list prints this one and never chooses.
+    /// What the row prints and what a viewer is opened for.
+    /// The stream's own name inside the prefix this machine reaches under, that prefix being a group key's
+    /// digest the backend derives, takes off and puts back on to reach the relay.
     /// </summary>
-    public required string OwnName { get; init; }
+    public required string Name { get; init; }
 
     /// <summary>
     /// A publisher is connected and the path is being served.

@@ -27,8 +27,7 @@ var marks = map[Verdict]string{
 // Words live here because the only reader is the terminal a check runs from.
 // Rows crossing to a shell carry the code and the shell writes the sentence (docs/ipc-api.md).
 var reasons = map[Reason]string{
-	ReasonNoRelay:      "no relay is named in the settings",
-	ReasonLoopbackOnly: "answers on the relay's own machine alone",
+	ReasonNoRelay: "no relay is named in the settings",
 }
 
 // Report writes a line per leg: mark, leg, where it was dialled, what came back, how long it

@@ -54,7 +54,6 @@ func indexAt(t *testing.T) string {
 func backendAt(host string) *App {
 	return &App{
 		events:    events.New(),
-		relay:     relay.New(),
 		groups:    groupclient.New(),
 		relayStop: make(chan struct{}),
 		settings:  settings.Settings{Relay: settings.Relay{Host: host}},
@@ -88,7 +87,7 @@ func TestTheRelayIsPolledWithNobodyAsking(t *testing.T) {
 	defer a.stopRelayPoll()
 
 	status := awaitSnapshot(t, a)
-	if len(status.Paths) != 1 || status.Paths[0].OwnName != "bob" {
+	if len(status.Paths) != 1 || status.Paths[0].Name != "bob" {
 		t.Errorf("recorded snapshot carries %+v, want the one stream the index reported", status.Paths)
 	}
 	if status.Error != "" {

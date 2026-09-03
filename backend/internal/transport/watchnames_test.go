@@ -70,7 +70,7 @@ func TestBrowserPageAddressesStayDistinct(t *testing.T) {
 
 		opens := map[string]string{}
 		for _, name := range WatchNames(EngineBrowser) {
-			page, ok := BrowserURL(name, s, "public/bob")
+			page, ok := BrowserURL(name, s, "bob")
 			if !ok {
 				t.Fatalf("%s states a browser carriage and yields no page address", name)
 			}

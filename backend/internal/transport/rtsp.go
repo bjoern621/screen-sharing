@@ -93,10 +93,10 @@ func (RTSP) GstSink(s settings.Settings) []string {
 	}
 }
 
-func (RTSP) WatchURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a watch URL names the stream it opens")
+func (RTSP) WatchURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a watch URL names the path it opens")
 
-	return rtspURL(s, streamName)
+	return rtspURL(s, path)
 }
 
 // GstSource carries both watch-leg knobs: latency sizes the rtpjitterbuffer in milliseconds, and
@@ -113,12 +113,12 @@ func (RTSP) WatchURL(s settings.Settings, streamName string) string {
 //
 // The credential rides beside the address rather than in it, rtspsrc's doing, stated with the pair
 // it builds (credential.go).
-func (RTSP) GstSource(s settings.Settings, streamName string) []string {
-	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+func (RTSP) GstSource(s settings.Settings, path string) []string {
+	assert.Assert(path != "", "a receive source names the path it decodes")
 
 	source := []string{
 		"rtspsrc",
-		"location=" + rtspAddress(s, streamName),
+		"location=" + rtspAddress(s, path),
 		"protocols=" + s.Viewer.RtspWatchProtocol,
 		gstTlsValidation(s),
 		fmt.Sprintf("latency=%d", s.Viewer.RtspWatchLatencyMs),

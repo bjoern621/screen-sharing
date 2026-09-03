@@ -197,6 +197,10 @@ The publish child copies encoded video to a loopback port and the backend decode
 A monitor preview is read off the screen and crosses no encoder.
 A synthetic transport entry would tell every consumer of that table that some protocol carries them.
 
+**A stream is named inside the prefix this machine reaches under.**
+A group is a path prefix, and that prefix is a group key's digest the backend derives, takes off every snapshot and puts back on to reach the relay.
+The name `RelayStatus` lists a stream under is the name a `StreamRef` takes and the name `PublishState.Live` states, so one string prints, opens, and matches a live publish against its own row.
+
 **Which effect opens each keeps the frame channel from deciding anything.**
 A relay decode: `StartReceive`.
 The publish preview: the publish itself, the loopback port having to be in the child's argv, so there is no `StartPreview` for a shell to call.

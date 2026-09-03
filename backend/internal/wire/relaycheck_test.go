@@ -15,7 +15,7 @@ func TestEveryVerdictCrossesAsOneOfTheContractsOwn(t *testing.T) {
 	for _, verdict := range reach.Verdicts {
 		result := reach.Result{Leg: "srt", Address: "srt://relay:8890", Verdict: verdict}
 		if verdict == reach.Unaddressed {
-			result.Address, result.Unaddressed = "", reach.ReasonLoopbackOnly
+			result.Address, result.Unaddressed = "", reach.ReasonNoRelay
 		}
 
 		legs := RelayLegs([]reach.Result{result})
@@ -32,7 +32,7 @@ func TestEveryVerdictCrossesAsOneOfTheContractsOwn(t *testing.T) {
 // reading as a leg that failed for nothing.
 func TestEveryReasonCrossesAsAStatement(t *testing.T) {
 	for _, reason := range reach.Reasons {
-		legs := RelayLegs([]reach.Result{{Leg: "api", Verdict: reach.Unaddressed, Unaddressed: reason}})
+		legs := RelayLegs([]reach.Result{{Leg: "groups", Verdict: reach.Unaddressed, Unaddressed: reason}})
 
 		if code := legs[0].GetUnaddressed().GetCode(); code == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 			t.Errorf("%v crosses with no statement", reason)
@@ -64,7 +64,7 @@ func TestALegCarriesTheListenersOwnWords(t *testing.T) {
 
 // Nothing dialled is no wait at all, which is absent rather than the figure nought.
 func TestAnUndialledLegReportsNoWait(t *testing.T) {
-	legs := RelayLegs([]reach.Result{{Leg: "api", Verdict: reach.Unaddressed, Unaddressed: reach.ReasonNoRelay}})
+	legs := RelayLegs([]reach.Result{{Leg: "groups", Verdict: reach.Unaddressed, Unaddressed: reach.ReasonNoRelay}})
 
 	if legs[0].WaitedMs != nil {
 		t.Errorf("an undialled leg waited %d ms", legs[0].GetWaitedMs())

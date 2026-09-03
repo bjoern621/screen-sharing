@@ -113,7 +113,6 @@ The app draws it under the connection step's controls, on the settings on screen
 ✓  groups  https://relay.example/jwks.json  200 OK                                    64ms
 ✓  rtsp    rtsps://relay.example:8322       RTSP/1.0 200 OK                           63ms
 ✗  srt     srt://relay.example:8890         i/o timeout                               5.001s
-–  api                                      answers on the relay's own machine alone
 ```
 
 Each leg is dialled where the transport that carries it says its listener answers, so a check reaches what a stream reaches.
@@ -122,7 +121,8 @@ A port the relay does not bind is a cross here rather than a publish that waits 
 Each is asked in its own protocol, an open socket proving nothing on its own.
 RTSP answers `OPTIONS`, SRT answers the induction handshake that precedes any stream id or passphrase, an HTTP leg answers a request with any status at all, and RTMPS is the TLS handshake and the certificate behind it.
 
-A dash is a leg this deployment addresses nowhere, and is no failure: the relay binds its API to loopback, so it is dialled on the relay's own machine and reported unasked anywhere else.
+A dash is a leg this deployment addresses nowhere, and is no failure: settings naming no relay leave every leg with one, nothing having been asked of any listener.
+The relay's own API is no leg here at all, being an operator's endpoint that no publish and no viewer dials.
 The command's exit status is 1 where a leg that was dialled did not answer.
 
 A relay that answers on nothing still comes back as a response, every leg carrying its own verdict, which is what `CheckRelay` returns (`docs/ipc-api.md`, "Errors").

@@ -18,7 +18,6 @@ import (
 type flat struct {
 	RelayHost  *string `json:"relayHost"`
 	RelayPort  *int    `json:"relayPort"`
-	ApiPort    *int    `json:"apiPort"`
 	RtspPort   *int    `json:"rtspPort"`
 	WebrtcPort *int    `json:"webrtcPort"`
 	RtmpPort   *int    `json:"rtmpPort"`
@@ -82,7 +81,6 @@ func decodeFlat(data []byte) (Settings, bool) {
 	s := Defaults()
 	set(&s.Relay.Host, f.RelayHost)
 	set(&s.Relay.SrtPort, f.RelayPort)
-	set(&s.Relay.ApiPort, f.ApiPort)
 	set(&s.Relay.RtspPort, f.RtspPort)
 	set(&s.Relay.WebrtcPort, f.WebrtcPort)
 	set(&s.Relay.RtmpPort, f.RtmpPort)
@@ -156,7 +154,6 @@ const (
 // No transport is reachable on port zero, so a missing port is no value a user chose.
 func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.SrtPort, d.SrtPort)
-	fillNum(&r.ApiPort, d.ApiPort)
 	fillNum(&r.RtspPort, d.RtspPort)
 	fillNum(&r.WebrtcPort, d.WebrtcPort)
 	fillNum(&r.RtmpPort, d.RtmpPort)
@@ -183,9 +180,9 @@ func migrateRelay(r, d Relay) Relay {
 	// so a default would send every machine to claim the same one,
 	// and hand all but the first a refusal on a name nobody chose (internal/membership).
 
-	assert.Assert(r.SrtPort > 0 && r.ApiPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0 && r.MoqPort > 0,
+	assert.Assert(r.SrtPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0 && r.MoqPort > 0,
 		"an upgraded relay names a port for every listener",
-		r.SrtPort, r.ApiPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort, r.MoqPort)
+		r.SrtPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort, r.MoqPort)
 	return r
 }
 

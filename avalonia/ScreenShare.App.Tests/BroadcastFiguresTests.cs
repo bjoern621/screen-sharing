@@ -108,7 +108,7 @@ public sealed class BroadcastFiguresTests
     public void TheHeaderFiguresAreTheSamplesAndTheRelays()
     {
         var relay = new RelayStatus { Reachable = true };
-        relay.Paths.Add(new RelayPath { Name = "desk", OwnName = "desk", Readers = 3 });
+        relay.Paths.Add(new RelayPath { Name = "desk", Readers = 3 });
 
         var bar = new HeaderStatsViewModel
         {
@@ -120,6 +120,24 @@ public sealed class BroadcastFiguresTests
         // Figures[0] is the encoder's rate, Figures[5] the relay's reader count.
         Assert.Equal("4.25", bar.Figures[0].Value);
         Assert.Equal("3", bar.Figures[5].Value);
+    }
+
+    /// <summary>
+    /// A live publish and a snapshot name one stream, so a machine in a group reads its own figures:
+    /// the prefix the group publishes under is the backend's and reaches neither string.
+    /// </summary>
+    [Fact]
+    public void AGroupedPublishReadsItsOwnRelayRow()
+    {
+        var relay = new RelayStatus { Reachable = true };
+        relay.Paths.Add(new RelayPath { Name = "bjoern/monitor-0", Readers = 2 });
+
+        var live = new PublishState
+        {
+            Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "bjoern/monitor-0" },
+        };
+
+        Assert.Equal(2, BroadcastSnapshot.Of(live, null, relay).Viewers);
     }
 
     [Fact]
@@ -330,7 +348,7 @@ public sealed class BroadcastFiguresTests
             reader.RttMs = rtt;
         }
 
-        var path = new RelayPath { Name = "desk", OwnName = "desk", Readers = 1 };
+        var path = new RelayPath { Name = "desk", Readers = 1 };
         path.ReaderRoster.Add(reader);
 
         var relay = new RelayStatus { Reachable = true };

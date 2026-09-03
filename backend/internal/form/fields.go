@@ -493,13 +493,6 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Relay.MoqPort) },
 		bounds:  fieldPortBounds,
 	},
-	{
-		key:     KeyAPIPort,
-		group:   GroupRelay,
-		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Relay.ApiPort) },
-		bounds:  fieldPortBounds,
-	},
 }
 
 // The range builders.

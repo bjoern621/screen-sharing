@@ -390,17 +390,16 @@ func (x *RelayReader) GetFramesDiscarded() uint64 {
 // RelayPath is one stream the relay is carrying.
 type RelayPath struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The stream's own name inside the prefix this machine reaches under,
-	// which is what a list of that prefix's streams shows:
-	// a group is a path prefix,
-	// so the prefix leads every row and tells a reader nothing about any of them.
-	// Equal to name where nothing was taken off:
+	// what a publish states and what every viewer method takes.
+	// A group is a path prefix,
+	// so the prefix leads every row and tells a reader nothing about any of them,
+	// and the backend puts it back on to reach the relay
+	// (internal/settings, Settings.WatchPath).
+	// The whole path where nothing came off:
 	// a relay that authenticates nobody carries bare names,
 	// and an operator's own view carries several prefixes at once.
-	// name stays the identity every viewer method takes,
-	// so a screen prints this and opens that.
-	OwnName string `protobuf:"bytes,8,opt,name=own_name,json=ownName,proto3" json:"own_name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Whether a publisher is connected and the path is being served.
 	// A path the relay knows about is not necessarily a path with a stream on it.
 	Ready bool `protobuf:"varint,2,opt,name=ready,proto3" json:"ready,omitempty"`
@@ -460,13 +459,6 @@ func (*RelayPath) Descriptor() ([]byte, []int) {
 func (x *RelayPath) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *RelayPath) GetOwnName() string {
-	if x != nil {
-		return x.OwnName
 	}
 	return ""
 }
@@ -584,9 +576,10 @@ func (x *RelayStatus) GetPaths() []*RelayPath {
 // because the relay re-serves each stream on all its listeners,
 // and a stream can be watched over several transports at once.
 type StreamRef struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StreamName    string                 `protobuf:"bytes,3,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
-	Transport     string                 `protobuf:"bytes,2,opt,name=transport,proto3" json:"transport,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The stream's own name inside the prefix this machine reaches under, as RelayPath.name spells it.
+	StreamName    string `protobuf:"bytes,3,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
+	Transport     string `protobuf:"bytes,2,opt,name=transport,proto3" json:"transport,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1046,6 +1039,8 @@ type PublishState_Live struct {
 	// What a viewer opened this stream under, the same derivation Settings.stream_name carries,
 	// read off the two groups above rather than restated: this machine's own claim in its group
 	// and the stream's own name together.
+	// The string RelayPath.name carries for this stream, so a snapshot's row is found by matching
+	// on it.
 	StreamName    string `protobuf:"bytes,7,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1211,16 +1206,15 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\r_packets_sentB\x0f\n" +
 	"\r_packets_lostB\x12\n" +
 	"\x10_packets_droppedB\x13\n" +
-	"\x11_frames_discarded\"\xf5\x01\n" +
+	"\x11_frames_discarded\"\xea\x01\n" +
 	"\tRelayPath\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x19\n" +
-	"\bown_name\x18\b \x01(\tR\aownName\x12\x14\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05ready\x18\x02 \x01(\bR\x05ready\x12\x16\n" +
 	"\x06tracks\x18\x03 \x01(\tR\x06tracks\x12\x16\n" +
 	"\x06format\x18\x04 \x01(\tR\x06format\x12\x18\n" +
 	"\areaders\x18\x05 \x01(\x05R\areaders\x12\x17\n" +
 	"\ain_mbps\x18\x06 \x01(\x01R\x06inMbps\x12@\n" +
-	"\rreader_roster\x18\a \x03(\v2\x1b.screenshare.v1.RelayReaderR\freaderRoster\"r\n" +
+	"\rreader_roster\x18\a \x03(\v2\x1b.screenshare.v1.RelayReaderR\freaderRosterJ\x04\b\b\x10\tR\bown_name\"r\n" +
 	"\vRelayStatus\x12\x1c\n" +
 	"\treachable\x18\x01 \x01(\bR\treachable\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12/\n" +

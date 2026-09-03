@@ -330,9 +330,9 @@ That treatment is the roster's own: elsewhere a choice control lists what can be
 Which half an entry is in is Go's answer in both, and all a shell decides is whether a refused one is on screen at this moment.
 The reason is in the row rather than in a tip, a disabled control in Avalonia taking no pointer and a tip on it never opening.
 
-**An entry prints the stream's own name and opens the whole path.**
+**An entry prints the name it opens.**
 A group is a path prefix, so every row of a member's list carries the same one and it separates none of them.
-Which part of a path that prefix is stays the backend's answer, a prefix being a group key's digest, so a row carries both strings and prints `own_name` while its commands take `name`.
+A prefix is a group key's digest, which the backend takes off the snapshot and puts back on to reach the relay, so a row carries `name` and nothing beside it.
 
 **Two different facts, and only one of them is greyed.**
 Whether this machine has a player for a protocol at all is the availability pass's answer and it does not go stale, so the row obeys it.

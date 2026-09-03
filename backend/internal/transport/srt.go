@@ -93,26 +93,26 @@ func (SRT) GstSink(s settings.Settings) []string {
 	}, srtPassphraseProperty(s)...)
 }
 
-func (SRT) WatchURL(s settings.Settings, streamName string) string {
-	assert.Assert(streamName != "", "a watch URL names the stream it opens")
+func (SRT) WatchURL(s settings.Settings, path string) string {
+	assert.Assert(path != "", "a watch URL names the path it opens")
 
 	return SRT{}.ListenerURL(s) + fmt.Sprintf(
 		"?streamid=%s&latency=%d&rcvbuf=%d&ffs=%d",
-		srtStreamID(s, "read", streamName),
+		srtStreamID(s, "read", path),
 		s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 }
 
 // GstSource splits as GstSink does: srtsrc takes streamid and latency (milliseconds) as properties
 // on a bare srt:// URI.
 // The buffer options WatchURL carries are ffmpeg protocol knobs with no srtsrc equivalent.
-func (SRT) GstSource(s settings.Settings, streamName string) []string {
-	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+func (SRT) GstSource(s settings.Settings, path string) []string {
+	assert.Assert(path != "", "a receive source names the path it decodes")
 
 	return append([]string{
 		"srtsrc",
 		"uri=" + SRT{}.ListenerURL(s),
 		"mode=caller",
-		"streamid=" + srtStreamID(s, "read", streamName),
+		"streamid=" + srtStreamID(s, "read", path),
 		fmt.Sprintf("latency=%d", s.Viewer.SrtWatchLatencyMs),
 	}, srtPassphraseProperty(s)...)
 }
