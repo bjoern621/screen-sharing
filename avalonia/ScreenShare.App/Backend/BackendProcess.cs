@@ -20,6 +20,15 @@ internal static class BackendProcess
     /// <summary>Binary name the build tasks emit (<c>Taskfile.yml</c>, <c>build</c>).</summary>
     private const string ExeName = "screenshare-backend";
 
+    /// <summary>
+    /// <c>0</c> leaves starting a backend to whoever started this shell.
+    ///
+    /// For a checkout, where <c>task dev</c> runs the backend being worked on and PATH holds an installed one.
+    /// Spawning there picks the installed binary, whose version the window then shows and whose endpoint
+    /// <c>task dev</c> finds taken.
+    /// </summary>
+    internal const string EnvSpawn = "SCREENSHARE_BACKEND_SPAWN";
+
     /// <summary>Serialises the start, so connect attempts racing at startup produce one backend.</summary>
     private static readonly Lock Gate = new();
 
@@ -32,11 +41,16 @@ internal static class BackendProcess
     /// <summary>
     /// Starts the backend unless this shell already has one.
     /// True where one is on its way up.
-    /// False where no binary was found or the operating system refused to run it, neither worth a sentence beside
-    /// the connect failure the caller already shows.
+    /// False where <see cref="EnvSpawn"/> is off, where no binary was found, or where the operating system refused
+    /// to run it, none worth a sentence beside the connect failure the caller already shows.
     /// </summary>
     public static bool EnsureStarted()
     {
+        if (Environment.GetEnvironmentVariable(EnvSpawn) == "0")
+        {
+            return false;
+        }
+
         lock (Gate)
         {
             if (_started is { HasExited: false })

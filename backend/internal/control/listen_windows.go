@@ -14,12 +14,17 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// pipeName is the endpoint docs/ipc-api.md names for Windows.
+// pipeStem is the endpoint docs/ipc-api.md names for Windows, before EnvInstance.
 //
 // The contract version sits in the name instead of being negotiated on the connection,
 // so a v2 is a second pipe: two backends on different majors run side by side,
 // and a shell opening the wrong one fails to connect rather than being turned away at Hello.
-const pipeName = `\\.\pipe\screenshare-control-v1`
+const pipeStem = `\\.\pipe\screenshare-control-v1`
+
+// pipeName is the endpoint this run serves, EnvInstance included.
+func pipeName() string {
+	return pipeStem + instanceSuffix()
+}
 
 // Listen opens the named pipe this backend serves the control contract on.
 //
@@ -33,16 +38,17 @@ func Listen() (net.Listener, error) {
 		return nil, err
 	}
 
-	listener, err := winio.ListenPipe(pipeName, &winio.PipeConfig{SecurityDescriptor: descriptor})
+	name := pipeName()
+	listener, err := winio.ListenPipe(name, &winio.PipeConfig{SecurityDescriptor: descriptor})
 	if err != nil {
 		// A name already held answers ERROR_ACCESS_DENIED, mapped to fs.ErrPermission by syscall.
 		// The first instance of a pipe owns the name, and a second creation of it is refused.
 		// A name held by another user's process refuses identically, and the conclusion is the same:
 		// something else serves this endpoint and nothing will reach this process (ErrAddressInUse).
 		if errors.Is(err, fs.ErrPermission) {
-			return nil, fmt.Errorf("%w: %s", ErrAddressInUse, pipeName)
+			return nil, fmt.Errorf("%w: %s", ErrAddressInUse, name)
 		}
-		return nil, fmt.Errorf("cannot listen on %s: %w", pipeName, err)
+		return nil, fmt.Errorf("cannot listen on %s: %w", name, err)
 	}
 	return listener, nil
 }
@@ -50,7 +56,7 @@ func Listen() (net.Listener, error) {
 // Endpoint is the address this platform serves on,
 // for the backend's log and for a shell's "the backend is not running" message.
 func Endpoint() string {
-	return pipeName
+	return pipeName()
 }
 
 // pipeSecurity builds the pipe's security descriptor:

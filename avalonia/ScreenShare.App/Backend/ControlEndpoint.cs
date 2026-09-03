@@ -6,9 +6,10 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Where the backend listens, and how a stream is opened to it.
 ///
-/// Address is the whole discovery mechanism: no port to scan for, no file to parse, no environment variable to read,
+/// Address is the whole discovery mechanism: no port to scan for and no file to parse,
 /// and a shell that cannot open it reports the backend as not running (<c>docs/ipc-api.md</c>, "The format,
 /// and why this one").
+/// <see cref="EnvInstance"/> is its one input, and every install leaves it unset.
 ///
 /// Names are the Go side's, spelled again here rather than shared,
 /// and both carry the contract major (<c>backend/internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
@@ -25,20 +26,28 @@ namespace ScreenShare.App.Backend;
 internal static class ControlEndpoint
 {
     /// <summary>
+    /// Moves this shell to an endpoint of its own, so a build under development and an installed one each reach
+    /// their own backend (<c>backend/internal/control/instance.go</c>).
+    /// The value has to match the backend's, the two deriving one address from it separately.
+    /// </summary>
+    internal const string EnvInstance = "SCREENSHARE_INSTANCE";
+
+    /// <summary>
     /// Leaf alone: <see cref="NamedPipeClientStream"/> takes the server
     /// and the <c>\\.\pipe\</c> prefix as arguments of its own.
     /// </summary>
-    private const string PipeName = "screenshare-control-v1";
+    private const string PipeStem = "screenshare-control-v1";
 
     private const string SocketDirName = "screenshare";
-    private const string SocketFileName = "control-v1.sock";
+    private const string SocketFileStem = "control-v1";
+    private const string SocketFileExtension = ".sock";
 
     /// <summary>
     /// Address in the form a person reads, for the sentence saying the backend is not running.
     /// Names the endpoint tried rather than the failure, the path being what makes "nothing is listening on this"
     /// actionable.
     /// </summary>
-    public static string Describe() => OperatingSystem.IsWindows() ? $@"\\.\pipe\{PipeName}" : SocketPath();
+    public static string Describe() => OperatingSystem.IsWindows() ? $@"\\.\pipe\{PipeName()}" : SocketPath();
 
     /// <summary>
     /// How long a freshly started backend is given to bind, and how often it is asked meanwhile.
@@ -99,7 +108,7 @@ internal static class ControlEndpoint
     {
         if (OperatingSystem.IsWindows())
         {
-            var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            var pipe = new NamedPipeClientStream(".", PipeName(), PipeDirection.InOut, PipeOptions.Asynchronous);
             try
             {
                 await pipe.ConnectAsync(cancellation).ConfigureAwait(false);
@@ -129,6 +138,8 @@ internal static class ControlEndpoint
         return new NetworkStream(socket, ownsSocket: true);
     }
 
+    private static string PipeName() => PipeStem + InstanceSuffix();
+
     private static string SocketPath()
     {
         var dir = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
@@ -137,7 +148,17 @@ internal static class ControlEndpoint
             dir = ConfigDir();
         }
 
-        return Path.Combine(dir, SocketDirName, SocketFileName);
+        return Path.Combine(dir, SocketDirName, SocketFileStem + InstanceSuffix() + SocketFileExtension);
+    }
+
+    /// <summary>
+    /// What <see cref="EnvInstance"/> appends to the pipe name and to the socket file name.
+    /// The value travels verbatim: a repair here would address a backend that bound what it was given.
+    /// </summary>
+    private static string InstanceSuffix()
+    {
+        var instance = Environment.GetEnvironmentVariable(EnvInstance);
+        return string.IsNullOrEmpty(instance) ? "" : "-" + instance;
     }
 
     /// <summary>What Go's <c>os.UserConfigDir</c> answers, per platform, so both sides name one file.</summary>

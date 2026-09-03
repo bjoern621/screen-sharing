@@ -20,9 +20,11 @@ import (
 // The contract version sits in the file name, as the Windows pipe carries it in its own:
 // a v2 is a second socket, so two backends on different majors run side by side,
 // and a shell opening the wrong one fails to connect rather than being turned away at Hello.
+// EnvInstance lands between the stem and the extension, on the same reasoning one major down.
 const (
 	socketDirName  = "screenshare"
-	socketFileName = "control-v1.sock"
+	socketFileStem = "control-v1"
+	socketFileExt  = ".sock"
 
 	socketDirMode  fs.FileMode = 0o700
 	socketFileMode fs.FileMode = 0o600
@@ -117,7 +119,7 @@ func socketPath() (string, error) {
 		dir = config
 	}
 
-	return filepath.Join(dir, socketDirName, socketFileName), nil
+	return filepath.Join(dir, socketDirName, socketFileStem+instanceSuffix()+socketFileExt), nil
 }
 
 // clearStale removes a socket a dead process left behind,

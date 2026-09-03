@@ -130,6 +130,17 @@ tasks:
   avalonia:
     desc: Run the Avalonia app (relay connection check)
     dir: avalonia
+    env:
+      # The endpoint `task dev` serves, kept off the one an installed build binds,
+      # so both run at once and each shell reaches its own backend
+      # (backend/internal/control/instance.go).
+      SCREENSHARE_INSTANCE: dev
+      # Starting a backend is `task dev`'s here.
+      # The shell looks beside itself and then on PATH, and a checkout puts a backend on neither,
+      # so a spawn picks up whichever binary an install left on PATH:
+      # the window then shows that build's version and `task dev` finds its endpoint taken.
+      # Off, a run without `task dev` reports the endpoint as unserved and names it.
+      SCREENSHARE_BACKEND_SPAWN: "0"
     # No toolchain variable: this project links nothing through cgo, so MSYS2 stays out,
     # and the .NET SDK is on PATH either way,
     # system-wide on Windows and from the flake's dev shell on Linux and macOS,
@@ -155,6 +166,8 @@ tasks:
     desc: Run the backend in the foreground
     dir: backend
     env:
+      # The endpoint `task avalonia` opens, kept off the one an installed build binds.
+      SCREENSHARE_INSTANCE: dev
       # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo.
       # Go turns CGO_ENABLED off by itself when it finds no C compiler,
       # so a build outside the toolchain's reach fails as "build constraints exclude all Go files"

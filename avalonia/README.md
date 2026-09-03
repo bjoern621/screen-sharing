@@ -10,18 +10,22 @@ One relay reading in the whole app, on `Backend/Session.cs`.
 ## Running it
 
 ```sh
+task dev               # the backend it talks to
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
 task avalonia:test     # the view-model suite, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
+`task all` runs the three together.
 
 The setup flow needs the Go backend, everything on it being resolved there.
-The app starts one when nothing is listening on the control endpoint, so `task avalonia` is the whole of what a reader runs.
-A backend already up is connected to rather than duplicated.
-One this app started is stopped when the window closes.
+An install starts one itself when nothing is listening on the control endpoint, connecting to a backend already up rather than duplicating it, and stopping only one it started.
 No backend binary to start: the app says so and offers to look again.
+
+A checkout runs the two halves apart instead, `task avalonia` setting `SCREENSHARE_BACKEND_SPAWN=0` and `SCREENSHARE_INSTANCE=dev` (`docs/ipc-api.md`, "The endpoint").
+Those give it the endpoint `task dev` serves and leave starting a backend there, so the window shows the build under development and an installed app keeps running beside it.
+Without `task dev`, the window reports the endpoint as unserved and names it.
 
 ### Which windowing backend runs
 

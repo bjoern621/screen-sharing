@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"net"
-	"os"
-	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
@@ -12,15 +10,6 @@ import (
 
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
-
-// The endpoint the backend serves, derived the way the backend places it.
-func socketPath() string {
-	dir := os.Getenv("XDG_RUNTIME_DIR")
-	if dir == "" {
-		dir, _ = os.UserConfigDir()
-	}
-	return filepath.Join(dir, "screenshare", "control-v1.sock")
-}
 
 func dial(sock string) (*grpc.ClientConn, v1.ControlServiceClient, error) {
 	conn, err := grpc.NewClient("passthrough:///"+sock,

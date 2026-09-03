@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+	"bjoernblessin.de/screenshare/internal/control"
 )
 
 // What one run holds: the connection, where findings go, and the process being watched.
@@ -54,7 +55,7 @@ func main() {
 	seed := flag.Int64("seed", time.Now().UnixNano(), "random seed, so a finding can be reproduced")
 	runFor := flag.Duration("for", 10*time.Minute, "how long to probe")
 	out := flag.String("out", "soak-findings.jsonl", "where findings are written")
-	sock := flag.String("socket", "", "control socket, empty for the one XDG_RUNTIME_DIR names")
+	sock := flag.String("socket", "", "control socket, empty for the one this environment names")
 	pid := flag.Int("backend-pid", 0, "the backend process to watch, 0 to find it by socket owner")
 	verbose := flag.Bool("v", false, "print every finding as it lands")
 	ramp := flag.String("ramp", "0,1,3,6,9", "test-stream counts the multi mode measures at")
@@ -65,8 +66,10 @@ func main() {
 	codec := flag.String("codec", "", "encoder a publish run holds, empty to let the walk move it")
 	flag.Parse()
 
+	// The backend's own answer, so a run against SCREENSHARE_INSTANCE reaches that backend
+	// and the address is derived in one place.
 	if *sock == "" {
-		*sock = socketPath()
+		*sock = control.Endpoint()
 	}
 
 	rng := rand.New(rand.NewSource(*seed))
