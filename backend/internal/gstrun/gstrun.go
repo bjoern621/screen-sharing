@@ -132,14 +132,13 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 	// carries out of it.
 	var delay *pipedelay.Probe
 	var shed *shedCount
-	window := &linkWindow{}
 	if options.Delay != "" {
 		delay = watchDelay(pipeline, options.Delay)
 		// The same pad, so the stamp says "encoded now" at the moment the delay reading stops
 		// counting: the two stages of the path meet there rather than overlapping.
 		// It carries the same reading the report does, the only way it reaches a viewer of this
 		// stream on another machine.
-		stampFrames(pipeline, options.Delay, delay, window, pointerAt)
+		stampFrames(pipeline, options.Delay, delay, pointerAt)
 	}
 	if options.Shed != "" {
 		shed = watchShed(pipeline, options.Shed)
@@ -149,7 +148,7 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 		return fmt.Errorf("the pipeline refused to play")
 	}
 	if delay != nil {
-		go reportDelay(ctx, pipeline, delay, shed, window, out)
+		go reportDelay(ctx, delay, shed, out)
 	}
 	if pointerAt != nil {
 		go reportPointer(ctx, pointerAt, out)

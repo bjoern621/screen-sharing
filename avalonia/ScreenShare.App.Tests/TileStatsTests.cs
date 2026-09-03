@@ -74,17 +74,14 @@ public sealed class TileStatsTests
         AudioBytes = 27_000_000,
         AudioKbps = 96,
 
-        // Stamped stream over a leg stating its own window at both ends, so every stage of the path fills.
+        // Stamped stream, so every stage of the path fills.
         Delay = new DelayBudget
         {
             PublishMs = 8.4,
-            PublishLinkMs = 300,
-            WatchLinkMs = 120,
             PathMs = 440,
-            RelayMs = 20,
             ReceiveMs = 6.2,
             PresentMs = 13.8,
-            TotalMs = 448.4,
+            TotalMs = 468.4,
         },
     };
 
@@ -108,8 +105,8 @@ public sealed class TileStatsTests
 
     /// <summary>
     /// Delay block is the whole path in the order a frame crosses it.
-    /// The way between the two machines is timed as a whole and drawn nowhere:
-    /// the relay's row is derived from it and the total counts it, so a row of its own prints those ms a third time.
+    /// Every row is a stage any transport can fill, the way between the two machines being one measurement
+    /// rather than a leg's window that only SRT states.
     /// Decode's worst frame is the one row that is not a stage,
     /// and it sits under the mean it is read against rather than in a block of its own.
     /// </summary>
@@ -120,30 +117,29 @@ public sealed class TileStatsTests
 
         Assert.Equal(
             [
-                "Capture and encode", "Publisher to relay", "Through the relay", "Relay to here", "Decode",
+                "Capture and encode", "Publisher to here", "Decode",
                 "Decode, worst", "Held for play time", "At least, end to end",
             ],
             Section(panel, "Delay").Lines.Select(line => line.Label));
 
         Assert.Equal("8.4 ms", Value(panel, "Delay", "Capture and encode"));
-        Assert.Equal("300 ms", Value(panel, "Delay", "Publisher to relay"));
-        Assert.Equal("20 ms", Value(panel, "Delay", "Through the relay"));
-        Assert.Equal("448 ms", Value(panel, "Delay", "At least, end to end"));
+        Assert.Equal("440 ms", Value(panel, "Delay", "Publisher to here"));
+        Assert.Equal("468 ms", Value(panel, "Delay", "At least, end to end"));
     }
 
     /// <summary>
-    /// A stream carrying no clock of its own leaves the relay's share unmeasured,
-    /// that share being what the timing of the whole way here leaves over once the two windows come off it.
+    /// A stream carrying no clock of its own leaves the way between the two machines unmeasured,
+    /// that clock being the one thing crossing a relay that can time it.
     /// </summary>
     [Fact]
-    public void AnUnstampedStreamShowsNoRelayShare()
+    public void AnUnstampedStreamShowsNoPathReading()
     {
         var unstamped = Sample();
         unstamped.Delay = new DelayBudget { PublishMs = 8.4, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 28.4 };
 
         var panel = TileStats.Of(unstamped, Report());
 
-        Assert.Equal("…", Value(panel, "Delay", "Through the relay"));
+        Assert.Equal("…", Value(panel, "Delay", "Publisher to here"));
         Assert.Equal("28 ms", Value(panel, "Delay", "At least, end to end"));
     }
 
@@ -156,13 +152,13 @@ public sealed class TileStatsTests
     public void AStreamWithNoPublishingReadingShowsNoPublishingStages()
     {
         var unstamped = Sample();
-        unstamped.Delay = new DelayBudget { WatchLinkMs = 120, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 140 };
+        unstamped.Delay = new DelayBudget { ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 20 };
 
         var panel = TileStats.Of(unstamped, Report());
 
         Assert.Equal("…", Value(panel, "Delay", "Capture and encode"));
-        Assert.Equal("…", Value(panel, "Delay", "Publisher to relay"));
-        Assert.Equal("140 ms", Value(panel, "Delay", "At least, end to end"));
+        Assert.Equal("…", Value(panel, "Delay", "Publisher to here"));
+        Assert.Equal("20 ms", Value(panel, "Delay", "At least, end to end"));
     }
 
     /// <summary>

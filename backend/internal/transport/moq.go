@@ -8,17 +8,22 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// MoQ is Media over QUIC, a watch-only leg: the relay re-serves every ingested stream on it and
-// ingests nothing over it.
+// MoQ is Media over QUIC, a watch-only leg here because no reader in this app opens a MoQ track.
+// The relay ingests over it as readily as it serves it, on the publish page under the same path.
 // The browser is the one reader, on the page the relay serves, which subscribes over WebTransport
 // and decodes with WebCodecs.
 //
 // The other readers are missing an implementation rather than holding a narrow set.
 // libavformat has no MoQ demuxer, and GStreamer's QUIC elements carry raw streams and RTP over QUIC
 // rather than MoQ tracks, so neither a player nor a receive pipeline has anything to open it with.
+// The moqsrc and moqsink that exist outside this build speak moq-lite and hang,
+// carrying a catalog and a container of their own,
+// where this relay answers MOQT draft 19 with a WARP catalog and LOC packaging.
 //
 // Buys the format set, every bitstream this app encodes reaching a page where HLS drops VP8 and
 // WHEP drops HEVC and AV1.
+// A native leg would buy per-subscriber layer dropping beyond that,
+// stated under "Adaptive bitrate" in docs/plan.md.
 // Costs a listener no reverse proxy carries, exposed and certificated on its own (moqOrigin,
 // docs/network-architecture.md).
 type MoQ struct{}

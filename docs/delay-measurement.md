@@ -1,7 +1,7 @@
 # Measuring the delay
 
 Every stage between a screen and a window is measured, or named and left without a figure.
-Nothing is derived from a setting: a window a transport asked for is not what a packet took.
+Nothing is derived from a setting or from what a transport states: a delay a leg asked for is not what a packet took.
 
 Two measuring points do the work, one per pipeline, and a clock inside the picture joins them.
 
@@ -26,20 +26,23 @@ So no measurement maps a video surface, and the frames a capture or a decoder le
 | Row | Measured at | By |
 | --- | --- | --- |
 | Capture and encode | publish pipeline, encoded-frame counter | its own clock, less the frame's running time |
-| Publisher to relay | publish sink | the transport's stated window |
-| both of those, on another machine's stream | the pictures themselves | the publisher's own readings, stamped into each one |
-| Through the relay | derived | the timed way here, less both windows |
-| Relay to here | watch leg's elements | the transport's stated window |
+| that row, on another machine's stream | the pictures themselves | the publisher's own reading, stamped into each one |
+| Publisher to here | both measuring points | the clock in the picture, against this machine's |
 | Decode | receive pipeline, sink pad | its own clock, less the frame's running time |
 | Held for play time | derived | the latency query, less the decode |
 | At least, end to end | derived | the measured stages, added |
 
-The way between the two machines is timed as a whole and drawn on no row of its own.
-The relay's row is derived from it, and the total counts it in place of the two windows it covers, so a row of its own would repeat them.
-It crosses the contract as `path_ms` all the same, this side stating what it measured and the panel deciding what to draw.
+Every row is a stage any transport can fill.
+A leg's own delivery window is not one: SRT states a window and the other four transports state nothing, so a row for it would stand blank on most legs.
+What a leg holds a packet for is inside the way here, and inside the decode where that leg buffers in the pipeline.
 
-The total therefore stands above what the rows above it add up to, by whatever the windows did not account for.
-On a pair of legs stating no window at all, that gap is the whole way between the machines and the rows above carry none of it.
+The relay's own share is inside the way here as well, and on no row.
+A relay terminates one protocol and re-muxes per listener, so neither end can time what it spent:
+the relay API states no per-path delay, and no leg carries a relay timestamp to subtract.
+
+The total is the rows above it, added.
+Where the way here carries a figure the relay is counted inside it, and the sum is the whole journey.
+Where it does not, the sum is short by the whole way between the machines, which is why it is stated as a floor.
 
 The budget is assembled once, on this side.
 Which stage a figure belongs to and which figures may be added is a decision, so no shell makes it again.
@@ -58,12 +61,10 @@ The viewer reads it at the decoder's input.
 
 Two things ride there.
 The wall clock the picture left the encoder at, which the viewer subtracts.
-That reading spans both legs and the relay as one figure, over any transport.
-It is the only figure between the two machines that is measured rather than stated by a transport, so the relay's share and the total both come off it.
-The publishing pipeline's own running totals beside it.
-Those put capture and encode, and the window that leg settled on, in front of a viewer of somebody else's stream.
+That reading spans both legs and the relay as one figure, over any transport, and it is the only measurement of the way between the two machines.
+The publishing pipeline's own running total beside it, putting capture and encode in front of a viewer of somebody else's stream.
 
-Those totals cross as a sum and a count, so the viewer divides them over its own sampling interval exactly as it divides its own counters.
+That total crosses as a sum and a count, so the viewer divides it over its own sampling interval exactly as it divides its own counters.
 Where this machine is the publisher too it reads its own run instead.
 That is the same figure at full precision, and it is there for a codec that carries no stamp at all.
 
@@ -74,8 +75,8 @@ That costs the first frame of every stream and of every mid-stream join.
 Its identifying bytes hold no zero, so the emulation-prevention rule never rewrites them.
 A reader searches for them rather than parsing a bitstream it did not frame.
 
-The message costs sixty bytes a frame, and one more packet per frame on the legs that payload into RTP, the payloader giving each unit its own.
-Around thirty kilobits a second at 60 fps: a third of one percent of an eight megabit stream, and proportionally more of a thinner one.
+The message costs fifty-seven bytes a frame, and one more packet per frame on the legs that payload into RTP, the payloader giving each unit its own.
+Under thirty kilobits a second at 60 fps: a third of one percent of an eight megabit stream, and proportionally more of a thinner one.
 Being a fixed size on every picture, it scales with frame rate.
 
 ## What keeps the publishing reading bounded
@@ -107,16 +108,16 @@ The two engines' byte figures are not comparable: one counts the video elementar
 | Absent | Because |
 | --- | --- |
 | everything the message carries | a codec with no unit for it, a publisher that is not this app, or the ffmpeg engine, which exposes no point to write at |
-| the relay's own share | the timing of the way here missing, or either leg stating no window of its own |
 | capture and encode | a publish that measured none of its own stages, on a stream this machine does not publish either |
-| a leg's window | a transport that states none, its buffering falling under the decode instead |
+| the relay's own share | no reading is taken at the relay, so what it spent sits inside the way here |
 
-Each is still a row, drawn without its figure.
+The first two are still rows, drawn without their figures.
+The third is a stage of the path and a row nowhere, there being nothing to draw.
 A total presented as the whole journey would be wrong by exactly what is missing, so it is stated as a floor.
 
 Across two machines the subtraction is against two clocks and is worth what their synchronisation is worth.
 A stamp from ahead of the reader's clock is dropped rather than shown as a path of no length.
 A viewer of its own stream reads one clock and is exact.
 
-The publishing figures stand apart, being one pipeline's readings of itself, carried rather than subtracted.
-A pair of clocks too far apart to time the way here still leaves a viewer the stages ahead of it.
+The publishing figure stands apart, being one pipeline's reading of itself, carried rather than subtracted.
+A pair of clocks too far apart to time the way here still leaves a viewer the stage ahead of it.

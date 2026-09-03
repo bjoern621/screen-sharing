@@ -106,19 +106,12 @@ type PublishStats struct {
 	// What this leg costs a frame on its way out,
 	// which is the publishing half of the delay between a screen and a viewer's window.
 	//
-	// transit_ms is the mean wall clock one frame spent between the capture stamping it
+	// The mean wall clock one frame spent between the capture stamping it
 	// and the encoded stream leaving the pipeline, over the last interval:
 	// converting, encoding and parsing, measured rather than configured.
-	// link_ms is the delivery window this leg settled on with the relay,
-	// the delay every packet is held for so a lost one has room to arrive again,
-	// and rtt_ms the round trip that says whether the window has room for that.
 	//
-	// Absent where nothing measured them:
-	// an engine that runs no pipeline of this app's own reports none of the three,
-	// and a transport keeping no link counters reports the first alone.
+	// Absent on an engine running no pipeline of this app's own, which measures no stage of its own.
 	TransitMs     *float64 `protobuf:"fixed64,15,opt,name=transit_ms,json=transitMs,proto3,oneof" json:"transit_ms,omitempty"`
-	LinkMs        *float64 `protobuf:"fixed64,16,opt,name=link_ms,json=linkMs,proto3,oneof" json:"link_ms,omitempty"`
-	RttMs         *float64 `protobuf:"fixed64,17,opt,name=rtt_ms,json=rttMs,proto3,oneof" json:"rtt_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,20 +219,6 @@ func (x *PublishStats) GetAvgMbps() float64 {
 func (x *PublishStats) GetTransitMs() float64 {
 	if x != nil && x.TransitMs != nil {
 		return *x.TransitMs
-	}
-	return 0
-}
-
-func (x *PublishStats) GetLinkMs() float64 {
-	if x != nil && x.LinkMs != nil {
-		return *x.LinkMs
-	}
-	return 0
-}
-
-func (x *PublishStats) GetRttMs() float64 {
-	if x != nil && x.RttMs != nil {
-		return *x.RttMs
 	}
 	return 0
 }
@@ -1166,7 +1145,7 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreview\x12/\n" +
 	"\x11rate_ceiling_mbps\x18\x06 \x01(\x01H\x00R\x0frateCeilingMbps\x88\x01\x01B\x14\n" +
 	"\x12_rate_ceiling_mbpsR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
-	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf5\x04\n" +
+	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xc1\x04\n" +
 	"\fPublishStats\x12\x1f\n" +
 	"\vframe_count\x18\f \x01(\x03R\n" +
 	"frameCount\x12\x15\n" +
@@ -1182,9 +1161,7 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\bavg_mbps\x18\n" +
 	" \x01(\x01H\x06R\aavgMbps\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"transit_ms\x18\x0f \x01(\x01H\aR\ttransitMs\x88\x01\x01\x12\x1c\n" +
-	"\alink_ms\x18\x10 \x01(\x01H\bR\x06linkMs\x88\x01\x01\x12\x1a\n" +
-	"\x06rtt_ms\x18\x11 \x01(\x01H\tR\x05rttMs\x88\x01\x01B\x06\n" +
+	"transit_ms\x18\x0f \x01(\x01H\aR\ttransitMs\x88\x01\x01B\x06\n" +
 	"\x04_fpsB\x0e\n" +
 	"\f_capture_fpsB\v\n" +
 	"\t_size_kibB\v\n" +
@@ -1193,11 +1170,8 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"_inst_mbpsB\v\n" +
 	"\t_avg_mbpsB\r\n" +
-	"\v_transit_msB\n" +
-	"\n" +
-	"\b_link_msB\t\n" +
-	"\a_rtt_msJ\x04\b\x01\x10\x02J\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\x05frameR\n" +
-	"duplicatedR\adroppedR\amissing\"\xb9\x04\n" +
+	"\v_transit_msJ\x04\b\x01\x10\x02J\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fJ\x04\b\x10\x10\x11J\x04\b\x11\x10\x12R\x05frameR\n" +
+	"duplicatedR\adroppedR\amissingR\alink_msR\x06rtt_ms\"\xb9\x04\n" +
 	"\vRelayReader\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1c\n" +

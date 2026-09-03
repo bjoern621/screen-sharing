@@ -146,25 +146,21 @@ message PublishStats {
   // What this leg costs a frame on its way out,
   // which is the publishing half of the delay between a screen and a viewer's window.
   //
-  // transit_ms is the mean wall clock one frame spent between the capture stamping it
+  // The mean wall clock one frame spent between the capture stamping it
   // and the encoded stream leaving the pipeline, over the last interval:
   // converting, encoding and parsing, measured rather than configured.
-  // link_ms is the delivery window this leg settled on with the relay,
-  // the delay every packet is held for so a lost one has room to arrive again,
-  // and rtt_ms the round trip that says whether the window has room for that.
   //
-  // Absent where nothing measured them:
-  // an engine that runs no pipeline of this app's own reports none of the three,
-  // and a transport keeping no link counters reports the first alone.
+  // Absent on an engine running no pipeline of this app's own, which measures no stage of its own.
   optional double transit_ms = 15;
-  optional double link_ms = 16;
-  optional double rtt_ms = 17;
 
   // 11 was "missing", a hand-written list of the field names that carried no measurement,
   // which proto3 presence states with the spelling guaranteed.
   // 1, 7 and 8 were frame, duplicated and dropped, renamed above to say what they count.
-  reserved 1, 7, 8, 11;
-  reserved "frame", "duplicated", "dropped", "missing";
+  // 16 and 17 were link_ms and rtt_ms, the window this leg settled on with the relay
+  // and the round trip saying whether it had room for a retransmission.
+  // SRT alone states either, so both were blank on every other leg.
+  reserved 1, 7, 8, 11, 16, 17;
+  reserved "frame", "duplicated", "dropped", "missing", "link_ms", "rtt_ms";
 }
 
 // RelayReader is one connection the relay is serving a path to.

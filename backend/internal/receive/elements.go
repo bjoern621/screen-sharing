@@ -61,16 +61,14 @@ type decodeTrack struct {
 	path       atomic.Uint64 // ns
 	pathFrames atomic.Uint64
 
-	// The publishing pipeline's own running totals, as the newest stamp carried them,
-	// and the window that leg settled on.
+	// The publishing pipeline's own running totals, as the newest stamp carried them.
 	//
 	// The newest reading rather than a sum: they are already cumulative where they were measured,
 	// so what a viewer needs is the latest pair and its own two samples to divide between.
-	// All three stay at zero on a stream nobody stamped,
-	// and the first two on a publish that measured none of its own stages.
+	// Both stay at zero on a stream nobody stamped,
+	// and on a publish that measured none of its own stages.
 	publishMs     atomic.Uint64
 	publishFrames atomic.Uint64
-	publishLinkMs atomic.Uint64
 
 	// What the newest stamp said about the publisher's pointer, and when that frame was stamped
 	// (pointer.go).
@@ -111,7 +109,6 @@ func (t *decodeTrack) takeStamp(buf *gst.Buffer) {
 
 	t.publishMs.Store(uint64(s.PublishMs))
 	t.publishFrames.Store(uint64(s.PublishFrames))
-	t.publishLinkMs.Store(uint64(s.LinkMs))
 	// Kept whatever the clocks say: where the pointer is on this picture is the publisher's own
 	// reading, and it holds however far apart the two machines' clocks are.
 	t.holdPointer(s)

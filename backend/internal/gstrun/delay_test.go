@@ -26,10 +26,10 @@ func delayLine(output string) (Delay, bool) {
 // The parser reads back what the writer wrote, presence included.
 // The two live in one file so they stay one spelling, and this is what says they are.
 func TestADelayLineRoundTripsThroughItsParser(t *testing.T) {
-	window, rtt := 300.0, 8.5
+	dropped := uint64(7)
 	var out bytes.Buffer
 
-	writeDelay(&out, Delay{TransitNs: 12_000_000, Frames: 60, LinkMs: &window, RttMs: &rtt})
+	writeDelay(&out, Delay{TransitNs: 12_000_000, Frames: 60, Dropped: &dropped})
 
 	got, ok := delayLine(out.String())
 	if !ok {
@@ -38,18 +38,15 @@ func TestADelayLineRoundTripsThroughItsParser(t *testing.T) {
 	if got.TransitNs != 12_000_000 || got.Frames != 60 {
 		t.Errorf("read back %d ns over %d frames, want 12000000 over 60", got.TransitNs, got.Frames)
 	}
-	if got.LinkMs == nil || *got.LinkMs != window {
-		t.Errorf("read back a window of %v, want %v", got.LinkMs, window)
-	}
-	if got.RttMs == nil || *got.RttMs != rtt {
-		t.Errorf("read back a round trip of %v, want %v", got.RttMs, rtt)
+	if got.Dropped == nil || *got.Dropped != dropped {
+		t.Errorf("read back %v dropped, want %v", got.Dropped, dropped)
 	}
 }
 
-// A leg that keeps no link counters reports the transit alone, and the two link figures come back
-// absent rather than as zeros.
-// Zero is a link with no delay and no distance, which no leg has.
-func TestADelayLineWithoutALinkCarriesNoWindow(t *testing.T) {
+// A pipeline carrying no shed reports the transit alone, and the drop count comes back absent
+// rather than as a zero.
+// Zero is a shed that threw nothing away, which is a different reading from one that never counted.
+func TestADelayLineWithoutAShedCarriesNoDropCount(t *testing.T) {
 	var out bytes.Buffer
 
 	writeDelay(&out, Delay{TransitNs: 5_000_000, Frames: 10})
@@ -58,8 +55,8 @@ func TestADelayLineWithoutALinkCarriesNoWindow(t *testing.T) {
 	if !ok {
 		t.Fatalf("no delay line on the output: %q", out.String())
 	}
-	if got.LinkMs != nil || got.RttMs != nil {
-		t.Errorf("a leg keeping no counters reported %v and %v, want both absent", got.LinkMs, got.RttMs)
+	if got.Dropped != nil {
+		t.Errorf("a pipeline counting no shed reported %v dropped, want it absent", got.Dropped)
 	}
 }
 

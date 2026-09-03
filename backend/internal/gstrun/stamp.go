@@ -26,25 +26,6 @@ import (
 // Nothing here fails a run: an unstamped stream plays, and a viewer of one reports the path
 // as unmeasured (internal/framestamp).
 
-// linkWindow is the delivery window the publish leg settled on, as the stamp carries it.
-//
-// Held rather than read per frame: the sink answers once a second and the reporting tick is already
-// asking it, so a second reader would be a property read per frame for a figure that changes
-// at most once between ticks.
-// Zero until the first tick, and zero for a leg stating no window, which a reader takes as unstated
-// either way.
-type linkWindow struct{ ms atomic.Uint32 }
-
-func (w *linkWindow) take(ms *float64) {
-	if ms == nil || *ms < 0 || *ms > math.MaxUint16 {
-		w.ms.Store(0)
-		return
-	}
-	w.ms.Store(uint32(*ms))
-}
-
-func (w *linkWindow) read() uint16 { return uint16(w.ms.Load()) }
-
 // stampFrames writes the publishing machine's reading into each frame leaving the named element:
 // the wall clock, and what this pipeline has measured of its own share of the path.
 //
@@ -60,9 +41,8 @@ func (w *linkWindow) read() uint16 { return uint16(w.ms.Load()) }
 // and again whenever the stream renegotiates, so the frames themselves cost a pointer read: caps
 // taken per frame would be one wrapped object per frame for a collection to find, the cost
 // internal/padprobe exists to keep off this path.
-func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, window *linkWindow, at *pointerHold) {
+func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, at *pointerHold) {
 	assert.Assert(element != "", "a stamp names the element it is written at")
-	assert.IsNotNil(window, "a stamp reads the leg's window from somewhere")
 
 	el := pipeline.GetByName(element)
 	if el == nil {
@@ -98,7 +78,7 @@ func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, 
 		if buffer == nil {
 			return gst.PadProbeOK
 		}
-		unit, carried := framestamp.Unit(*c, stampOf(probe, window, at))
+		unit, carried := framestamp.Unit(*c, stampOf(probe, at))
 		if !carried {
 			return gst.PadProbeOK
 		}
@@ -117,8 +97,8 @@ func stampFrames(pipeline gst.Pipeline, element string, probe *pipedelay.Probe, 
 //
 // The position is read here rather than held from the frame's capture: a repeated picture carries
 // where the pointer is now, and the pointer moves over a screen that has stopped changing.
-func stampOf(probe *pipedelay.Probe, window *linkWindow, at *pointerHold) framestamp.Stamp {
-	s := framestamp.Stamp{At: time.Now(), LinkMs: window.read()}
+func stampOf(probe *pipedelay.Probe, at *pointerHold) framestamp.Stamp {
+	s := framestamp.Stamp{At: time.Now()}
 	s.Pointer, s.PointerX, s.PointerY = stampPointer(at)
 	reading := probe.Read()
 	if reading.Frames == 0 {

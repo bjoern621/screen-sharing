@@ -17,7 +17,6 @@ func TestUnitReadsBack(t *testing.T) {
 		At:            time.Unix(1_700_000_000, 123_456_789),
 		PublishMs:     4_294_967_295,
 		PublishFrames: 123_456,
-		LinkMs:        65_535,
 		Pointer:       PointerHere,
 		PointerX:      PointerWhole,
 		PointerY:      1,
@@ -43,9 +42,6 @@ func TestUnitReadsBack(t *testing.T) {
 		if got.PublishMs != want.PublishMs || got.PublishFrames != want.PublishFrames {
 			t.Errorf("%s/%s: read %d ms over %d frames, want %d over %d",
 				c.Media, c.Format, got.PublishMs, got.PublishFrames, want.PublishMs, want.PublishFrames)
-		}
-		if got.LinkMs != want.LinkMs {
-			t.Errorf("%s/%s: read a window of %d ms, want %d", c.Media, c.Format, got.LinkMs, want.LinkMs)
 		}
 		if got.Pointer != want.Pointer || got.PointerX != want.PointerX || got.PointerY != want.PointerY {
 			t.Errorf("%s/%s: read pointer %d at %d,%d, want %d at %d,%d",
@@ -88,7 +84,7 @@ func TestUnitOfAPointerOffTheCapturedSurface(t *testing.T) {
 // Carried as a sum and a count, so the viewer divides over its own interval rather than taking
 // a rate somebody else averaged.
 func TestUnitCarriesThePublishingSidesReading(t *testing.T) {
-	unit, ok := Unit(h264("byte-stream"), Stamp{At: time.Now(), PublishMs: 800, PublishFrames: 100, LinkMs: 300})
+	unit, ok := Unit(h264("byte-stream"), Stamp{At: time.Now(), PublishMs: 800, PublishFrames: 100})
 	if !ok {
 		t.Fatal("h264 carries no stamp")
 	}
@@ -99,9 +95,6 @@ func TestUnitCarriesThePublishingSidesReading(t *testing.T) {
 	}
 	if got.PublishMs != 800 || got.PublishFrames != 100 {
 		t.Errorf("read %d ms over %d frames, want 800 over 100", got.PublishMs, got.PublishFrames)
-	}
-	if got.LinkMs != 300 {
-		t.Errorf("read a window of %d ms, want 300", got.LinkMs)
 	}
 }
 
@@ -114,9 +107,8 @@ func TestUnitWithNothingMeasuredOnThePublishingSide(t *testing.T) {
 	}
 
 	got, _ := Read(unit)
-	if got.PublishFrames != 0 || got.PublishMs != 0 || got.LinkMs != 0 {
-		t.Errorf("read %d ms over %d frames and a window of %d, want all absent",
-			got.PublishMs, got.PublishFrames, got.LinkMs)
+	if got.PublishFrames != 0 || got.PublishMs != 0 {
+		t.Errorf("read %d ms over %d frames, want both absent", got.PublishMs, got.PublishFrames)
 	}
 }
 

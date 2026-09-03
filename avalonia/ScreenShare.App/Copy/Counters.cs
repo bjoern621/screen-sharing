@@ -183,15 +183,9 @@ public static class Counters
         ["delay.publish"] = new(
             "Capture and encode",
             "How long the publisher held a frame between reading the screen and having it encoded. A faster effort step or a shorter lookahead shortens this stage."),
-        ["delay.publish_link"] = new(
-            "Publisher to relay",
-            "The delivery window the publisher's leg agreed with the relay. Paid on every frame whether anything is lost, so it is the largest healthy stage."),
-        ["delay.relay"] = new(
-            "Through the relay",
-            "What the relay spends repackaging the stream for this viewer. Computed from the publisher's timestamp, minus the two delivery windows around it."),
-        ["delay.watch_link"] = new(
-            "Relay to here",
-            "The same delivery window on this leg, held before a packet reaches the decode. Only SRT states one."),
+        ["delay.path"] = new(
+            "Publisher to here",
+            "The whole way between the publishing machine and this one, relay included. Read from a clock in each frame, so H.264 and H.265 carry it and other formats do not."),
         ["delay.receive"] = new(
             "Decode",
             "Time from packet arrival to a frame ready to draw. Rising to meet the latency window means the decode is about to drop frames."),

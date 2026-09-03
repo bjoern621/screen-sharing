@@ -66,7 +66,7 @@ func TestParseProgressSamples(t *testing.T) {
 		TimeSec: 1,
 		Speed:   1,
 		AvgMbps: 2,
-		Missing: Missing{Fps: true, CaptureFps: true, InstMbps: true, TransitMs: true, LinkMs: true, RttMs: true},
+		Missing: Missing{Fps: true, CaptureFps: true, InstMbps: true, TransitMs: true},
 	}
 	if first != wantFirst {
 		t.Errorf("first sample = %+v, want %+v", first, wantFirst)
@@ -81,7 +81,7 @@ func TestParseProgressSamples(t *testing.T) {
 		Drop:     2,
 		InstMbps: 4,
 		AvgMbps:  2,
-		Missing:  Missing{CaptureFps: true, TransitMs: true, LinkMs: true, RttMs: true},
+		Missing:  Missing{CaptureFps: true, TransitMs: true},
 	}
 	if second != wantSecond {
 		t.Errorf("second sample = %+v, want %+v", second, wantSecond)
@@ -147,7 +147,7 @@ func TestParseProgressUnmeasuredFields(t *testing.T) {
 
 	want := Missing{
 		Fps: true, CaptureFps: true, SizeKiB: true, TimeSec: true, Speed: true, InstMbps: true,
-		AvgMbps: true, TransitMs: true, LinkMs: true, RttMs: true,
+		AvgMbps: true, TransitMs: true,
 	}
 	if got[0].Missing != want {
 		t.Errorf("first sample missing set = %+v, want %+v", got[0].Missing, want)
@@ -168,7 +168,7 @@ func TestStatsMarshalJSONMissingIsNull(t *testing.T) {
 		Frame:   12,
 		Speed:   0,
 		AvgMbps: 3,
-		Missing: Missing{Fps: true, CaptureFps: true, InstMbps: true, TransitMs: true, LinkMs: true, RttMs: true},
+		Missing: Missing{Fps: true, CaptureFps: true, InstMbps: true, TransitMs: true},
 	})
 	if err != nil {
 		t.Fatal(err)

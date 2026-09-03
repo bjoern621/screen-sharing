@@ -262,10 +262,6 @@ public static class TileStats
     /// and sees the publishing machine's own work only where it is that machine too
     /// (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
     ///
-    /// One stage the budget carries is drawn nowhere, the way between the two machines timed as a whole.
-    /// The relay's row derives from it and the total counts it in place of the legs it covers, so a row of its own
-    /// would print the same milliseconds a third time.
-    ///
     /// One row is not a stage: the decode's worst single frame sits directly under the decode's mean,
     /// read against it and against the sink's deadline rather than from memory two blocks away.
     /// </summary>
@@ -279,9 +275,7 @@ public static class TileStats
         return
         [
             Line("delay.publish", Ms(d.HasPublishMs, d.PublishMs)),
-            Line("delay.publish_link", Ms(d.HasPublishLinkMs, d.PublishLinkMs)),
-            Line("delay.relay", Ms(d.HasRelayMs, d.RelayMs)),
-            Line("delay.watch_link", Ms(d.HasWatchLinkMs, d.WatchLinkMs)),
+            Line("delay.path", Ms(d.HasPathMs, d.PathMs)),
             Line("delay.receive", Ms(d.HasReceiveMs, d.ReceiveMs)),
             Line("delay.receive_peak", Ms(d.HasReceivePeakMs, d.ReceivePeakMs)),
             Line("delay.present", Ms(d.HasPresentMs, d.PresentMs)),

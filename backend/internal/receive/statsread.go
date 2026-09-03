@@ -37,7 +37,6 @@ func (r *Receiver) Stats() Stats {
 	s.Path, s.PathFrames = time.Duration(r.video.path.Load()), r.video.pathFrames.Load()
 	s.PublishTotal = time.Duration(r.video.publishMs.Load()) * time.Millisecond
 	s.PublishFrames = r.video.publishFrames.Load()
-	s.PublishLink = time.Duration(r.video.publishLinkMs.Load()) * time.Millisecond
 
 	// r.mu guards the fields onElement writes and nothing else here,
 	// so the handles are copied under it and the pipeline is queried outside it.

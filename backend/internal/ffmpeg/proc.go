@@ -49,20 +49,12 @@ type Stats struct {
 	// A pipeline built with no rate probe marks it missing rather than reporting a zero rate.
 	CaptureFps float64
 
-	// What the publish leg costs a frame, and the stages a machine sending a stream can measure.
-	//
 	// TransitMs is the mean wall clock one frame spent between the capture stamping it and the encoded
 	// stream leaving the pipeline, over the last interval: converting, encoding and parsing.
-	// LinkMs is the delivery window the leg settled on with the relay,
-	// the delay every packet is held for so a lost one has room to arrive again,
-	// and RttMs the round trip that says whether the window has room for that.
 	//
-	// All three are an engine's to measure or to mark missing.
-	// Only a pipeline this app runs itself can answer them, so the ffmpeg engine marks all three,
-	// and a leg whose transport keeps no link counters marks the last two.
+	// An engine's to measure or to mark missing.
+	// Only a pipeline this app runs itself can answer it, so the ffmpeg engine marks it.
 	TransitMs float64
-	LinkMs    float64
-	RttMs     float64
 
 	Missing Missing
 }
@@ -81,8 +73,6 @@ type Missing struct {
 	InstMbps   bool
 	AvgMbps    bool
 	TransitMs  bool
-	LinkMs     bool
-	RttMs      bool
 }
 
 // MarshalJSON writes every figure Missing marks as null,
@@ -107,8 +97,6 @@ func (s Stats) MarshalJSON() ([]byte, error) {
 		InstMbps   *float64 `json:"instMbps"`
 		AvgMbps    *float64 `json:"avgMbps"`
 		TransitMs  *float64 `json:"transitMs"`
-		LinkMs     *float64 `json:"linkMs"`
-		RttMs      *float64 `json:"rttMs"`
 	}{
 		Frame:      s.Frame,
 		Fps:        measured(s.Fps, s.Missing.Fps),
@@ -121,8 +109,6 @@ func (s Stats) MarshalJSON() ([]byte, error) {
 		InstMbps:   measured(s.InstMbps, s.Missing.InstMbps),
 		AvgMbps:    measured(s.AvgMbps, s.Missing.AvgMbps),
 		TransitMs:  measured(s.TransitMs, s.Missing.TransitMs),
-		LinkMs:     measured(s.LinkMs, s.Missing.LinkMs),
-		RttMs:      measured(s.RttMs, s.Missing.RttMs),
 	})
 }
 

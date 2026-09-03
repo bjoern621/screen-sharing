@@ -8,18 +8,6 @@ import (
 	"bjoernblessin.de/screenshare/internal/receive"
 )
 
-// srtGroups is a watch leg that states the window its transport holds a packet for.
-func srtGroups(windowMs float64) []receive.StatGroup {
-	return []receive.StatGroup{{
-		Factory: "srtsrc",
-		Element: "srtsrc0",
-		Values: []receive.StatValue{
-			{Key: "rtt-ms", Value: 9},
-			{Key: "negotiated-latency-ms", Value: windowMs},
-		},
-	}}
-}
-
 func ms(v float64) *float64 { return &v }
 
 // closeTo reports whether an optional figure carries want, to the tenth of a millisecond.
@@ -115,22 +103,6 @@ func TestReceiveDelayPresentNeedsAWindow(t *testing.T) {
 	}
 }
 
-// The window a leg's own transport holds a packet for comes off that leg's counters,
-// and a leg whose elements state none leaves it absent.
-func TestReceiveDelayWatchLinkComesOffTheLeg(t *testing.T) {
-	withSrt := receive.Stats{Groups: srtGroups(120)}
-	closeTo(t, "watch link", receiveDelayOf(withSrt, receive.Stats{}, false, publishDelay{}).WatchLink, ms(120))
-
-	jitter := receive.Stats{Groups: []receive.StatGroup{{
-		Factory: "rtpjitterbuffer",
-		Element: "rtpjitterbuffer0",
-		Values:  []receive.StatValue{{Key: "num-pushed", Value: 900}},
-	}}}
-	if budget := receiveDelayOf(jitter, receive.Stats{}, false, publishDelay{}); budget.WatchLink != nil {
-		t.Errorf("a leg stating no window reports %v ms, want it absent", *budget.WatchLink)
-	}
-}
-
 // What the way from the publishing machine cost is a mean over the interval between two readings,
 // like every other measured stage.
 func TestReceiveDelayPathIsPerInterval(t *testing.T) {
@@ -156,99 +128,56 @@ func TestReceiveDelayPathNeedsStampedFrames(t *testing.T) {
 	}
 }
 
-// The relay's own share is what the way here cost less the two legs' own windows,
-// a figure exactly where both legs state one.
-func TestReceiveDelayRelayIsWhatTheLegsDoNotAccountFor(t *testing.T) {
-	now := receive.Stats{Path: 200 * time.Millisecond, PathFrames: 1, Groups: srtGroups(120)}
-
-	budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{Link: ms(60)})
-
-	// 200 across, of which 60 out and 120 back are the legs' own.
-	closeTo(t, "relay", budget.Relay, ms(20))
-}
-
-// A leg that states no window leaves the relay's share inside the measured whole,
-// rather than derived from a figure that is not there.
-func TestReceiveDelayRelayNeedsBothWindows(t *testing.T) {
-	now := receive.Stats{Path: 200 * time.Millisecond, PathFrames: 1}
-
-	if budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{}); budget.Relay != nil {
-		t.Errorf("a path with no stated windows derives a relay share of %v ms, want it absent", *budget.Relay)
-	}
-}
-
-// Two windows summing past what the way here cost describe no relay at all:
-// the measurement is the one thing that was measured,
-// so the derivation is dropped rather than reported as negative.
-func TestReceiveDelayRelayIsNeverNegative(t *testing.T) {
-	now := receive.Stats{Path: 50 * time.Millisecond, PathFrames: 1, Groups: srtGroups(120)}
-
-	if budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{Link: ms(60)}); budget.Relay != nil {
-		t.Errorf("windows past the measured path derive a relay share of %v ms, want it absent", *budget.Relay)
-	}
-}
-
-// A measured way here stands for the three stages it spans,
-// so the total counts it once instead of adding the legs' windows on top of it.
-func TestReceiveDelayTotalCountsTheMeasuredPathOnce(t *testing.T) {
+// The way between the two machines is one measured stage of the total, counted like the rest.
+func TestReceiveDelayTotalCountsTheMeasuredPath(t *testing.T) {
 	last := receive.Stats{}
 	now := receive.Stats{
 		Transit: 200 * time.Millisecond, TransitFrames: 10,
 		Path: 400 * time.Millisecond, PathFrames: 10,
 		LatencyMin: 60 * time.Millisecond,
-		Groups:     srtGroups(120),
 	}
 
-	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8), Link: ms(300)})
+	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8)})
 
-	// 8 encoding, 40 across, 20 decoding, 40 waiting at the sink, and neither window on top.
+	// 8 encoding, 40 across, 20 decoding, 40 waiting at the sink.
 	closeTo(t, "total", budget.Total, ms(108))
 }
 
 // The total is the stages that were measured, added up, and no stage is invented to fill a gap.
-// So a floor: the relay's own share is in the path and in no measurement.
+// So a floor: a stream carrying no stamp leaves the whole way between the machines unmeasured.
 func TestReceiveDelayTotalAddsTheMeasuredStages(t *testing.T) {
 	last := receive.Stats{}
 	now := receive.Stats{
 		Transit: 200 * time.Millisecond, TransitFrames: 10,
 		LatencyMin: 60 * time.Millisecond,
-		Groups:     srtGroups(120),
 	}
 
-	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8), Link: ms(300)})
+	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8)})
 
-	// 8 publish, 300 out, 120 back, 20 decode, 40 waiting at the sink.
-	closeTo(t, "total", budget.Total, ms(488))
+	// 8 publish, 20 decode, 40 waiting at the sink, and nothing for the way here.
+	closeTo(t, "total", budget.Total, ms(68))
 }
 
-// A decode of another machine's stream reads its stages off the stamp its frames carry,
-// the only way they cross a relay.
+// A decode of another machine's stream reads its publishing stage off the stamp its frames carry,
+// the only way it crosses a relay.
 func TestReceiveDelayPublishingStagesComeOffTheStamp(t *testing.T) {
 	last := receive.Stats{PublishTotal: 100 * time.Millisecond, PublishFrames: 10}
-	now := receive.Stats{
-		PublishTotal: 340 * time.Millisecond, PublishFrames: 40,
-		PublishLink: 300 * time.Millisecond,
-	}
+	now := receive.Stats{PublishTotal: 340 * time.Millisecond, PublishFrames: 40}
 
 	budget := receiveDelayOf(now, last, true, publishDelay{})
 
 	// 240 ms across 30 frames, where the run holds 340 across 40.
 	closeTo(t, "publish", budget.Publish, ms(8))
-	closeTo(t, "publish link", budget.PublishLink, ms(300))
 }
 
 // This machine's own reading of its own publish wins over the one that went round the relay:
 // the same measurement at full precision, and there for every codec, stamped or not.
 func TestReceiveDelayPrefersTheLocalPublishReading(t *testing.T) {
-	now := receive.Stats{
-		PublishTotal: 900 * time.Millisecond, PublishFrames: 10,
-		PublishLink: 900 * time.Millisecond,
-	}
+	now := receive.Stats{PublishTotal: 900 * time.Millisecond, PublishFrames: 10}
 
-	budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{Transit: ms(8), Link: ms(300)})
+	budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{Transit: ms(8)})
 
 	closeTo(t, "publish", budget.Publish, ms(8))
-	closeTo(t, "publish link", budget.PublishLink, ms(300))
 }
 
 // A stream carrying no stamp, published by another machine, states no publishing stage at all
@@ -257,24 +186,14 @@ func TestReceiveDelayWithoutAnyPublishingReading(t *testing.T) {
 	now := receive.Stats{
 		Transit: 200 * time.Millisecond, TransitFrames: 10,
 		LatencyMin: 60 * time.Millisecond,
-		Groups:     srtGroups(120),
 	}
 
 	budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{})
 
-	if budget.Publish != nil || budget.PublishLink != nil {
-		t.Error("an unstamped stream from another machine carries publishing stages, want them absent")
+	if budget.Publish != nil {
+		t.Error("an unstamped stream from another machine carries a publishing stage, want it absent")
 	}
-	closeTo(t, "total", budget.Total, ms(180))
-}
-
-// A leg stating no window carries a zero one, no window rather than a window of nothing.
-func TestReceiveDelayStampedLinkOfZero(t *testing.T) {
-	now := receive.Stats{PublishTotal: 80 * time.Millisecond, PublishFrames: 10}
-
-	if budget := receiveDelayOf(now, receive.Stats{}, true, publishDelay{}); budget.PublishLink != nil {
-		t.Errorf("a stamped leg stating no window reports %v ms, want it absent", *budget.PublishLink)
-	}
+	closeTo(t, "total", budget.Total, ms(60))
 }
 
 // A decode nothing has measured reports no total, rather than a total of nothing.

@@ -20,6 +20,17 @@ The audio list comes before HDR because it changes the shape of a settings field
 All three are built.
 What the group section still lists as open is the index snapshot's missing columns.
 
+## MoQ is assumed
+
+A native MoQ leg is unscheduled and assumed, so a decision that would have to be unmade for it is made the other way now.
+The relay serves the leg both ways and the app reaches it through the browser page alone, so what stands between is one MOQT client.
+
+- **Carriage.** MoQ carries every format this app encodes, on both legs, so a rule narrowing to what SRT or WHEP carries stops holding when the leg lands.
+- **Per-reader behaviour.** MoQ drops per subscriber where the re-serving legs treat every reader alike, so a design resting on one stream reaching every viewer rests on the legs built so far.
+- **Shape.** A protocol is one file and no caller changes, so the client lands as that file beside a GStreamer plugin.
+
+Nothing is built ahead of the client.
+
 ## Effort and tune
 
 Built: every ladder a codec's encoder has, both controls, both builders, on both engines.
@@ -326,15 +337,31 @@ The index lists a group's paths, so a rung is discoverable with no contract of i
 It stays opt-in, being a second encode and a second upload spent so a viewer who cannot keep up has something.
 Nothing switches on the viewer's behalf, which is what separates a rung from adaptation.
 
-**Per-viewer layers, which this design does not reach.**
-Dropping layers per subscriber takes a server that understands the media, and every such server is WebRTC alone.
-Adopting one costs SRT, RTSP, RTMP, HLS and MoQ, which is the carriage model itself.
-Temporal SVC stands in for none of it, nothing on the way out dropping the layers.
+**Per-subscriber layers, which MoQ reaches.**
+Dropping layers takes a server that decides per reader, and adopting a WebRTC SFU costs SRT, RTSP, RTMP and HLS, which is the carriage model itself.
+A MOQT relay does that job off the metadata alone: a publisher gives each layer its own priority, a subscriber names its own in the subscribe, and a reader that falls behind loses the lowest-priority objects on its own connection while the others keep them.
+The re-serving legs cannot have it, one byte stream reaching every reader they serve, so a slow one keeps up or is dropped whole.
+
+**The temporal rung costs one encode.**
+HEVC states a temporal id in every NAL header and AV1 in every OBU extension header, so the layer is read off the bitstream, and the encoder is asked for a hierarchical GOP and nothing further.
+Dropping the top sub-layer halves that viewer's frame rate and leaves the picture decodable, an extraction both formats define.
+H.264 states the id in an SVC prefix NAL and VP8 and VP9 in an RTP descriptor, so those three carry it outside the bitstream.
+
+**The spatial rung is the same mechanism at the price of the second encode.**
+It is a track under one catalog where the sibling-path rung above is a path of its own, so the relay drops it per subscriber and the viewer chooses nothing.
+
+The order is the cost order: the publish-leg controller, then temporal layers, then spatial rungs.
+Both MoQ tiers wait on a native leg.
 
 ## Assumptions to verify
 
 Each one names the reading that would settle it.
 
+- The relay's MoQ listener drops by priority when a reader falls behind.
+  MOQT states the scheduling and leaves a relay free to forward everything and let the connection back up instead.
+  Per-subscriber layers rest on it, and the reading takes a congested reader against a live relay.
+- The encoders here produce a hierarchical GOP under the tunings a screen share uses.
+  Those tunings drop B frames, so the shape needed is hierarchical P, and which vendors expose it is unread.
 - `ddagrab` exposes `draw_mouse`.
   It is a D3D11 filter, so a Linux ffmpeg does not carry it and the reading takes a Windows build.
 - Wayland compositors report a usable transfer characteristic through the portal's PipeWire caps.

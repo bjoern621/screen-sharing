@@ -122,11 +122,9 @@ func (p *progressParser) sample(block map[string]string) {
 			Speed:      !haveSpeed,
 			InstMbps:   !haveInst,
 			AvgMbps:    !haveAvg,
-			// ffmpeg reports nothing about how long it held a frame or what its output link settled on,
+			// ffmpeg reports nothing about how long it held a frame,
 			// and this side runs no pipeline of its own to read it off.
 			TransitMs: true,
-			LinkMs:    true,
-			RttMs:     true,
 		},
 	})
 }

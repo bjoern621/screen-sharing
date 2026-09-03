@@ -148,11 +148,13 @@ Where the token rides is the protocol's answer rather than a choice:
 | --- | --- |
 | RTSP, RTMP | a query |
 | SRT | the stream id |
-| HLS, WebRTC, MoQ | an `Authorization` header |
+| HLS, WebRTC | an `Authorization` header |
+| MoQ | an `Authorization` header for the page, a MOQT setup parameter for the session |
 
 The HTTP legs read no query at all, so an address is not a form any of them takes.
 A player page is the exception: it is handed to a browser, which sets no header of its own.
 The token goes in the address as the Basic password under an arbitrary user, `https://jwt:<token>@relay:8892/<path>/`.
+The MoQ page then carries it onto the subscription, that session being QUIC and holding no header to put it in.
 The GStreamer RTSP reader is the other exception, taking it as the session's password instead, because it addresses each track at the SDP's control attribute and loses a query on the way.
 Each transport states its own credential form, and `plan.md` covers the group model in full.
 

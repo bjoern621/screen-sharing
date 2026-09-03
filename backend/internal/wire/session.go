@@ -169,8 +169,6 @@ func PublishStats(s ffmpeg.Stats) *screensharev1.PublishStats {
 	measured(&out.InstMbps, s.InstMbps, s.Missing.InstMbps)
 	measured(&out.AvgMbps, s.AvgMbps, s.Missing.AvgMbps)
 	measured(&out.TransitMs, s.TransitMs, s.Missing.TransitMs)
-	measured(&out.LinkMs, s.LinkMs, s.Missing.LinkMs)
-	measured(&out.RttMs, s.RttMs, s.Missing.RttMs)
 	return out
 }
 
@@ -504,14 +502,10 @@ type ReceiveStreamStats struct {
 // Which stages a machine can measure follows from where it sits
 // (api/proto/screenshare/v1/events.proto, DelayBudget).
 type DelayBudget struct {
-	Publish     *float64
-	PublishLink *float64
-	WatchLink   *float64
+	Publish *float64
 	// Path is the two legs and the relay between them as one measurement, off the clock the publisher
 	// wrote into the coded picture.
-	// Relay is what that leaves once both legs' own windows are taken off it.
 	Path    *float64
-	Relay   *float64
 	Receive *float64
 	// ReceivePeak is the worst Receive has been for a single frame since the decode started,
 	// the one field here that is not a figure over the interval between two samples.
@@ -581,10 +575,7 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 
 			Delay: &screensharev1.DelayBudget{
 				PublishMs:     s.Delay.Publish,
-				PublishLinkMs: s.Delay.PublishLink,
-				WatchLinkMs:   s.Delay.WatchLink,
 				PathMs:        s.Delay.Path,
-				RelayMs:       s.Delay.Relay,
 				ReceiveMs:     s.Delay.Receive,
 				ReceivePeakMs: s.Delay.ReceivePeak,
 				PresentMs:     s.Delay.Present,

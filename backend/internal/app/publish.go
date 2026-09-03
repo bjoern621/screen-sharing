@@ -51,11 +51,9 @@ type publishRun struct {
 }
 
 // publishDelay is the publishing side's share of the path, in ms, as the newest sample measured it.
-// Both absent on an engine that measures neither,
-// Link alone absent on a transport that states no delivery window (internal/ffmpeg, Stats).
+// Absent on an engine measuring no stage of its own (internal/ffmpeg, Stats).
 type publishDelay struct {
 	Transit *float64
-	Link    *float64
 }
 
 // PublishCommand is the command line s would run, without running it.
@@ -383,10 +381,7 @@ func (a *App) takePublishDelay(run *publishRun, stats publish.Stats) {
 	if a.run != run {
 		return
 	}
-	run.delay = publishDelay{
-		Transit: measuredMs(stats.TransitMs, stats.Missing.TransitMs),
-		Link:    measuredMs(stats.LinkMs, stats.Missing.LinkMs),
-	}
+	run.delay = publishDelay{Transit: measuredMs(stats.TransitMs, stats.Missing.TransitMs)}
 }
 
 // measuredMs is one figure of a sample, and nil where the sample carries no measurement of it.

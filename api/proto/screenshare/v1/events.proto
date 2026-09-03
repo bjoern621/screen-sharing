@@ -382,8 +382,7 @@ message ReceiveStreamStats {
 // the moment it finished encoding,
 // and its own running readings of the stages ahead of the wire.
 // path_ms is the subtraction against that moment,
-// spanning both legs and the relay over any transport,
-// and relay_ms is what it leaves once the legs' own windows come off.
+// spanning both legs and the relay over any transport.
 message DelayBudget {
   // Capture to the encoded stream leaving the publishing pipeline:
   // converting, encoding and parsing, measured against that pipeline's own clock.
@@ -394,17 +393,6 @@ message DelayBudget {
   // which is what carries it over a relay.
   // Absent on a stream this machine neither publishes nor can read a stamp out of.
   optional double publish_ms = 1;
-  // The delivery window the publishing leg settled on with the relay:
-  // the delay every packet is held for so a lost one has room to arrive again.
-  // Reaches a viewer the same two ways publish_ms does,
-  // and is absent on a publishing transport that states no window.
-  optional double publish_link_ms = 2;
-  // The same window on this reading leg,
-  // held by the transport before the pipeline is handed a packet at all.
-  // SRT is the leg that states one.
-  // A leg that buffers inside the pipeline instead reports that buffering under present_ms,
-  // where the pipeline's own latency query answers for it.
-  optional double watch_link_ms = 3;
   // From the publishing machine's encoder handing a frame over,
   // to this machine's decoder being handed the same frame:
   // the two legs and the relay between them, as one measurement.
@@ -415,16 +403,10 @@ message DelayBudget {
   // on a stream this app did not publish,
   // and where the two machines' clocks disagree enough to put the encoder ahead of the decoder.
   //
-  // relay_ms and total_ms are both taken off it,
-  // and it is what the panel draws neither of the two windows on top of.
+  // total_ms counts it in place of the stages it spans.
   // A reader may draw it or not,
   // this stating what was measured rather than what a panel has room for.
   optional double path_ms = 8;
-  // What the relay itself spent, which is path_ms less the two legs' own windows.
-  // Present exactly where all three of those are:
-  // a leg stating no window leaves the relay's share inside path_ms,
-  // rather than derived from a figure that is not there.
-  optional double relay_ms = 9;
   // The source of this leg stamping a frame to the sink taking it:
   // depacketizing, decoding and the queues between them, measured.
   optional double receive_ms = 4;
@@ -440,12 +422,20 @@ message DelayBudget {
   // Work and wait together are that window,
   // which is why a receive_ms rising to meet it is a decode about to start dropping frames.
   optional double present_ms = 5;
-  // The stages above that carry a figure, added up,
-  // counting path_ms in place of the three stages it spans wherever it is present.
-  // A floor where it is not: the relay's own share is then in the path and in no measurement,
+  // The stages above that carry a figure, added up.
+  // A floor rather than a total:
+  // path_ms is the only measurement of the way between the two machines,
+  // so a stream carrying no stamp counts none of that way,
   // and a publisher on another machine takes the first stage out of reach as well.
   // Absent where no stage was measured at all.
   optional double total_ms = 6;
+
+  // 2, 3 and 9 held publish_link_ms, watch_link_ms and relay_ms:
+  // the delivery window each leg stated, and what the two of them left of path_ms.
+  // SRT alone states a window,
+  // so the first two were blank on every other leg and the third was derivable on none.
+  reserved 2, 3, 9;
+  reserved "publish_link_ms", "watch_link_ms", "relay_ms";
 }
 
 // One sample across every decode.

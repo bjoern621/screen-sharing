@@ -265,7 +265,7 @@ func (m *gstMeter) parse(r io.Reader) {
 func (m *gstMeter) timing(stats *Stats) {
 	delay, reported := m.readDelay()
 	if !reported {
-		stats.Missing.TransitMs, stats.Missing.LinkMs, stats.Missing.RttMs = true, true, true
+		stats.Missing.TransitMs = true
 		return
 	}
 
@@ -273,17 +273,6 @@ func (m *gstMeter) timing(stats *Stats) {
 	// is reading a shortfall that is still happening.
 	if delay.Dropped != nil {
 		stats.Drop = int(*delay.Dropped)
-	}
-
-	if delay.LinkMs != nil {
-		stats.LinkMs = *delay.LinkMs
-	} else {
-		stats.Missing.LinkMs = true
-	}
-	if delay.RttMs != nil {
-		stats.RttMs = *delay.RttMs
-	} else {
-		stats.Missing.RttMs = true
 	}
 
 	prev, havePrev := m.prevDelay, m.havePrevDelay

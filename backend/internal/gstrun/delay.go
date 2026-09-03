@@ -55,8 +55,6 @@ const delayInterval = time.Second
 //
 // Transit and Frames are cumulative, so the parent divides two readings by the interval between
 // them rather than trusting this side's cadence, the split every other counter here is read under.
-// The link figures are the transport's own and are absent on a leg that keeps none: an RTSP or WHIP
-// sink states no window and times no round trip.
 type Delay struct {
 	// TransitNs is the wall clock between the capture stamping a frame and the measured element
 	// passing it on, summed over Frames frames: converting, encoding and parsing.
@@ -66,29 +64,6 @@ type Delay struct {
 	// shed.
 	// Cumulative like the pair above, so the parent divides two readings by the interval between them.
 	Dropped *uint64 `json:"dropped,omitempty"`
-	// LinkMs is the delivery window the publish leg settled on with the relay, the delay every packet
-	// is held for so a lost one has room to be sent again.
-	LinkMs *float64 `json:"linkMs,omitempty"`
-	// RttMs is the round trip to the relay on this leg, which is what says whether LinkMs has room
-	// for a retransmission at all.
-	RttMs *float64 `json:"rttMs,omitempty"`
-}
-
-// linkSource is the sink factory whose stats structure states a leg's own delivery delay and round
-// trip, and the two fields it states them under.
-//
-// A table, which counter means what being the element's knowledge, the shape internal/receive reads
-// its transport counters through.
-// Only the sinks listed here are asked at all: reading a property off an element that has none
-// is a GLib warning on a pipeline that is working, and a publish carries sinks that count bytes and
-// draw pictures beside the one on the wire.
-type linkSource struct {
-	window string
-	rtt    string
-}
-
-var linkSources = map[string]linkSource{
-	"srtsink": {window: "negotiated-latency-ms", rtt: "rtt-ms"},
 }
 
 // watchDelay attaches the probe one reading is taken off, and nil where this pipeline cannot carry
@@ -113,11 +88,7 @@ func watchDelay(pipeline gst.Pipeline, element string) *pipedelay.Probe {
 
 // reportDelay writes one reading per tick until the context ends, on its own goroutine.
 // shed is nil on a pipeline carrying none, which reports no drop rather than a drop of nothing.
-//
-// The window this reads off the sink is also what the stamp on each frame carries, so it is handed
-// to window as it is read: a viewer of another machine's stream has no other way to it, and reading
-// it per frame would be a property read per frame on an element that answers once a second.
-func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Probe, shed *shedCount, window *linkWindow, out io.Writer) {
+func reportDelay(ctx context.Context, probe *pipedelay.Probe, shed *shedCount, out io.Writer) {
 	assert.IsNotNil(ctx, "a delay report runs under a context")
 	assert.IsNotNil(out, "a delay report is written to a writer")
 	assert.IsNotNil(probe, "a delay report reads a probe")
@@ -136,8 +107,6 @@ func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Pr
 		if dropped, counted := shed.Read(); counted {
 			delay.Dropped = &dropped
 		}
-		delay.LinkMs, delay.RttMs = linkOf(pipeline)
-		window.take(delay.LinkMs)
 		writeDelay(out, delay)
 	}
 }
@@ -267,66 +236,6 @@ func writeDelay(out io.Writer, delay Delay) {
 	assert.IsNil(err, "a delay reading is a struct of numbers and encodes", err)
 
 	fmt.Fprintf(out, "%s%s\n", DelayPrefix, line)
-}
-
-// linkOf is the delivery window and the round trip the publish leg reports, both absent where this
-// pipeline holds no sink that keeps them.
-func linkOf(pipeline gst.Pipeline) (window, rtt *float64) {
-	for v := range pipeline.IterateSinks().Values() {
-		el, ok := v.(gst.Element)
-		if !ok {
-			continue
-		}
-		f := el.GetFactory()
-		if f == nil {
-			continue
-		}
-		source, keeps := linkSources[f.GetName()]
-		if !keeps {
-			continue
-		}
-		stats, _ := el.ObjectProperty("stats").(*gst.Structure)
-		if stats == nil {
-			continue
-		}
-		return statField(stats, source.window), statField(stats, source.rtt)
-	}
-	return nil, nil
-}
-
-// statField is one figure off an element's stats structure, nil where the element keeps no such
-// field.
-func statField(stats *gst.Structure, key string) *float64 {
-	if !stats.HasField(key) {
-		return nil
-	}
-	value, ok := numberOf(stats.GetValue(key))
-	if !ok {
-		return nil
-	}
-	return &value
-}
-
-// numberOf reads one stats field as a number, false for a type no link counter is kept in.
-func numberOf(v any) (float64, bool) {
-	switch n := v.(type) {
-	case float64:
-		return n, true
-	case float32:
-		return float64(n), true
-	case int:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	default:
-		return 0, false
-	}
 }
 
 // ParseDelay reads one reported reading back, false for a line that is not one.

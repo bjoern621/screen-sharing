@@ -59,10 +59,6 @@ type Stamp struct {
 	// Wraps at its carried width, which a reader sees as one interval it cannot divide.
 	PublishMs     uint32
 	PublishFrames uint32
-	// LinkMs is the delivery window the publish leg settled on with the relay,
-	// 0 for a leg stating none.
-	// No transport states a window of nothing, so 0 is absent rather than a reading.
-	LinkMs uint16
 	// Pointer says whether this frame carries a position at all,
 	// and whether the pointer was over the captured surface when it did.
 	Pointer PointerState
@@ -101,13 +97,12 @@ const (
 	clockNibbles         = 16
 	publishMsNibbles     = 8
 	publishFramesNibbles = 8
-	linkNibbles          = 4
 	pointerStateNibbles  = 1
 	pointerAxisNibbles   = 4
 )
 
 // stampBytes is what the reading itself takes, the marker aside.
-const stampBytes = clockNibbles + publishMsNibbles + publishFramesNibbles + linkNibbles +
+const stampBytes = clockNibbles + publishMsNibbles + publishFramesNibbles +
 	pointerStateNibbles + 2*pointerAxisNibbles
 
 // nibbleBase is the value a nibble is carried above, keeping every encoded byte in 0x10..0x1F.
@@ -149,7 +144,6 @@ func Unit(c Carriage, s Stamp) ([]byte, bool) {
 	message = appendField(message, uint64(s.At.UnixNano()), clockNibbles)
 	message = appendField(message, uint64(s.PublishMs), publishMsNibbles)
 	message = appendField(message, uint64(s.PublishFrames), publishFramesNibbles)
-	message = appendField(message, uint64(s.LinkMs), linkNibbles)
 	message = appendField(message, uint64(s.Pointer), pointerStateNibbles)
 	message = appendField(message, uint64(s.PointerX), pointerAxisNibbles)
 	message = appendField(message, uint64(s.PointerY), pointerAxisNibbles)
@@ -163,7 +157,7 @@ func Unit(c Carriage, s Stamp) ([]byte, bool) {
 	// a stream nobody can measure, and by the time a viewer says so the frames are on the wire.
 	read, found := Read(unit)
 	assert.Assert(found && read.At.Equal(s.At) && read.PublishMs == s.PublishMs &&
-		read.PublishFrames == s.PublishFrames && read.LinkMs == s.LinkMs &&
+		read.PublishFrames == s.PublishFrames &&
 		read.Pointer == s.Pointer && read.PointerX == s.PointerX && read.PointerY == s.PointerY,
 		"a written stamp reads back as what it carries", s, read)
 	return unit, true
@@ -195,14 +189,12 @@ func Read(frame []byte) (Stamp, bool) {
 	stamp = stamp[publishMsNibbles:]
 	publishFrames, framesRead := readField(stamp, publishFramesNibbles)
 	stamp = stamp[publishFramesNibbles:]
-	link, linkRead := readField(stamp, linkNibbles)
-	stamp = stamp[linkNibbles:]
 	pointer, pointerRead := readField(stamp, pointerStateNibbles)
 	stamp = stamp[pointerStateNibbles:]
 	pointerX, xRead := readField(stamp, pointerAxisNibbles)
 	stamp = stamp[pointerAxisNibbles:]
 	pointerY, yRead := readField(stamp, pointerAxisNibbles)
-	if !read || !msRead || !framesRead || !linkRead || !pointerRead || !xRead || !yRead {
+	if !read || !msRead || !framesRead || !pointerRead || !xRead || !yRead {
 		return Stamp{}, false
 	}
 	// A state no writer here spells is a marker that matched something this did not write,
@@ -215,7 +207,6 @@ func Read(frame []byte) (Stamp, bool) {
 		At:            time.Unix(0, int64(ns)),
 		PublishMs:     uint32(publishMs),
 		PublishFrames: uint32(publishFrames),
-		LinkMs:        uint16(link),
 		Pointer:       PointerState(pointer),
 		PointerX:      uint16(pointerX),
 		PointerY:      uint16(pointerY),

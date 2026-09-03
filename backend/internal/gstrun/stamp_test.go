@@ -64,7 +64,7 @@ func TestStampSurvivesParseAndDecode(t *testing.T) {
 				c.encoder+" tune=zerolatency key-int-max=10 ! "+c.parser+" ! identity name=stats ! "+
 				c.caps+" ! "+c.parser+" ! "+c.decoder+" name=decoder ! fakesink name=drawn sync=false")
 
-			stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), &linkWindow{}, nil)
+			stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), nil)
 
 			var found, arrived, decoded atomic.Uint64
 			countStamps(t, pipeline, "decoder", &found, &arrived)
@@ -100,7 +100,7 @@ func TestStampCarriesTheClock(t *testing.T) {
 		"x264enc tune=zerolatency ! h264parse ! identity name=stats ! "+
 		"video/x-h264,stream-format=byte-stream,alignment=au ! fakesink name=drawn sync=false")
 
-	stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), &linkWindow{}, nil)
+	stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), nil)
 
 	var worst atomic.Int64
 	var seen atomic.Uint64
@@ -143,12 +143,7 @@ func TestStampCarriesThePublishingSidesReading(t *testing.T) {
 		"x264enc tune=zerolatency ! h264parse ! identity name=stats ! "+
 		"video/x-h264,stream-format=byte-stream,alignment=au ! fakesink name=drawn sync=false")
 
-	window := &linkWindow{}
-	// A leg that states one, which on this pipeline nothing does: the reporting tick fills it
-	// on a run, and this run plays no sink that keeps a window.
-	ms := 300.0
-	window.take(&ms)
-	stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), window, nil)
+	stampFrames(pipeline, "stats", watchDelay(pipeline, "stats"), nil)
 
 	var last atomic.Pointer[framestamp.Stamp]
 	readStamps(t, pipeline, "drawn", func(s framestamp.Stamp) { last.Store(&s) })
@@ -162,9 +157,6 @@ func TestStampCarriesThePublishingSidesReading(t *testing.T) {
 	// The probe measures the same frames it stamps, so by the last one it has a reading of its own.
 	if s.PublishFrames == 0 {
 		t.Error("the last frame carried no count of what the publishing pipeline measured")
-	}
-	if s.LinkMs != 300 {
-		t.Errorf("the last frame carried a window of %d ms, want 300", s.LinkMs)
 	}
 }
 

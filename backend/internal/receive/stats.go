@@ -140,19 +140,16 @@ type Stats struct {
 	PathFrames uint64
 
 	// What the publishing pipeline measured of its own share, as the newest stamp carried it:
-	// the wall clock capture and encode have cost it in total, over PublishFrames frames,
-	// and the window its leg settled on with the relay.
+	// the wall clock capture and encode have cost it in total, over PublishFrames frames.
 	//
 	// Cumulative where they were measured,
 	// so a reader divides two samples of them as it does its own counters.
-	// Zero frames is a publish that measured none of its own stages,
-	// and a zero window a leg that states none.
+	// Zero frames is a publish that measured none of its own stages.
 	//
 	// The one reading here about a machine that is not this one, and the only way to it:
 	// nothing else carries the publishing side over a relay.
 	PublishTotal  time.Duration
 	PublishFrames uint64
-	PublishLink   time.Duration
 
 	// Audio, zero until an audio pad turns up and the branch is built.
 	AudioCodec    string
