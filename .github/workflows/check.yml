@@ -32,6 +32,14 @@ jobs:
       # Then what the Go suite needs to answer at all:
       # ffmpeg and the plugin set its pipelines build, and an X server for the x11grab paths.
       #
+      # Three of them are on the list for what they carry rather than what they are named for.
+      # gstreamer1.0-x holds the pango plugin, so timeoverlay comes from there,
+      # which the test streams build (internal/publish).
+      # gstreamer1.0-gl holds the glupload chain,
+      # and the render chain a draft is repaired towards is the one the machine can run,
+      # so a lean plugin set moves a legal value and internal/form reads that as a repair.
+      # xauth is named because xvfb-run runs it, and --no-install-recommends drops it.
+      #
       # The image is named rather than taken as -latest.
       # go-gst binds `GstIdStr`, which GStreamer 1.26 introduced,
       # and an image older than that builds no backend.
@@ -50,7 +58,10 @@ jobs:
             gstreamer1.0-plugins-bad \
             gstreamer1.0-plugins-ugly \
             gstreamer1.0-libav \
-            xvfb
+            gstreamer1.0-x \
+            gstreamer1.0-gl \
+            xvfb \
+            xauth
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -90,9 +101,12 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # The GStreamer development files the backend links against.
-      # The plugin set and gst-launch-1.0 belong to the packaged build, so release.yml
-      # installs more than this; what a compile needs is the headers and the import libraries.
+      # The pkg-config modules cgo resolves, and nothing beyond them:
+      # gstreamer-1.0 and gstreamer-d3d11-1.0 (internal/receive/share_windows.go),
+      # gstreamer-video-1.0 and gstreamer-pbutils-1.0 (the same package).
+      # d3d11 puts gst-plugins-bad on the list, the .pc file living there.
+      # The runtime plugins and gst-launch-1.0 belong to the packaged build, so release.yml
+      # installs more than this.
       #
       # update: false, the action caching its package set:
       # a full `pacman -Syu` on every push spends more than the compile it precedes.
@@ -106,6 +120,7 @@ jobs:
             mingw-w64-x86_64-pkgconf
             mingw-w64-x86_64-gstreamer
             mingw-w64-x86_64-gst-plugins-base
+            mingw-w64-x86_64-gst-plugins-bad
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
