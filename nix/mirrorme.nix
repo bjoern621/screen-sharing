@@ -1,21 +1,14 @@
-# NixOS module for MirrorMe's privileged kmsgrab capture path.
+# NixOS module for MirrorMe's system-level capture support.
+#
+# Two decisions, taken separately.
+# `enable` installs the tools a capture path needs and creates the mirrorme group, granting nothing.
+# `kmsgrab.enable` puts CAP_SYS_ADMIN on a dedicated ffmpeg wrapper for that group,
+# which is what the DRM scanout path needs and what nothing else here does.
 #
 # kmsgrab reads the raw KMS scanout framebuffer,
 # and the kernel gates that read behind CAP_SYS_ADMIN:
 # an unprivileged ffmpeg fails with "Failed to open DRM device"
 # even where the /dev/dri node itself is readable.
-#
-# The capability goes on one dedicated wrapper, /run/wrappers/bin/ffmpeg-kmsgrab,
-# executable by the video group, and ffmpeg on PATH gains nothing.
-# Its path is exported as MIRRORME_FFMPEG_KMSGRAB, which the app runs for kmsgrab capture,
-# every other path staying on the unprivileged ffmpeg.
-#
-# CAP_SYS_ADMIN is close to full root,
-# and the wrapper is a complete ffmpeg that also parses untrusted media,
-# so any video-group member can run arbitrary ffmpeg with that capability.
-# Enable this only where every member of that group is trusted.
-# A Wayland compositor serving the PipeWire portal or wlroots screencopy needs no capability at all,
-# and that path is preferred where it exists.
 #
 # A scanout framebuffer can be GPU tiled or compressed, carrying a nonzero DRM format modifier,
 # which a bare hwdownload fails to map with EINVAL:
@@ -33,127 +26,105 @@
 let
   cfg = config.programs.mirrorme;
 
-  # The ffmpeg build the wrapper exposes,
-  # with the AMF runtime placed where a capability-bearing binary can still find it.
-  #
-  # libavutil dlopens AMD's libamfrt64.so.1 by soname and nothing links it,
-  # so it is reached through a search path rather than through a recorded dependency.
-  # A wrapper carrying file capabilities runs in glibc's secure-execution mode,
-  # where LD_LIBRARY_PATH is ignored,
-  # so the variable the dev shell and every packaging layer set to deliver that runtime
-  # never reaches the loader.
-  # Ordinary variables survive, so this affects AMF alone
-  # and not the oneVPL runtime behind QSV, located through ONEVPL_SEARCH_PATH.
-  #
-  # Untreated it is a wrong answer rather than a missing encoder:
-  # encoders.Detect probes the unprivileged ffmpeg, which does find the runtime,
-  # so the settings form offers h264_amf, hevc_amf and av1_amf,
-  # and a kmsgrab publish with one of them dies at launch
-  # with "DLL libamfrt64.so.1 failed to open".
-  #
-  # The runtime therefore goes on libavutil's own RUNPATH,
-  # which the loader honours in secure-execution mode,
-  # and dlopen searches the RUNPATH of the object that calls it,
-  # so the entry belongs on that library and not on the executable.
-  # Patching one copied library keeps this a copy rather than an ffmpeg rebuild:
-  # the executable already lists the original library directory,
-  # and prepending the copy resolves the soname to it
-  # while every other library still comes from the original build.
-  kmsgrabFFmpeg =
-    if cfg.amf == null then
-      cfg.ffmpeg
-    else
-      pkgs.runCommand "ffmpeg-kmsgrab-${cfg.ffmpeg.version}"
-        {
-          nativeBuildInputs = [ pkgs.patchelf ];
-        }
-        ''
-          mkdir -p $out/bin $out/lib
-
-          real=$(readlink -f ${lib.getLib cfg.ffmpeg}/lib/libavutil.so)
-          base=$(basename "$real")
-          cp "$real" "$out/lib/$base"
-          chmod u+w "$out/lib/$base"
-          patchelf --add-rpath ${lib.makeLibraryPath [ cfg.amf ]} "$out/lib/$base"
-          # The dependants of libavutil ask for its soname, so the copy answers to that name too.
-          soname=$(patchelf --print-soname "$out/lib/$base")
-          [ "$soname" = "$base" ] || ln -s "$base" "$out/lib/$soname"
-
-          cp ${lib.getBin cfg.ffmpeg}/bin/ffmpeg $out/bin/ffmpeg
-          chmod u+w $out/bin/ffmpeg
-          patchelf --set-rpath "$out/lib:$(patchelf --print-rpath $out/bin/ffmpeg)" $out/bin/ffmpeg
-        '';
+  kmsgrabFFmpeg = pkgs.callPackage ./kmsgrab-ffmpeg.nix { inherit (cfg) ffmpeg amf; };
 in
 {
+  imports = [
+    (lib.mkRemovedOptionModule [ "programs" "mirrorme" "user" ] ''
+      Add the user to the mirrorme group instead:
+      users.users.<name>.extraGroups = [ "mirrorme" ];
+    '')
+  ];
+
   options.programs.mirrorme = {
-    enable = lib.mkEnableOption "the MirrorMe kmsgrab capture path (grants CAP_SYS_ADMIN to a dedicated ffmpeg wrapper)";
-
-    user = lib.mkOption {
-      type = lib.types.str;
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
       description = ''
-        User added to the video group so it may execute the capability wrapper.
-        The wrapper is mode 0750 root:video, so group membership is what authorizes it.
+        Whether to install the tools MirrorMe's capture paths need and create the
+        'mirrorme' group. Nothing installed here is privileged. Reaching the DRM
+        scanout framebuffer takes the separate `kmsgrab.enable` option below.
       '';
     };
 
-    ffmpeg = lib.mkOption {
-      type = lib.types.package;
-      default = pkgs.ffmpeg-full;
-      defaultText = lib.literalExpression "pkgs.ffmpeg-full";
+    kmsgrab.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
       description = ''
-        ffmpeg build exposed through the kmsgrab wrapper.
-        Must include the kmsgrab input device, which ffmpeg-full provides.
+        Whether to allow users in the 'mirrorme' group to capture the DRM scanout
+        framebuffer. This configures a `CAP_SYS_ADMIN` wrapper around
+        {option}`programs.mirrorme.ffmpeg` under {file}`/run/wrappers/bin` and points
+        the app at it. Add a user with
+        `users.users.<name>.extraGroups = [ "mirrorme" ];`.
+
+        `CAP_SYS_ADMIN` is close to full root, and the wrapper is a complete ffmpeg
+        that also parses untrusted media, so any member of that group can run
+        arbitrary ffmpeg with that capability. Turn this on only where every member
+        is trusted.
+
+        A Wayland compositor serving the PipeWire portal or wlroots screencopy
+        captures the desktop with no capability at all, and the app prefers that path
+        where it exists.
       '';
     };
 
-    amf = lib.mkOption {
-      type = lib.types.nullOr lib.types.package;
+    ffmpeg = lib.mkPackageOption pkgs "ffmpeg-full" {
+      extraDescription = ''
+        Exposed through the kmsgrab wrapper and installed unwrapped for every other
+        capture path. Must include the kmsgrab input device, which `ffmpeg-full`
+        provides.
+      '';
+    };
+
+    amf = lib.mkPackageOption pkgs "amf" {
+      nullable = true;
       default = null;
-      example = lib.literalExpression "pkgs.amf";
-      description = ''
-        AMD AMF runtime linked into the wrapper's libavutil, or null to leave the *_amf
-        encoders unavailable under kmsgrab.
+      extraDescription = ''
+        Linked into the wrapper's `libavutil`, or null to leave the `*_amf` encoders
+        unavailable under kmsgrab. A capability-bearing binary runs in glibc's
+        secure-execution mode, where `LD_LIBRARY_PATH` is ignored, so a runtime
+        delivered through the environment never reaches the loader. Naming the
+        package here records it on `libavutil`'s `RUNPATH` instead, which the loader
+        does honour.
 
-        A capability-bearing binary runs in glibc's secure-execution mode, where
-        LD_LIBRARY_PATH is ignored, so a runtime delivered through the environment never
-        reaches the loader. Naming the package here records it on libavutil's RUNPATH
-        instead, which the loader does honour.
-
-        A host running Mesa RADV requires AMF 1.4.37 or newer. Earlier releases request the
-        pre-standard VK_AMD_video_encode_* device extensions that only AMD's proprietary
-        Vulkan driver ever exposed, and ffmpeg dies with SIGSEGV inside
-        AMFDeviceVulkanImpl::CreateDeviceAndFindQueues.
+        A host running Mesa RADV requires AMF 1.4.37 or newer. Earlier releases
+        request the pre-standard `VK_AMD_video_encode_*` device extensions that only
+        AMD's proprietary Vulkan driver ever exposed, and ffmpeg dies with SIGSEGV
+        inside `AMFDeviceVulkanImpl::CreateDeviceAndFindQueues`.
       '';
     };
   };
 
   config = lib.mkIf cfg.enable {
+    # The gate the wrapper is group-owned by, empty of members until a host names one.
+    # A group of its own rather than video:
+    # video carries the machine's GPU users, a wider set than the one trusted with the capability.
+    users.groups.mirrorme = { };
+
+    # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one takes.
+    environment.systemPackages = [
+      cfg.ffmpeg
+      pkgs.libva-utils # vainfo: VAAPI encode entrypoints, for the zero-copy path
+      pkgs.libdrm # modetest: CRTCs and planes, to pick a kmsgrab device
+      pkgs.drm_info # DRM connectors, planes and formats
+    ];
+
     # One capability-bearing copy of ffmpeg under /run/wrappers/bin.
-    # Mode 0750 root:video, so group membership is what authorizes it,
-    # and CAP_SYS_ADMIN reaches that group rather than every local user.
-    security.wrappers.ffmpeg-kmsgrab = {
+    # Mode 0510 root:mirrorme, the activation script chmodding from 0000,
+    # so group membership is what authorizes it and CAP_SYS_ADMIN reaches no other local user.
+    security.wrappers.ffmpeg-kmsgrab = lib.mkIf cfg.kmsgrab.enable {
       source = "${kmsgrabFFmpeg}/bin/ffmpeg";
       owner = "root";
-      group = "video";
-      permissions = "u+rx,g+rx,o-rwx";
+      group = "mirrorme";
+      permissions = "u+rx,g+x";
       capabilities = "cap_sys_admin+ep";
     };
-
-    # This grants the wrapper gate and not raw node access:
-    # the DRM primary node is reachable through the logind uaccess ACL on the active seat.
-    users.users.${cfg.user}.extraGroups = [ "video" ];
 
     # The wrapper by absolute path,
     # so the app depends on nothing having put /run/wrappers/bin on its inherited PATH.
     # A session variable reaches a menu-launched GUI, which a login shell's PATH export does not.
-    environment.sessionVariables.MIRRORME_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
-
-    # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one takes.
-    environment.systemPackages = with pkgs; [
-      cfg.ffmpeg
-      libva-utils # vainfo: VAAPI encode entrypoints, for the zero-copy path
-      libdrm # modetest: CRTCs and planes, to pick a kmsgrab device
-      drm_info # DRM connectors, planes and formats
-    ];
+    environment.sessionVariables = lib.mkIf cfg.kmsgrab.enable {
+      MIRRORME_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
+    };
   };
 }

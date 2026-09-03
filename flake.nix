@@ -416,8 +416,8 @@
 
           shellHook = ''
             echo "MirrorMe dev shell - run 'task' for available commands"
-            echo "kmsgrab needs CAP_SYS_ADMIN: enable nix/mirrorme.nix for the"
-            echo "ffmpeg-kmsgrab wrapper, or run plain ffmpeg kmsgrab under sudo."
+            echo "kmsgrab needs CAP_SYS_ADMIN: set programs.mirrorme.kmsgrab.enable"
+            echo "for the ffmpeg-kmsgrab wrapper, or run plain ffmpeg kmsgrab under sudo."
 
             # watch.Select reads this; mpv is the viewer for this shell.
             # Unset it to fall back to the in-code default, ffplay.
@@ -476,9 +476,12 @@
       }
     )
     // {
-      # Imported by a host config to get the privileged kmsgrab wrapper:
+      # Imported by a host config for the capture tools,
+      # and for the privileged kmsgrab wrapper where a second option asks for it:
       #   imports = [ mirrorme.nixosModules.mirrorme ];
-      #   programs.mirrorme = { enable = true; user = "bjoern"; };
+      #   programs.mirrorme.enable = true;
+      #   programs.mirrorme.kmsgrab.enable = true;
+      #   users.users.bjoern.extraGroups = [ "mirrorme" ];
       nixosModules.mirrorme = import ./nix/mirrorme.nix;
       nixosModules.default = self.nixosModules.mirrorme;
 

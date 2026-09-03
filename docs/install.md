@@ -67,7 +67,8 @@ environment.systemPackages = [ inputs.mirrorme.packages.${system}.default ];
 
 The flake turns on GStreamer's Vulkan and QSV plugins, which no binary cache carries, so the first build compiles `gst-plugins-bad` from source.
 
-Capturing a Wayland desktop with `kmsgrab` needs a privileged ffmpeg, which `nixosModules.mirrorme` sets up.
+Capturing a Wayland desktop with `kmsgrab` needs a privileged ffmpeg, which `nixosModules.mirrorme` sets up under `programs.mirrorme.kmsgrab.enable`.
+The capability reaches the `mirrorme` group alone, so a user joins that group to use the path.
 The portal path needs nothing.
 
 ## Flatpak

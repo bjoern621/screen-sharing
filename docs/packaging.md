@@ -132,18 +132,20 @@ sudo setcap cap_sys_admin+ep /path/to/app/ffmpeg
 ```
 
 On NixOS the store is read-only, so `setcap` cannot target the store path.
-A `security.wrappers` entry produces a setcap wrapper under `/run/wrappers/bin`:
+`nixosModules.mirrorme` writes the `security.wrappers` entry that produces one under `/run/wrappers/bin`:
 
 ```nix
-security.wrappers.mirrorme-ffmpeg = {
-  owner = "root";
-  group = "root";
-  capabilities = "cap_sys_admin+ep";
-  source = "${pkgs.ffmpeg-full}/bin/ffmpeg";
-};
+programs.mirrorme.enable = true;
+programs.mirrorme.kmsgrab.enable = true;
+users.users.<name>.extraGroups = [ "mirrorme" ];
 ```
 
-The app then invokes `/run/wrappers/bin/mirrorme-ffmpeg` for capture.
+The two options are two decisions.
+`enable` installs the capture tools and creates the `mirrorme` group, granting nothing.
+`kmsgrab.enable` adds `ffmpeg-kmsgrab`, mode 0510 `root:mirrorme`, and exports `MIRRORME_FFMPEG_KMSGRAB` for the app to run.
+
+The group is the gate, so the capability reaches whoever joins it and no other local user.
+A dedicated group rather than `video`, which carries the machine's GPU users and is wider than the set trusted with `CAP_SYS_ADMIN`.
 
 ### The portal alternative
 
