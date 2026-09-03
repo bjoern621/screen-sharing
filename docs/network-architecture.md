@@ -98,7 +98,7 @@ MediaMTX therefore generates it rather than taking it from configuration, ECDSA 
 The relay's API and the group service.
 The cleartext RTSP and RTMP listeners are not bound at all: the relay sets `strict` on both, so there is nothing on those ports to reach rather than something a firewall is hiding.
 The API is not a member's endpoint: a group token grants publishing and reading under one prefix and names no API action, so an exposed API would refuse every caller it could reach.
-Reading it takes an operator's own token and a tunnel, which `bruno/README.md` covers.
+Reading it takes an operator's own token, on the machine the relay runs on (`bruno/README.md`).
 
 The port numbers live in `deploy/mediamtx-groups.yml` and the routing in `deploy/Caddyfile`.
 Those two files are what every relay obeys, a deployment and a development machine alike.

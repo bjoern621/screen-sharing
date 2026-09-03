@@ -155,7 +155,7 @@ func TestAMatchingMajorIsAnsweredWithThisBuildsNumbers(t *testing.T) {
 	server := New(&fakeBackend{}, events.New(), version)
 
 	answer, err := server.Hello(context.Background(), &screensharev1.HelloRequest{
-		Client:        "wails",
+		Client:        "avalonia",
 		ProtocolMajor: ProtocolMajor,
 	})
 	if err != nil {

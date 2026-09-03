@@ -13,11 +13,9 @@
 # so an API reachable from outside would be an endpoint every caller is refused at,
 # and the relay binds it to loopback.
 #
-# The name and the upstreams are environment variables because two deployments run this one file:
-# compose reaches the other containers by service name,
-# and a NixOS host runs all three on loopback
-# (modules/screenshare-proxy.nix in the nixos-config repository).
-# The defaults are the loopback ones,
+# The name and the upstreams are environment variables, so a deployment states its own domain
+# and reaches the other two wherever it puts them.
+# The defaults are the loopback ones, the shape of three processes in one pod,
 # so the file is valid on its own and `caddy validate` needs no environment.
 # One routing table, because two would drift.
 

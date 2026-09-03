@@ -26,29 +26,26 @@ Pick an environment first.
 
 That name is the proxy's `SCREENSHARE_DOMAIN`, so another deployment is this environment with its own domain in both fields.
 
-`relayApi` and `groupAdmin` stay on loopback in both.
+## What each environment reaches
 
-## Reaching a deployment
+`Local` runs every folder.
+`Production` runs `Group service` alone: those routes are paths under the deployment's name (`deploy/Caddyfile`).
 
-The proxy fronts neither the relay's API nor `/members` and `/reconcile`, which answer on 9443.
-So `Members` addresses `groupAdmin` while the rest of the collection addresses `groupService`, and against a deployment both need the tunnel below.
-Sent to the deployment's public name they reach the HLS listener instead, which answers `{"status":"error","error":"authentication error"}`.
+The relay's API and `/members` answer on 9997 and 9443 behind that name, closed to everything off the host, so `Relay` and `Members` are Local's.
+Sent to the public name they reach the HLS listener, which answers `{"status":"error","error":"authentication error"}`.
 That shape is MediaMTX's, so a refusal carrying it is a request that never arrived here.
 
-The `Relay` folder needs a credential of its own beside the tunnel:
+## The relay API credential
+
+The relay grants its API to nothing a group token carries (`deploy/mediamtx-groups.yml`), so the `Relay` folder holds an operator's own token.
+`task relay` draws the signing key, and `groupd` prints a token off it:
 
 ```bash
-task relay:tunnel
-sh scripts/relay-api-token.sh <relay host> 2h
+bin/groupd -api-token 2h -key dev-relay/signing-key.pem
 ```
 
-The task forwards both loopback ports off the deployment `Production` names, and `task relay:tunnel RELAY_HOST=<relay host>` names another.
-Opening an open tunnel is a no-op.
-`task relay:tunnel:stop` closes it.
-A stale tunnel keeps listening while forwarding nothing, so a request that hangs rather than refuses is one to restart it for.
-
-The printed token goes in `relayApiToken` and grants the API alone.
-A relay access token is the other grant, covering publishing and reading under one prefix, and the operator's is signed separately on the machine holding the signing key.
+The value goes in `relayApiToken` without the scheme word, the folder header carrying that.
+A relay access token is the other grant, covering publishing and reading under one prefix.
 
 ## Order
 

@@ -14,12 +14,7 @@ docs {
 
   `/members` takes the group key and the member secret, so it addresses `{{groupService}}` like every other route a member calls, and the proxy fronts it (`deploy/Caddyfile`).
   `/reconcile` takes no credential and belongs to the relay's own read hook, so it answers on loopback alone and addresses `{{groupAdmin}}`.
-  Against a deployment that means the tunnel, the same one the `Relay` folder needs:
-
-  ```bash
-  task relay:tunnel
-  ```
-
+  That address is the machine the group service runs on, which makes this folder `Local`'s.
   A route the proxy does not front falls through to the HLS listener, which answers `{"status":"error","error":"authentication error"}` for a path it carries no stream at.
   That message is MediaMTX's and not this service's, so a refusal shaped like it is a request that never reached the group service.
 

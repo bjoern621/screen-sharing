@@ -25,7 +25,3 @@ Where a build lands, plus the Windows pieces a build needs that are not source.
 `scripts/package-windows.ps1` then produces the release zip: checks every program the app spawns is present, publishes the shell into the same directory as the backend, archives the result.
 
 One directory holds all of it: what the Windows loader searches first for a DLL is also where the app's own lookups start.
-
-## Leftovers
-
-No recipe in the tree reads `darwin/`, `windows/installer/`, `windows/wails.exe.manifest`, `windows/info.json` or `windows/icon.ico`.

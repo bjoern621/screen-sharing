@@ -23,21 +23,15 @@ docs {
   The TLS variants answer the same shape on the same base: `rtspsconns`, `rtspssessions` and `rtmpsconns`.
   The app folds them into the same transport, which listener a reader arrived on being a fact about the relay rather than about the leg.
 
-  Every relay this repository runs reads one configuration and authenticates every connection, a relay on this machine and a deployment alike (`deploy/mediamtx-groups.yml`), so `relayApiToken` is filled on both environments.
+  Every relay this repository runs reads one configuration and authenticates every connection, a relay on this machine and a deployment alike (`deploy/mediamtx-groups.yml`).
+  The API binds loopback in both, so this folder is `Local`'s.
 
-  The API is granted to nothing a group token carries, so reading it takes an operator's own credential, and against a deployment a way in:
+  It is granted to nothing a group token carries, so reading it takes an operator's own credential.
+  `groupd` prints one off the signing key `task relay` draws:
 
   ```bash
-  task relay:tunnel
-  sh scripts/relay-api-token.sh <relay host> 2h
+  bin/groupd -api-token 2h -key dev-relay/signing-key.pem
   ```
 
-  The tunnel is because the API binds loopback and the proxy does not front it.
-  The task opens it against the deployment `Production` points at, `RELAY_HOST=<relay host>` names another one, and a tunnel that is already open is left alone.
-  The script prints a token granting the API for the window given and nothing else, signed on the relay host because that key signs every group's tokens too.
-  The token is what `relayApiToken` takes, without the scheme word, the header above carrying that.
-
-  A tunnel that has gone stale keeps its listener open while forwarding nothing, so a request that hangs rather than refusing is one to restart it for.
-  The keepalive is what makes it drop instead.
-  It is minted over SSH rather than by anything in this collection because the signing key mints every group's tokens too, so it stays on the machine it is on.
+  The token grants the API for the window given and goes in `relayApiToken`, without the scheme word, the header above carrying that.
 }

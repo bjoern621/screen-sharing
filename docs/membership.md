@@ -132,6 +132,5 @@ A member's app reaches the group service at the relay's own name, one certificat
 `/reconcile` is the one route the proxy leaves out (`deploy/Caddyfile`).
 It takes no credential at all, being the relay's own read hook reporting a path beside it, and a route to it from outside would let anybody spend the host's relay API on demand.
 Sent to the deployment's name it reaches the HLS listener instead, which answers `authentication error` for a path it carries no stream at.
-Reaching it from another machine is the tunnel `task relay:tunnel` opens.
 
 The service holds the leases and closes what no member holds, walking the per-protocol reader lists the relay keeps.
