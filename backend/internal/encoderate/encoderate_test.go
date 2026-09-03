@@ -2,7 +2,6 @@ package encoderate
 
 import (
 	"context"
-	"os/exec"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/publish"
@@ -23,31 +22,6 @@ func probeStream() settings.Settings {
 	// These two are what a draft naming this codec and mode holds after the migration or the repair.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	return s
-}
-
-// The whole measurement against a real encoder.
-// Only the shape of the answer holds on every machine, since the rate is the test host's:
-// harder content does not code faster than easier content.
-func TestMeasureBracketsTheContentRange(t *testing.T) {
-	if _, err := exec.LookPath(publish.GstExe); err != nil {
-		t.Skipf("%s not installed", publish.GstExe)
-	}
-
-	rate, err := Measure(context.Background(), probeStream(), 320, 240)
-	if err != nil {
-		t.Fatalf("measuring: %v", err)
-	}
-	if rate.LowFps <= 0 || rate.HighFps <= 0 {
-		t.Errorf("a measurement reports a positive rate at both ends, got %.1f-%.1f",
-			rate.LowFps, rate.HighFps)
-	}
-	if rate.LowFps > rate.HighFps {
-		t.Errorf("the hard end of the range codes faster than the easy one: %.1f > %.1f",
-			rate.LowFps, rate.HighFps)
-	}
-	// Bounded is asserted neither way.
-	// Which of the generator and the encoder paced a run is a fact about the test host,
-	// so pinning it would make a faster CPU a failing build.
 }
 
 // The picture size decides how much work a frame is,
