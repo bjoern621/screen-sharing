@@ -183,6 +183,10 @@ let
     modRoot = "backend";
     subPackages = [ "cmd/backend" ];
 
+    # Unstamped the binary answers "dev" to the handshake, which is what a window then shows
+    # (backend/cmd/backend/main.go).
+    ldflags = [ "-X main.version=${version}" ];
+
     # backend/internal/receive is cgo throughout:
     # it builds GStreamer pipelines in-process and imports the decoded frames through EGL,
     # and pkg-config is what finds those headers (the module names are in share_linux.go).

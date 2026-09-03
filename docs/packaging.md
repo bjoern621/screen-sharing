@@ -64,6 +64,13 @@ Moving it is followed by re-measuring.
 A package set that moved can change which codecs probe usable, which elements a receive pipeline autoplugs, and which pixel formats an element accepts.
 "Verifying a build" answers the first two.
 
+### The build stamp
+
+`VERSION` holds the app's own version, and every packaging recipe hands it to the backend link as `-ldflags "-X main.version=..."`.
+The handshake answers with that string and the window shows it (`backend/cmd/backend/main.go`).
+A recipe skipping the flag ships a binary calling itself `dev`, which the release check reads as a version it cannot compare (`backend/internal/release`).
+The dev tasks leave it at that default.
+
 ## How the app locates the programs it spawns
 
 `FindExe` in the `ffmpeg` package resolves the name (`ffmpeg`, `ffplay` or `gst-launch-1.0`, `.exe` on Windows) in this order:

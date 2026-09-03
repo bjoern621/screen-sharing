@@ -29,7 +29,9 @@ mkdir -p "$stage"
 # backend/internal/receive links GStreamer through cgo.
 # Go turns cgo off by itself when it finds no C compiler,
 # and the failure then names a package that looks unrelated to it.
-CGO_ENABLED=1 go build -C "$root/backend" -o "$stage/screenshare-backend" ./cmd/backend
+CGO_ENABLED=1 go build -C "$root/backend" \
+    -ldflags "-X main.version=$version" \
+    -o "$stage/screenshare-backend" ./cmd/backend
 
 dotnet publish "$root/avalonia/ScreenShare.App/ScreenShare.App.csproj" \
     --configuration Release \

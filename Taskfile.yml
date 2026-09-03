@@ -243,9 +243,13 @@ tasks:
       CC: '{{.MSYS2_MINGW}}/bin/gcc.exe'
       PKG_CONFIG: '{{.MSYS2_MINGW}}/bin/pkg-config.exe'
     cmds:
+      # STAMP is the version the handshake answers with, which is what a window shows.
+      # package:windows passes VERSION down; a build asked for here keeps the source default,
+      # the mark of a binary nobody released (backend/cmd/backend/main.go).
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
-          go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
+          go build -ldflags "-X main.version={{default "dev" .STAMP}}"
+          -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
       # so both executables go into build/windows/redist first (that directory's README).
       - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
@@ -281,14 +285,22 @@ tasks:
     # build:windows produces the backend and copies ffmpeg and ffplay in,
     # bundle:windows adds the GStreamer closure,
     # and the script publishes the shell into the same directory and zips it.
-    deps: [bundle:windows]
+    deps:
+      - task: bundle:windows
+        vars:
+          STAMP:
+            sh: cat VERSION
     cmds:
       - powershell -NoProfile -File scripts/package-windows.ps1
 
   bundle:windows:
     desc: Copy the GStreamer runtime the backend needs next to the built binaries
     platforms: [windows]
-    deps: [build:windows]
+    deps:
+      # STAMP travels to the build, this task standing between package:windows and it.
+      - task: build:windows
+        vars:
+          STAMP: '{{.STAMP}}'
     # MSYS2's own sh runs the script and MINGW_PREFIX names the prefix to copy out of,
     # both having to be MSYS2's:
     # Git Bash ships an ldd and a cygpath of its own
