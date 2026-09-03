@@ -25,7 +25,7 @@ jobs:
   linux:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Two sets. The development files cgo compiles against, for the pkg-config modules
       # backend/internal/receive and backend/internal/pointer name.
@@ -63,7 +63,7 @@ jobs:
             xvfb \
             xauth
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache: true
@@ -71,7 +71,7 @@ jobs:
           # and the cache key is read from the checksum file rather than found.
           cache-dependency-path: backend/go.sum
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           # The SDK the Nix build carries, so both channels compile with one toolchain.
           dotnet-version: "10.0.302"
@@ -99,7 +99,7 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The pkg-config modules cgo resolves, and nothing beyond them:
       # gstreamer-1.0 and gstreamer-d3d11-1.0 (internal/receive/share_windows.go),
@@ -122,13 +122,13 @@ jobs:
             mingw-w64-x86_64-gst-plugins-base
             mingw-w64-x86_64-gst-plugins-bad
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "10.0.302"
 

@@ -29,7 +29,7 @@ jobs:
     needs: version
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The development files cgo compiles against, for the pkg-config modules
       # backend/internal/receive and backend/internal/pointer name.
@@ -43,13 +43,13 @@ jobs:
             libegl-dev \
             libx11-dev
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           # The SDK the Nix build carries, so both channels compile with one toolchain.
           dotnet-version: "10.0.302"
@@ -57,7 +57,7 @@ jobs:
       - name: Package
         run: bash scripts/package-linux.sh
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-tarball
           path: build/dist/*.tar.gz
@@ -74,9 +74,9 @@ jobs:
     needs: [version, tarball]
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-tarball
           path: incoming
@@ -115,7 +115,7 @@ jobs:
           flatpak build-bundle build/flatpak-repo \
             "build/dist/screen-sharing-$VERSION-x86_64.flatpak" de.bjoernblessin.ScreenSharing
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-flatpak
           path: build/dist/*.flatpak
@@ -130,7 +130,7 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The toolchain and the GStreamer development files the backend links,
       # and the gst-launch-1.0.exe it spawns.
@@ -152,17 +152,17 @@ jobs:
             mingw-w64-x86_64-gst-rtsp-server
             mingw-w64-x86_64-gst-libav
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache: true
           cache-dependency-path: backend/go.sum
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "10.0.302"
 
-      - uses: go-task/setup-task@70f2430ad412f838533de8c0515c749ffb2b8bd3 # v1.1.0
+      - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
           version: 3.x
 
@@ -197,7 +197,7 @@ jobs:
           MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
         run: task package:windows
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-zip
           path: build/dist/*.zip
@@ -214,7 +214,7 @@ jobs:
       # Empty on a pull request from a fork, where the build runs and pushes nothing.
       ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The flake overlays GStreamer to turn on the Vulkan and QSV plugins, and builds
       # gst-plugins-rs from an explicit plugin list, neither of which the public binary
@@ -264,7 +264,7 @@ jobs:
           pacman -Syu --noconfirm --needed \
             git go dotnet-sdk-10.0 gstreamer gst-plugins-base libglvnd
 
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # makepkg refuses to run as root, and the container has no other user.
       - name: Build
@@ -275,7 +275,7 @@ jobs:
           chown -R builder packaging/arch
           su builder -c 'cd packaging/arch && makepkg --nodeps --noconfirm'
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: arch-package
           path: packaging/arch/*.pkg.tar.zst
@@ -299,7 +299,7 @@ jobs:
             gstreamer1-devel gstreamer1-plugins-base-devel \
             mesa-libEGL-devel desktop-file-utils
 
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The package is copied back into the workspace because the upload step globs
       # relative to it and expands no home directory.
@@ -312,7 +312,7 @@ jobs:
           rpmbuild -bb packaging/fedora/screen-sharing.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fedora-package
           path: "*.rpm"
@@ -335,12 +335,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: artifacts/*
