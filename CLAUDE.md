@@ -156,6 +156,25 @@ No `git branch`, no `git checkout -b`, no `git switch -c`, including as a step t
 Either one takes an explicit instruction in the message asking for it, and that permission covers the one branch or worktree it named.
 A task that looks like it wants isolation is one to say so about, not to isolate.
 
+# Every push ends with a version call
+
+A push is followed by a verdict on the version: minor, patch, or none.
+The reply states which and why, and the bump waits for the user's word.
+
+The number is pre-1.0, so the parts read:
+
+- **Minor**, `0.5.0` to `0.6.0`: a capability or a contract moved.
+  A new control, a changed default, a setting renamed or dropped, an IPC or wire change, a transport that reaches a viewer it could not before.
+- **Patch**, `0.5.0` to `0.5.1`: shipped behaviour fixed, with nothing new to learn.
+- **None**: the shipped app runs identically.
+  Docs, comments, tests, a refactor behind a stable contract, CI, dev tooling.
+
+Several pushes can share one bump.
+What decides is whether the release a user downloads would differ.
+
+The bump is its own commit, and the `version` job in `.github/workflows/build.yml` names every file that has to agree.
+Tagging and publishing the release on GitHub stays the user's: the tag `vX.Y.Z` is what builds the installers and pushes the relay images.
+
 # Never drive the GUI
 
 Never move the mouse, click, type into windows, or otherwise control the desktop/app UI. No `computer` tool, no automation scripts (AutoHotkey, PowerShell SendKeys, xdotool, nircmd), no browser-pane clicking to operate the app.
