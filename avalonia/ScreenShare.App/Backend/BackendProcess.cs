@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace ScreenShare.App.Backend;
 
@@ -18,7 +19,7 @@ namespace ScreenShare.App.Backend;
 internal static class BackendProcess
 {
     /// <summary>Binary name the build tasks emit (<c>Taskfile.yml</c>, <c>build</c>).</summary>
-    private const string ExeName = "screenshare-backend";
+    private const string ExeName = "mirrorme-backend";
 
     /// <summary>
     /// <c>0</c> leaves starting a backend to whoever started this shell.
@@ -27,16 +28,25 @@ internal static class BackendProcess
     /// Spawning there picks the installed binary, whose version the window then shows and whose endpoint
     /// <c>task dev</c> finds taken.
     /// </summary>
-    internal const string EnvSpawn = "SCREENSHARE_BACKEND_SPAWN";
+    internal const string EnvSpawn = "MIRRORME_BACKEND_SPAWN";
 
     /// <summary>Serialises the start, so connect attempts racing at startup produce one backend.</summary>
     private static readonly Lock Gate = new();
 
     /// <summary>
     /// Backend this shell started. Null until one is started.
-    /// Kept so a second connect failure starts no second backend, and so the exit hook has something to stop.
+    /// Kept so a second connect failure starts no second backend, and so the exit hooks have something to stop.
     /// </summary>
     private static Process? _started;
+
+    /// <summary>
+    /// Signal registrations, held for as long as the process runs.
+    /// A dropped registration is collected and unhooked, which puts the backend back out of reach of a signal.
+    /// </summary>
+    private static readonly List<PosixSignalRegistration> Signals = [];
+
+    /// <summary>Whether <see cref="Hook"/> has run, the hooks being the process's rather than a backend's.</summary>
+    private static bool _hooked;
 
     /// <summary>
     /// Starts the backend unless this shell already has one.
@@ -55,7 +65,7 @@ internal static class BackendProcess
         {
             if (_started is { HasExited: false })
             {
-                // Caller waits on the endpoint, not on this process.
+                // Caller waits on the endpoint.
                 return true;
             }
 
@@ -85,7 +95,7 @@ internal static class BackendProcess
 
             if (_started is not null)
             {
-                AppDomain.CurrentDomain.ProcessExit += StopStarted;
+                Hook();
             }
             return _started is not null;
         }
@@ -95,8 +105,11 @@ internal static class BackendProcess
     /// Stops the backend this shell started, and its children with it.
     /// The backend supervises the encoder and viewer processes it spawned, so a kill taking the parent alone
     /// leaves those encoding.
+    ///
+    /// Names the state it wants rather than a transition: a run with no backend of its own, or one already
+    /// exited, is already there.
     /// </summary>
-    private static void StopStarted(object? sender, EventArgs e)
+    public static void Stop()
     {
         lock (Gate)
         {
@@ -113,6 +126,53 @@ internal static class BackendProcess
             {
                 // Exited between check and kill, or kill refused.
                 // Neither holds up the shell's own exit.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every way this process ends that leaves code of its own a chance to run, wired to <see cref="Stop"/>.
+    ///
+    /// <c>ProcessExit</c> alone covers a returning <c>Main</c> and nothing else:
+    /// a signal terminates the runtime without raising it,
+    /// so a session logging out, a <c>systemd</c> stop or a terminal closing over a foreground run
+    /// each leave a backend publishing with no window in front of it.
+    /// The registrations below run before the default action and leave it in place,
+    /// so the process still ends on the signal it was sent.
+    ///
+    /// <c>SIGKILL</c> reaches no handler on any platform.
+    /// What covers that is the backend's own supervision of its children,
+    /// plus the next shell reusing the endpoint it finds served.
+    ///
+    /// Called under <see cref="Gate"/>, and idempotent: a second backend hooks nothing twice.
+    /// </summary>
+    private static void Hook()
+    {
+        if (_hooked)
+        {
+            return;
+        }
+        _hooked = true;
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Stop();
+
+        // SIGINT and SIGTERM are raised on both platforms, SIGHUP on Unix alone.
+        // A signal this platform does not define throws at registration rather than answering false, so the list
+        // is built per platform instead of being tried.
+        var signals = OperatingSystem.IsWindows()
+            ? new[] { PosixSignal.SIGINT, PosixSignal.SIGTERM }
+            : [PosixSignal.SIGINT, PosixSignal.SIGTERM, PosixSignal.SIGHUP];
+
+        foreach (var signal in signals)
+        {
+            try
+            {
+                Signals.Add(PosixSignalRegistration.Create(signal, _ => Stop()));
+            }
+            catch (Exception)
+            {
+                // Umgebungsfehler: a platform or a host refusing this signal.
+                // The rest of the list still covers the ways this process is asked to end.
             }
         }
     }

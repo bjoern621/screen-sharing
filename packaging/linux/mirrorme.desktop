@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name=MirrorMe
-GenericName=Screen Sharing
+GenericName=Screen sharing
 Comment=Self-hosted group screen sharing
-Exec=screenshare-avalonia
-Icon=screen-sharing
+Exec=mirrorme
+Icon=mirrorme
 Terminal=false
 Categories=AudioVideo;Video;
 Keywords=share;sharing;screen;desktop;cast;stream;streaming;broadcast;present;presentation;meeting;call;remote;viewer;relay;
 StartupNotify=true
-StartupWMClass=screenshare-avalonia
+StartupWMClass=mirrorme

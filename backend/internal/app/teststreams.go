@@ -29,7 +29,7 @@ const testStreamsAtBoot = 3
 // EnvTestStreams overrides that count for one run, and 0 turns the boot set off.
 // The default is not free: one x264 encoder per slot runs for as long as the backend does,
 // watched or not.
-const EnvTestStreams = "SCREENSHARE_TEST_STREAMS"
+const EnvTestStreams = "MIRRORME_TEST_STREAMS"
 
 // testStream is one slot of the synthetic set:
 // the child publishing it, or the relaunch that child's death armed.

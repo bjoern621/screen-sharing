@@ -8,7 +8,7 @@ import "os"
 //
 // The name lands in the endpoint's own leaf rather than in a directory above it:
 // the Windows pipe has no directory, so one rule covers both platforms.
-const EnvInstance = "SCREENSHARE_INSTANCE"
+const EnvInstance = "MIRRORME_INSTANCE"
 
 // instanceSuffix is what EnvInstance appends to the socket file name and the pipe name.
 //

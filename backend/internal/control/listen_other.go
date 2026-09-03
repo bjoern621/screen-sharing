@@ -22,7 +22,7 @@ import (
 // and a shell opening the wrong one fails to connect rather than being turned away at Hello.
 // EnvInstance lands between the stem and the extension, on the same reasoning one major down.
 const (
-	socketDirName  = "screenshare"
+	socketDirName  = "mirrorme"
 	socketFileStem = "control-v1"
 	socketFileExt  = ".sock"
 

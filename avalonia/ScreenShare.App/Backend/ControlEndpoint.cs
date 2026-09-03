@@ -30,15 +30,15 @@ internal static class ControlEndpoint
     /// their own backend (<c>backend/internal/control/instance.go</c>).
     /// The value has to match the backend's, the two deriving one address from it separately.
     /// </summary>
-    internal const string EnvInstance = "SCREENSHARE_INSTANCE";
+    internal const string EnvInstance = "MIRRORME_INSTANCE";
 
     /// <summary>
     /// Leaf alone: <see cref="NamedPipeClientStream"/> takes the server
     /// and the <c>\\.\pipe\</c> prefix as arguments of its own.
     /// </summary>
-    private const string PipeStem = "screenshare-control-v1";
+    private const string PipeStem = "mirrorme-control-v1";
 
-    private const string SocketDirName = "screenshare";
+    private const string SocketDirName = "mirrorme";
     private const string SocketFileStem = "control-v1";
     private const string SocketFileExtension = ".sock";
 

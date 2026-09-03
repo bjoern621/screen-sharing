@@ -66,7 +66,7 @@ func main() {
 	codec := flag.String("codec", "", "encoder a publish run holds, empty to let the walk move it")
 	flag.Parse()
 
-	// The backend's own answer, so a run against SCREENSHARE_INSTANCE reaches that backend
+	// The backend's own answer, so a run against MIRRORME_INSTANCE reaches that backend
 	// and the address is derived in one place.
 	if *sock == "" {
 		*sock = control.Endpoint()

@@ -30,7 +30,7 @@ type Engine interface {
 
 // EnvViewer selects the viewer program:
 // "mpv" switches away from the default ffplay, for comparing the two on a machine without a rebuild.
-const EnvViewer = "SCREENSHARE_VIEWER"
+const EnvViewer = "MIRRORME_VIEWER"
 
 // Select returns the viewer engine for the named watch transport.
 // The leg is per viewer rather than the publish settings',

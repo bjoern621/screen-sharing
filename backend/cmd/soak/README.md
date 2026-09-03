@@ -38,7 +38,7 @@ MTX_SRTADDRESS=:18890 MTX_RTSPSADDRESS=:18554 MTX_RTMPSADDRESS=:11936 MTX_APIADD
 | --- | --- |
 | `XDG_RUNTIME_DIR` | the control socket, so this instance neither finds nor is found by a shell's |
 | `XDG_CONFIG_HOME` | the settings, presets, portal token and run logs |
-| `SCREENSHARE_TEST_STREAMS=0` | no synthetic publishers on boot, leaving the relay paths free |
+| `MIRRORME_TEST_STREAMS=0` | no synthetic publishers on boot, leaving the relay paths free |
 | `PULSE_SERVER` | named outright, libpulse looking for it under the runtime directory just moved |
 
 The session is stated as x11 so the capture list offers the portal-free backends.

@@ -1,5 +1,5 @@
 {
-  description = "screen-sharing: high-quality group screen sharing (MediaMTX relay + Go backend + Avalonia shell)";
+  description = "MirrorMe: high-quality group screen sharing (MediaMTX relay + Go backend + Avalonia shell)";
 
   # A revision on both inputs and never a branch,
   # so which package set a checkout builds against is this file's property
@@ -193,7 +193,7 @@
         # Linux capture path: the kmsgrab pipeline, the unprivileged Wayland alternatives,
         # and the tools to inspect either.
         # kmsgrab needs CAP_SYS_ADMIN at runtime,
-        # which nix/screen-share.nix grants to a dedicated ffmpeg-kmsgrab wrapper.
+        # which nix/mirrorme.nix grants to a dedicated ffmpeg-kmsgrab wrapper.
         # Without that module, kmsgrab runs under sudo.
         linuxCaptureDeps = with pkgs; [
           wl-screenrec # wlroots screencopy, zero-copy DMA-BUF, hardware encode, no root
@@ -270,7 +270,7 @@
         # A capability-bearing binary runs in glibc's secure-execution mode,
         # where that variable is ignored,
         # so the kmsgrab wrapper takes the runtime on libavutil's RUNPATH instead
-        # (nix/screen-share.nix, the amf option).
+        # (nix/mirrorme.nix, the amf option).
         amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
         # Intel's oneVPL runtime, the implementation behind every QSV encoder and decoder.
         # Both engines reach it through a dispatcher that loads the runtime by filename at startup:
@@ -347,9 +347,9 @@
         # (nix/package.nix).
         #
         #   nix run github:bjoern621/screen-sharing
-        #   environment.systemPackages = [ screen-sharing.packages.${system}.default ];
-        packages.screen-sharing = pkgs.callPackage ./nix/package.nix { inherit version; };
-        packages.default = self.packages.${system}.screen-sharing;
+        #   environment.systemPackages = [ mirrorme.packages.${system}.default ];
+        packages.mirrorme = pkgs.callPackage ./nix/package.nix { inherit version; };
+        packages.default = self.packages.${system}.mirrorme;
 
         # The service that runs beside the relay rather than on a desktop (nix/groupd.nix).
         # A NixOS host installs it through the overlay below.
@@ -384,7 +384,7 @@
 
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.screen-sharing}/bin/screenshare-avalonia";
+          program = "${self.packages.${system}.mirrorme}/bin/mirrorme";
         };
 
         devShells.default = pkgs.mkShell {
@@ -396,7 +396,7 @@
               # libvpx, libaom, SVT-AV1 and rav1e are optional build inputs,
               # and encoders.Detect greys whichever the build lacks.
               ffmpeg-full
-              mpv # single-stream viewer, selected by SCREENSHARE_VIEWER below
+              mpv # single-stream viewer, selected by MIRRORME_VIEWER below
               mediamtx # the relay, run natively by scripts/relay.sh
               openssl # draws that relay's certificate, the TLS listeners taking one either way
               go-task # runs Taskfile.yml
@@ -415,13 +415,13 @@
             );
 
           shellHook = ''
-            echo "screen-sharing dev shell - run 'task' for available commands"
-            echo "kmsgrab needs CAP_SYS_ADMIN: enable nix/screen-share.nix for the"
+            echo "MirrorMe dev shell - run 'task' for available commands"
+            echo "kmsgrab needs CAP_SYS_ADMIN: enable nix/mirrorme.nix for the"
             echo "ffmpeg-kmsgrab wrapper, or run plain ffmpeg kmsgrab under sudo."
 
             # watch.Select reads this; mpv is the viewer for this shell.
             # Unset it to fall back to the in-code default, ffplay.
-            export SCREENSHARE_VIEWER=mpv
+            export MIRRORME_VIEWER=mpv
 
             # Grpc.Tools resolves both of these itself when they are empty,
             # to the prebuilt binaries in its NuGet package that this platform cannot run.
@@ -477,21 +477,21 @@
     )
     // {
       # Imported by a host config to get the privileged kmsgrab wrapper:
-      #   imports = [ screen-sharing.nixosModules.screenShare ];
-      #   programs.screenShare = { enable = true; user = "bjoern"; };
-      nixosModules.screenShare = import ./nix/screen-share.nix;
-      nixosModules.default = self.nixosModules.screenShare;
+      #   imports = [ mirrorme.nixosModules.mirrorme ];
+      #   programs.mirrorme = { enable = true; user = "bjoern"; };
+      nixosModules.mirrorme = import ./nix/mirrorme.nix;
+      nixosModules.default = self.nixosModules.mirrorme;
 
       # The MediaMTX build deploy/mediamtx-groups.yml is written against,
       # for a host serving as the relay:
-      #   nixpkgs.overlays = [ screen-sharing.overlays.mediamtx ];
+      #   nixpkgs.overlays = [ mirrorme.overlays.mediamtx ];
       # The dev shell applies the same overlay,
       # so `task relay` and a deployed relay are one version.
       overlays.mediamtx = mediamtxOverlay;
 
       # The group service, for that same host:
       # it runs beside the relay, where the signing key lives and where the relay fetches it from.
-      #   nixpkgs.overlays = [ screen-sharing.overlays.groupd ];
+      #   nixpkgs.overlays = [ mirrorme.overlays.groupd ];
       #   systemd.services.groupd.serviceConfig.ExecStart = lib.getExe pkgs.screenshare-groupd;
       overlays.groupd = final: _: {
         screenshare-groupd = final.callPackage ./nix/groupd.nix { inherit version; };

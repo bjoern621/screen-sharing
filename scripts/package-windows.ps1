@@ -21,7 +21,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $version = if ($env:VERSION) { $env:VERSION.Trim() } else { 'dev' }
 $bin = Join-Path $root 'build/bin'
 $dist = Join-Path $root 'build/dist'
-$name = "screen-sharing-$version-windows-x86_64"
+$name = "mirrorme-$version-windows-x86_64"
 $zip = Join-Path $dist "$name.zip"
 
 # Each of these comes from a task this one depends on,
@@ -33,7 +33,7 @@ $zip = Join-Path $dist "$name.zip"
 # the probe reading one missing program as an install with no GStreamer tooling at all
 # (backend/internal/encoders, gstAvailable).
 $required = @(
-    'screenshare-backend.exe',
+    'mirrorme-backend.exe',
     'ffmpeg.exe',
     'ffplay.exe',
     'gst-launch-1.0.exe',
@@ -69,9 +69,9 @@ Copy-Item -Recurse -Force (Join-Path $bin '*') $stage
 # The one file a reader of this archive sees before running anything.
 # Everything the app needs is in the archive, so this names which program to start and nothing else.
 $readme = @"
-screen-sharing $version
+MirrorMe $version
 
-Run screenshare-avalonia.exe. It starts the backend beside it, so there is
+Run mirrorme.exe. It starts the backend beside it, so there is
 nothing else to launch, and nothing to install first.
 
 To reach a relay, or to run one:

@@ -14,7 +14,7 @@
 #   and the WebRTC legs (WHIP publish, WHEP watch) fail at pipeline start on a stock install.
 # Both are Recommends where a package exists and a note in docs/install.md where none does.
 
-%global appname     screen-sharing
+%global appname     mirrorme
 %global appdir      %{_libdir}/%{appname}
 
 # No debuginfo package.
@@ -31,10 +31,10 @@
 # (.github/workflows/version.yml).
 # rpm's own %%{version} is what the Version tag below defines,
 # so the number arrives under a name of its own:
-#   rpmbuild -bb --define "appversion 0.6.1" packaging/fedora/screen-sharing.spec
+#   rpmbuild -bb --define "appversion 0.6.1" packaging/fedora/mirrorme.spec
 %{!?appversion:%{error:appversion is undefined: rpmbuild --define "appversion 0.6.1"}}
 
-Name:           screen-sharing
+Name:           mirrorme
 Version:        %{appversion}
 Release:        1%{?dist}
 Summary:        Self-hosted, high-quality group screen sharing
@@ -120,7 +120,7 @@ export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
 go build -C backend -ldflags "-X main.version=%{version}" \
-  -o ../dist/screenshare-backend ./cmd/backend
+  -o ../dist/mirrorme-backend ./cmd/backend
 
 # Framework-dependent: the runtime is a dependency of this package,
 # so the build carries no second copy of it.
@@ -134,20 +134,20 @@ dotnet publish avalonia/ScreenShare.App/ScreenShare.App.csproj \
 %install
 install -dm 755 %{buildroot}%{appdir}
 cp -r dist/. %{buildroot}%{appdir}/
-chmod 755 %{buildroot}%{appdir}/screenshare-backend \
-          %{buildroot}%{appdir}/screenshare-avalonia
+chmod 755 %{buildroot}%{appdir}/mirrorme-backend \
+          %{buildroot}%{appdir}/mirrorme
 
 # A launcher rather than a symlink into %{_libdir}:
 # the shell resolves the backend against its own directory,
 # and a symlinked entry point would answer %{_bindir}.
 install -dm 755 %{buildroot}%{_bindir}
-cat > %{buildroot}%{_bindir}/screenshare-avalonia <<EOF
+cat > %{buildroot}%{_bindir}/mirrorme <<EOF
 #!/bin/sh
-exec %{appdir}/screenshare-avalonia "\$@"
+exec %{appdir}/mirrorme "\$@"
 EOF
-chmod 755 %{buildroot}%{_bindir}/screenshare-avalonia
+chmod 755 %{buildroot}%{_bindir}/mirrorme
 
-install -Dm 644 packaging/linux/screen-sharing.desktop \
+install -Dm 644 packaging/linux/mirrorme.desktop \
   %{buildroot}%{_datadir}/applications/%{appname}.desktop
 # hicolor's index declares 48 through 512,
 # and a size it omits is a directory no lookup walks.
@@ -164,7 +164,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{appname}.desktop
 %files
 %license LICENSE
 %doc README.md docs/install.md THIRD-PARTY-NOTICES.md
-%{_bindir}/screenshare-avalonia
+%{_bindir}/mirrorme
 %{appdir}/
 %{_datadir}/applications/%{appname}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{appname}.png

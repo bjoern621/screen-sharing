@@ -11,11 +11,14 @@ Every publisher sends to one relay and every viewer reads from it, so somebody h
 
 ## Windows
 
-1. Download `screen-sharing-<version>-windows-x86_64.zip`.
-2. Extract it anywhere.
-3. Run `screenshare-avalonia.exe`.
+1. Download `mirrorme-<version>-windows-x86_64-setup.exe`.
+2. Run it.
 
-Nothing else has to be installed: ffmpeg and GStreamer are inside the archive.
+It installs for the current user under `%LocalAppData%\Programs\MirrorMe`, so it asks for no administrator rights, and it writes a Start-menu entry and an uninstaller.
+
+`mirrorme-<version>-windows-x86_64.zip` is the same files with nothing registered: extract it anywhere and run `mirrorme.exe`.
+
+Nothing else has to be installed either way: ffmpeg and GStreamer are inside both downloads.
 
 The binaries are unsigned, so the first run raises SmartScreen's "Windows protected your PC".
 "More info", then "Run anyway".
@@ -23,7 +26,7 @@ The binaries are unsigned, so the first run raises SmartScreen's "Windows protec
 ## Arch Linux
 
 ```sh
-sudo pacman -U screen-sharing-<version>-1-x86_64.pkg.tar.zst
+sudo pacman -U mirrorme-<version>-1-x86_64.pkg.tar.zst
 ```
 
 pacman pulls ffmpeg and the GStreamer plugins from the repositories.
@@ -37,7 +40,7 @@ makepkg -si
 ## Fedora
 
 ```sh
-sudo dnf install ./screen-sharing-*.rpm
+sudo dnf install ./mirrorme-*.rpm
 ```
 
 What is missing afterwards is Fedora's packaging rather than the app's:
@@ -57,14 +60,14 @@ nix run github:bjoern621/screen-sharing
 Install it from a flake:
 
 ```nix
-inputs.screen-sharing.url = "github:bjoern621/screen-sharing";
+inputs.mirrorme.url = "github:bjoern621/screen-sharing";
 
-environment.systemPackages = [ inputs.screen-sharing.packages.${system}.default ];
+environment.systemPackages = [ inputs.mirrorme.packages.${system}.default ];
 ```
 
 The flake turns on GStreamer's Vulkan and QSV plugins, which no binary cache carries, so the first build compiles `gst-plugins-bad` from source.
 
-Capturing a Wayland desktop with `kmsgrab` needs a privileged ffmpeg, which `nixosModules.screenShare` sets up.
+Capturing a Wayland desktop with `kmsgrab` needs a privileged ffmpeg, which `nixosModules.mirrorme` sets up.
 The portal path needs nothing.
 
 ## Flatpak
@@ -72,8 +75,8 @@ The portal path needs nothing.
 The bundle carries its own ffmpeg and GStreamer, so it installs on a distribution that packages neither.
 
 ```sh
-flatpak install --user ./screen-sharing-<version>-x86_64.flatpak
-flatpak run de.bjoernblessin.ScreenSharing
+flatpak install --user ./mirrorme-<version>-x86_64.flatpak
+flatpak run de.bjoernblessin.MirrorMe
 ```
 
 Capture goes through the desktop portal, which asks for the surface in a dialog.
@@ -96,8 +99,8 @@ sudo apt install ffmpeg gstreamer1.0-tools \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
   gstreamer1.0-libav gstreamer1.0-rtsp gstreamer1.0-pipewire libnice10
 
-tar xf screen-sharing-<version>-linux-x86_64-portable.tar.gz
-./screen-sharing-<version>-linux-x86_64-portable/screenshare-avalonia
+tar xf mirrorme-<version>-linux-x86_64-portable.tar.gz
+./mirrorme-<version>-linux-x86_64-portable/mirrorme
 ```
 
 Debian and Ubuntu package no `gst-plugins-rs` either, so the WebRTC transports are absent there too.
@@ -152,5 +155,5 @@ Two backends capture the desktop properly:
 
 ## Where settings are kept
 
-`~/.config/screenshare/settings.json` on Linux, `%AppData%\screenshare\settings.json` on Windows.
+`~/.config/mirrorme/settings.json` on Linux, `%AppData%\mirrorme\settings.json` on Windows.
 Deleting the file resets every setting to its default.

@@ -15,11 +15,11 @@
     What another program said, reproduced (Text.axaml, .transcript).
     NL is the ligature-free cut, so "->" and "//" stay two characters the reader can match
     against the text the backend printed.
-    Authority is the assembly name and not the namespace, and the two differ here:
-    screenshare-avalonia against ScreenShare.App. A URI naming the namespace loads nothing
+    Authority is the assembly name, and the two differ here:
+    mirrorme against ScreenShare.App. A URI naming the namespace loads nothing
     and the role silently draws in the default face.
   -->
-  <FontFamily x:Key="MonoFont">avares://screenshare-avalonia/Assets/Fonts#JetBrains Mono NL</FontFamily>
+  <FontFamily x:Key="MonoFont">avares://mirrorme/Assets/Fonts#JetBrains Mono NL</FontFamily>
 
   <!--
     For anything read as a column or that ticks: a timer, a table cell, a plot annotation.

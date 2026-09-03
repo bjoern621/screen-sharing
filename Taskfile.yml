@@ -73,13 +73,13 @@ tasks:
       # The endpoint `task dev` serves, kept off the one an installed build binds,
       # so both run at once and each shell reaches its own backend
       # (backend/internal/control/instance.go).
-      SCREENSHARE_INSTANCE: dev
+      MIRRORME_INSTANCE: dev
       # Starting a backend is `task dev`'s here.
       # The shell looks beside itself and then on PATH, and a checkout puts a backend on neither,
       # so a spawn picks up whichever binary an install left on PATH:
       # the window then shows that build's version and `task dev` finds its endpoint taken.
       # Off, a run without `task dev` reports the endpoint as unserved and names it.
-      SCREENSHARE_BACKEND_SPAWN: "0"
+      MIRRORME_BACKEND_SPAWN: "0"
     # No toolchain variable: this project links nothing through cgo, so MSYS2 stays out,
     # and the .NET SDK is on PATH either way,
     # system-wide on Windows and from the flake's dev shell on Linux and macOS,
@@ -106,7 +106,7 @@ tasks:
     dir: backend
     env:
       # The endpoint `task avalonia` opens, kept off the one an installed build binds.
-      SCREENSHARE_INSTANCE: dev
+      MIRRORME_INSTANCE: dev
       # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo.
       # Go turns CGO_ENABLED off by itself when it finds no C compiler,
       # so a build outside the toolchain's reach fails as "build constraints exclude all Go files"
@@ -178,7 +178,7 @@ tasks:
     env:
       CGO_ENABLED: "1"
     cmds:
-      - go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend' ./cmd/backend
+      - go build -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend' ./cmd/backend
 
   build:windows:
     desc: Build the Windows backend binary and copy ffmpeg/ffplay in beside it
@@ -202,7 +202,7 @@ tasks:
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
           go build -ldflags "-X main.version={{default "dev" .STAMP}}"
-          -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
+          -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
       # so both executables go into build/windows/redist first (that directory's README).
       - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
@@ -218,10 +218,14 @@ tasks:
       - go test -tags hardware ./...
 
   icons:
-    desc: Redraw build/icons from the master at the sizes hicolor declares
+    desc: Redraw build/icons from the master, for hicolor and for Windows
     # The results are committed, so no packaging recipe carries an ImageMagick build dependency.
     cmds:
       - for size in 48 64 128 256 512; do magick build/appicon.png -resize ${size}x${size} build/icons/${size}.png; done
+      # One file carrying every size Windows picks between,
+      # which is what the installer stamps on itself and on its Add/Remove entry
+      # (packaging/windows/mirrorme.iss).
+      - magick build/appicon.png -define icon:auto-resize=256,128,64,48,32,16 build/icons/mirrorme.ico
 
   package:linux:
     desc: Build the Linux release tarball into build/dist
@@ -241,8 +245,8 @@ tasks:
     deps: [package:linux]
     cmds:
       - flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
-      - flatpak-builder --user --force-clean --repo=build/flatpak-repo build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
-      - flatpak build-bundle build/flatpak-repo build/dist/screen-sharing-{{.VERSION}}-x86_64.flatpak de.bjoernblessin.ScreenSharing
+      - flatpak-builder --user --force-clean --repo=build/flatpak-repo build/flatpak-build packaging/flatpak/de.bjoernblessin.MirrorMe.yml
+      - flatpak build-bundle build/flatpak-repo build/dist/mirrorme-{{.VERSION}}-x86_64.flatpak de.bjoernblessin.MirrorMe
     vars:
       # What the bundle is named after, from the run rather than from the tree
       # (.github/workflows/version.yml).
@@ -263,6 +267,15 @@ tasks:
             sh: echo "${VERSION:-dev}"
     cmds:
       - powershell -NoProfile -File scripts/package-windows.ps1
+
+  package:windows:installer:
+    desc: Build the Windows installer into build/dist
+    platforms: [windows]
+    # Over the directory package:windows staged,
+    # so the installer and the zip carry one set of files (scripts/installer-windows.ps1).
+    deps: [package:windows]
+    cmds:
+      - powershell -NoProfile -File scripts/installer-windows.ps1
 
   bundle:windows:
     desc: Copy the GStreamer runtime the backend needs next to the built binaries

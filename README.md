@@ -1,4 +1,4 @@
-# screen-sharing
+# MirrorMe
 
 Self-hosted group screen sharing for trusted friends.
 
@@ -71,7 +71,7 @@ Friend B         ──SRT──┘                            HLS/WebRTC/MoQ fo
 | `deploy/` | the relay and reverse-proxy config a deployment on the internet runs |
 | `docs/` | architecture, domain model and terminology |
 | `nix/` | the Nix packages and the NixOS module for the privileged capture path |
-| `packaging/` | the Arch and Fedora recipes and the desktop entry |
+| `packaging/` | the Arch, Fedora, Flatpak and Windows-installer recipes, and the desktop entry |
 | `scripts/` | packaging and development helpers |
 
 `api/`, `backend/` and `avalonia/` each carry a README stating what belongs in it.

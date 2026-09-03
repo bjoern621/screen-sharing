@@ -35,7 +35,7 @@ import (
 )
 
 // Where the identities live, under the directory settings.json is in.
-const configDirName = "screenshare"
+const configDirName = "mirrorme"
 const membersDirName = "members"
 
 // identityDirMode and identityFileMode keep both to their owner.

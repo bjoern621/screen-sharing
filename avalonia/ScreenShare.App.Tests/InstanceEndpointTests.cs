@@ -26,7 +26,7 @@ public sealed class InstanceEndpointTests : IDisposable
     {
         Environment.SetEnvironmentVariable(ControlEndpoint.EnvInstance, null);
 
-        var installed = OperatingSystem.IsWindows() ? @"\\.\pipe\screenshare-control-v1" : "control-v1.sock";
+        var installed = OperatingSystem.IsWindows() ? @"\\.\pipe\mirrorme-control-v1" : "control-v1.sock";
         Assert.EndsWith(installed, ControlEndpoint.Describe());
     }
 
@@ -38,7 +38,7 @@ public sealed class InstanceEndpointTests : IDisposable
     {
         Environment.SetEnvironmentVariable(ControlEndpoint.EnvInstance, "dev");
 
-        var named = OperatingSystem.IsWindows() ? @"\\.\pipe\screenshare-control-v1-dev" : "control-v1-dev.sock";
+        var named = OperatingSystem.IsWindows() ? @"\\.\pipe\mirrorme-control-v1-dev" : "control-v1-dev.sock";
         Assert.EndsWith(named, ControlEndpoint.Describe());
     }
 

@@ -1,4 +1,4 @@
-# NixOS module for the screen-sharing project's privileged kmsgrab capture path.
+# NixOS module for MirrorMe's privileged kmsgrab capture path.
 #
 # kmsgrab reads the raw KMS scanout framebuffer,
 # and the kernel gates that read behind CAP_SYS_ADMIN:
@@ -7,7 +7,7 @@
 #
 # The capability goes on one dedicated wrapper, /run/wrappers/bin/ffmpeg-kmsgrab,
 # executable by the video group, and ffmpeg on PATH gains nothing.
-# Its path is exported as SCREENSHARE_FFMPEG_KMSGRAB, which the app runs for kmsgrab capture,
+# Its path is exported as MIRRORME_FFMPEG_KMSGRAB, which the app runs for kmsgrab capture,
 # every other path staying on the unprivileged ffmpeg.
 #
 # CAP_SYS_ADMIN is close to full root,
@@ -31,7 +31,7 @@
 }:
 
 let
-  cfg = config.programs.screenShare;
+  cfg = config.programs.mirrorme;
 
   # The ffmpeg build the wrapper exposes,
   # with the AMF runtime placed where a capability-bearing binary can still find it.
@@ -85,8 +85,8 @@ let
         '';
 in
 {
-  options.programs.screenShare = {
-    enable = lib.mkEnableOption "the screen-sharing kmsgrab capture path (grants CAP_SYS_ADMIN to a dedicated ffmpeg wrapper)";
+  options.programs.mirrorme = {
+    enable = lib.mkEnableOption "the MirrorMe kmsgrab capture path (grants CAP_SYS_ADMIN to a dedicated ffmpeg wrapper)";
 
     user = lib.mkOption {
       type = lib.types.str;
@@ -146,7 +146,7 @@ in
     # The wrapper by absolute path,
     # so the app depends on nothing having put /run/wrappers/bin on its inherited PATH.
     # A session variable reaches a menu-launched GUI, which a login shell's PATH export does not.
-    environment.sessionVariables.SCREENSHARE_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
+    environment.sessionVariables.MIRRORME_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
 
     # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one takes.
     environment.systemPackages = with pkgs; [

@@ -107,7 +107,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .flatpak-builder
-          key: flatpak-${{ hashFiles('packaging/flatpak/de.bjoernblessin.ScreenSharing.yml') }}
+          key: flatpak-${{ hashFiles('packaging/flatpak/de.bjoernblessin.MirrorMe.yml') }}
           restore-keys: flatpak-
 
       - name: Package Flatpak
@@ -115,9 +115,9 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           flatpak-builder --user --force-clean --repo=build/flatpak-repo \
-            build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
+            build/flatpak-build packaging/flatpak/de.bjoernblessin.MirrorMe.yml
           flatpak build-bundle build/flatpak-repo \
-            "build/dist/screen-sharing-$VERSION-x86_64.flatpak" de.bjoernblessin.ScreenSharing
+            "build/dist/mirrorme-$VERSION-x86_64.flatpak" de.bjoernblessin.MirrorMe
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -196,19 +196,29 @@ jobs:
           if (-not $license) { throw "the downloaded ffmpeg build carries no LICENSE.txt" }
           Copy-Item $license.FullName build/windows/redist/ffmpeg-LICENSE.txt
 
+      # The installer compiler, which the runner image does not carry.
+      # Chocolatey is what it does carry, and this is the package Inno Setup publishes there.
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
       # MSYS2_ROOT is what the build and bundle tasks resolve the toolchain,
       # the plugin prefix and MSYS2's own sh through.
       # The action installs somewhere other than the default C:/msys64,
       # so it is named here rather than assumed.
+      #
+      # The installer task depends on the zip task, so one call builds both
+      # and the two carry the same staged directory (scripts/installer-windows.ps1).
       - name: Package
         env:
           MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
-        run: task package:windows
+        run: task package:windows:installer
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-zip
-          path: build/dist/*.zip
+          path: |
+            build/dist/*.zip
+            build/dist/*-setup.exe
           if-no-files-found: error
 
   # The flake's package, which is what a NixOS install reads. Nothing is uploaded: a Nix
@@ -237,7 +247,7 @@ jobs:
             extra-substituters = https://nix-cache.bjoernblessin.de/screen-sharing
             extra-trusted-public-keys = screen-sharing:0wAX2u4GPUvsZmRMsjut6HjhdYfBErcjQCHTXiJ0yPM=
 
-      - run: nix build .#screen-sharing --print-build-logs
+      - run: nix build .#mirrorme --print-build-logs
 
       # The whole closure, so a machine with none of it downloads rather than compiles:
       # a fresh runner, a contributor's checkout, a laptop after a garbage collection.
@@ -281,7 +291,7 @@ jobs:
         run: |
           useradd -m builder
           git config --global --add safe.directory "$PWD"
-          git archive --prefix="screen-sharing-$VERSION/" -o "packaging/arch/screen-sharing-$VERSION.tar.gz" HEAD
+          git archive --prefix="mirrorme-$VERSION/" -o "packaging/arch/mirrorme-$VERSION.tar.gz" HEAD
           chown -R builder packaging/arch
           su builder -c "cd packaging/arch && VERSION='$VERSION' makepkg --nodeps --noconfirm"
 
@@ -317,9 +327,9 @@ jobs:
         run: |
           rpmdev-setuptree
           git config --global --add safe.directory "$PWD"
-          git archive --prefix="screen-sharing-$VERSION/" \
-            -o "$HOME/rpmbuild/SOURCES/screen-sharing-$VERSION.tar.gz" HEAD
-          rpmbuild -bb --define "appversion $VERSION" packaging/fedora/screen-sharing.spec
+          git archive --prefix="mirrorme-$VERSION/" \
+            -o "$HOME/rpmbuild/SOURCES/mirrorme-$VERSION.tar.gz" HEAD
+          rpmbuild -bb --define "appversion $VERSION" packaging/fedora/mirrorme.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -366,6 +376,7 @@ jobs:
             '*-linux-x86_64-portable.tar.gz' \
             '*.flatpak' \
             '*-windows-x86_64.zip' \
+            '*-windows-x86_64-setup.exe' \
             '*.pkg.tar.zst' \
             '*.rpm'
           do

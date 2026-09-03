@@ -17,7 +17,7 @@ func TestSocketPathServesTheInstalledEndpointWhereNoInstanceIsNamed(t *testing.T
 		t.Fatalf("socketPath() failed: %v", err)
 	}
 
-	want := filepath.Join(runtime, "screenshare", "control-v1.sock")
+	want := filepath.Join(runtime, "mirrorme", "control-v1.sock")
 	if path != want {
 		t.Errorf("socketPath() = %q, want %q", path, want)
 	}
@@ -33,7 +33,7 @@ func TestSocketPathSeparatesAnInstanceFromTheInstalledEndpoint(t *testing.T) {
 		t.Fatalf("socketPath() failed: %v", err)
 	}
 
-	want := filepath.Join(runtime, "screenshare", "control-v1-dev.sock")
+	want := filepath.Join(runtime, "mirrorme", "control-v1-dev.sock")
 	if path != want {
 		t.Errorf("socketPath() = %q, want %q", path, want)
 	}

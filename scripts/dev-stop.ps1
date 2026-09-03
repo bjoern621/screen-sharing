@@ -11,7 +11,7 @@
   leaves that child alive with the pipe still open.
   The next run then logs
 
-    control: not serving on \\.\pipe\screenshare-control-v1: ... Zugriff verweigert
+    control: not serving on \\.\pipe\mirrorme-control-v1: ... Zugriff verweigert
 
   and carries on with no control socket, serveControl treating a socket it cannot open as non-fatal.
   That is the right call for a packaged app and the wrong state to develop in:
@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 # Kept in step with backend/internal/control/listen_windows.go, where the name is defined.
 # The version is part of it, so a v2 backend is a different pipe,
 # which this script neither waits for nor reports on.
-$pipe = "screenshare-control-v1"
+$pipe = "mirrorme-control-v1"
 $pipePath = "\\.\pipe\$pipe"
 
 # pipeTaken answers whether the name a new backend is about to create already exists.
@@ -88,7 +88,7 @@ $devTrees = @(
   (Join-Path (Split-Path $PSScriptRoot -Parent) "build\bin")
 )
 
-$found = @(Get-CimInstance Win32_Process -Filter "Name = 'backend.exe' OR Name = 'screenshare-backend.exe'" |
+$found = @(Get-CimInstance Win32_Process -Filter "Name = 'backend.exe' OR Name = 'mirrorme-backend.exe'" |
   Where-Object {
     $path = $_.ExecutablePath
     $path -and @($devTrees | Where-Object { $path.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0

@@ -23,7 +23,7 @@ The setup flow needs the Go backend, everything on it being resolved there.
 An install starts one itself when nothing is listening on the control endpoint, connecting to a backend already up rather than duplicating it, and stopping only one it started.
 No backend binary to start: the app says so and offers to look again.
 
-A checkout runs the two halves apart instead, `task avalonia` setting `SCREENSHARE_BACKEND_SPAWN=0` and `SCREENSHARE_INSTANCE=dev` (`docs/ipc-api.md`, "The endpoint").
+A checkout runs the two halves apart instead, `task avalonia` setting `MIRRORME_BACKEND_SPAWN=0` and `MIRRORME_INSTANCE=dev` (`docs/ipc-api.md`, "The endpoint").
 Those give it the endpoint `task dev` serves and leave starting a backend there, so the window shows the build under development and an installed app keeps running beside it.
 Without `task dev`, the window reports the endpoint as unserved and names it.
 

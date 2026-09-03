@@ -40,7 +40,7 @@ A missing runtime is not a failure the app handles: the encoder refuses to open,
 `LD_LIBRARY_PATH` reaches an unprivileged `ffmpeg` alone.
 The kmsgrab wrapper carries file capabilities, which puts it in glibc's secure-execution mode where that variable is ignored, so a runtime delivered through the environment never reaches its loader.
 Untreated that is a wrong answer rather than a missing encoder: the probe runs the unprivileged binary, finds the runtime, and the form offers a family that dies at launch under kmsgrab.
-The `amf` option of `nix/screen-share.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
+The `amf` option of `nix/mirrorme.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
 Ordinary variables survive, so the oneVPL runtime behind QSV, located through `ONEVPL_SEARCH_PATH`, is unaffected.
 
 ## Version pinning
@@ -135,7 +135,7 @@ On NixOS the store is read-only, so `setcap` cannot target the store path.
 A `security.wrappers` entry produces a setcap wrapper under `/run/wrappers/bin`:
 
 ```nix
-security.wrappers.screenshare-ffmpeg = {
+security.wrappers.mirrorme-ffmpeg = {
   owner = "root";
   group = "root";
   capabilities = "cap_sys_admin+ep";
@@ -143,7 +143,7 @@ security.wrappers.screenshare-ffmpeg = {
 };
 ```
 
-The app then invokes `/run/wrappers/bin/screenshare-ffmpeg` for capture.
+The app then invokes `/run/wrappers/bin/mirrorme-ffmpeg` for capture.
 
 ### The portal alternative
 
@@ -162,6 +162,11 @@ A fixed node travels badly, the boot framebuffer often holding `card0` while the
 One section per channel, naming its recipe and which of the two provisioning models it takes.
 
 ### Windows (self-contained)
+
+Two downloads over one staging step: `scripts/package-windows.ps1` writes the zip and leaves the staged directory, and `scripts/installer-windows.ps1` compiles `packaging/windows/mirrorme.iss` over that same directory.
+So the installer and the zip carry one set of files rather than two assemblies free to disagree.
+The install is per user, under `%LocalAppData%\Programs\MirrorMe`, which is what keeps a UAC prompt off an unsigned binary.
+Inno Setup's compiler is the one build dependency neither the runner image nor a Windows checkout carries; `choco install innosetup` is how the release workflow gets it.
 
 `scripts/package-windows.ps1` assembles this channel over what `task build:windows` and `task bundle:windows` produce.
 Windows has no dependency manager the installer can rely on, so the app ships ffmpeg.
@@ -225,7 +230,7 @@ The derivation wraps the app binary so ffmpeg and ffplay are on its `PATH`:
 nativeBuildInputs = [ makeWrapper ];
 
 postInstall = ''
-  wrapProgram $out/bin/screen-sharing \
+  wrapProgram $out/bin/mirrorme \
     --prefix PATH : ${lib.makeBinPath [ ffmpeg-full ]}
 '';
 ```
@@ -240,13 +245,13 @@ The `kmsgrab` capability is a system concern, handled by the `security.wrappers`
 Same model as Arch: declare the dependency, do not bundle.
 
 - Debian: `Depends: ffmpeg`, in a `.deb` no recipe here builds. A Debian install takes the tarball below instead, which is why `docs/install.md` names the apt packages it has to be given.
-- Fedora: `Requires: ffmpeg`. `packaging/fedora/screen-sharing.spec` requires the two paths rather than the name, `ffmpeg-free` and RPM Fusion's `ffmpeg` both providing them.
+- Fedora: `Requires: ffmpeg`. `packaging/fedora/mirrorme.spec` requires the two paths rather than the name, `ffmpeg-free` and RPM Fusion's `ffmpeg` both providing them.
 
 Distributions with no package here take the tarball `scripts/package-linux.sh` builds, which carries both binaries and the .NET runtime and takes ffmpeg and GStreamer from the distribution.
 
 ### Flatpak
 
-`packaging/flatpak/de.bjoernblessin.ScreenSharing.yml`, built by `task package:flatpak`.
+`packaging/flatpak/de.bjoernblessin.MirrorMe.yml`, built by `task package:flatpak`.
 Self-contained, so it is the bundling side of the convention, with the obligations the Windows archive carries (`THIRD-PARTY-NOTICES.md`).
 
 The channel exists for the distributions the tarball leaves out.

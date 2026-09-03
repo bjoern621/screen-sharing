@@ -62,7 +62,7 @@ let
   # A working tree also holds the .NET intermediate and output directories,
   # so a source carrying those would be gigabytes and would change on every local build.
   src = lib.cleanSourceWith {
-    name = "screen-sharing-source";
+    name = "mirrorme-source";
     src = ../.;
     filter =
       path: type:
@@ -163,7 +163,7 @@ let
   ];
 
   backend = buildGoModule {
-    pname = "screenshare-backend";
+    pname = "mirrorme-backend";
     inherit version src;
 
     # The module cache rather than a vendor directory,
@@ -202,7 +202,7 @@ let
     ];
 
     # buildGoModule names the binary after its directory,
-    # and the rest of the repository names it screenshare-backend.
+    # and the rest of the repository names it mirrorme-backend.
     # The rename comes before the wrapper, so the wrapper is written against the final name.
     #
     # GLib carries no TLS of its own and takes it from a GIO module,
@@ -211,9 +211,9 @@ let
     # which names neither TLS nor the missing module.
     # A prefix rather than a set, the session's own value carrying the desktop's modules.
     postInstall = ''
-      mv $out/bin/backend $out/bin/screenshare-backend
+      mv $out/bin/backend $out/bin/mirrorme-backend
 
-      wrapProgram $out/bin/screenshare-backend \
+      wrapProgram $out/bin/mirrorme-backend \
         --prefix PATH : ${
           lib.makeBinPath (
             [
@@ -228,17 +228,17 @@ let
         ${hardwareRuntimeArgs}
     '';
 
-    meta.mainProgram = "screenshare-backend";
+    meta.mainProgram = "mirrorme-backend";
   };
 
   shell = buildDotnetModule {
-    pname = "screenshare-avalonia";
+    pname = "mirrorme";
     inherit version src;
 
     projectFile = "avalonia/ScreenShare.App/ScreenShare.App.csproj";
     nugetDeps = ./deps.json;
     dotnet-sdk = dotnet-sdk_10;
-    executables = [ "screenshare-avalonia" ];
+    executables = [ "mirrorme" ];
 
     runtimeDeps = avaloniaRuntimeDeps;
 
@@ -264,11 +264,11 @@ let
       "${backend}/bin"
     ];
 
-    meta.mainProgram = "screenshare-avalonia";
+    meta.mainProgram = "mirrorme";
   };
 in
 symlinkJoin {
-  name = "screen-sharing-${version}";
+  name = "mirrorme-${version}";
   inherit version;
 
   paths = [
@@ -280,32 +280,32 @@ symlinkJoin {
   # The desktop entry is what a menu launch goes through, and every Linux channel installs it,
   # so a menu shows the same app whichever built it.
   postBuild = ''
-    install -Dm444 ${../packaging/linux/screen-sharing.desktop} \
-      $out/share/applications/screen-sharing.desktop
+    install -Dm444 ${../packaging/linux/mirrorme.desktop} \
+      $out/share/applications/mirrorme.desktop
 
     # `task icons` draws these from build/appicon.png and they are committed,
     # so no channel needs ImageMagick at build time.
     for size in ${lib.concatStringsSep " " (map toString iconSizes)}; do
       install -Dm444 ${../build/icons}/''${size}.png \
-        $out/share/icons/hicolor/''${size}x''${size}/apps/screen-sharing.png
+        $out/share/icons/hicolor/''${size}x''${size}/apps/mirrorme.png
     done
 
-    install -Dm444 ${../LICENSE} $out/share/licenses/screen-sharing/LICENSE
+    install -Dm444 ${../LICENSE} $out/share/licenses/mirrorme/LICENSE
     install -Dm444 ${../THIRD-PARTY-NOTICES.md} \
-      $out/share/doc/screen-sharing/THIRD-PARTY-NOTICES.md
+      $out/share/doc/mirrorme/THIRD-PARTY-NOTICES.md
   '';
 
   passthru = {
     inherit backend shell;
     # A changed PackageReference needs the NuGet lock rewritten before this package builds again:
-    # `nix run .#screen-sharing.fetch-deps -- nix/deps.json`.
+    # `nix run .#mirrorme.fetch-deps -- nix/deps.json`.
     inherit (shell) fetch-deps;
   };
 
   meta = {
     description = "Self-hosted, high-quality group screen sharing";
     homepage = "https://github.com/bjoern621/screen-sharing";
-    mainProgram = "screenshare-avalonia";
+    mainProgram = "mirrorme";
     platforms = lib.platforms.linux;
     # The project's own code alone.
     # ffmpeg and GStreamer reach the wrapper from the closure under their own terms,

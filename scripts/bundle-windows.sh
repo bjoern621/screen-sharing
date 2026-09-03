@@ -33,7 +33,7 @@ fi
 bin=$(cygpath -u "$bin")
 prefix=$(cygpath -m "$prefix")
 
-backend="$bin/screenshare-backend.exe"
+backend="$bin/mirrorme-backend.exe"
 
 # Both tools, the inspector as much as the launcher.
 # The launcher runs a pipeline, and the encoder probe asks the inspector whether an element exists:

@@ -151,8 +151,8 @@ One endpoint per platform, restricted to the owning user.
 
 | Platform | Endpoint |
 | --- | --- |
-| Windows | named pipe `\\.\pipe\screenshare-control-v1`, DACL restricted to the owning user |
-| Linux, macOS | Unix socket `$XDG_RUNTIME_DIR/screenshare/control-v1.sock`, mode `0600`, falling back to the config directory where `XDG_RUNTIME_DIR` is unset |
+| Windows | named pipe `\\.\pipe\mirrorme-control-v1`, DACL restricted to the owning user |
+| Linux, macOS | Unix socket `$XDG_RUNTIME_DIR/mirrorme/control-v1.sock`, mode `0600`, falling back to the config directory where `XDG_RUNTIME_DIR` is unset |
 
 The service binds no TCP port, loopback included.
 A loopback port is reachable by every process on the machine and by anything the browser can be persuaded to fetch, and this service starts screen captures.
@@ -160,10 +160,10 @@ The socket path is the only discovery mechanism.
 A shell that cannot open it starts the backend and asks again, the backend being headless and a user who opened the app having asked for both halves.
 Still unreachable, it reports that the backend is not running and names the endpoint.
 
-`SCREENSHARE_INSTANCE` appends its value to both names, so `dev` serves `\\.\pipe\screenshare-control-v1-dev` and `control-v1-dev.sock`.
+`MIRRORME_INSTANCE` appends its value to both names, so `dev` serves `\\.\pipe\mirrorme-control-v1-dev` and `control-v1-dev.sock`.
 Backend and shell derive that separately from one variable, and an install leaves it unset.
 It is what lets a build under development and an installed one run side by side, `Taskfile.yml` setting it for `task dev` and `task avalonia`.
-`SCREENSHARE_BACKEND_SPAWN=0` goes with it on the shell: starting a backend belongs to `task dev`, and a shell reaching for PATH would find the installed binary instead.
+`MIRRORME_BACKEND_SPAWN=0` goes with it on the shell: starting a backend belongs to `task dev`, and a shell reaching for PATH would find the installed binary instead.
 The contract states none of that: a shell connects to a backend already listening, and stops only one it started itself.
 Both ends run gRPC over that stream, Go with a custom dialer and .NET with `SocketsHttpHandler.ConnectCallback`, so the service definition is the same on every platform.
 

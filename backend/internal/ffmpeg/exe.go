@@ -41,9 +41,9 @@ func FindExe(name string) (string, error) {
 // overriding the backend's default resolution.
 // kmsgrab reads the raw KMS scanout, which the kernel gates behind CAP_SYS_ADMIN,
 // so it needs a privileged ffmpeg the other backends must not share.
-// A packaging layer points this at the capability wrapper (nix/screen-share.nix names
+// A packaging layer points this at the capability wrapper (nix/mirrorme.nix names
 // security.wrappers' ffmpeg-kmsgrab).
-const EnvKmsgrabFFmpeg = "SCREENSHARE_FFMPEG_KMSGRAB"
+const EnvKmsgrabFFmpeg = "MIRRORME_FFMPEG_KMSGRAB"
 
 // kmsgrabWrapper is the privileged build's conventional name on PATH.
 const kmsgrabWrapper = "ffmpeg-kmsgrab"
@@ -84,7 +84,7 @@ func LogDir() (string, error) {
 		return "", fmt.Errorf("cannot determine user config directory: %w", err)
 	}
 
-	dir := filepath.Join(base, "screenshare", "logs")
+	dir := filepath.Join(base, "mirrorme", "logs")
 	err = os.MkdirAll(dir, logDirMode)
 	if err != nil {
 		return "", fmt.Errorf("cannot create log directory %s: %w", dir, err)

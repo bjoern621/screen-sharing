@@ -22,7 +22,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 # which is the mark of a build nobody released (backend/cmd/backend/main.go).
 version=${VERSION:-dev}
 out=${1:-$root/build/dist}
-name=screen-sharing-$version-linux-x86_64-portable
+name=mirrorme-$version-linux-x86_64-portable
 stage=$out/$name
 
 # A stale directory would ship whatever a previous version left in it,
@@ -35,7 +35,7 @@ mkdir -p "$stage"
 # and the failure then names a package that looks unrelated to it.
 CGO_ENABLED=1 go build -C "$root/backend" \
     -ldflags "-X main.version=$version" \
-    -o "$stage/screenshare-backend" ./cmd/backend
+    -o "$stage/mirrorme-backend" ./cmd/backend
 
 dotnet publish "$root/avalonia/ScreenShare.App/ScreenShare.App.csproj" \
     --configuration Release \
@@ -47,9 +47,9 @@ dotnet publish "$root/avalonia/ScreenShare.App/ScreenShare.App.csproj" \
 # It names the two programs and points at the document listing what the distribution provides,
 # rather than restating that list here, where it would drift.
 cat > "$stage/README.txt" <<EOF
-screen-sharing $version
+MirrorMe $version
 
-Run ./screenshare-avalonia. It starts the backend beside it, so there is nothing
+Run ./mirrorme. It starts the backend beside it, so there is nothing
 else to launch.
 
 ffmpeg (with ffplay) and GStreamer come from the distribution and have to be

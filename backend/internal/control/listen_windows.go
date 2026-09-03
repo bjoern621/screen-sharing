@@ -19,7 +19,7 @@ import (
 // The contract version sits in the name instead of being negotiated on the connection,
 // so a v2 is a second pipe: two backends on different majors run side by side,
 // and a shell opening the wrong one fails to connect rather than being turned away at Hello.
-const pipeStem = `\\.\pipe\screenshare-control-v1`
+const pipeStem = `\\.\pipe\mirrorme-control-v1`
 
 // pipeName is the endpoint this run serves, EnvInstance included.
 func pipeName() string {

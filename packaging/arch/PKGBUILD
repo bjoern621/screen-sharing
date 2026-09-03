@@ -7,7 +7,7 @@
 # it is close to root and belongs to the user's decision rather than to an install
 # (the note at the end).
 
-pkgname=screen-sharing
+pkgname=mirrorme
 # The version comes from the environment, no file in the tree carrying one
 # (.github/workflows/version.yml):
 #   VERSION=0.6.1 makepkg
@@ -86,7 +86,7 @@ build() {
   export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
   go build -C backend -ldflags "-X main.version=$pkgver" \
-    -o ../dist/screenshare-backend ./cmd/backend
+    -o ../dist/mirrorme-backend ./cmd/backend
 
   # Framework-dependent: the runtime is a dependency of this package,
   # so the build carries no second copy of it.
@@ -103,18 +103,18 @@ package() {
 
   install -dm755 "$pkgdir/usr/lib/$pkgname"
   cp -r dist/. "$pkgdir/usr/lib/$pkgname/"
-  chmod 755 "$pkgdir/usr/lib/$pkgname/screenshare-backend" \
-            "$pkgdir/usr/lib/$pkgname/screenshare-avalonia"
+  chmod 755 "$pkgdir/usr/lib/$pkgname/mirrorme-backend" \
+            "$pkgdir/usr/lib/$pkgname/mirrorme"
 
   # A launcher rather than a symlink into /usr/lib:
   # the shell resolves the backend against its own directory,
   # and a symlinked entry point would answer /usr/bin.
   install -dm755 "$pkgdir/usr/bin"
-  printf '#!/bin/sh\nexec /usr/lib/%s/screenshare-avalonia "$@"\n' "$pkgname" \
-    > "$pkgdir/usr/bin/screenshare-avalonia"
-  chmod 755 "$pkgdir/usr/bin/screenshare-avalonia"
+  printf '#!/bin/sh\nexec /usr/lib/%s/mirrorme "$@"\n' "$pkgname" \
+    > "$pkgdir/usr/bin/mirrorme"
+  chmod 755 "$pkgdir/usr/bin/mirrorme"
 
-  install -Dm644 packaging/linux/screen-sharing.desktop \
+  install -Dm644 packaging/linux/mirrorme.desktop \
     "$pkgdir/usr/share/applications/$pkgname.desktop"
   # hicolor's index declares 48 through 512,
   # and a size it omits is a directory no lookup walks.

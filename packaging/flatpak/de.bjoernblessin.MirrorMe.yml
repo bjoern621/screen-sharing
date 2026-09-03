@@ -13,15 +13,15 @@
 # The shell is a self-contained .NET publish whose restore reaches NuGet,
 # and a flatpak-builder module builds with no network,
 # so the build runs first and this assembles what it produced (scripts/package-linux.sh).
-app-id: de.bjoernblessin.ScreenSharing
+app-id: de.bjoernblessin.MirrorMe
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
-command: screenshare-avalonia
+command: mirrorme
 
 # No debug extension, which is what every Linux channel here settles on:
 # half of what ships is a .NET publish carrying no DWARF to split out
-# (packaging/arch/PKGBUILD, packaging/fedora/screen-sharing.spec).
+# (packaging/arch/PKGBUILD, packaging/fedora/mirrorme.spec).
 # The split runs on the host's eu-strip as well,
 # which an Ubuntu runner carries no elfutils for.
 build-options:
@@ -88,7 +88,7 @@ modules:
 
   # What scripts/package-linux.sh assembled: both binaries in one directory,
   # which is the layout the shell's own lookup expects.
-  - name: screen-sharing
+  - name: mirrorme
     buildsystem: simple
     sources:
       # What the build task staged, one version at a time, so the glob below names one directory.
@@ -96,25 +96,25 @@ modules:
       - type: dir
         path: ../../build/dist
       - type: file
-        path: ../linux/screen-sharing.desktop
+        path: ../linux/mirrorme.desktop
       - type: dir
         path: ../../build/icons
         dest: icons
     build-commands:
-      - install -d /app/lib/screen-sharing
-      - cp -r screen-sharing-*-portable/. /app/lib/screen-sharing/
-      - chmod 755 /app/lib/screen-sharing/screenshare-backend /app/lib/screen-sharing/screenshare-avalonia
+      - install -d /app/lib/mirrorme
+      - cp -r mirrorme-*-portable/. /app/lib/mirrorme/
+      - chmod 755 /app/lib/mirrorme/mirrorme-backend /app/lib/mirrorme/mirrorme
       # A launcher rather than a symlink:
       # the shell starts the backend from beside itself,
       # and a symlinked entry point would answer /app/bin.
       - install -d /app/bin
-      - printf '#!/bin/sh\nexec /app/lib/screen-sharing/screenshare-avalonia "$@"\n' > /app/bin/screenshare-avalonia
-      - chmod 755 /app/bin/screenshare-avalonia
+      - printf '#!/bin/sh\nexec /app/lib/mirrorme/mirrorme "$@"\n' > /app/bin/mirrorme
+      - chmod 755 /app/bin/mirrorme
       # The desktop entry and the icon carry the application id, which is the name an install looks for.
-      - install -Dm644 screen-sharing.desktop /app/share/applications/de.bjoernblessin.ScreenSharing.desktop
-      - desktop-file-edit --set-icon=de.bjoernblessin.ScreenSharing /app/share/applications/de.bjoernblessin.ScreenSharing.desktop
+      - install -Dm644 mirrorme.desktop /app/share/applications/de.bjoernblessin.MirrorMe.desktop
+      - desktop-file-edit --set-icon=de.bjoernblessin.MirrorMe /app/share/applications/de.bjoernblessin.MirrorMe.desktop
       # hicolor's index declares 48 through 512,
       # and a size it omits is a directory no lookup walks.
-      - for size in 48 64 128 256 512; do install -Dm644 "icons/$size.png" "/app/share/icons/hicolor/${size}x${size}/apps/de.bjoernblessin.ScreenSharing.png"; done
-      - install -Dm644 /app/lib/screen-sharing/LICENSE /app/share/licenses/screen-sharing/LICENSE
-      - install -Dm644 /app/lib/screen-sharing/THIRD-PARTY-NOTICES.md /app/share/doc/screen-sharing/THIRD-PARTY-NOTICES.md
+      - for size in 48 64 128 256 512; do install -Dm644 "icons/$size.png" "/app/share/icons/hicolor/${size}x${size}/apps/de.bjoernblessin.MirrorMe.png"; done
+      - install -Dm644 /app/lib/mirrorme/LICENSE /app/share/licenses/mirrorme/LICENSE
+      - install -Dm644 /app/lib/mirrorme/THIRD-PARTY-NOTICES.md /app/share/doc/mirrorme/THIRD-PARTY-NOTICES.md

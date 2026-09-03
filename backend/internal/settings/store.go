@@ -11,7 +11,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-const configDirName = "screenshare"
+const configDirName = "mirrorme"
 const configFileName = "settings.json"
 
 // Mode the config directory is created with.

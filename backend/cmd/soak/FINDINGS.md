@@ -5,7 +5,7 @@ It drives the control contract with random legal settings and holds what the bac
 
 ## How it runs
 
-An isolated backend instance, so nothing here touches the running app: `XDG_RUNTIME_DIR` and `XDG_CONFIG_HOME` point into this directory, `SCREENSHARE_TEST_STREAMS=0` keeps the synthetic publishers off, and the session is stated as x11 so the capture list offers the portal-free backends.
+An isolated backend instance, so nothing here touches the running app: `XDG_RUNTIME_DIR` and `XDG_CONFIG_HOME` point into this directory, `MIRRORME_TEST_STREAMS=0` keeps the synthetic publishers off, and the session is stated as x11 so the capture list offers the portal-free backends.
 No consent picker reaches anybody's screen.
 The relay is a local MediaMTX on offset ports, so no capture leaves the machine.
 
