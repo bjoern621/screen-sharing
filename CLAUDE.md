@@ -172,8 +172,8 @@ The number is pre-1.0, so the parts read:
 Several pushes can share one bump.
 What decides is whether the release a user downloads would differ.
 
-The bump is its own commit, and `.github/workflows/version.yml` names every file that has to agree.
-Tagging and publishing the release on GitHub stays the user's: the tag `vX.Y.Z` is what builds the installers and pushes the relay images.
+No file in the tree carries the number, so a bump is a release rather than a commit.
+Tagging and publishing the release on GitHub stays the user's: the tag `vX.Y.Z` is the version every artifact is named and stamped with, and publishing it builds the installers and pushes the relay images (`.github/workflows/version.yml`).
 
 # Never drive the GUI
 

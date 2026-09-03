@@ -123,7 +123,7 @@ func Compare(current, latest string) State {
 }
 
 // parse reads a release into its three fields, and false where the string carries no version.
-// The leading "v" a tag wears is optional, a tag carrying it and the VERSION file not.
+// The leading "v" is optional: a tag wears one and a build stamp does not.
 func parse(version string) ([3]int, bool) {
 	fields := strings.Split(strings.TrimPrefix(strings.TrimSpace(version), "v"), ".")
 	if len(fields) != 3 {

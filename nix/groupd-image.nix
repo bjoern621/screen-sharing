@@ -5,10 +5,9 @@
 # are all the deployment's, so they are arguments rather than anything baked in here.
 
 {
-  lib,
   dockerTools,
   screenshare-groupd,
-  version ? lib.fileContents ../VERSION,
+  version,
 }:
 
 dockerTools.buildLayeredImage {

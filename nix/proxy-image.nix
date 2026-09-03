@@ -12,10 +12,9 @@
 # a Caddy site address with no scheme and so no automatic HTTPS.
 
 {
-  lib,
   dockerTools,
   caddy,
-  version ? lib.fileContents ../VERSION,
+  version,
 }:
 
 dockerTools.buildLayeredImage {

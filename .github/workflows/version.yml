@@ -1,6 +1,11 @@
-# The version every artifact is named after, read once so no job can disagree.
+# The version a run names and stamps every artifact with, computed once so no job can disagree.
 #
-# Called by check.yml and release.yml rather than written into both.
+# A published release takes it from its tag, which is the one place the number lives:
+# a file in the tree stating it is a second answer,
+# free to disagree with the tag the artifact ships under.
+# Every other run builds no release, so it takes a development version carrying the commit.
+#
+# Called by release.yml and images.yml rather than written into both.
 # A check kept in two files is one that drifts.
 
 name: version
@@ -9,39 +14,44 @@ on:
   workflow_call:
     outputs:
       version:
-        description: What VERSION holds, and what every artifact is named after.
-        value: ${{ jobs.read.outputs.version }}
+        description: What every artifact of the calling run is named and stamped with.
+        value: ${{ jobs.compute.outputs.version }}
 
 permissions:
   contents: read
 
 jobs:
-  read:
+  compute:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.read.outputs.version }}
+      version: ${{ steps.compute.outputs.version }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: read
+      # No checkout: the trigger carries everything read here.
+      - id: compute
         env:
           TAG: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
         run: |
-          version=$(cat VERSION)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
-          # VERSION owns the number.
-          # The two distro recipes carry a copy because a reader running makepkg or rpmbuild
-          # by hand has only the recipe in front of them,
-          # and a copy nothing reads against its source is one that drifts,
-          # so all three are read here.
-          grep -qx "pkgver=$version" packaging/arch/PKGBUILD ||
-            { echo "packaging/arch/PKGBUILD does not say $version" >&2; exit 1; }
-          grep -qE "^Version: +$version\$" packaging/fedora/screen-sharing.spec ||
-            { echo "packaging/fedora/screen-sharing.spec does not say $version" >&2; exit 1; }
-
-          # A release tagged v1.2.3 built from a tree saying 1.2.0
-          # produces artifacts whose names contradict their contents.
-          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
-            echo "release $TAG does not match VERSION ($version)" >&2
-            exit 1
+          if [ -n "$TAG" ]; then
+            # The leading v is the tag's, and no artifact name or package version wears one.
+            case "$TAG" in
+              v[0-9]*.[0-9]*.[0-9]*) ;;
+              *)
+                echo "the release tag $TAG is not vX.Y.Z" >&2
+                exit 1
+                ;;
+            esac
+            version=${TAG#v}
+          else
+            # Separated by dots alone:
+            # a docker tag rejects "+" and an Arch or rpm version rejects "-",
+            # and this number reaches all three.
+            # Four fields rather than three,
+            # which the release check reads as a version it cannot compare
+            # (backend/internal/release).
+            version=0.0.0.dev.${SHA:0:7}
           fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"

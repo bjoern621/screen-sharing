@@ -66,10 +66,20 @@ A package set that moved can change which codecs probe usable, which elements a 
 
 ### The build stamp
 
-`VERSION` holds the app's own version, and every packaging recipe hands it to the backend link as `-ldflags "-X main.version=..."`.
+No file in the tree holds the app's own version.
+A release is published under the tag `vX.Y.Z`, and that tag is the number:
+a copy in the tree is a second answer, free to disagree with the tag the artifact ships under.
+`.github/workflows/version.yml` reads it off the tag once per run and hands every job the result as `VERSION`.
+A run behind no release computes `0.0.0.dev.<commit>` instead, which the release check reads as a version it cannot compare.
+
+Each channel takes the number from there and passes it to the backend link as `-ldflags "-X main.version=..."`.
+The two packaging scripts and the Task pipeline read the environment variable, the PKGBUILD reads that same variable under `makepkg`, and `rpmbuild` takes it as `--define "appversion ..."`.
 The handshake answers with that string and the window shows it (`backend/cmd/backend/main.go`).
-A recipe skipping the flag ships a binary calling itself `dev`, which the release check reads as a version it cannot compare (`backend/internal/release`).
+A recipe skipping the flag ships a binary calling itself `dev`, which the release check reads the same way (`backend/internal/release`).
 The dev tasks leave it at that default.
+
+The flake reads the same variable, under `--impure`, and stamps the revision it was built from where nothing sets it:
+`builtins.getEnv` answers empty under pure evaluation, which every build outside the release pipeline is (`flake.nix`).
 
 ## How the app locates the programs it spawns
 
@@ -264,7 +274,7 @@ The relay, the proxy and the group service, built by `nix build .#relay-image` a
 Each writes a `docker-archive` tarball, which is the format `docker load` reads.
 
 `.github/workflows/images.yml` publishes them to `ghcr.io/bjoern621/screenshare-relay`, `-proxy` and `-groupd`.
-The tag is `VERSION`, and only a published release pushes one, so a tag names a release and never moves.
+The tag is the release's version, and only a published release pushes one, so a tag names a release and never moves.
 A cluster pins an exact tag against that.
 The release page carries the channels a person installs, so these are reached through the registry.
 

@@ -8,7 +8,12 @@
 # (the note at the end).
 
 pkgname=screen-sharing
-pkgver=0.6.1
+# The version comes from the environment, no file in the tree carrying one
+# (.github/workflows/version.yml):
+#   VERSION=0.6.1 makepkg
+# It names the source tarball as well as the package,
+# so a build with the wrong one downloads a release tag that does not exist.
+pkgver=${VERSION:?the version this package is, as VERSION=0.6.1 makepkg}
 pkgrel=1
 pkgdesc="Self-hosted, high-quality group screen sharing"
 arch=('x86_64')

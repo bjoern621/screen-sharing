@@ -24,6 +24,26 @@
       flake-utils,
     }:
     let
+      # What every package here is stamped with, and what an image built here is tagged.
+      #
+      # No file in the tree holds the number.
+      # The release pipeline passes VERSION and builds with --impure,
+      # the tag it publishes under being the one place the number lives
+      # (.github/workflows/version.yml).
+      # A copy in the tree is a second answer, free to disagree with the tag the artifact ships as.
+      #
+      # getEnv answers "" under pure evaluation, which every build outside that pipeline is,
+      # and the revision is then the only version the tree knows:
+      # a flake fetched at a tag resolves it to a commit, and the tag's name reaches no output.
+      version =
+        let
+          fromPipeline = builtins.getEnv "VERSION";
+        in
+        if fromPipeline != "" then
+          fromPipeline
+        else
+          "0-unstable-${self.shortRev or self.dirtyShortRev or "dirty"}";
+
       # The relay build deploy/mediamtx-groups.yml is written against,
       # exported rather than kept inside the dev shell.
       # A NixOS host serving as the relay needs that same build,
@@ -328,12 +348,12 @@
         #
         #   nix run github:bjoern621/screen-sharing
         #   environment.systemPackages = [ screen-sharing.packages.${system}.default ];
-        packages.screen-sharing = pkgs.callPackage ./nix/package.nix { };
+        packages.screen-sharing = pkgs.callPackage ./nix/package.nix { inherit version; };
         packages.default = self.packages.${system}.screen-sharing;
 
         # The service that runs beside the relay rather than on a desktop (nix/groupd.nix).
         # A NixOS host installs it through the overlay below.
-        packages.groupd = pkgs.callPackage ./nix/groupd.nix { };
+        packages.groupd = pkgs.callPackage ./nix/groupd.nix { inherit version; };
 
         # A relay deployment's three processes as container images,
         # for a relay on Kubernetes instead of on a host of its own.
@@ -349,9 +369,10 @@
         # Each carries the deploy/ file it runs on,
         # so an image tag pins a binary and the configuration written against it together,
         # rather than leaving the second half to a ConfigMap somewhere else.
-        packages.relay-image = pkgs.callPackage ./nix/relay-image.nix { };
-        packages.proxy-image = pkgs.callPackage ./nix/proxy-image.nix { };
+        packages.relay-image = pkgs.callPackage ./nix/relay-image.nix { inherit version; };
+        packages.proxy-image = pkgs.callPackage ./nix/proxy-image.nix { inherit version; };
         packages.groupd-image = pkgs.callPackage ./nix/groupd-image.nix {
+          inherit version;
           screenshare-groupd = self.packages.${system}.groupd;
         };
 
@@ -473,7 +494,7 @@
       #   nixpkgs.overlays = [ screen-sharing.overlays.groupd ];
       #   systemd.services.groupd.serviceConfig.ExecStart = lib.getExe pkgs.screenshare-groupd;
       overlays.groupd = final: _: {
-        screenshare-groupd = final.callPackage ./nix/groupd.nix { };
+        screenshare-groupd = final.callPackage ./nix/groupd.nix { inherit version; };
       };
 
       # A relay host wants both halves, so the default is the pair:

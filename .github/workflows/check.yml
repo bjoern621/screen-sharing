@@ -19,9 +19,6 @@ permissions:
   contents: read
 
 jobs:
-  version:
-    uses: ./.github/workflows/version.yml
-
   linux:
     runs-on: ubuntu-26.04
     steps:

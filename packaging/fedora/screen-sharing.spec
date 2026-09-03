@@ -27,8 +27,15 @@
 # and this spec has no changelog to take one from (the note at the end of the file states why).
 %global source_date_epoch_from_changelog 0
 
+# The version comes from the build, no file in the tree carrying one
+# (.github/workflows/version.yml).
+# rpm's own %%{version} is what the Version tag below defines,
+# so the number arrives under a name of its own:
+#   rpmbuild -bb --define "appversion 0.6.1" packaging/fedora/screen-sharing.spec
+%{!?appversion:%{error:appversion is undefined: rpmbuild --define "appversion 0.6.1"}}
+
 Name:           screen-sharing
-Version:        0.6.1
+Version:        %{appversion}
 Release:        1%{?dist}
 Summary:        Self-hosted, high-quality group screen sharing
 

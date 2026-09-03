@@ -28,6 +28,10 @@ jobs:
   tarball:
     needs: version
     runs-on: ubuntu-26.04
+    env:
+      # What the archive is named and what the backend link stamps into the binary.
+      # Unset, the script builds a binary calling itself dev (scripts/package-linux.sh).
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -129,6 +133,10 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    env:
+      # Read by the packaging script for the zip's name,
+      # and passed down to the backend link as the build stamp (Taskfile.yml, package:windows).
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -206,8 +214,10 @@ jobs:
   # The flake's package, which is what a NixOS install reads. Nothing is uploaded: a Nix
   # user builds from the flake rather than downloading an artifact, so what this proves
   # is that the derivation still evaluates and builds.
+  # No VERSION reaches this job.
+  # A pure build is the one a Nix user runs and the one the cache below serves,
+  # so a version passed in here would push a derivation nobody else asks for (flake.nix).
   nix:
-    needs: version
     runs-on: ubuntu-latest
     env:
       # Lifted into env because a step's `if` cannot read secrets.
@@ -273,7 +283,7 @@ jobs:
           git config --global --add safe.directory "$PWD"
           git archive --prefix="screen-sharing-$VERSION/" -o "packaging/arch/screen-sharing-$VERSION.tar.gz" HEAD
           chown -R builder packaging/arch
-          su builder -c 'cd packaging/arch && makepkg --nodeps --noconfirm'
+          su builder -c "cd packaging/arch && VERSION='$VERSION' makepkg --nodeps --noconfirm"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -309,7 +319,7 @@ jobs:
           git config --global --add safe.directory "$PWD"
           git archive --prefix="screen-sharing-$VERSION/" \
             -o "$HOME/rpmbuild/SOURCES/screen-sharing-$VERSION.tar.gz" HEAD
-          rpmbuild -bb packaging/fedora/screen-sharing.spec
+          rpmbuild -bb --define "appversion $VERSION" packaging/fedora/screen-sharing.spec
           cp ~/rpmbuild/RPMS/*/*.rpm .
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -257,7 +257,8 @@ tasks:
       PKG_CONFIG: '{{.MSYS2_MINGW}}/bin/pkg-config.exe'
     cmds:
       # STAMP is the version the handshake answers with, which is what a window shows.
-      # package:windows passes VERSION down; a build asked for here keeps the source default,
+      # package:windows passes the run's VERSION down;
+      # a build asked for here keeps the source default,
       # the mark of a binary nobody released (backend/cmd/backend/main.go).
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
@@ -304,8 +305,10 @@ tasks:
       - flatpak-builder --user --force-clean --repo=build/flatpak-repo build/flatpak-build packaging/flatpak/de.bjoernblessin.ScreenSharing.yml
       - flatpak build-bundle build/flatpak-repo build/dist/screen-sharing-{{.VERSION}}-x86_64.flatpak de.bjoernblessin.ScreenSharing
     vars:
+      # What the bundle is named after, from the run rather than from the tree
+      # (.github/workflows/version.yml).
       VERSION:
-        sh: cat VERSION
+        sh: echo "${VERSION:-dev}"
 
   package:windows:
     desc: Build the Windows release zip into build/dist
@@ -318,7 +321,7 @@ tasks:
       - task: bundle:windows
         vars:
           STAMP:
-            sh: cat VERSION
+            sh: echo "${VERSION:-dev}"
     cmds:
       - powershell -NoProfile -File scripts/package-windows.ps1
 

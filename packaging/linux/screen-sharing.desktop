@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Screen Sharing
+Name=MirrorMe
 GenericName=Screen Sharing
 Comment=Self-hosted group screen sharing
 Exec=screenshare-avalonia

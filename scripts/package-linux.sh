@@ -3,7 +3,7 @@
 # package-linux.sh - assemble the Linux release directory and its tarball.
 #
 #   task package:linux
-#   sh scripts/package-linux.sh [output-directory]
+#   VERSION=0.6.1 sh scripts/package-linux.sh [output-directory]
 #
 # One directory holds both binaries, the layout the shell's own lookup expects:
 # it starts the backend when nothing answers on the control endpoint,
@@ -16,7 +16,11 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-version=$(cat "$root/VERSION")
+# The run names the version and no file in the tree does
+# (.github/workflows/version.yml).
+# Unset, the archive and the binary inside it both call themselves dev,
+# which is the mark of a build nobody released (backend/cmd/backend/main.go).
+version=${VERSION:-dev}
 out=${1:-$root/build/dist}
 name=screen-sharing-$version-linux-x86_64-portable
 stage=$out/$name

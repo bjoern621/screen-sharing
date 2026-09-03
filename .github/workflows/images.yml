@@ -24,8 +24,15 @@ permissions:
   packages: write
 
 jobs:
+  version:
+    uses: ./.github/workflows/version.yml
+
   images:
+    needs: version
     runs-on: ubuntu-latest
+    env:
+      # The tag the image carries inside it and the tag it is pushed under, one number.
+      VERSION: ${{ needs.version.outputs.version }}
     strategy:
       # Independent images. One failing to build says nothing about the others,
       # and a cancelled sibling hides which.
@@ -43,26 +50,15 @@ jobs:
 
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
 
-      - id: build
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version=$(cat VERSION)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
-            echo "release $TAG does not match VERSION ($version)" >&2
-            exit 1
-          fi
-
-          nix build ".#${{ matrix.package }}"
+      # --impure, which is what lets the flake read VERSION from the environment:
+      # under pure evaluation it tags an image after the revision instead (flake.nix).
+      - run: nix build --impure ".#${{ matrix.package }}"
 
       # The Nix builder writes a docker-archive tarball, which is the format `docker load`
       # reads, so the runner's own docker is the whole publishing toolchain.
       - if: github.event_name == 'release'
         env:
           REGISTRY: ghcr.io/${{ github.repository_owner }}
-          VERSION: ${{ steps.build.outputs.version }}
         run: |
           set -euo pipefail
 

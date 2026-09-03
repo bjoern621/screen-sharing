@@ -54,7 +54,7 @@
   libxext,
   libxi,
   libxrandr,
-  version ? lib.fileContents ../VERSION,
+  version,
 }:
 
 let
@@ -74,7 +74,6 @@ let
         "api"
         "backend"
         "avalonia"
-        "VERSION"
       ]
       && !(
         type == "directory"

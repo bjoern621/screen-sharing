@@ -11,13 +11,12 @@
 # busybox and curl are why this file exists.
 
 {
-  lib,
   dockerTools,
   mediamtx,
   busybox,
   curl,
   cacert,
-  version ? lib.fileContents ../VERSION,
+  version,
 }:
 
 dockerTools.buildLayeredImage {

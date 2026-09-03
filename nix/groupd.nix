@@ -6,7 +6,7 @@
 {
   lib,
   buildGoModule,
-  version ? lib.fileContents ../VERSION,
+  version,
 }:
 
 buildGoModule {
@@ -26,7 +26,6 @@ buildGoModule {
       lib.elem top [
         "api"
         "backend"
-        "VERSION"
       ];
   };
 
