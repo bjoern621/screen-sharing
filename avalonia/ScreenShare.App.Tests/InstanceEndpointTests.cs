@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ScreenShare.App.Backend;
 using Xunit;
 
@@ -51,5 +52,29 @@ public sealed class InstanceEndpointTests : IDisposable
         Environment.SetEnvironmentVariable(BackendProcess.EnvSpawn, "0");
 
         Assert.False(BackendProcess.EnsureStarted());
+    }
+
+    /// <summary>
+    /// Nothing listening is learnt from the connect refusing, not from the caller's deadline running out:
+    /// starting a backend hangs off that refusal (<see cref="ControlEndpoint.ConnectAsync"/>), and a connect
+    /// that waits for the token leaves every install with no backend up reporting a timeout, with no backend
+    /// started.
+    /// A named pipe nobody serves is where the platforms differ: the pipe client waits for one to appear,
+    /// where a socket with nothing bound is refused at once.
+    /// </summary>
+    [Fact]
+    public async Task AnEndpointNobodyServesRefusesTheConnectBeforeTheCallerGivesUp()
+    {
+        Environment.SetEnvironmentVariable(BackendProcess.EnvSpawn, "0");
+        Environment.SetEnvironmentVariable(ControlEndpoint.EnvInstance, "nobody-serves-" + Guid.NewGuid().ToString("N"));
+
+        using var caller = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var watch = Stopwatch.StartNew();
+
+        var refusal = await Assert.ThrowsAnyAsync<Exception>(async () => await ControlEndpoint.ConnectAsync(caller.Token));
+
+        Assert.False(caller.IsCancellationRequested, $"the connect waited out the caller's token: {refusal}");
+        Assert.IsNotType<OperationCanceledException>(refusal);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"the refusal took {watch.Elapsed}: {refusal}");
     }
 }

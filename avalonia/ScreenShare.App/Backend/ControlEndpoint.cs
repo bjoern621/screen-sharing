@@ -59,11 +59,25 @@ internal static class ControlEndpoint
     private static readonly TimeSpan StartPoll = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
+    /// How long one Windows connect is given before a pipe nobody serves counts as refused.
+    ///
+    /// A Unix socket with nothing bound to it is refused by the kernel at once.
+    /// A named pipe is not: <see cref="NamedPipeClientStream"/> reads a pipe that is not there as one not created
+    /// yet and waits for it for as long as it is allowed, so given the caller's token alone it waited out the call
+    /// deadline, and the spawn behind <see cref="ConnectAsync"/> never ran on an install with no backend up.
+    /// The wait is bounded here and its expiry is the refusal.
+    /// Long enough for a listening backend to hand over an instance, which it re-creates behind every accept;
+    /// short enough that an empty endpoint is learnt within one poll of <see cref="OpenStartingAsync"/>.
+    /// </summary>
+    private static readonly TimeSpan PipeConnectTimeout = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
     /// Opens one stream to the backend, which a gRPC channel calls whenever it needs a connection: the first
     /// call, and every call after one was lost.
     /// The whole of this shell's reconnect, with nothing here holding a dead handle.
     ///
-    /// A refused connection throws, and throws at once on both platforms rather than waiting out a timeout.
+    /// A refused connection throws, at once on Unix and within <see cref="PipeConnectTimeout"/> on Windows,
+    /// rather than waiting out the caller's deadline.
     /// Nothing listening is the one condition the shell can act on rather than report, so it starts a backend and
     /// asks again until the deadline (<see cref="BackendProcess"/>).
     /// A start that fails, or one that never binds, leaves the original failure standing for the caller to turn
@@ -103,7 +117,11 @@ internal static class ControlEndpoint
         }
     }
 
-    /// <summary>One attempt, per platform: no retry and no start.</summary>
+    /// <summary>
+    /// One attempt, per platform: no retry and no start.
+    /// On Windows the attempt is bounded by <see cref="PipeConnectTimeout"/>, and the
+    /// <see cref="TimeoutException"/> its expiry raises is the refusal the Unix branch gets from the kernel.
+    /// </summary>
     private static async ValueTask<Stream> OpenAsync(CancellationToken cancellation)
     {
         if (OperatingSystem.IsWindows())
@@ -111,7 +129,7 @@ internal static class ControlEndpoint
             var pipe = new NamedPipeClientStream(".", PipeName(), PipeDirection.InOut, PipeOptions.Asynchronous);
             try
             {
-                await pipe.ConnectAsync(cancellation).ConfigureAwait(false);
+                await pipe.ConnectAsync((int)PipeConnectTimeout.TotalMilliseconds, cancellation).ConfigureAwait(false);
             }
             catch
             {
