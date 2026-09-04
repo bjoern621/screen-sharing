@@ -90,23 +90,24 @@
         </Grid>
 
         <!--
-          Who else is in the group, above the list of what they are sending.
-          Gone with the names when the rail is collapsed: a member list is names,
-          and a column narrowed to its dots has none left to draw.
-        -->
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"
-                    IsVisible="{Binding ShowsRailNames}">
-          <members:MembersView DataContext="{Binding Members}" />
-          <Border Classes="dividerh" Margin="0,10,0,0" />
-        </StackPanel>
-
-        <!--
           Backend's own sentence for a refused open or close, shown as it arrived.
           Red without a condition: a refusal is a failure and nothing else lands here
           (docs/design-language.md, "Palette").
         -->
         <SelectableTextBlock DockPanel.Dock="Bottom" Classes="hint danger" Text="{Binding Refusal}"
                              IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
+
+        <!--
+          Who else is in the group, at the rail's foot, under the list of what they are sending.
+          Declared after the refusal so the refusal keeps the lowest line.
+          Gone with the names when the rail is collapsed: a member list is names,
+          and a column narrowed to its dots has none left to draw.
+        -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                    IsVisible="{Binding ShowsRailNames}">
+          <Border Classes="dividerh" Margin="0,0,0,10" />
+          <members:MembersView DataContext="{Binding Members}" />
+        </StackPanel>
 
         <!--
           What the relay answered, the reader's only account of an unreachable one.
