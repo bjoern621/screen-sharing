@@ -218,6 +218,22 @@
           <ti:TablerIcon Icon="IconChartBar" />
         </MenuItem.Icon>
       </MenuItem>
+
+      <Separator />
+
+      <!--
+        The way out that survives the rail's row:
+        the rail lists what the relay carries, and a stream the relay dropped keeps its tile with no row
+        to toggle off.
+        Worded as the rail's action, one term for one act.
+        No tick, the state it names being a tile no menu opens on.
+        Last and behind its own divider, the one row that ends the tile rather than arranging it.
+      -->
+      <MenuItem Header="Take out of the grid" Command="{Binding Close}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="IconX" />
+        </MenuItem.Icon>
+      </MenuItem>
     </MenuFlyout>
   </UserControl.ContextFlyout>
 

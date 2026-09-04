@@ -63,6 +63,7 @@ public sealed partial class TileViewModel : Observable, IFrameSource
         ToggleFullscreen = new DelegateCommand(() => arrange(TileIntent.Fullscreen));
         LeaveFullscreen = new DelegateCommand(() => arrange(TileIntent.LeaveFullscreen));
         LeavePopOut = new DelegateCommand(() => arrange(TileIntent.LeavePopOut));
+        Close = new DelegateCommand(() => arrange(TileIntent.Close));
         // The panel composes on the render pass and only while up, so turning it on has to reach one.
         // Without the notification it opens empty until the next sample lands.
         ToggleStats = new DelegateCommand(() =>
@@ -330,6 +331,14 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     /// on a stream already given back, and a toggle would pop it out again into a second window.
     /// </summary>
     public DelegateCommand LeavePopOut { get; }
+
+    /// <summary>
+    /// Takes this stream out of the grid and closes its decode.
+    /// On the tile because the rail's toggle lists what the relay carries:
+    /// a stream the relay dropped keeps its tile and loses its row,
+    /// and this is the way out the reader still has.
+    /// </summary>
+    public DelegateCommand Close { get; }
 
     /// <summary>
     /// Puts the figures up over this tile, or takes them down.

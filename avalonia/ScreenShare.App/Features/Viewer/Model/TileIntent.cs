@@ -29,4 +29,7 @@ public enum TileIntent
 
     /// <summary>Drawn in the grid, whether or not it was in a window of its own.</summary>
     LeavePopOut,
+
+    /// <summary>Out of the grid with its decode closed, whether or not the relay still carries the stream.</summary>
+    Close,
 }

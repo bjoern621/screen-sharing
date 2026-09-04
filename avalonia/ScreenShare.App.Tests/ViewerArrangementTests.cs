@@ -38,10 +38,18 @@ public sealed class ViewerArrangementTests
 
         private readonly List<StreamRef> _decoding = [];
 
+        private string[] _paths = paths;
+
+        /// <summary>Replaces what the relay lists, read on the next load.</summary>
+        public void Carry(params string[] paths) => _paths = paths;
+
+        /// <summary>Decodes still open, for asserting a stop reached the backend.</summary>
+        public IReadOnlyList<StreamRef> Decoding => _decoding;
+
         public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
         {
             var relay = new RelayStatus { Reachable = true };
-            foreach (var path in paths)
+            foreach (var path in _paths)
             {
                 relay.Paths.Add(new RelayPath { Name = path, Ready = true });
             }
@@ -194,7 +202,10 @@ public sealed class ViewerArrangementTests
     /// A viewer with the given streams tiled through the rail's own action,
     /// so the state under test is what a real press leaves behind.
     /// </summary>
-    private static ViewerViewModel Grid(params string[] streams)
+    private static ViewerViewModel Grid(params string[] streams) => GridOn(streams).Viewer;
+
+    private static (ViewerViewModel Viewer, ViewerBackend Backend, Session Session) GridOn(
+        params string[] streams)
     {
         var backend = new ViewerBackend(streams);
         var session = new Session(backend, static action => action());
@@ -208,7 +219,7 @@ public sealed class ViewerArrangementTests
             row.Show.Execute(null);
         }
 
-        return viewer;
+        return (viewer, backend, session);
     }
 
     private static TileViewModel Tile(ViewerViewModel viewer, string stream)
@@ -481,6 +492,43 @@ public sealed class ViewerArrangementTests
         Assert.False(Tile(viewer, "one").IsFullscreen);
         Assert.Contains("two", viewer.PoppedFullscreen);
         Assert.True(Tile(viewer, "two").IsFullscreen);
+    }
+
+    /// <summary>
+    /// The rail lists what the relay carries, so a dropped stream has no row left to close from.
+    /// The tile's own close is the way out the reader still has.
+    /// </summary>
+    [Fact]
+    public void ATileOutlivingItsRowStillCloses()
+    {
+        var (viewer, backend, session) = GridOn("one");
+
+        backend.Carry();
+        session.Start();
+        viewer.Apply();
+
+        Assert.Empty(viewer.Streams);
+        var tile = Tile(viewer, "one");
+
+        tile.Close.Execute(null);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
+    }
+
+    /// <summary>Close names the state out of the grid, so a second press finds it holds and does nothing.</summary>
+    [Fact]
+    public void ClosingATileIsOneDirectionAndIdempotent()
+    {
+        var (viewer, backend, _) = GridOn("one");
+        var tile = Tile(viewer, "one");
+
+        tile.Close.Execute(null);
+        tile.Close.Execute(null);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
+        Assert.False(viewer.Streams.Single(row => row.Name == "one").IsTiled);
     }
 
     /// <summary>Names a state rather than toggling one, so it is safe on a key that fires on every screen.</summary>

@@ -729,6 +729,12 @@ public sealed class ViewerViewModel : Observable
                 _popped.Remove(stream);
                 break;
 
+            case TileIntent.Close:
+                // The rail toggle's own path, fired without waiting:
+                // the tile leaves the grid before the stop's round trip answers.
+                _ = TileAsync(stream, true);
+                break;
+
             case TileIntent.LeaveFullscreen:
                 // Names the state a window is to be in and never the transition,
                 // so a stream filling nothing is left alone and the key is safe wherever it fires.
