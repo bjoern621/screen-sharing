@@ -153,8 +153,9 @@ public sealed class TrayTests
         Assert.True(saved.IsReachable);
     }
 
+    /// <summary>One press is on the air on the preset, the same semantics as the strip menu's rows.</summary>
     [Fact]
-    public async Task PickingAPresetWhileNothingRunsWritesTheDraftAndCommitsNothing()
+    public async Task PickingAPresetWhileNothingRunsStartsSharingOnIt()
     {
         var opened = Open(new PublishingBackend());
         await KeepAsync(opened, "work", fps: 120);
@@ -164,7 +165,8 @@ public sealed class TrayTests
         await opened.Form.Settled;
 
         Assert.Equal(120, opened.Form.Draft!.Publish.Fps);
-        Assert.Empty(opened.Backend.Started);
+        var started = Assert.Single(opened.Backend.Started);
+        Assert.Equal(120, started.Publish.Fps);
         Assert.Empty(opened.Backend.Applied);
     }
 

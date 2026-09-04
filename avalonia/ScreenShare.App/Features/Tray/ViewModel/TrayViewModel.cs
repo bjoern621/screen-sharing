@@ -111,11 +111,12 @@ public sealed class TrayViewModel : Observable
     }
 
     /// <summary>
-    /// Writes one preset into the draft through the card's own row, and restarts a live stream on it.
+    /// Writes one preset into the draft through the card's own row, and commits:
+    /// the stream starts on it, or restarts where one is on the air, the commit reading which
+    /// off the running state.
+    /// The same press as the strip menu's preset rows, so one gesture means one thing everywhere.
     /// The row is looked up at the press: a store re-read can land between the render and the pick,
     /// and a row missing from the card does nothing, like a name the store lost does on the card.
-    /// The restart is the review's own commit, <c>ApplyToStream</c> for a stream in force,
-    /// so switching while live is the same press as applying from the window.
     /// </summary>
     public void UsePreset(TrayPresetEntry entry)
     {
@@ -128,7 +129,7 @@ public sealed class TrayViewModel : Observable
             _ => Assert.Never<bool>("unexpected preset kind", (int)entry.Kind),
         };
 
-        if (applied && _session.Publish?.Live is not null)
+        if (applied)
         {
             _setup.Review.StartSharingCommand.Execute(null);
         }
