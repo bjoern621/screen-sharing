@@ -1,92 +1,92 @@
 # MirrorMe
 
-Self-hosted group screen sharing for trusted friends.
+[![Release](https://img.shields.io/github/v/release/bjoern621/screen-sharing)](https://github.com/bjoern621/screen-sharing/releases)
+[![License](https://img.shields.io/github/license/bjoern621/screen-sharing)](LICENSE)
 
-Relay = **MediaMTX**.
-Transports = **SRT**, **RTSP**, **RTMP**, **WebRTC** (WHIP in, WHEP out), **HLS** (watch only).
-Capture, encode and decode = **ffmpeg** and **GStreamer**.
+Screen sharing for a group, at the quality the hardware can produce.
+Everyone shares and everyone watches, at once.
+Free and open source, with no accounts.
 
-Every stream crosses two legs, publisher to relay and relay to viewer, and each leg picks its own protocol.
-The relay re-serves what it ingests on all its listeners, so a stream published over SRT can be watched over RTSP.
+Built for the screens a video call blurs: code, terminals, spreadsheets, a game at 60 fps.
+Text stays sharp because the picture is coded at 4:4:4 or straight RGB, full range, 8 or 10 bit.
+Resolution, frame rate and bitrate are settings, and 40 to 80 Mbps HEVC is an ordinary choice.
 
-No accounts.
-No remote control.
-Everyone publishes and watches at once.
-Full colour, 4:4:4 and full range, so no WebRTC washout.
+## What it does
 
-A group is one key friends share, and a member is in it for as long as their own app says so.
-[`docs/membership.md`](docs/membership.md) states what that key buys and what a lapse closes.
+- Every member of a group publishes and watches. The Viewer tab draws each live stream as a tile, with the group's members beside it.
+- 4:4:4, planar RGB and full range, so text carries no colour fringe and dark scenes stay dark.
+- Hardware encoders: NVENC, Intel Quick Sync, AMD AMF, VAAPI, Vulkan Video, V4L2 and Rockchip MPP. Software: x264, x265, SVT-AV1, libaom, rav1e and libvpx.
+- Frames reach the encoder without a trip through system memory where capture and encoder share a device.
+- H.264, HEVC, AV1, VP9 and VP8. Setup offers what this machine's encoder and the chosen transport carry, and greys the rest with the reason.
+- `lossless`, `gaming` and `readability` presets each name a picture, and the app finds the encoder, pixel format and capture backend that deliver it on this machine.
+- Desktop audio as Opus or AAC. One application's audio alone, on Linux.
+- Delay measured per stage, capture to a viewer's window, and shown in the app. The SRT latency window is a setting.
+- Viewers watch in the app, in a browser over HLS, WebRTC or Media over QUIC, or in any player that speaks SRT or RTSP.
+- A group is a 256-bit key. Holding it is membership. Paste it in to join, take it out to leave.
+
+Windows and Linux.
 
 ## Install
 
-Packages for Windows, Arch, Fedora, NixOS and other Linux distributions are on the [releases page](https://github.com/bjoern621/screen-sharing/releases).
-[`docs/install.md`](docs/install.md) has the steps for each.
+Downloads are on the [releases page](https://github.com/bjoern621/screen-sharing/releases).
+[`docs/install.md`](docs/install.md) has each platform in full.
 
-One window, two programs behind it: a headless backend and the shell in front of it.
-Opening the shell starts the backend.
-Nothing else to launch.
-
-## The relay
-
-Every publisher sends to one relay and every viewer reads from it.
-So one machine everybody can reach runs MediaMTX and the group service that signs the tokens it checks: a VPS, a box on the LAN, a host on a Tailscale network.
-
-```bash
-task relay
-```
-
-Starts both on this machine, from `deploy/mediamtx-groups.yml`: the configuration a deployment runs.
-A self-signed certificate is drawn where none is there, so the encrypted listeners come up on a machine carrying none.
-Serves SRT (8890/udp), RTSPS (8322), RTMPS (1936), HLS, WebRTC and MoQ (8892 tcp+udp), plus the API on 9997.
-The binaries come from the flake's dev shell on Linux and macOS.
-Windows has no such shell and runs `pwsh scripts/relay.ps1`, which fetches MediaMTX on first run.
-
-## Topology
-
-```
-You              ──SRT──┐
-Friend A         ──SRT──┼──► MediaMTX relay ──SRT──► anyone
-Friend B         ──SRT──┘                            HLS/WebRTC/MoQ for browser
-```
-
-[`docs/network-architecture.md`](docs/network-architecture.md) states why the relay is there at all, and which legs cross the internet.
-
-## Bandwidth
-
-- **Upload** = sum of the publish bitrates.
-- **Download** = sum of the bitrates being watched.
-- Relay egress = publishers x viewers x bitrate.
-
-40 to 80 Mbps HEVC 4:4:4 beats Discord, and the rate goes up where few are watching.
-
-## Repository layout
-
-| Path | Holds |
+| Platform | Get it |
 | --- | --- |
-| `api/` | the control contract, a module of its own so neither side depends on the other |
-| `backend/` | the Go module: the headless backend and the group service |
-| `avalonia/` | the shell in front of the backend |
-| `build/` | icons, the Windows redistributables, and where a build lands |
-| `bruno/` | the deployment's HTTP APIs as a request collection |
-| `deploy/` | the relay and reverse-proxy config a deployment on the internet runs |
-| `docs/` | architecture, domain model and terminology |
-| `nix/` | the Nix packages and the NixOS module for the privileged capture path |
-| `packaging/` | the Arch, Fedora, Flatpak and Windows-installer recipes, and the desktop entry |
-| `scripts/` | packaging and development helpers |
+| Windows | `mirrorme-<version>-windows-x86_64-setup.exe`, or the `.zip` to run from anywhere. ffmpeg and GStreamer are inside both. |
+| Arch Linux | `sudo pacman -U mirrorme-<version>-1-x86_64.pkg.tar.zst` |
+| Fedora | `sudo dnf install ./mirrorme-*.rpm` |
+| NixOS, Nix | `nix run github:bjoern621/screen-sharing` |
+| Flatpak | `flatpak install --user ./mirrorme-<version>-x86_64.flatpak`, the pick where the distribution's GStreamer is older than 1.26 |
+| Other Linux | `mirrorme-<version>-linux-x86_64-portable.tar.gz`, with ffmpeg and GStreamer 1.26 or newer from the distribution |
 
-`api/`, `backend/` and `avalonia/` each carry a README stating what belongs in it.
+One window.
+Opening it starts the backend behind it.
 
-## Building it
+## Share a screen
 
-`Taskfile.yml` carries the development and packaging tasks.
-`task` lists them.
-`docs/packaging.md` states what the app needs at run time and how each channel provides it.
-Recipes are in `packaging/` and `nix/`.
+1. Open MirrorMe on the Setup tab.
+2. Create a group, or paste a group key a member sent.
+3. Pick a screen and a preset, or open the quality step and set codec, encoder, chroma and bitrate by hand.
+4. Share.
 
-`scripts/` also holds PowerShell tools that publish, watch and list live streams from a terminal: `publish.ps1`, `watch.ps1`, `whoislive.ps1`.
+Every stream in the group lands on the Viewer tab, one tile each.
+A stream shared with no group key is public: anybody who reaches the relay can watch it, and the app says so before it starts.
+
+## How it works
+
+```
+publisher ──SRT/RTSP/RTMP/WebRTC──► relay ──SRT/RTSP/WebRTC/HLS/MoQ──► viewers
+```
+
+Every publisher sends one copy to a [MediaMTX](https://github.com/bluenviron/mediamtx) relay and every viewer reads from it,
+so an upload carries one stream however many watch, and no home connection needs an open port.
+The relay re-serves what it ingests on every listener,
+so a stream published over SRT is watched over WebRTC in a browser and over RTSP in a player, at once.
+Capture, encode and decode run on ffmpeg and GStreamer.
+
+A group is a path prefix derived from its key.
+The group service trades the key for a short-lived token, the relay checks that token by signature alone, and membership is a lease each member's own app keeps alive.
+The relay sees every stream it carries.
+
+The app ships pointing at the project's relay.
+A group that wants its streams on its own machine runs one, and [`docs/install.md`](docs/install.md), "The relay", has the steps.
+
+`docs/` holds the rest:
+[`network-architecture.md`](docs/network-architecture.md),
+[`membership.md`](docs/membership.md),
+[`domain-model.md`](docs/domain-model.md),
+[`video-stack.md`](docs/video-stack.md).
+
+## Developing
+
+Go backend, Avalonia shell, a gRPC contract between them in [`api/`](api/).
+`task` lists the development and packaging tasks, and `task all` runs relay, backend and shell together.
+[`docs/development-principles.md`](docs/development-principles.md) governs every change.
+`api/`, `backend/` and `avalonia/` each carry a README for their layout.
 
 ## License
 
 Apache-2.0 ([`LICENSE`](LICENSE)).
-The Windows archive also carries ffmpeg and the GStreamer runtime, which stay under their own GPL and LGPL terms.
+The Windows downloads also carry ffmpeg and the GStreamer runtime, under their own GPL and LGPL terms.
 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) states what every artifact ships and where its source is.
