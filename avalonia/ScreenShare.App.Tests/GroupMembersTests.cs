@@ -1,4 +1,5 @@
 using ScreenShare.Api.V1;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Viewer.Members.ViewModel;
 using Xunit;
 
@@ -14,11 +15,10 @@ public sealed class GroupMembersTests
 {
     private static MembersViewModel Card() => new();
 
-    private static Member Member(string name, bool publishing = false, bool self = false) => new()
+    private static Member Member(string name, bool self = false) => new()
     {
         MemberId = $"id-{name}",
         DisplayName = name,
-        Publishing = publishing,
         Self = self,
     };
 
@@ -30,20 +30,20 @@ public sealed class GroupMembersTests
     }
 
     [Fact]
-    public void ARowPerMemberSaysWhoIsSendingAndWhichIsThisMachine()
+    public void ARowPerMemberSaysWhichIsThisMachine()
     {
         var card = Card();
 
-        card.Reported = Group(joined: true, Member("Björn", publishing: true, self: true), Member("Ada"));
+        card.Reported = Group(joined: true, Member("Björn", self: true), Member("Ada"));
         card.Apply();
 
         Assert.Equal(2, card.Rows.Count);
         Assert.Equal("Björn", card.Rows[0].Name);
-        Assert.True(card.Rows[0].IsPublishing);
         Assert.True(card.Rows[0].IsSelf);
+        Assert.Equal(Cards.MemberSelf, card.Rows[0].Detail);
         Assert.Equal("Ada", card.Rows[1].Name);
-        Assert.False(card.Rows[1].IsPublishing);
         Assert.False(card.Rows[1].IsSelf);
+        Assert.False(card.Rows[1].HasDetail);
     }
 
     /// <summary>

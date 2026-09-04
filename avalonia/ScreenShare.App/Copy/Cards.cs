@@ -147,27 +147,15 @@ public static class Cards
     /// <summary>Heading over the member list.</summary>
     public const string MembersTitle = "In the group";
 
-    /// <summary>
-    /// Beside a row the relay is carrying a stream from.
-    /// Sending only: who watches what belongs to the machine doing it,
-    /// so the group states presence and publication and nothing else.
-    /// </summary>
-    public const string MemberPublishing = "sending";
-
     /// <summary>Beside the row this machine holds, which nothing else on it distinguishes.</summary>
     public const string MemberSelf = "this computer";
 
     /// <summary>
-    /// What a row says about a member beside their name, empty for one that is neither.
-    /// In words rather than a mark, so the list needs no legend to be read.
+    /// What a row says about a member beside their name, empty for anyone but this machine.
+    /// Whether a member is sending stands on the sharing pill, so the list carries only which row
+    /// is this computer.
     /// </summary>
-    public static string MemberDetail(bool isSelf, bool isPublishing) => (isSelf, isPublishing) switch
-    {
-        (true, true) => $"{MemberSelf}, {MemberPublishing}",
-        (true, false) => MemberSelf,
-        (false, true) => MemberPublishing,
-        _ => "",
-    };
+    public static string MemberDetail(bool isSelf) => isSelf ? MemberSelf : "";
 
     /// <summary>
     /// What the member list says in place of rows.
