@@ -55,6 +55,10 @@ and `GetMembersState` answers the group as the backend last read it.
 Nothing on the contract joins, leaves or refreshes presence.
 The backend states it on the loop that already polls the relay, so a method for it would be a second thing deciding when this machine is in a group (`membership.md`).
 
+Discord mode holds the same shape.
+`SaveSettings` turns it on, `LinkDiscord` is the one effect that stores the link secret,
+and `GetDiscordState` reads what the backend's manager pass last landed (`discord-mode.md`).
+
 ## Why
 
 A shell with its own copy of the domain model is a chance to disagree with the encoder,

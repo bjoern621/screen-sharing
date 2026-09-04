@@ -30,6 +30,8 @@ func populatedSettings() settings.Settings {
 			MoqPort:     1007,
 			GroupKey:    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 			DisplayName: "fixture-member",
+			DiscordMode: true,
+			DiscordLink: "fixture-discord-link",
 		},
 		Publish: settings.Publish{
 			Transport:           "srt",
@@ -87,6 +89,11 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 		group := v.Type().Field(i).Name
 		g := v.Field(i)
 		for j := range g.NumField() {
+			// brokered is unexported: runtime facts with WithBrokeredGroup as their only way in,
+			// so the contract has nothing to carry for them.
+			if g.Type().Field(j).PkgPath != "" {
+				continue
+			}
 			name := group + "." + g.Type().Field(j).Name
 			if offContract[name] {
 				continue

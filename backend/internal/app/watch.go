@@ -51,8 +51,7 @@ func (a *App) pollRelay() {
 	defer ticker.Stop()
 
 	for {
-		a.fetchRelay()
-		a.statePresence()
+		a.pollPass()
 
 		select {
 		case <-a.relayStop:

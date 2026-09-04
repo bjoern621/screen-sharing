@@ -97,6 +97,16 @@ func (b controlBackend) TestStreamState() (int, []wire.TestStreamSlot) {
 // from: the read and the event are the same snapshot.
 func (b controlBackend) MembersState() wire.MembersSnapshot { return b.app.MembersState() }
 
+// Brokered carries Discord mode's membership into a draft, which no wire copy can (discord.go).
+func (b controlBackend) Brokered(s settings.Settings) settings.Settings {
+	return b.app.withBrokered(s)
+}
+
+// DiscordState reads what the last manager pass landed, stating nothing of its own (discord.go).
+func (b controlBackend) DiscordState() wire.DiscordSnapshot {
+	return b.app.discordState().wire()
+}
+
 // MaxTestStreams is the bound StartTestStreams enforces,
 // read rather than discovered by asking for too much.
 // A bound only an error could reveal would leave a saturated machine and a missing binary
@@ -198,6 +208,11 @@ func (b controlBackend) ForgetPortalConsent() error { return b.app.ForgetPortalC
 
 func (b controlBackend) CreateGroup(relay settings.Relay) (groupKey, groupID string, err error) {
 	return b.app.CreateGroup(relay)
+}
+
+// LinkDiscord holds the call for the person's browser leg (discordlink.go).
+func (b controlBackend) LinkDiscord(ctx context.Context, relay settings.Relay) error {
+	return b.app.LinkDiscord(ctx, relay)
 }
 
 func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }

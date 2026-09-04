@@ -47,6 +47,11 @@ type groupService interface {
 // that command dies at the relay's handshake,
 // and "the group service cannot be reached" is the reason a user can act on.
 func (a *App) settingsForCommand(s settings.Settings) (settings.Settings, error) {
+	if s.Relay.DiscordMode {
+		// The manager brokers the trade and the brokered facts ride the same copy (discord.go).
+		return a.discordSettingsForCommand(s)
+	}
+
 	base, ok := s.Relay.GroupService()
 	if !ok {
 		// Nowhere to trade.
@@ -88,6 +93,12 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 		return relay.Status{Reachable: false, FromIndex: true, Error: err.Error()}
 	}
 
+	return relay.Status{Reachable: true, FromIndex: true, Paths: indexPaths(streams)}
+}
+
+// indexPaths is the index's rows in the snapshot's shape,
+// shared by the manual fetch and the Discord pass, whose answers carry the same rows.
+func indexPaths(streams []groupclient.Stream) []relay.Path {
 	paths := make([]relay.Path, 0, len(streams))
 	for _, stream := range streams {
 		paths = append(paths, relay.Path{
@@ -100,7 +111,7 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 			Readers: stream.Readers,
 		})
 	}
-	return relay.Status{Reachable: true, FromIndex: true, Paths: paths}
+	return paths
 }
 
 // relayStatusFor is one snapshot, off the group service's index.

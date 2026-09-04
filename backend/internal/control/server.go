@@ -87,6 +87,13 @@ type Backend interface {
 	// A read of that reading and no membership call of its own: presence is stated on the polling loop,
 	// and a second caller would be a second thing deciding when this machine is in its group.
 	MembersState() wire.MembersSnapshot
+	// DiscordState is Discord mode as the backend's last manager pass read it.
+	DiscordState() wire.DiscordSnapshot
+	// Brokered is s carrying the facts Discord mode brokers for the current voice channel,
+	// and s unchanged outside that mode.
+	// A draft crossing the contract cannot carry them,
+	// and membership answers off them while the mode is on (docs/discord-mode.md).
+	Brokered(s settings.Settings) settings.Settings
 	// MaxTestStreams bounds how many synthetic publishers run at once.
 	//
 	// Readable rather than only enforced, so an over-large request is refused where every other
@@ -200,6 +207,9 @@ type Backend interface {
 	// What a machine's group is remains a settings write like any other:
 	// the key is what puts it in a group, and taking one out is what leaves.
 	CreateGroup(relay settings.Relay) (groupKey, groupID string, err error)
+	// LinkDiscord runs the consent flow against relay's manager and stores the secret it lands with.
+	// It holds the call for as long as the person takes, bounded by ctx and its own window.
+	LinkDiscord(ctx context.Context, relay settings.Relay) error
 	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
 	// holding them.
 	OpenLog(path string) error

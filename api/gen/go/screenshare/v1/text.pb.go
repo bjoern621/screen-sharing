@@ -712,6 +712,19 @@ const (
 	// The group key is the control that joins one.
 	// No arguments.
 	TextCode_TEXT_CODE_GROUP_REQUIRED TextCode = 171
+	// The group follows the voice channel while Discord mode is on (docs/discord-mode.md),
+	// so the manual group controls change nothing until the toggle goes off.
+	// No arguments.
+	TextCode_TEXT_CODE_GROUP_FOLLOWS_DISCORD TextCode = 172
+	// Discord mode is on and this install holds no link,
+	// so there is no account to read a voice channel off.
+	// Linking is the action that clears it.
+	// No arguments.
+	TextCode_TEXT_CODE_DISCORD_NOT_LINKED TextCode = 173
+	// The linked account stands in no voice channel, so there is no group to publish into.
+	// Joining one in Discord is what clears it, which no control here does.
+	// No arguments.
+	TextCode_TEXT_CODE_DISCORD_NO_VOICE_CHANNEL TextCode = 174
 	// Whether the connection is encrypted follows the relay's address and is stored nowhere,
 	// so the control saying so is a reading rather than a setting.
 	// No arguments.
@@ -867,6 +880,9 @@ var (
 		147: "TEXT_CODE_GROUP_SERVICE_REFUSED",
 		148: "TEXT_CODE_STREAM_LEFT_THE_RELAY",
 		171: "TEXT_CODE_GROUP_REQUIRED",
+		172: "TEXT_CODE_GROUP_FOLLOWS_DISCORD",
+		173: "TEXT_CODE_DISCORD_NOT_LINKED",
+		174: "TEXT_CODE_DISCORD_NO_VOICE_CHANNEL",
 		139: "TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS",
 		141: "TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP",
 		140: "TEXT_CODE_PRESET_UNREACHABLE",
@@ -998,6 +1014,9 @@ var (
 		"TEXT_CODE_GROUP_SERVICE_REFUSED":                     147,
 		"TEXT_CODE_STREAM_LEFT_THE_RELAY":                     148,
 		"TEXT_CODE_GROUP_REQUIRED":                            171,
+		"TEXT_CODE_GROUP_FOLLOWS_DISCORD":                     172,
+		"TEXT_CODE_DISCORD_NOT_LINKED":                        173,
+		"TEXT_CODE_DISCORD_NO_VOICE_CHANNEL":                  174,
 		"TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS":            139,
 		"TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP":            141,
 		"TEXT_CODE_PRESET_UNREACHABLE":                        140,
@@ -1357,7 +1376,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xb4+\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xa6,\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1482,7 +1501,10 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_SERVICE_REFUSED\x10\x93\x01\x12$\n" +
 	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12\x1d\n" +
-	"\x18TEXT_CODE_GROUP_REQUIRED\x10\xab\x01\x12-\n" +
+	"\x18TEXT_CODE_GROUP_REQUIRED\x10\xab\x01\x12$\n" +
+	"\x1fTEXT_CODE_GROUP_FOLLOWS_DISCORD\x10\xac\x01\x12!\n" +
+	"\x1cTEXT_CODE_DISCORD_NOT_LINKED\x10\xad\x01\x12'\n" +
+	"\"TEXT_CODE_DISCORD_NO_VOICE_CHANNEL\x10\xae\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS\x10\x8b\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP\x10\x8d\x01\x12!\n" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +

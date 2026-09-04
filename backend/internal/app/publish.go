@@ -87,7 +87,12 @@ func (a *App) StartPublish(s settings.Settings) error {
 // (internal/form, diagnosticsAboutTheAudience),
 // and this holds for a caller that asked anyway.
 func (a *App) startPublish(s settings.Settings) error {
+	// In Discord mode membership is the brokered facts, which the caller's copy cannot carry.
+	s = a.withBrokered(s)
 	if !s.Relay.InGroup() {
+		if s.Relay.DiscordMode {
+			return a.discordRefusal(s)
+		}
 		return errNoGroup
 	}
 

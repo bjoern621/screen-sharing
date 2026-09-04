@@ -100,7 +100,8 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 		AudioDevices: s.backend.AudioDevices(),
 		Portal:       s.backend.PortalCapabilities(),
 	}
-	draft := wire.ToSettings(req.GetSettings())
+	// Brokered ahead of the resolve, so the audience diagnostic reads Discord mode's membership.
+	draft := s.backend.Brokered(wire.ToSettings(req.GetSettings()))
 	return &screensharev1.ResolveFormResponse{Form: form.Resolve(deps, draft)}, nil
 }
 
@@ -191,4 +192,9 @@ func (s *Server) GetTestStreamState(ctx context.Context, req *screensharev1.GetT
 // A shell reads it on mount and receives the same message on the event stream after that.
 func (s *Server) GetMembersState(ctx context.Context, req *screensharev1.GetMembersStateRequest) (*screensharev1.MembersState, error) {
 	return wire.MembersState(s.backend.MembersState()), nil
+}
+
+// GetDiscordState answers Discord mode as the last manager pass landed it, the event's read twin.
+func (s *Server) GetDiscordState(ctx context.Context, req *screensharev1.GetDiscordStateRequest) (*screensharev1.DiscordState, error) {
+	return wire.DiscordState(s.backend.DiscordState()), nil
 }

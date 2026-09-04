@@ -29,6 +29,7 @@ const (
 	ControlService_GetViewerState_FullMethodName         = "/screenshare.v1.ControlService/GetViewerState"
 	ControlService_GetTestStreamState_FullMethodName     = "/screenshare.v1.ControlService/GetTestStreamState"
 	ControlService_GetMembersState_FullMethodName        = "/screenshare.v1.ControlService/GetMembersState"
+	ControlService_GetDiscordState_FullMethodName        = "/screenshare.v1.ControlService/GetDiscordState"
 	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
 	ControlService_SaveSettings_FullMethodName           = "/screenshare.v1.ControlService/SaveSettings"
@@ -53,6 +54,7 @@ const (
 	ControlService_CheckRelay_FullMethodName             = "/screenshare.v1.ControlService/CheckRelay"
 	ControlService_ForgetPortalConsent_FullMethodName    = "/screenshare.v1.ControlService/ForgetPortalConsent"
 	ControlService_CreateGroup_FullMethodName            = "/screenshare.v1.ControlService/CreateGroup"
+	ControlService_LinkDiscord_FullMethodName            = "/screenshare.v1.ControlService/LinkDiscord"
 	ControlService_OpenLog_FullMethodName                = "/screenshare.v1.ControlService/OpenLog"
 	ControlService_OpenLogsFolder_FullMethodName         = "/screenshare.v1.ControlService/OpenLogsFolder"
 	ControlService_Subscribe_FullMethodName              = "/screenshare.v1.ControlService/Subscribe"
@@ -126,6 +128,9 @@ type ControlServiceClient interface {
 	// the group key and the display name in the settings are what put this machine in a group,
 	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(ctx context.Context, in *GetMembersStateRequest, opts ...grpc.CallOption) (*MembersState, error)
+	// Discord mode as the backend's last manager pass read it, the event's read twin.
+	// Meaningful while the settings hold discord_mode.
+	GetDiscordState(ctx context.Context, in *GetDiscordStateRequest, opts ...grpc.CallOption) (*DiscordState, error)
 	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does,
@@ -286,6 +291,15 @@ type ControlServiceClient interface {
 	// The shell shows what came back and writes it to the settings field like any other value,
 	// which keeps the one write that changes a machine's group in the same place as every other.
 	CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error)
+	// Links this install to a Discord account (docs/discord-mode.md).
+	//
+	// An effect that takes as long as a person takes:
+	// the backend opens the browser on the manager's consent flow,
+	// catches the redirect on a loopback port it listens on for the duration,
+	// and stores the link secret it lands with.
+	// The call answers when the link landed, failed or was cancelled,
+	// and the stored settings moving is announced like any other settings write.
+	LinkDiscord(ctx context.Context, in *LinkDiscordRequest, opts ...grpc.CallOption) (*LinkDiscordResponse, error)
 	// OpenLog opens one run log in the machine's default application,
 	// OpenLogsFolder the directory holding them.
 	// Backend methods because the files are the backend's:
@@ -435,6 +449,16 @@ func (c *controlServiceClient) GetMembersState(ctx context.Context, in *GetMembe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MembersState)
 	err := c.cc.Invoke(ctx, ControlService_GetMembersState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) GetDiscordState(ctx context.Context, in *GetDiscordStateRequest, opts ...grpc.CallOption) (*DiscordState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DiscordState)
+	err := c.cc.Invoke(ctx, ControlService_GetDiscordState_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -681,6 +705,16 @@ func (c *controlServiceClient) CreateGroup(ctx context.Context, in *CreateGroupR
 	return out, nil
 }
 
+func (c *controlServiceClient) LinkDiscord(ctx context.Context, in *LinkDiscordRequest, opts ...grpc.CallOption) (*LinkDiscordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkDiscordResponse)
+	err := c.cc.Invoke(ctx, ControlService_LinkDiscord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) OpenLog(ctx context.Context, in *OpenLogRequest, opts ...grpc.CallOption) (*OpenLogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(OpenLogResponse)
@@ -824,6 +858,9 @@ type ControlServiceServer interface {
 	// the group key and the display name in the settings are what put this machine in a group,
 	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error)
+	// Discord mode as the backend's last manager pass read it, the event's read twin.
+	// Meaningful while the settings hold discord_mode.
+	GetDiscordState(context.Context, *GetDiscordStateRequest) (*DiscordState, error)
 	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does,
@@ -984,6 +1021,15 @@ type ControlServiceServer interface {
 	// The shell shows what came back and writes it to the settings field like any other value,
 	// which keeps the one write that changes a machine's group in the same place as every other.
 	CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error)
+	// Links this install to a Discord account (docs/discord-mode.md).
+	//
+	// An effect that takes as long as a person takes:
+	// the backend opens the browser on the manager's consent flow,
+	// catches the redirect on a loopback port it listens on for the duration,
+	// and stores the link secret it lands with.
+	// The call answers when the link landed, failed or was cancelled,
+	// and the stored settings moving is announced like any other settings write.
+	LinkDiscord(context.Context, *LinkDiscordRequest) (*LinkDiscordResponse, error)
 	// OpenLog opens one run log in the machine's default application,
 	// OpenLogsFolder the directory holding them.
 	// Backend methods because the files are the backend's:
@@ -1069,6 +1115,9 @@ func (UnimplementedControlServiceServer) GetTestStreamState(context.Context, *Ge
 func (UnimplementedControlServiceServer) GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMembersState not implemented")
 }
+func (UnimplementedControlServiceServer) GetDiscordState(context.Context, *GetDiscordStateRequest) (*DiscordState, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDiscordState not implemented")
+}
 func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReceiveState not implemented")
 }
@@ -1140,6 +1189,9 @@ func (UnimplementedControlServiceServer) ForgetPortalConsent(context.Context, *F
 }
 func (UnimplementedControlServiceServer) CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateGroup not implemented")
+}
+func (UnimplementedControlServiceServer) LinkDiscord(context.Context, *LinkDiscordRequest) (*LinkDiscordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LinkDiscord not implemented")
 }
 func (UnimplementedControlServiceServer) OpenLog(context.Context, *OpenLogRequest) (*OpenLogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method OpenLog not implemented")
@@ -1353,6 +1405,24 @@ func _ControlService_GetMembersState_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).GetMembersState(ctx, req.(*GetMembersStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_GetDiscordState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDiscordStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).GetDiscordState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_GetDiscordState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).GetDiscordState(ctx, req.(*GetDiscordStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1789,6 +1859,24 @@ func _ControlService_CreateGroup_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_LinkDiscord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkDiscordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).LinkDiscord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_LinkDiscord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).LinkDiscord(ctx, req.(*LinkDiscordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_OpenLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(OpenLogRequest)
 	if err := dec(in); err != nil {
@@ -1906,6 +1994,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_GetMembersState_Handler,
 		},
 		{
+			MethodName: "GetDiscordState",
+			Handler:    _ControlService_GetDiscordState_Handler,
+		},
+		{
 			MethodName: "GetReceiveState",
 			Handler:    _ControlService_GetReceiveState_Handler,
 		},
@@ -2000,6 +2092,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateGroup",
 			Handler:    _ControlService_CreateGroup_Handler,
+		},
+		{
+			MethodName: "LinkDiscord",
+			Handler:    _ControlService_LinkDiscord_Handler,
 		},
 		{
 			MethodName: "OpenLog",

@@ -100,6 +100,15 @@ message RelaySettings {
   // so there is nothing to fill this with that another member may not already hold.
   string display_name = 12;
 
+  // The group follows the voice channel this machine's linked Discord account sits in.
+  // While set, group_key is left unread:
+  // membership, paths and passphrases come brokered from the Discord manager,
+  // and the stored key waits for the toggle to go off (docs/discord-mode.md).
+  bool discord_mode = 13;
+  // Names this install as a Discord account at the manager, drawn by the link flow.
+  // It carries the trust group_key does. Empty is an install that has not linked.
+  string discord_link = 14;
+
   // The SRT passphrase crosses the contract nowhere:
   // the backend derives it from the group key on both ends of the leg,
   // so there is nothing a shell could type or show.

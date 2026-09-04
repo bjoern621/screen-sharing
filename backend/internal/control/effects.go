@@ -481,6 +481,15 @@ func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroup
 	return &screensharev1.CreateGroupResponse{Key: groupKey, Id: groupID}, nil
 }
 
+// LinkDiscord runs the consent flow and answers when the link landed or did not.
+// The secret lands in the stored settings, so the answer carries nothing to show.
+func (s *Server) LinkDiscord(ctx context.Context, req *screensharev1.LinkDiscordRequest) (*screensharev1.LinkDiscordResponse, error) {
+	if err := s.backend.LinkDiscord(ctx, wire.ToRelay(req.GetRelay())); err != nil {
+		return nil, fromBackend("cannot link Discord", err)
+	}
+	return &screensharev1.LinkDiscordResponse{}, nil
+}
+
 // OpenLog opens one run log in the machine's default application.
 //
 // The path comes off an ExitInfo the backend handed out and a shell constructs none,

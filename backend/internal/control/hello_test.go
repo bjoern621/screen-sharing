@@ -68,6 +68,8 @@ func (f *fakeBackend) Watching() []wire.StreamRef                     { return n
 func (f *fakeBackend) ReceiveState() []wire.ReceiveStream             { return nil }
 func (f *fakeBackend) AudioLevels() []wire.AudioLevel                 { return nil }
 func (f *fakeBackend) MembersState() wire.MembersSnapshot             { return f.members }
+func (f *fakeBackend) Brokered(s settings.Settings) settings.Settings { return s }
+func (f *fakeBackend) DiscordState() wire.DiscordSnapshot             { return wire.DiscordSnapshot{} }
 func (f *fakeBackend) MaxTestStreams() int                            { return 9 }
 func (f *fakeBackend) MeasureUplink(context.Context) (float64, error) { return 0, f.err }
 func (f *fakeBackend) MeasureEncodeRate(context.Context, settings.Settings) (encoderate.Rate, error) {
@@ -116,6 +118,7 @@ func (f *fakeBackend) StartTestStreams(int) error { return f.err }
 func (f *fakeBackend) StopTestStreams()           {}
 func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
 func (f *fakeBackend) OpenLog(string) error       { return f.err }
+func (f *fakeBackend) LinkDiscord(context.Context, settings.Relay) error { return nil }
 func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
 }

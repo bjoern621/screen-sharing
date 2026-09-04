@@ -95,6 +95,20 @@ type Relay struct {
 	// Empty is a machine with no name, and joining a group asks for one.
 	// With the relay because a group is, and a preset carries neither.
 	DisplayName string `json:"displayName,omitempty"`
+	// DiscordMode has the group follow the voice channel this machine's linked account sits in.
+	// While set, GroupKey is left unread:
+	// membership, paths and passphrases come brokered from the Discord manager instead,
+	// and the stored key waits for the toggle to go off (docs/discord-mode.md).
+	DiscordMode bool `json:"discordMode,omitempty"`
+	// DiscordLink names this install as a Discord account at the manager.
+	// Drawn by the link flow, held like GroupKey and carrying the same trust:
+	// whoever reads it watches this account's channels.
+	// Empty is an install that has not linked.
+	DiscordLink string `json:"discordLink,omitempty"`
+	// brokered is the manager's answer standing in for the group key's derivations,
+	// runtime like Token: written per pass or command (WithBrokeredGroup), never stored.
+	// nil is Discord mode outside any voice channel, and every mode before injection.
+	brokered *BrokeredGroup
 	// Token is the relay credential the leg being built carries, and not a setting.
 	//
 	// A short-lived JWT the group service signed in exchange for GroupKey,
@@ -218,6 +232,9 @@ func (r Relay) GroupService() (base string, ok bool) {
 // A key that will not parse reads as membership here and reaches a path every relay refuses (Path),
 // this being the settings a user typed rather than a fact this app can repair.
 func (r Relay) InGroup() bool {
+	if r.DiscordMode {
+		return r.brokered != nil && r.DisplayName != ""
+	}
 	return r.GroupKey != "" && r.DisplayName != ""
 }
 
@@ -240,6 +257,14 @@ func (r Relay) InGroup() bool {
 // What keeps a machine outside a group from reaching here at all
 // is the publish refusing before a path is built (internal/form, diagnosticsAboutTheAudience).
 func (r Relay) Path(name string) string {
+	// In Discord mode the brokered prefix is the group's, held to the same name rule,
+	// and the stored key stays unread: paths must follow the voice channel alone.
+	if r.DiscordMode {
+		if r.brokered == nil || !group.NameHolds(name) {
+			return name
+		}
+		return r.brokered.Prefix + name
+	}
 	if r.GroupKey == "" {
 		return name
 	}
@@ -313,6 +338,13 @@ func (s Settings) WatchPath(streamName string) string {
 // The relay's side of the same value is written per prefix by the group service
 // (internal/groupsvc).
 func (r Relay) SrtPassphrase() string {
+	// Brokered beside the prefix it belongs to, the manager deriving both from the one key.
+	if r.DiscordMode {
+		if r.brokered == nil {
+			return ""
+		}
+		return r.brokered.SrtPassphrase
+	}
 	if r.GroupKey == "" {
 		return ""
 	}

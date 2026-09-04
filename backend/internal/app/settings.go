@@ -40,7 +40,10 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	a.settings = s
 	a.settingsMu.Unlock()
 
-	if before.GroupKey != s.Relay.GroupKey {
+	if before.GroupKey != s.Relay.GroupKey ||
+		(!before.DiscordMode && s.Relay.DiscordMode) {
+		// A changed key and Discord mode switching on both leave the manual group:
+		// the mode leaves the key stored but unread, so the presence under it is released here too.
 		a.releaseGroup(before)
 	}
 	if joinedAGroup(before, s.Relay) {

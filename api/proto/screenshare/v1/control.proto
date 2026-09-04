@@ -88,6 +88,10 @@ service ControlService {
   // and presence is stated on the loop that already polls the relay.
   rpc GetMembersState(GetMembersStateRequest) returns (MembersState);
 
+  // Discord mode as the backend's last manager pass read it, the event's read twin.
+  // Meaningful while the settings hold discord_mode.
+  rpc GetDiscordState(GetDiscordStateRequest) returns (DiscordState);
+
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
   // What a shell that has just connected converges against.
@@ -274,6 +278,16 @@ service ControlService {
   // which keeps the one write that changes a machine's group in the same place as every other.
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
 
+  // Links this install to a Discord account (docs/discord-mode.md).
+  //
+  // An effect that takes as long as a person takes:
+  // the backend opens the browser on the manager's consent flow,
+  // catches the redirect on a loopback port it listens on for the duration,
+  // and stores the link secret it lands with.
+  // The call answers when the link landed, failed or was cancelled,
+  // and the stored settings moving is announced like any other settings write.
+  rpc LinkDiscord(LinkDiscordRequest) returns (LinkDiscordResponse);
+
   // OpenLog opens one run log in the machine's default application,
   // OpenLogsFolder the directory holding them.
   // Backend methods because the files are the backend's:
@@ -410,6 +424,8 @@ message GetViewerStateRequest {}
 message GetTestStreamStateRequest {}
 
 message GetMembersStateRequest {}
+
+message GetDiscordStateRequest {}
 
 message GetReceiveStateRequest {}
 
@@ -666,6 +682,16 @@ enum RelayLegVerdict {
 message ForgetPortalConsentRequest {}
 
 message ForgetPortalConsentResponse {}
+
+message LinkDiscordRequest {
+  // The relay whose manager runs the consent flow, from the draft the user is looking at,
+  // for the reason CreateGroupRequest carries one.
+  RelaySettings relay = 1;
+}
+
+// The secret lands in the stored settings rather than here:
+// one write changes what this machine is linked as, and it is the backend's.
+message LinkDiscordResponse {}
 
 message CreateGroupRequest {
   // The relay the group is drawn at,

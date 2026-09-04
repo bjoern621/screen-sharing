@@ -661,6 +661,19 @@ enum TextCode {
   // The group key is the control that joins one.
   // No arguments.
   TEXT_CODE_GROUP_REQUIRED = 171;
+  // The group follows the voice channel while Discord mode is on (docs/discord-mode.md),
+  // so the manual group controls change nothing until the toggle goes off.
+  // No arguments.
+  TEXT_CODE_GROUP_FOLLOWS_DISCORD = 172;
+  // Discord mode is on and this install holds no link,
+  // so there is no account to read a voice channel off.
+  // Linking is the action that clears it.
+  // No arguments.
+  TEXT_CODE_DISCORD_NOT_LINKED = 173;
+  // The linked account stands in no voice channel, so there is no group to publish into.
+  // Joining one in Discord is what clears it, which no control here does.
+  // No arguments.
+  TEXT_CODE_DISCORD_NO_VOICE_CHANNEL = 174;
   // 138 warned that a keyless stream is published where anybody reaching the relay may watch it,
   // which stopped holding once every stream came to live in a group:
   // 171 refuses the settings that name none.

@@ -11,6 +11,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/decode"
+	"bjoernblessin.de/screenshare/internal/discordclient"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
@@ -54,6 +55,12 @@ type App struct {
 	// One client per process: a second would trade the same group key for a second token and double
 	// the requests the service sees per publish.
 	groups groupService
+	// This app's side of the Discord manager, asked instead of groups while Discord mode is on
+	// (discord.go).
+	discord discordService
+	// What the last Discord pass landed, nil until one has run.
+	// Atomic like relayLast: written whole per pass, read on every command build.
+	discordLast atomic.Pointer[discordSnapshot]
 	// Serialises this machine's membership statements, so a pass in flight when a leave arrives lands
 	// before the release rather than after it (members.go).
 	// Held across the call to the group service, that order being what it buys.
@@ -176,6 +183,7 @@ func New(version string) *App {
 		settings:         s,
 		storeNotice:      notice,
 		groups:           groupclient.New(),
+		discord:          discordclient.New(),
 		relayStop:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),
 		fatal:            make(chan error, 1),

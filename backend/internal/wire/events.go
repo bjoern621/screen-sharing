@@ -185,6 +185,33 @@ func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 	}
 }
 
+// DiscordSnapshot is Discord mode as the backend's last manager pass read it.
+type DiscordSnapshot struct {
+	Linked      bool
+	InChannel   bool
+	GuildName   string
+	ChannelName string
+	Stale       bool
+}
+
+// DiscordState is the snapshot in the contract's shape, the read and the event sharing it.
+func DiscordState(d DiscordSnapshot) *screensharev1.DiscordState {
+	return &screensharev1.DiscordState{
+		Linked:      d.Linked,
+		InChannel:   d.InChannel,
+		GuildName:   d.GuildName,
+		ChannelName: d.ChannelName,
+		Stale:       d.Stale,
+	}
+}
+
+// DiscordStateEvent announces Discord mode's own state: link, channel and freshness.
+func DiscordStateEvent(d DiscordSnapshot) *screensharev1.Event {
+	return &screensharev1.Event{
+		Payload: &screensharev1.Event_DiscordState{DiscordState: DiscordState(d)},
+	}
+}
+
 // oneCause reads the statement off a constructor's trailing argument.
 //
 // Optional and trailing, so one constructor serves a producer that can name what ended a run

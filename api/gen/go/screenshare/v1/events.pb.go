@@ -47,6 +47,7 @@ const (
 	EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE EventKind = 14
 	EventKind_EVENT_KIND_RECEIVE_STATS         EventKind = 15
 	EventKind_EVENT_KIND_MEMBERS_STATE         EventKind = 16
+	EventKind_EVENT_KIND_DISCORD_STATE         EventKind = 17
 )
 
 // Enum value maps for EventKind.
@@ -68,6 +69,7 @@ var (
 		14: "EVENT_KIND_MONITOR_PREVIEW_STATE",
 		15: "EVENT_KIND_RECEIVE_STATS",
 		16: "EVENT_KIND_MEMBERS_STATE",
+		17: "EVENT_KIND_DISCORD_STATE",
 	}
 	EventKind_value = map[string]int32{
 		"EVENT_KIND_UNSPECIFIED":           0,
@@ -86,6 +88,7 @@ var (
 		"EVENT_KIND_MONITOR_PREVIEW_STATE": 14,
 		"EVENT_KIND_RECEIVE_STATS":         15,
 		"EVENT_KIND_MEMBERS_STATE":         16,
+		"EVENT_KIND_DISCORD_STATE":         17,
 	}
 )
 
@@ -1844,6 +1847,89 @@ func (x *MembersState) GetPublishingUnread() bool {
 	return false
 }
 
+// Discord mode as the backend's last manager pass read it (docs/discord-mode.md).
+// Meaningful while the settings hold discord_mode; a whole state like every payload here.
+type DiscordState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The manager knows this install's link secret.
+	// False both unlinked and while no pass has answered.
+	Linked bool `protobuf:"varint,1,opt,name=linked,proto3" json:"linked,omitempty"`
+	// The linked account stands in a voice channel, and the group follows it.
+	InChannel bool `protobuf:"varint,2,opt,name=in_channel,json=inChannel,proto3" json:"in_channel,omitempty"`
+	// The channel, for a reader. Empty outside one.
+	GuildName   string `protobuf:"bytes,3,opt,name=guild_name,json=guildName,proto3" json:"guild_name,omitempty"`
+	ChannelName string `protobuf:"bytes,4,opt,name=channel_name,json=channelName,proto3" json:"channel_name,omitempty"`
+	// The answer stands from an earlier pass because the manager stopped answering.
+	Stale         bool `protobuf:"varint,5,opt,name=stale,proto3" json:"stale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiscordState) Reset() {
+	*x = DiscordState{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiscordState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiscordState) ProtoMessage() {}
+
+func (x *DiscordState) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiscordState.ProtoReflect.Descriptor instead.
+func (*DiscordState) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DiscordState) GetLinked() bool {
+	if x != nil {
+		return x.Linked
+	}
+	return false
+}
+
+func (x *DiscordState) GetInChannel() bool {
+	if x != nil {
+		return x.InChannel
+	}
+	return false
+}
+
+func (x *DiscordState) GetGuildName() string {
+	if x != nil {
+		return x.GuildName
+	}
+	return ""
+}
+
+func (x *DiscordState) GetChannelName() string {
+	if x != nil {
+		return x.ChannelName
+	}
+	return ""
+}
+
+func (x *DiscordState) GetStale() bool {
+	if x != nil {
+		return x.Stale
+	}
+	return false
+}
+
 // One member of the group.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1863,7 +1949,7 @@ type Member struct {
 
 func (x *Member) Reset() {
 	*x = Member{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[17]
+	mi := &file_screenshare_v1_events_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1875,7 +1961,7 @@ func (x *Member) String() string {
 func (*Member) ProtoMessage() {}
 
 func (x *Member) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[17]
+	mi := &file_screenshare_v1_events_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1888,7 +1974,7 @@ func (x *Member) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Member.ProtoReflect.Descriptor instead.
 func (*Member) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{17}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Member) GetMemberId() string {
@@ -1943,6 +2029,7 @@ type Event struct {
 	//	*Event_TestStreamState
 	//	*Event_TestStreamExit
 	//	*Event_MembersState
+	//	*Event_DiscordState
 	//	*Event_Catalog
 	//	*Event_SettingsChanged
 	Payload       isEvent_Payload `protobuf_oneof:"payload"`
@@ -1952,7 +2039,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[18]
+	mi := &file_screenshare_v1_events_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1964,7 +2051,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[18]
+	mi := &file_screenshare_v1_events_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1977,7 +2064,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{18}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Event) GetSequence() uint64 {
@@ -2111,6 +2198,15 @@ func (x *Event) GetMembersState() *MembersState {
 	return nil
 }
 
+func (x *Event) GetDiscordState() *DiscordState {
+	if x != nil {
+		if x, ok := x.Payload.(*Event_DiscordState); ok {
+			return x.DiscordState
+		}
+	}
+	return nil
+}
+
 func (x *Event) GetCatalog() *Catalog {
 	if x != nil {
 		if x, ok := x.Payload.(*Event_Catalog); ok {
@@ -2221,6 +2317,13 @@ type Event_MembersState struct {
 	MembersState *MembersState `protobuf:"bytes,19,opt,name=members_state,json=membersState,proto3,oneof"`
 }
 
+type Event_DiscordState struct {
+	// Discord mode's own state beside the membership: link, channel and freshness.
+	// Its own payload rather than fields on members_state,
+	// which answers who is in the group whichever mode filled it.
+	DiscordState *DiscordState `protobuf:"bytes,20,opt,name=discord_state,json=discordState,proto3,oneof"`
+}
+
 type Event_Catalog struct {
 	// The whole reference set again, once the encoder probe has filled in.
 	// The catalog travels rather than the probe result alone,
@@ -2257,6 +2360,8 @@ func (*Event_TestStreamState) isEvent_Payload() {}
 func (*Event_TestStreamExit) isEvent_Payload() {}
 
 func (*Event_MembersState) isEvent_Payload() {}
+
+func (*Event_DiscordState) isEvent_Payload() {}
 
 func (*Event_Catalog) isEvent_Payload() {}
 
@@ -2421,14 +2526,22 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2\x16.screenshare.v1.MemberR\amembers\x12.\n" +
 	"\arefusal\x18\x02 \x01(\v2\x14.screenshare.v1.TextR\arefusal\x12\x16\n" +
 	"\x06joined\x18\x03 \x01(\bR\x06joined\x12+\n" +
-	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"|\n" +
+	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\x9d\x01\n" +
+	"\fDiscordState\x12\x16\n" +
+	"\x06linked\x18\x01 \x01(\bR\x06linked\x12\x1d\n" +
+	"\n" +
+	"in_channel\x18\x02 \x01(\bR\tinChannel\x12\x1d\n" +
+	"\n" +
+	"guild_name\x18\x03 \x01(\tR\tguildName\x12!\n" +
+	"\fchannel_name\x18\x04 \x01(\tR\vchannelName\x12\x14\n" +
+	"\x05stale\x18\x05 \x01(\bR\x05stale\"|\n" +
 	"\x06Member\x12\x1b\n" +
 	"\tmember_id\x18\x01 \x01(\tR\bmemberId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1e\n" +
 	"\n" +
 	"publishing\x18\x03 \x01(\bR\n" +
 	"publishing\x12\x12\n" +
-	"\x04self\x18\x04 \x01(\bR\x04self\"\xf6\b\n" +
+	"\x04self\x18\x04 \x01(\bR\x04self\"\xbb\t\n" +
 	"\x05Event\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12C\n" +
 	"\rpublish_state\x18\x02 \x01(\v2\x1c.screenshare.v1.PublishStateH\x00R\fpublishState\x12C\n" +
@@ -2444,12 +2557,13 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x15monitor_preview_state\x18\x11 \x01(\v2#.screenshare.v1.MonitorPreviewStateH\x00R\x13monitorPreviewState\x12M\n" +
 	"\x11test_stream_state\x18\r \x01(\v2\x1f.screenshare.v1.TestStreamStateH\x00R\x0ftestStreamState\x12D\n" +
 	"\x10test_stream_exit\x18\t \x01(\v2\x18.screenshare.v1.ExitInfoH\x00R\x0etestStreamExit\x12C\n" +
-	"\rmembers_state\x18\x13 \x01(\v2\x1c.screenshare.v1.MembersStateH\x00R\fmembersState\x123\n" +
+	"\rmembers_state\x18\x13 \x01(\v2\x1c.screenshare.v1.MembersStateH\x00R\fmembersState\x12C\n" +
+	"\rdiscord_state\x18\x14 \x01(\v2\x1c.screenshare.v1.DiscordStateH\x00R\fdiscordState\x123\n" +
 	"\acatalog\x18\x0e \x01(\v2\x17.screenshare.v1.CatalogH\x00R\acatalog\x12L\n" +
 	"\x10settings_changed\x18\n" +
 	" \x01(\v2\x1f.screenshare.v1.SettingsChangedH\x00R\x0fsettingsChangedB\t\n" +
 	"\apayloadJ\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\n" +
-	"grid_stateR\tgrid_exitR\rshow_settings*\x8f\x04\n" +
+	"grid_stateR\tgrid_exitR\rshow_settings*\xad\x04\n" +
 	"\tEventKind\x12\x1a\n" +
 	"\x16EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18EVENT_KIND_PUBLISH_STATE\x10\x01\x12\x1c\n" +
@@ -2467,7 +2581,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x17EVENT_KIND_RECEIVE_EXIT\x10\r\x12$\n" +
 	" EVENT_KIND_MONITOR_PREVIEW_STATE\x10\x0e\x12\x1c\n" +
 	"\x18EVENT_KIND_RECEIVE_STATS\x10\x0f\x12\x1c\n" +
-	"\x18EVENT_KIND_MEMBERS_STATE\x10\x10\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\x18EVENT_KIND_MEMBERS_STATE\x10\x10\x12\x1c\n" +
+	"\x18EVENT_KIND_DISCORD_STATE\x10\x11\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_events_proto_rawDescOnce sync.Once
@@ -2482,7 +2597,7 @@ func file_screenshare_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_screenshare_v1_events_proto_goTypes = []any{
 	(EventKind)(0),              // 0: screenshare.v1.EventKind
 	(*ExitInfo)(nil),            // 1: screenshare.v1.ExitInfo
@@ -2502,39 +2617,40 @@ var file_screenshare_v1_events_proto_goTypes = []any{
 	(*PreviewedMonitor)(nil),    // 15: screenshare.v1.PreviewedMonitor
 	(*MonitorPreviewState)(nil), // 16: screenshare.v1.MonitorPreviewState
 	(*MembersState)(nil),        // 17: screenshare.v1.MembersState
-	(*Member)(nil),              // 18: screenshare.v1.Member
-	(*Event)(nil),               // 19: screenshare.v1.Event
-	(*Text)(nil),                // 20: screenshare.v1.Text
-	(*StreamRef)(nil),           // 21: screenshare.v1.StreamRef
-	(*PublishState)(nil),        // 22: screenshare.v1.PublishState
-	(*PublishStats)(nil),        // 23: screenshare.v1.PublishStats
-	(*RelayStatus)(nil),         // 24: screenshare.v1.RelayStatus
-	(*Catalog)(nil),             // 25: screenshare.v1.Catalog
+	(*DiscordState)(nil),        // 18: screenshare.v1.DiscordState
+	(*Member)(nil),              // 19: screenshare.v1.Member
+	(*Event)(nil),               // 20: screenshare.v1.Event
+	(*Text)(nil),                // 21: screenshare.v1.Text
+	(*StreamRef)(nil),           // 22: screenshare.v1.StreamRef
+	(*PublishState)(nil),        // 23: screenshare.v1.PublishState
+	(*PublishStats)(nil),        // 24: screenshare.v1.PublishStats
+	(*RelayStatus)(nil),         // 25: screenshare.v1.RelayStatus
+	(*Catalog)(nil),             // 26: screenshare.v1.Catalog
 }
 var file_screenshare_v1_events_proto_depIdxs = []int32{
-	20, // 0: screenshare.v1.ExitInfo.cause:type_name -> screenshare.v1.Text
-	21, // 1: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.StreamRef
+	21, // 0: screenshare.v1.ExitInfo.cause:type_name -> screenshare.v1.Text
+	22, // 1: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.StreamRef
 	1,  // 2: screenshare.v1.ViewerExit.exit:type_name -> screenshare.v1.ExitInfo
-	21, // 3: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.StreamRef
+	22, // 3: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.StreamRef
 	5,  // 4: screenshare.v1.TestStreamState.slots:type_name -> screenshare.v1.TestStreamSlot
-	20, // 5: screenshare.v1.TestStreamSlot.cause:type_name -> screenshare.v1.Text
-	21, // 6: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.StreamRef
-	20, // 7: screenshare.v1.ReceiveExit.cause:type_name -> screenshare.v1.Text
-	21, // 8: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.StreamRef
-	20, // 9: screenshare.v1.ReceiveStream.failure:type_name -> screenshare.v1.Text
+	21, // 5: screenshare.v1.TestStreamSlot.cause:type_name -> screenshare.v1.Text
+	22, // 6: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.StreamRef
+	21, // 7: screenshare.v1.ReceiveExit.cause:type_name -> screenshare.v1.Text
+	22, // 8: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.StreamRef
+	21, // 9: screenshare.v1.ReceiveStream.failure:type_name -> screenshare.v1.Text
 	8,  // 10: screenshare.v1.ReceiveState.streams:type_name -> screenshare.v1.ReceiveStream
 	10, // 11: screenshare.v1.ReceiveStatGroup.values:type_name -> screenshare.v1.ReceiveStatValue
-	21, // 12: screenshare.v1.ReceiveStreamStats.stream:type_name -> screenshare.v1.StreamRef
+	22, // 12: screenshare.v1.ReceiveStreamStats.stream:type_name -> screenshare.v1.StreamRef
 	11, // 13: screenshare.v1.ReceiveStreamStats.groups:type_name -> screenshare.v1.ReceiveStatGroup
 	13, // 14: screenshare.v1.ReceiveStreamStats.delay:type_name -> screenshare.v1.DelayBudget
 	12, // 15: screenshare.v1.ReceiveStats.streams:type_name -> screenshare.v1.ReceiveStreamStats
 	15, // 16: screenshare.v1.MonitorPreviewState.monitors:type_name -> screenshare.v1.PreviewedMonitor
-	18, // 17: screenshare.v1.MembersState.members:type_name -> screenshare.v1.Member
-	20, // 18: screenshare.v1.MembersState.refusal:type_name -> screenshare.v1.Text
-	22, // 19: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
-	23, // 20: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
+	19, // 17: screenshare.v1.MembersState.members:type_name -> screenshare.v1.Member
+	21, // 18: screenshare.v1.MembersState.refusal:type_name -> screenshare.v1.Text
+	23, // 19: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
+	24, // 20: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
 	1,  // 21: screenshare.v1.Event.publish_exit:type_name -> screenshare.v1.ExitInfo
-	24, // 22: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
+	25, // 22: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
 	3,  // 23: screenshare.v1.Event.viewer_state:type_name -> screenshare.v1.ViewerState
 	2,  // 24: screenshare.v1.Event.viewer_exit:type_name -> screenshare.v1.ViewerExit
 	9,  // 25: screenshare.v1.Event.receive_state:type_name -> screenshare.v1.ReceiveState
@@ -2544,13 +2660,14 @@ var file_screenshare_v1_events_proto_depIdxs = []int32{
 	4,  // 29: screenshare.v1.Event.test_stream_state:type_name -> screenshare.v1.TestStreamState
 	1,  // 30: screenshare.v1.Event.test_stream_exit:type_name -> screenshare.v1.ExitInfo
 	17, // 31: screenshare.v1.Event.members_state:type_name -> screenshare.v1.MembersState
-	25, // 32: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
-	6,  // 33: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
-	34, // [34:34] is the sub-list for method output_type
-	34, // [34:34] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	18, // 32: screenshare.v1.Event.discord_state:type_name -> screenshare.v1.DiscordState
+	26, // 33: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
+	6,  // 34: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_events_proto_init() }
@@ -2563,7 +2680,7 @@ func file_screenshare_v1_events_proto_init() {
 	file_screenshare_v1_text_proto_init()
 	file_screenshare_v1_events_proto_msgTypes[11].OneofWrappers = []any{}
 	file_screenshare_v1_events_proto_msgTypes[12].OneofWrappers = []any{}
-	file_screenshare_v1_events_proto_msgTypes[18].OneofWrappers = []any{
+	file_screenshare_v1_events_proto_msgTypes[19].OneofWrappers = []any{
 		(*Event_PublishState)(nil),
 		(*Event_PublishStats)(nil),
 		(*Event_PublishExit)(nil),
@@ -2577,6 +2694,7 @@ func file_screenshare_v1_events_proto_init() {
 		(*Event_TestStreamState)(nil),
 		(*Event_TestStreamExit)(nil),
 		(*Event_MembersState)(nil),
+		(*Event_DiscordState)(nil),
 		(*Event_Catalog)(nil),
 		(*Event_SettingsChanged)(nil),
 	}
@@ -2586,7 +2704,7 @@ func file_screenshare_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_events_proto_rawDesc), len(file_screenshare_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

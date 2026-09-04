@@ -495,6 +495,21 @@ message MembersState {
   bool publishing_unread = 4;
 }
 
+// Discord mode as the backend's last manager pass read it (docs/discord-mode.md).
+// Meaningful while the settings hold discord_mode; a whole state like every payload here.
+message DiscordState {
+  // The manager knows this install's link secret.
+  // False both unlinked and while no pass has answered.
+  bool linked = 1;
+  // The linked account stands in a voice channel, and the group follows it.
+  bool in_channel = 2;
+  // The channel, for a reader. Empty outside one.
+  string guild_name = 3;
+  string channel_name = 4;
+  // The answer stands from an earlier pass because the manager stopped answering.
+  bool stale = 5;
+}
+
 // One member of the group.
 message Member {
   // Derived from a secret only that member holds,
@@ -533,6 +548,7 @@ enum EventKind {
   EVENT_KIND_MONITOR_PREVIEW_STATE = 14;
   EVENT_KIND_RECEIVE_STATS = 15;
   EVENT_KIND_MEMBERS_STATE = 16;
+  EVENT_KIND_DISCORD_STATE = 17;
 
   // 11 was EVENT_KIND_SHOW_SETTINGS, and Event records why that payload left.
   reserved 11;
@@ -604,6 +620,11 @@ message Event {
     // The whole membership,
     // so a shell draws the group rather than merging arrivals and departures into what it held.
     MembersState members_state = 19;
+
+    // Discord mode's own state beside the membership: link, channel and freshness.
+    // Its own payload rather than fields on members_state,
+    // which answers who is in the group whichever mode filled it.
+    DiscordState discord_state = 20;
 
     // The whole reference set again, once the encoder probe has filled in.
     // The catalog travels rather than the probe result alone,

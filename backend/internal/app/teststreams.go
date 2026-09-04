@@ -206,8 +206,10 @@ func (a *App) startTestStreamsAtBoot() {
 // Read under settingsMu like every other use of them (app.go).
 func (a *App) settingsInGroup() bool {
 	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
-	return a.settings.Relay.InGroup()
+	s := a.settings
+	a.settingsMu.Unlock()
+	// Brokered because Discord mode's membership never rides the stored copy (discord.go).
+	return a.withBrokered(s).Relay.InGroup()
 }
 
 // joinedAGroup reports whether a settings write moved this machine into a group.

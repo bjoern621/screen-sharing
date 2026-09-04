@@ -1,0 +1,251 @@
+package app
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"bjoernblessin.de/go-utils/util/logger"
+
+	"bjoernblessin.de/screenshare/internal/discordclient"
+	"bjoernblessin.de/screenshare/internal/groupclient"
+	"bjoernblessin.de/screenshare/internal/relay"
+	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
+)
+
+// Discord mode replaces the pass the poll runs (docs/discord-mode.md):
+// one manager round trip answers channel, brokered group, members and streams together,
+// where manual mode asks the index and states presence in two.
+// The group key never reaches this side,
+// so every derivation a command needs rides in as brokered facts on the settings copy.
+
+// discordService is what Discord mode asks of the manager,
+// held as an interface at the caller so a test states the answers without a manager running.
+// One implementation, *discordclient.Client.
+type discordService interface {
+	Presence(base, linkSecret string) (discordclient.Answer, error)
+	Token(base, linkSecret string) (token, prefix string, err error)
+}
+
+// discordSnapshot is what the last Discord pass landed, the zero value before one has run.
+//
+// Held whole and read wherever a command needs the brokered facts,
+// so a build path waits on nothing.
+type discordSnapshot struct {
+	// Linked is whether the manager knows this install's link secret.
+	// False both unlinked and before the first pass answers.
+	Linked bool
+	// InChannel is whether the linked account stands in a voice channel.
+	InChannel bool
+	// GuildName and ChannelName label the channel for a reader, empty outside one.
+	GuildName   string
+	ChannelName string
+	// Prefix, SrtPassphrase and DisplayName are the brokered facts commands build with,
+	// empty outside a channel.
+	Prefix        string
+	SrtPassphrase string
+	DisplayName   string
+	// Stale marks an answer a pass left standing because it did not reach the manager.
+	Stale bool
+}
+
+// discordState is what the last Discord pass landed, the zero value before one has run.
+func (a *App) discordState() discordSnapshot {
+	if last := a.discordLast.Load(); last != nil {
+		return *last
+	}
+	return discordSnapshot{}
+}
+
+// pollPass is one pass of the relay poll, in whichever mode the settings hold.
+func (a *App) pollPass() {
+	a.settingsMu.Lock()
+	mode := a.settings.Relay.DiscordMode
+	a.settingsMu.Unlock()
+
+	if mode {
+		a.discordPass()
+		return
+	}
+	a.fetchRelay()
+	a.statePresence()
+}
+
+// discordPass states presence at the manager and lands everything the answer carries:
+// the Discord snapshot, the membership and the relay snapshot, each where its readers look.
+//
+// One round trip on the loop that already polls,
+// so presence, the index and the channel move together or not at all.
+// A manager this pass could not reach leaves the last answer standing under its lease,
+// as a manual pass leaves membership (members.go, standing).
+func (a *App) discordPass() {
+	a.settingsMu.Lock()
+	s := a.settings
+	a.settingsMu.Unlock()
+
+	a.membersMu.Lock()
+	defer a.membersMu.Unlock()
+
+	base, okBase := s.Relay.DiscordService()
+	if !okBase || s.Relay.DiscordLink == "" {
+		a.landDiscord(discordSnapshot{}, membership{}, relay.Status{})
+		return
+	}
+
+	answer, err := a.discord.Presence(base, s.Relay.DiscordLink)
+	if err != nil {
+		a.discordPassFailed(err)
+		return
+	}
+
+	if answer.Group == nil {
+		// Linked, standing in no voice channel: no group, and an index nothing can ask.
+		a.landDiscord(discordSnapshot{Linked: true}, membership{}, relay.Status{})
+		return
+	}
+
+	snap := discordSnapshot{
+		Linked: true, InChannel: true,
+		GuildName: answer.Channel.Guild, ChannelName: answer.Channel.Name,
+		Prefix:        answer.Group.Prefix,
+		SrtPassphrase: answer.Group.SrtPassphrase,
+		DisplayName:   answer.Group.DisplayName,
+	}
+
+	held := a.discordState()
+	if held.Prefix != snap.Prefix {
+		logger.Infof("the group follows the voice channel %s in %s", snap.ChannelName, snap.GuildName)
+	}
+
+	taken := presenceTaken(groupIDOfPrefix(snap.Prefix), groupclient.Membership{
+		MemberID:         answer.Group.MemberID,
+		DisplayName:      answer.Group.DisplayName,
+		LeaseSeconds:     answer.Group.LeaseSeconds,
+		Members:          answer.Group.Members,
+		PublishingUnread: answer.Group.PublishingUnread,
+	})
+	status := relay.Status{Reachable: true, FromIndex: true, Paths: indexPaths(answer.Group.Streams)}
+	a.landDiscord(snap, taken, status)
+}
+
+// discordPassFailed leaves the last answer standing where the manager did not refuse it,
+// and lands the unlinked state where it did:
+// a 401 is the manager saying the link no longer resolves, which polling again cannot clear.
+func (a *App) discordPassFailed(err error) {
+	held := a.discordState()
+
+	var refusal *groupclient.Refusal
+	if errors.As(err, &refusal) && refusal.Status == http.StatusUnauthorized {
+		if held.Linked || !held.Stale {
+			logger.Warnf("the manager no longer knows this install's link: %v", err)
+		}
+		a.landDiscord(discordSnapshot{}, membership{}, relay.Status{})
+		return
+	}
+
+	if !held.Stale {
+		logger.Warnf("the Discord pass did not land, the answer already read standing until its lease runs out: %v", err)
+	}
+	held.Stale = true
+	a.discordLast.Store(&held)
+	a.emit(wire.DiscordStateEvent(held.wire()))
+
+	// Membership stands as the manual pass leaves it: the last taken answer, until its lease lapses.
+	heldMembers := a.membership()
+	heldMembers.Stale = true
+	a.landMembership(heldMembers)
+}
+
+// landDiscord records one pass's whole answer and announces the three snapshots shells draw from.
+func (a *App) landDiscord(snap discordSnapshot, m membership, status relay.Status) {
+	a.discordLast.Store(&snap)
+	a.relayLast.Store(&status)
+	a.emit(wire.RelayStatusEvent(status))
+	a.emit(wire.DiscordStateEvent(snap.wire()))
+	a.landMembership(m)
+}
+
+// wire is this snapshot in the contract's shape, the brokered facts staying behind:
+// a prefix and a passphrase are the backend's to build with, and a shell draws neither.
+func (d discordSnapshot) wire() wire.DiscordSnapshot {
+	return wire.DiscordSnapshot{
+		Linked:      d.Linked,
+		InChannel:   d.InChannel,
+		GuildName:   d.GuildName,
+		ChannelName: d.ChannelName,
+		Stale:       d.Stale,
+	}
+}
+
+// withBrokered is s carrying the last pass's brokered facts,
+// and s unchanged outside Discord mode or outside any channel.
+//
+// What lets every reader of InGroup, Path and SrtPassphrase answer in Discord mode
+// without holding a group key.
+// The one owner of the facts is the pass snapshot, and this reads through it per call.
+func (a *App) withBrokered(s settings.Settings) settings.Settings {
+	if !s.Relay.DiscordMode {
+		return s
+	}
+	d := a.discordState()
+	if !d.InChannel {
+		return s
+	}
+	s.Relay = s.Relay.WithBrokeredGroup(d.Prefix, d.SrtPassphrase, d.DisplayName)
+	return s
+}
+
+// errDiscordUnlinked refuses a command while no link secret is set.
+var errDiscordUnlinked = errors.New("Discord mode is on but this computer is not linked: link Discord under Relay")
+
+// errNoVoiceChannel refuses a command while the linked account stands in no voice channel.
+var errNoVoiceChannel = errors.New("not in a voice channel: join one in Discord to get a group")
+
+// discordSettingsForCommand is settingsForCommand's Discord half:
+// the token is brokered by the manager, and the brokered facts ride the same copy.
+//
+// The prefix the trade grants is checked against the facts the last pass landed.
+// The two can move apart where the channel's group retired between pass and command,
+// and a command built half from each would publish under one group keyed as another,
+// so the mismatch waits for the next pass instead.
+func (a *App) discordSettingsForCommand(s settings.Settings) (settings.Settings, error) {
+	base, ok := s.Relay.DiscordService()
+	if !ok {
+		return s, errors.New("Discord mode is served by a manager, and no relay is named to reach one at")
+	}
+	if s.Relay.DiscordLink == "" {
+		return s, errDiscordUnlinked
+	}
+	d := a.discordState()
+	if !d.InChannel {
+		return s, errNoVoiceChannel
+	}
+
+	token, prefix, err := a.discord.Token(base, s.Relay.DiscordLink)
+	if err != nil {
+		return s, fmt.Errorf("no relay token for this channel's group: %w", err)
+	}
+	if prefix != d.Prefix {
+		return s, fmt.Errorf("the channel's group moved between two reads: try again in a moment")
+	}
+
+	s.Relay = s.Relay.WithBrokeredGroup(d.Prefix, d.SrtPassphrase, d.DisplayName)
+	s.Relay.Token = token
+	return s, nil
+}
+
+// discordRefusal names why Discord mode states no membership right now,
+// for a command refused on settings.Relay.InGroup.
+func (a *App) discordRefusal(s settings.Settings) error {
+	if s.Relay.DiscordLink == "" {
+		return errDiscordUnlinked
+	}
+	return errNoVoiceChannel
+}
+
+// groupIDOfPrefix is the public group id a brokered prefix carries, the digest before the separator.
+func groupIDOfPrefix(prefix string) string {
+	return strings.TrimSuffix(prefix, "/")
+}
