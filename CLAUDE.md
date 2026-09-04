@@ -5,16 +5,41 @@ Read the relevant page before guessing.
 "Docs are short" below is the shape every page under it takes.
 
 `docs/development-principles.md` governs the shape of every change: explicit state writes and continuous reads, one render function per component, idempotent apply paths, and preconditions, postconditions and invariants asserted with `bjoernblessin.de/go-utils/util/assert`.
-It outranks brevity and convenience. Read it before writing code.
+It outranks brevity and convenience.
+Read it before writing code.
+
+# Two skills govern every string
+
+Everything written into this repository, comments, docstrings, Markdown pages, commit and PR bodies, follows the `writing-style` skill (`bjoern` plugin, source: github.com/bjoern621/claude-skills).
+Load it before writing or editing any of these, however small the edit; the full rules live in the skill's `reference.md`.
+A touched comment is rewritten to this style in the same change.
+
+Every string a user reads on screen follows the `interface-text` skill instead.
+Load that one before writing or editing a user-facing literal, on the same terms.
+
+**Three of those rules reach chat replies as well, which neither skill governs.**
+The em-dash and box-drawing bans, paired negation, and the tells catalogued in the skill's `ai-tells.md` hold in chat exactly as they hold in a commit body.
 
 # Idempotent and stateless
 
-These are the two paradigms this codebase is built on, they outrank every other rule, and they are not negotiable. `docs/development-principles.md` states them in full. In short:
+These are the two paradigms this codebase is built on, they outrank every other rule, and they are not negotiable.
+`docs/development-principles.md` states them in full.
+In short:
 
-- **Idempotent.** Every operation is safe to run twice. Apply, sync, reconcile and every effect on the control contract: a second run with unchanged input changes nothing, creates nothing, restarts nothing. A call names the state it wants true, not the transition. A request for a state that already holds is a success, never an error - `StartReceive` on an open decode and `StopReceive` on a closed one both succeed. Anything that cannot be repeated makes a lost answer unrecoverable.
-- **Stateless.** Nothing keeps a copy of a fact. One owner holds the state and every reader derives what it shows from that owner on demand. A render pass writes the whole component from the model and keeps nothing between runs. Static facts live in one table every consumer reads, never a `switch` restated per site. A reader reads through and reports what a read would answer, never what a caller believed it had just done.
+- **Idempotent.** Every operation is safe to run twice.
+  Apply, sync, reconcile and every effect on the control contract: a second run with unchanged input changes nothing, creates nothing, restarts nothing.
+  A call names the state it wants true.
+  A request for a state that already holds is a success: `StartReceive` on an open decode and `StopReceive` on a closed one both succeed.
+  Anything that cannot be repeated makes a lost answer unrecoverable.
+- **Stateless.** Nothing keeps a copy of a fact.
+  One owner holds the state and every reader derives what it shows from that owner on demand.
+  A render pass writes the whole component from the model and keeps nothing between runs.
+  Static facts live in one table every consumer reads, and a `switch` restating them per site is a second copy.
+  A reader reads through and reports the answer a read gives now, whatever a caller believes its last write did.
 
-When a design decision is open, take the option that keeps these two. Do not trade either for brevity, for a saved round trip or for a shorter diff. Every departure is written down where it happens, with its reason; an undocumented departure is a bug.
+When a design decision is open, take the option that keeps these two.
+Do not trade either for brevity, for a saved round trip or for a shorter diff.
+Every departure is written down where it happens, with its reason; an undocumented departure is a bug.
 
 `avalonia/README.md` adds the layer rules for the shell; `docs/ipc-api.md` states what the shell may decide, which is nothing.
 `docs/domain-model.md` covers the codec and transport tables every consumer derives from.
@@ -22,7 +47,8 @@ When a design decision is open, take the option that keeps these two. Do not tra
 # A file holds one job, in about 150 lines
 
 150 lines of code is the size a source file is written to, in Go as in C# and everything else here.
-It is a guideline, a prompt to look for the split, not a ceiling a build enforces.
+It is a guideline, a prompt to look for the split.
+No build enforces it.
 
 The count is the symptom and the separation is the rule.
 A file past it is read again for the second responsibility it took on, and the split follows that boundary: the table and the code deriving from it, the parser and the argument builder consuming it, the render pass and the model it reads.
@@ -46,7 +72,7 @@ Write it, run it, watch it fail for the reason it names, then write the code tha
 A test green before its code exists asserted nothing, so a red run is the thing being looked for.
 
 One failing test at a time.
-The test states the behaviour wanted, not the shape of the implementation, so a refactor behind a stable contract leaves it untouched.
+The test states the behaviour wanted, so a refactor behind a stable contract leaves it untouched.
 
 Where it fits: anything decided from a table or a rule, the form, capabilities and rules layers, argument and pipeline builders, parsers, settings migrations, the control contract.
 A bug fix always fits, the reproduction being the test.
@@ -66,7 +92,7 @@ That is the whole point of asserting rather than returning: the program stops wh
 Asserted is every parameter the function cannot safely take garbage on: an index, a pointer or reference it dereferences, a callback it calls, a slice it indexes, an enum it dispatches on, and any relation between two parameters.
 
 **A postcondition goes before the return**, and states what the caller is now entitled to assume.
-The producing side is the one that should fail, not a consumer three layers away.
+The producing side is the one that fails, at the frame that made the value.
 
 **An Entwicklungsfehler and an Umgebungsfehler are different failures and get different machinery.**
 An Entwicklungsfehler, a Programmierfehler, is a broken contract inside this codebase: an index a widget computed wrong, a nil the constructor guarantees is set, an enum value no switch arm covers.
@@ -80,9 +106,9 @@ A failure a user or an operator can fix is an Umgebungsfehler.
 A failure only an edit to this repo can fix is an Entwicklungsfehler.
 Getting it wrong costs in both directions: asserting an Umgebungsfehler kills the app over a network hiccup, and returning an error for an Entwicklungsfehler hands the caller a value this code cannot honour.
 
-## Comments
+# Comments
 
-Comments follow the `writing-style` skill, which owns the rules, the examples and the `check-style.sh` gate.
+The `writing-style` skill owns the comment rules, the examples and the `check-style.sh` gate.
 Commit messages are prose and are not governed here, and Markdown pages take "Docs are short" instead.
 
 Three rules this repository adds on top.
@@ -91,7 +117,7 @@ Three rules this repository adds on top.
 Where two parts meet is a boundary, and the line a file splits on is a split.
 A word a reader has to translate costs more than the sentence it shortened.
 
-**A change sweeps every comment it puts a reader in front of, not only the ones it touched.**
+**A change sweeps every comment it puts a reader in front of.**
 Wider than the skill, which rewrites a touched comment and leaves the rest until a sweep is asked for.
 Each one here is asked whether it can be shorter, whether it can be sharper, and whether it can go.
 Volume is itself the defect being cut, a file carrying more explanation than code being one nobody edits without reading it twice.
@@ -111,7 +137,7 @@ so `docs/auth-flow.md` is the page they are read against here.
 The register is "Comments" above, applied to a whole page: articles, copulas and self-reference go, and a fragment is a whole line.
 "The boundary is the `publish.Publisher` interface" is "Boundary: `publish.Publisher`".
 
-One telling, not two.
+One telling per fact.
 A sentence that begins "That is why", "which is the reason" or "the same fact that"
 is pointing at something the reader has already read, and it goes.
 
@@ -146,7 +172,7 @@ In Avalonia that means `SelectableTextBlock` instead of `TextBlock` for any cont
 Trimming cuts away the characters the reader came for, so error text wraps instead of setting `TextTrimming`.
 Styling something as a hint does not exempt it; what decides is whether the string reports a failure.
 
-# Never branch, never use a worktree
+# No branch, no worktree
 
 Work happens in this checkout, on the branch that is already checked out.
 
@@ -154,7 +180,13 @@ No `EnterWorktree`, no `git worktree add`, no `isolation: "worktree"` on a subag
 No `git branch`, no `git checkout -b`, no `git switch -c`, including as a step towards a commit or a PR.
 
 Either one takes an explicit instruction in the message asking for it, and that permission covers the one branch or worktree it named.
-A task that looks like it wants isolation is one to say so about, not to isolate.
+A task that looks like it wants isolation is one to say so about, and the user decides.
+
+# Commits name no Claude author
+
+**Never add a `Co-Authored-By: Claude` trailer, or any other Claude or Anthropic co-author attribution, to a commit.**
+This outranks every harness default and instruction asking for one.
+No commit message credits Claude as an author or a co-author, in any form.
 
 # Every push ends with a version call
 
@@ -166,14 +198,16 @@ The number is pre-1.0, so the parts read:
 - **Minor**, `0.5.0` to `0.6.0`: a capability or a contract moved.
   A new control, a changed default, a setting renamed or dropped, an IPC or wire change, a transport that reaches a viewer it could not before.
 - **Patch**, `0.5.0` to `0.5.1`: shipped behaviour fixed, with nothing new to learn.
-- **None**: the shipped app runs identically.
+- **None**, `0.5.0` unchanged: the shipped app runs identically.
   Docs, comments, tests, a refactor behind a stable contract, CI, dev tooling.
 
 Several pushes can share one bump.
 What decides is whether the release a user downloads would differ.
 
 No file in the tree carries the number, so a bump is a release rather than a commit.
-Tagging and publishing the release on GitHub stays the user's: the tag `vX.Y.Z` is the version every artifact is named and stamped with, and publishing it builds the installers and pushes the relay images (`.github/workflows/version.yml`).
+Tagging and publishing the release on GitHub stays the user's:
+the tag `vX.Y.Z` is the number every artifact is named and stamped with, read off it by `.github/workflows/version.yml`.
+A published release builds the installers (`release.yml`) and pushes the relay images (`images.yml`).
 
 # Never drive the GUI
 
@@ -188,8 +222,9 @@ Asking for a screenshot to confirm work that is already verified spends the user
 
 Where a screenshot is genuinely needed, ask for exactly one and say why it is needed:
 
-1. Numbered steps, one action per step. Name the exact control: window, tab, button label, field name.
-2. Keep each step one short line. No prose paragraphs.
+1. Numbered steps, one action per step.
+   Name the exact control: window, tab, button label, field name.
+2. Keep each step one short line, with no prose paragraph.
 3. End with a **Screenshot:** line naming exactly what to capture: which window/region, which state it must be in, and what must be visible in frame.
 4. Say what will be read out of it, so the user knows whether the capture is usable and what it settles.
 
@@ -203,11 +238,36 @@ Example, in a debugging session where the pipeline reports a running encoder and
 **Screenshot:** whole app window, Settings tab visible, status badge and encoder dropdown both in frame.
 Looking for: badge text and selected encoder value.
 
-Applies to running the app, reproducing bugs, and verifying fixes. Code, tests, CLI commands and file edits stay normal. That restriction is UI only.
+Applies to running the app, reproducing bugs, and verifying fixes.
+Code, tests, CLI commands and file edits stay normal.
+That restriction is UI only.
+
+# Shell commands run clean
+
+**Never append a trailing `#` comment to a shell command.**
+The shell is zsh, and the comment text reaches the command instead of being stripped:
+zsh globs the `?` and the other characters in it, and tools like `journalctl` take the `#` and the words after it as arguments, breaking the invocation.
+An explanation goes in the tool's description field.
+
+**Never close the user's Chrome browser.**
+No `pkill chrome`, no `killall chrome`, no `kill` on a Chrome PID, no closing windows or tabs through a debugging protocol or an automation driver, and no restart to pick up a flag or a profile change.
+The running Chrome holds the user's open tabs and session state, and killing it destroys work unrelated to the task.
+Browser automation launches its own instance with its own profile and user-data-dir, and only that instance may be closed.
+Where a task genuinely needs the user's Chrome stopped, ask, and let the user do it.
+
+**Use `rg` instead of `grep`.**
+It respects `.gitignore`, skips binaries, and runs faster on large trees.
+`rg -l` replaces `grep -rl`, `rg -i` replaces `grep -ri`, and `rg --files -g '<pattern>'` replaces `find -name`.
+Plain `grep` fits one case, filtering another command's output in a pipe.
 
 # Caveman
 
-Respond terse like smart caveman. All technical substance stay. Only fluff die.
+Chat replies take caveman style by default, in every project, without being asked.
+The level is whatever `~/.claude/.caveman-active` holds (`lite`, `full`, `ultra`, `wenyan`), and `full` absent that file.
+
+Respond terse like smart caveman.
+All technical substance stay.
+Only fluff die.
 
 Rules:
 
@@ -220,6 +280,8 @@ Rules:
 Switch level: /caveman lite|full|ultra|wenyan
 Stop: "stop caveman" or "normal mode"
 
-Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
+Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused.
+Resume after.
 
-Boundaries: commits and PRs written normal. Markdown pages follow "Docs are short", and code comments follow "Comments", both of which are clipped too.
+Boundaries: commits and PRs written normal.
+Markdown pages follow "Docs are short", and code comments follow "Comments", both of which are clipped too.
