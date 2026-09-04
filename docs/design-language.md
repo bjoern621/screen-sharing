@@ -104,12 +104,15 @@ Cards stack in a column with one gap between them, and the gap falls between the
 Two columns beside each other therefore start on one line, whatever either of them drew.
 
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
-Beneath it a nav strip holds the same two regions on every screen, three destinations left and live state right.
+Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the sharing pill beside the strip commit.
+The strip commit is the review's own start-sharing press, glued to a chevron whose menu holds the commit with its settings summary, the presets, a stop row while live, and a row into the wizard.
+A preset picked there is applied and committed in one press, so going live is one click from any destination.
 On Linux the frame is the desktop's and no title bar is drawn.
 Which buttons a window carries, which edge they sit on and whether it carries any are that desktop's answer, and a tiling session answers "none".
 The nav strip is the first row of the window there, and it is the same strip.
 No breadcrumb: the lit segment already says where the reader is, and saying it twice is noise in the one row that must stay scannable.
 The destinations never move, so the strip becomes muscle memory.
+The window opens on the viewer, and on the live surface while a stream is already on the air (`Features/Shell/Model/Opening.cs`).
 Every one is **reachable at all times**, broadcast included.
 That screen reports the stream that has ended as well as the one running, which is what a publisher goes looking for after a stream drops and what a live-only tab would take away.
 An expert tool teaches its own shape, and a tab that comes and goes reads as a bug.
