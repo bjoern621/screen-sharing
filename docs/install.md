@@ -158,3 +158,11 @@ Two backends capture the desktop properly:
 
 `~/.config/mirrorme/settings.json` on Linux, `%AppData%\mirrorme\settings.json` on Windows.
 Deleting the file resets every setting to its default.
+
+## Where logs are kept
+
+`~/.config/mirrorme/logs` on Linux, `%AppData%\mirrorme\logs` on Windows.
+One file per run: `backend-<stamp>.log` for the backend, and one per encoder, viewer and decode host it starts, named after the run.
+The newest stay and the oldest come off as new ones open, so the directory holds what a reader can use.
+`Open full log` in the app opens the newest run's log, or this directory where there is none.
+A bug report takes the backend's log and the run's.

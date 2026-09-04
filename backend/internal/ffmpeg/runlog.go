@@ -26,17 +26,23 @@ const runLogSuffix = ".log"
 const runLogKeep = 200
 
 // newRunLog opens the log one child run writes, having taken the oldest ones off the directory.
+// The log this process writes itself stays whatever its age (ownlog.go).
+func newRunLog(dir, tag string, keep int) (*os.File, string, error) {
+	return openRunLog(dir, tag, keep, ownName())
+}
+
+// openRunLog opens one run log, having taken the oldest ones off the directory, spare excepted.
 //
 // The prune runs before the file is created,
 // so the log a run is about to write is never among the candidates.
 // Failing to prune is not failing to run: the directory is the user's
 // and whatever stopped the prune is theirs to see rather than a reason to refuse a stream.
-func newRunLog(dir, tag string, keep int) (*os.File, string, error) {
+func openRunLog(dir, tag string, keep int, spare string) (*os.File, string, error) {
 	assert.Assert(dir != "", "a run log is opened in a resolved directory", tag)
 	assert.Assert(tag != "", "a run log is named after the run that writes it")
 	assert.Assert(keep > 0, "a prune keeps at least the run it is opening for", keep)
 
-	if err := pruneRunLogs(dir, keep-1); err != nil {
+	if err := pruneRunLogs(dir, keep-1, spare); err != nil {
 		logger.Warnf("cannot prune the run logs in %s: %v", dir, err)
 	}
 
@@ -60,12 +66,13 @@ func newRunLog(dir, tag string, keep int) (*os.File, string, error) {
 }
 
 // pruneRunLogs leaves the newest keep run logs in the directory and takes the rest off.
+// spare names one file kept over the count, or nothing.
 //
 // Newest by the clock rather than by the name: a name carries the moment its run started,
 // and a run that outlives a later one would sort under it.
 // Anything that is not a run log this side wrote is left alone,
 // the directory being one a user opens (OpenLogsFolder).
-func pruneRunLogs(dir string, keep int) error {
+func pruneRunLogs(dir string, keep int, spare string) error {
 	assert.Assert(dir != "", "a prune runs in a resolved directory")
 	assert.Assert(keep >= 0, "a prune keeps a count of logs", keep)
 
@@ -80,7 +87,7 @@ func pruneRunLogs(dir string, keep int) error {
 	}
 	var logs []log
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), runLogSuffix) {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), runLogSuffix) || entry.Name() == spare {
 			continue
 		}
 		info, err := entry.Info()

@@ -54,6 +54,9 @@ func main() {
 		os.Exit(runCheck())
 	}
 
+	// Before anything logs: a shell starts this process with no console (log.go).
+	openLog()
+
 	a := app.New(version)
 	a.Start()
 

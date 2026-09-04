@@ -48,7 +48,7 @@ func TestPruningKeepsTheNewestRunLogs(t *testing.T) {
 	dir := t.TempDir()
 	writeLogs(t, dir, "a.log", "b.log", "c.log", "d.log", "e.log")
 
-	if err := pruneRunLogs(dir, 2); err != nil {
+	if err := pruneRunLogs(dir, 2, ""); err != nil {
 		t.Fatalf("pruning: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestPruningLeavesADirectoryUnderTheCount(t *testing.T) {
 	dir := t.TempDir()
 	writeLogs(t, dir, "a.log", "b.log")
 
-	if err := pruneRunLogs(dir, 5); err != nil {
+	if err := pruneRunLogs(dir, 5, ""); err != nil {
 		t.Fatalf("pruning: %v", err)
 	}
 
@@ -88,7 +88,7 @@ func TestPruningTouchesNothingButRunLogs(t *testing.T) {
 		t.Fatalf("making keep: %v", err)
 	}
 
-	if err := pruneRunLogs(dir, 1); err != nil {
+	if err := pruneRunLogs(dir, 1, ""); err != nil {
 		t.Fatalf("pruning: %v", err)
 	}
 
@@ -151,4 +151,71 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// resetOwnLog closes the log this process opened for itself and forgets it, so a test opening
+// one leaves nothing for the next test's prune to spare.
+func resetOwnLog(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() {
+		own.Lock()
+		defer own.Unlock()
+		if own.file != nil {
+			own.file.Close()
+		}
+		own.file = nil
+	})
+}
+
+// The backend writes one log for the whole run and a child starts one per run, so the backend's is
+// the oldest in the directory by the time the count is reached.
+// It stays: it is the log a reader wants, and Windows refuses to remove a file a process holds open,
+// which would stop every prune after it at that file.
+func TestPruningLeavesTheLogThisProcessWrites(t *testing.T) {
+	dir := t.TempDir()
+	resetOwnLog(t)
+
+	_, ownPath, err := openOwnLog(dir, "backend", 100)
+	if err != nil {
+		t.Fatalf("opening this process's log: %v", err)
+	}
+	writeLogs(t, dir, "a.log", "b.log", "c.log")
+
+	file, path, err := newRunLog(dir, "publish", 1)
+	if err != nil {
+		t.Fatalf("opening a run log: %v", err)
+	}
+	file.Close()
+
+	got := names(t, dir)
+	for _, want := range []string{filepath.Base(ownPath), filepath.Base(path)} {
+		if !contains(got, want) {
+			t.Errorf("%s was taken off, want this process's log and the one just opened kept: %v", want, got)
+		}
+	}
+	if len(got) != 2 {
+		t.Errorf("%d logs remain, want this process's and the one just opened: %v", len(got), got)
+	}
+}
+
+// A process has one log, so a second opening is the first one answered again rather than a second file.
+func TestOpeningThisProcessLogTwiceOpensOnce(t *testing.T) {
+	dir := t.TempDir()
+	resetOwnLog(t)
+
+	first, firstPath, err := openOwnLog(dir, "backend", 100)
+	if err != nil {
+		t.Fatalf("opening this process's log: %v", err)
+	}
+	second, secondPath, err := openOwnLog(dir, "backend", 100)
+	if err != nil {
+		t.Fatalf("opening this process's log again: %v", err)
+	}
+
+	if first != second || firstPath != secondPath {
+		t.Errorf("a second opening answered %s, want %s again", secondPath, firstPath)
+	}
+	if got := names(t, dir); len(got) != 1 {
+		t.Errorf("%d logs exist, want the one this process writes: %v", len(got), got)
+	}
 }

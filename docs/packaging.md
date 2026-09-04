@@ -106,6 +106,14 @@ A bundled copy is redistribution: ffmpeg is GPL and the GStreamer runtime LGPL, 
 `THIRD-PARTY-NOTICES.md` is that record, per artifact, copied in beside the binaries by the packaging scripts.
 The app's own code stays Apache-2.0 either way, a spawned program and a loaded library both being boundaries the copyleft stops at.
 
+## Logs
+
+The backend and every child it spawns write one log per run under the user's config directory, `mirrorme/logs` (`install.md`, "Where logs are kept").
+The backend opens its own, `backend-<stamp>.log`, before anything logs (`backend/cmd/backend/log.go`), and takes the oldest off the directory as new ones open, so a package declares no rotation and redirects nothing.
+Every line reaches stderr as well, so a console run and a unit under journald read the same log there.
+A crash lands in the file too, the runtime otherwise writing an assert's stack to stderr alone.
+What a linked C library writes to stderr, a GLib warning say, stays there; a child's stderr is copied into that child's run log by the backend that started it.
+
 ## Screen-capture privileges on Linux
 
 The capture backend decides whether elevated privileges are required.

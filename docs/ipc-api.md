@@ -159,6 +159,7 @@ A loopback port is reachable by every process on the machine and by anything the
 The socket path is the only discovery mechanism.
 A shell that cannot open it starts the backend and asks again, the backend being headless and a user who opened the app having asked for both halves.
 Still unreachable, it reports that the backend is not running and names the endpoint.
+A backend started that way has no console: what it logs lands in a run log of its own, beside its children's (`install.md`, "Where logs are kept").
 
 `MIRRORME_INSTANCE` appends its value to both names, so `dev` serves `\\.\pipe\mirrorme-control-v1-dev` and `control-v1-dev.sock`.
 Backend and shell derive that separately from one variable, and an install leaves it unset.

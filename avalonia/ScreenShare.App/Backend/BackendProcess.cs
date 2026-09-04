@@ -79,8 +79,10 @@ internal static class BackendProcess
             {
                 _started = Process.Start(new ProcessStartInfo(exe)
                 {
-                    // Backend writes to its own run logs, so a console beside the window would be the one visible
-                    // sign this app is two programs.
+                    // No console and no redirect.
+                    // The backend writes its own run log (backend/cmd/backend/log.go), so a console beside
+                    // the window would be the one visible sign this app is two programs, and a pipe nobody reads
+                    // would stall it.
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
