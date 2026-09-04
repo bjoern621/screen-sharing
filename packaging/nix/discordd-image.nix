@@ -1,6 +1,5 @@
 # The Discord manager as a container image, for a Kubernetes deployment of it.
 #
-# Nothing but the binary.
 # The bot token and the OAuth application secrets arrive in the environment,
 # the listen address and the link store path as arguments,
 # so nothing is baked in here.
@@ -8,6 +7,7 @@
 {
   dockerTools,
   screenshare-discordd,
+  cacert,
   version,
 }:
 
@@ -15,7 +15,12 @@ dockerTools.buildLayeredImage {
   name = "screenshare-discordd";
   tag = version;
 
-  contents = [ screenshare-discordd ];
+  contents = [
+    screenshare-discordd
+    # The gateway open is a TLS dial to discord.com,
+    # and a certificate-less image fails it on unknown authority.
+    cacert
+  ];
 
   config = {
     Entrypoint = [ "/bin/discordd" ];
