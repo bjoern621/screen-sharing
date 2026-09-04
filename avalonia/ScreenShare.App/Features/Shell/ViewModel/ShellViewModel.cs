@@ -34,11 +34,18 @@ public sealed class ShellViewModel : Observable
     private const string Idle = "no stream";
 
     /// <summary>
-    /// Destination the window opens on.
-    /// The viewer is the one screen the design states end to end, so the first paint is drawn from stated copy
-    /// rather than from a state this module chose.
+    /// Destination showing, the viewer until the first read answers.
+    /// What the window opens on is <see cref="Opening.For"/>'s answer to that read:
+    /// a stream already on the air opens its live surface.
     /// </summary>
     private Destination _current = Destination.Viewer;
+
+    /// <summary>
+    /// Whether the opening destination is settled, by the first read or by the reader's own click.
+    /// Once it is, a state landing later moves the window only through an accepted commit
+    /// (<c>Setup.WentLive</c>).
+    /// </summary>
+    private bool _openingDecided;
 
     /// <summary>Running state, owned once for the window and read through by everything drawing from it.</summary>
     private readonly Session _session;
@@ -117,6 +124,7 @@ public sealed class ShellViewModel : Observable
         // Every destination re-renders on any change, the chrome reading them all: the strip's pill says whether
         // this machine is sharing, and the band prints the viewer's figures from any destination.
         _session.Changed += Apply;
+        _session.Changed += DecideOpening;
 
         // Levels have their own notification and reach the viewer alone.
         // A level moves fifteen times a second, and the change notification re-renders every destination
@@ -219,6 +227,10 @@ public sealed class ShellViewModel : Observable
         // layers down.
         Assert.That(Destinations.LabelOf(destination).Length > 0, "a window shows a destination the table names", (int)destination);
 
+        // Any show settles the opening: a reader's click before the first read answers is not to be yanked away
+        // by that answer.
+        _openingDecided = true;
+
         // The field and not a notification: where the window stands reaches the screen through the segments and
         // the body Apply writes, and nothing binds the destination itself.
         _current = destination;
@@ -294,6 +306,35 @@ public sealed class ShellViewModel : Observable
 
         Assert.That(Nav.SelectedTab?.Value == _current, "the strip and the body stand in one destination", (int)_current);
         Assert.That(!HasCaption || HasChrome, "the title band is one of the bands the window either draws or does not", HasCaption, HasChrome);
+    }
+
+    /// <summary>
+    /// Moves the window where the first answered read says it opens, once.
+    /// Subscribed to the session's changes because the read is asynchronous: the window paints the viewer,
+    /// and the pass carrying the first answer moves it where <see cref="Opening.For"/> points.
+    /// </summary>
+    private void DecideOpening()
+    {
+        if (_openingDecided)
+        {
+            return;
+        }
+
+        // The events land one at a time, and a null publish state is a read that has not answered yet:
+        // an answered one carries the state object, a stream on the air or not.
+        if (_session.Publish is null)
+        {
+            return;
+        }
+
+        var opening = Opening.For(_session.Publish);
+        if (opening != _current)
+        {
+            Show(opening);
+            return;
+        }
+
+        _openingDecided = true;
     }
 
     /// <summary>
