@@ -18,12 +18,12 @@ MirrorMe spends forty and leaves the text readable, the thin lines whole and the
 - Everyone in a group shares and watches at the same time, each stream a tile in one window.
 - Text stays sharp at its own size, so a terminal or a code editor reads the way it reads on the desk it came from.
 - Resolution, frame rate and quality are settings, from a still page of text to a game at 60 fps.
-- Presets name the picture wanted, Lossless, Gaming or Text and detail, and the app works out how to reach it here.
+- Three presets name a picture, and the app works out how to reach it here: Lossless, Gaming, Text and detail.
 - What this machine cannot do is greyed out with the reason beside it, so nothing fails halfway through.
 - The graphics card does the encoding wherever it can, leaving the processor to the work being shared.
 - Desktop sound travels with the picture.
 - The delay from screen to viewer is measured and shown while sharing.
-- Streams are watchable in the app, in a browser, or in a media player.
+- A stream is watched in the app, in a browser, or in a media player.
 - A group is a key. Passing the key on is how someone joins, and dropping it is how they leave.
 
 Windows and Linux.
@@ -42,7 +42,7 @@ Downloads are on the [releases page](https://github.com/bjoern621/screen-sharing
 | Nix | `nix run github:bjoern621/screen-sharing` |
 | Other Linux | `mirrorme-<version>-linux-x86_64-portable.tar.gz` |
 
-One window, and nothing to set up before the first run.
+One window, and no second program to install beside it.
 
 ## Share a screen
 
@@ -60,22 +60,20 @@ A stream lives in a group, so sharing waits until this computer has joined one u
 
 Streams travel through a relay, one server the group's members publish to and read from.
 Each member uploads one copy however many people watch, and no home connection has to be reachable from outside.
-The relay can read what it carries, so a group that wants that ruled out runs its own: [`docs/install.md`](docs/install.md), "The relay".
+The relay can read what it carries.
+A group that wants that ruled out runs one of its own: [`docs/install.md`](docs/install.md), "The relay".
 The app comes pointed at the project's relay.
 
 A group's key is what grants access to its streams, and anybody holding it can watch and share.
 
-`docs/` holds the rest:
-[`network-architecture.md`](docs/network-architecture.md) for what travels where,
-[`membership.md`](docs/membership.md) for what a group is,
-[`video-stack.md`](docs/video-stack.md) for how the picture is made.
+[`docs/`](docs/README.md) answers the rest: what travels where, what a group is, and how the picture is made.
 
 ## Developing
 
 Go backend, Avalonia shell, a gRPC contract between them in [`api/`](api/).
 `task` lists the development and packaging tasks, and `task all` runs relay, backend and shell together.
 [`docs/development-principles.md`](docs/development-principles.md) governs every change, and [`docs/readme-audience.md`](docs/readme-audience.md) governs this page.
-`api/`, `backend/` and `avalonia/` each carry a README for their layout.
+`api/`, `backend/`, `avalonia/`, `packaging/`, `deploy/` and `tools/` each carry a README for their own layout.
 
 ## License
 

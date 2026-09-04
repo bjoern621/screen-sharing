@@ -82,3 +82,10 @@ Read the draft against these, one sentence at a time.
 - One name per thing, and the app's name wins: group, stream, tile, member.
 - A number stays where the reader can feel it, like 60 fps. A number needing its unit explained goes.
 - A capability is written as what the reader gets, and the part that produces it stays unnamed.
+
+## Every other README
+
+`api/`, `backend/`, `avalonia/`, `packaging/`, `deploy/`, `tools/` and `docs/` are written for whoever is about to change something in that directory.
+That reader has the repository open, so the ceiling above does not apply and the words the code uses are the words the page uses.
+What holds instead: what lives in the directory, why it is shaped that way, and a pointer to the `docs/` page owning each rule it follows.
+A page explaining the product rather than the directory is the root README written a second time.
