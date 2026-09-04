@@ -1,16 +1,16 @@
-# installer-windows.ps1 - compile the Windows installer over the staged release directory.
+# installer.ps1 - compile the Windows installer over the staged release directory.
 #
 #   task package:windows:installer
 #
-# Runs after scripts/package-windows.ps1, which is what leaves the staged directory behind:
+# Runs after packaging/windows/package.ps1, which is what leaves the staged directory behind:
 # the installer and the zip carry the same files, so both are made from one staging step
 # rather than from two assemblies free to disagree.
 #
 # The recipe is packaging/windows/mirrorme.iss, which states what the install does.
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
-# From the run rather than from the tree, for the reason scripts/package-linux.sh states.
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# From the run rather than from the tree, for the reason packaging/linux/package.sh states.
 $version = if ($env:VERSION) { $env:VERSION.Trim() } else { 'dev' }
 $dist = Join-Path $root 'build/dist'
 $stage = Join-Path $dist "mirrorme-$version-windows-x86_64"

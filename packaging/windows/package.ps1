@@ -1,4 +1,4 @@
-# package-windows.ps1 - assemble the Windows release directory and its zip.
+# package.ps1 - assemble the Windows release directory and its zip.
 #
 #   task package:windows
 #
@@ -16,8 +16,8 @@
 # This script publishes the shell into the same directory and zips the result.
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
-# From the run rather than from the tree, for the reason scripts/package-linux.sh states.
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# From the run rather than from the tree, for the reason packaging/linux/package.sh states.
 $version = if ($env:VERSION) { $env:VERSION.Trim() } else { 'dev' }
 $bin = Join-Path $root 'build/bin'
 $dist = Join-Path $root 'build/dist'

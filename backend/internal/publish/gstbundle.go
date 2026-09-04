@@ -24,7 +24,7 @@ func FindGstExe() (string, error) {
 // GstInspectExe queries the registry the launcher plays against, and answers whether an element
 // is there before a pipeline naming it is built (internal/encoders).
 // It ships in the same package as the launcher, so an install that can publish carries it, and
-// scripts/bundle-windows.sh copies both beside the binary for the same reason.
+// packaging/windows/bundle-runtime.sh copies both beside the binary for the same reason.
 const GstInspectExe = "gst-inspect-1.0"
 
 // FindGstInspect locates the inspector the encoder probe spawns, by the resolution FindGstExe uses.

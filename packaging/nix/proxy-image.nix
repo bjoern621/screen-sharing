@@ -25,7 +25,7 @@ dockerTools.buildLayeredImage {
 
   extraCommands = ''
     mkdir -p etc/caddy
-    cp ${../deploy/Caddyfile} etc/caddy/Caddyfile
+    cp ${../../deploy/Caddyfile} etc/caddy/Caddyfile
   '';
 
   config = {

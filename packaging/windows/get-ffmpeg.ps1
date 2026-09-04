@@ -3,7 +3,7 @@
   where `task build:windows` copies them from on its way to build/bin.
 
   Not straight into build/bin: that directory is a build output and is rebuilt,
-  while the redistributables are fetched once per machine and kept (that directory's README).
+  while the redistributables are fetched once per machine and kept (docs/packaging.md).
   The app looks for the pair beside its own executable and then on PATH
   (backend/internal/ffmpeg, FindExe), which is what the copy into build/bin serves.
 
@@ -11,7 +11,7 @@
     .\get-ffmpeg.ps1
 #>
 param(
-  [string]$Dest = (Join-Path (Split-Path $PSScriptRoot -Parent) "build\windows\redist")
+  [string]$Dest = (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "build\windows\redist")
 )
 
 $ErrorActionPreference = "Stop"

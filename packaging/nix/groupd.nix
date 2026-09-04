@@ -13,14 +13,14 @@ buildGoModule {
   pname = "screenshare-groupd";
   inherit version;
 
-  # The Go tree alone, nix/package.nix's filter without avalonia/: nothing here builds the shell.
+  # The Go tree alone, packaging/nix/package.nix's filter without avalonia/: nothing here builds the shell.
   src = lib.cleanSourceWith {
     name = "screenshare-groupd-source";
-    src = ../.;
+    src = ../../.;
     filter =
       path: _:
       let
-        rel = lib.removePrefix "${toString ../.}/" (toString path);
+        rel = lib.removePrefix "${toString ../../.}/" (toString path);
         top = lib.head (lib.splitString "/" rel);
       in
       lib.elem top [
@@ -29,7 +29,7 @@ buildGoModule {
       ];
   };
 
-  # The module cache rather than a vendor directory, for the reason nix/package.nix states:
+  # The module cache rather than a vendor directory, for the reason packaging/nix/package.nix states:
   # `api` is a module of this repository reached by a filesystem replace,
   # and vendoring would fold it into the hash that pins third-party code.
   # The hash is that package's, both builds downloading what one backend/go.mod lists.

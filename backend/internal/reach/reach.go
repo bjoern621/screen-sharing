@@ -97,7 +97,7 @@ type target struct {
 	// url is the whole address, each probe reading what it needs off it.
 	url string
 	// insecure follows the relay's certificate: a relay reached directly on this network holds
-	// the self-signed pair scripts/relay.sh draws, which nothing issued, so validating it opens
+	// the self-signed pair deploy/relay.sh draws, which nothing issued, so validating it opens
 	// nothing (transport/tls.go).
 	insecure bool
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# bundle-windows.sh - put the GStreamer runtime the backend links,
+# bundle-runtime.sh - put the GStreamer runtime the backend links,
 # and the command-line tools it spawns, next to the built binaries,
 # so both run on a machine without MSYS2.
 #
 # Run from the MSYS2 MINGW64 shell, whose ldd resolves the mingw DLLs:
 #
 #   task bundle:windows
-#   sh scripts/bundle-windows.sh build/bin
+#   sh packaging/windows/bundle-runtime.sh build/bin
 #
 # Produces the layout docs/packaging.md describes:
 # DLLs and the launcher beside the binary, and GStreamer plugins in gstreamer-1.0/.
@@ -48,7 +48,7 @@ tools=(gst-launch-1.0.exe gst-inspect-1.0.exe)
 # the test streams and every RTSP publish through rtspclientsink, every tile through rtspsrc,
 # and nothing on the way names TLS. gst-launch reports "Failed to connect. (Generic error)",
 # and the relay logs a connection that opened and closed
-# (nix/package.nix carries the same module for the same reason).
+# (packaging/nix/package.nix carries the same module for the same reason).
 #
 # The gnutls module alone. glib-networking also ships two proxy modules,
 # and GIO loads every module it finds in a directory:

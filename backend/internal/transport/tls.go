@@ -7,7 +7,7 @@ import (
 // What a relay's certificate is measured against, for the two legs that terminate TLS at the relay
 // itself: RTSP and RTMP (deploy/mediamtx-groups.yml).
 //
-// A relay on a trusted network holds the self-signed pair scripts/relay.sh draws for it.
+// A relay on a trusted network holds the self-signed pair deploy/relay.sh draws for it.
 // Nothing issued that pair and no certificate store carries it, so a leg validating it opens
 // nothing.
 // Relaxed there, and there alone: a relay across somebody else's network holds a certificate issued

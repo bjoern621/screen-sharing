@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-26.04
     env:
       # What the archive is named and what the backend link stamps into the binary.
-      # Unset, the script builds a binary calling itself dev (scripts/package-linux.sh).
+      # Unset, the script builds a binary calling itself dev (packaging/linux/package.sh).
       VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,7 +59,7 @@ jobs:
           dotnet-version: "10.0.302"
 
       - name: Package
-        run: bash scripts/package-linux.sh
+        run: bash packaging/linux/package.sh
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -208,7 +208,7 @@ jobs:
       # so it is named here rather than assumed.
       #
       # The installer task depends on the zip task, so one call builds both
-      # and the two carry the same staged directory (scripts/installer-windows.ps1).
+      # and the two carry the same staged directory (packaging/windows/installer.ps1).
       - name: Package
         env:
           MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}

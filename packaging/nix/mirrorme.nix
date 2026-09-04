@@ -3,7 +3,7 @@
 # The capability and nothing else.
 # The app, ffmpeg and the inspection tools install without root,
 # so they belong wherever the rest of a user's packages are declared,
-# and the app carries its own ffmpeg on PATH already (nix/package.nix).
+# and the app carries its own ffmpeg on PATH already (packaging/nix/package.nix).
 #
 # kmsgrab reads the raw KMS scanout framebuffer,
 # and the kernel gates that read behind CAP_SYS_ADMIN:

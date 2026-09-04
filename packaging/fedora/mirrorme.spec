@@ -155,10 +155,10 @@ install -Dm 644 packaging/linux/mirrorme.desktop \
   %{buildroot}%{_datadir}/applications/%{appname}.desktop
 # hicolor's index declares 48 through 512,
 # and a size it omits is a directory no lookup walks.
-# `task icons` draws these from build/appicon.png and they are committed,
+# `task icons` draws these from packaging/icons/appicon.png and they are committed,
 # so no channel needs ImageMagick at build time.
 for size in 48 64 128 256 512; do
-  install -Dm 644 build/icons/${size}.png \
+  install -Dm 644 packaging/icons/${size}.png \
     %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/%{appname}.png
 done
 

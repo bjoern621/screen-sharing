@@ -36,8 +36,8 @@ dockerTools.buildLayeredImage {
   # The two paths the config names, and it names them absolutely, so neither moves.
   extraCommands = ''
     mkdir -p etc/mediamtx
-    cp ${../deploy/mediamtx-groups.yml} etc/mediamtx/mediamtx.yml
-    install -m 0555 ${../deploy/reconcile-on-read.sh} etc/mediamtx/reconcile-on-read.sh
+    cp ${../../deploy/mediamtx-groups.yml} etc/mediamtx/mediamtx.yml
+    install -m 0555 ${../../deploy/reconcile-on-read.sh} etc/mediamtx/reconcile-on-read.sh
   '';
 
   config = {

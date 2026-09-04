@@ -30,7 +30,7 @@ import (
 )
 
 // Dir is where a bundle keeps its plugins, beside the binary rather than under lib/,
-// the layout scripts/bundle-windows.sh writes.
+// the layout packaging/windows/bundle-runtime.sh writes.
 const Dir = "gstreamer-1.0"
 
 // PathVar is the plugin path GStreamer scans on top of its built-in one, so prepending to it adds
@@ -47,7 +47,7 @@ const ModuleDir = "gio-modules"
 
 // ModuleVar names the directories GIO loads modules from on top of its built-in one,
 // so prepending to it adds rather than replaces, as PathVar does.
-// The Nix package prefixes the same variable for the same module (nix/package.nix).
+// The Nix package prefixes the same variable for the same module (packaging/nix/package.nix).
 const ModuleVar = "GIO_EXTRA_MODULES"
 
 // PluginPath is the value PathVar takes for a process running against the bundle, false where this

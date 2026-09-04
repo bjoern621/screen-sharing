@@ -41,7 +41,7 @@ func FindExe(name string) (string, error) {
 // overriding the backend's default resolution.
 // kmsgrab reads the raw KMS scanout, which the kernel gates behind CAP_SYS_ADMIN,
 // so it needs a privileged ffmpeg the other backends must not share.
-// A packaging layer points this at the capability wrapper (nix/mirrorme.nix names
+// A packaging layer points this at the capability wrapper (packaging/nix/mirrorme.nix names
 // security.wrappers' ffmpeg-kmsgrab).
 const EnvKmsgrabFFmpeg = "MIRRORME_FFMPEG_KMSGRAB"
 

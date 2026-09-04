@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# package-linux.sh - assemble the Linux release directory and its tarball.
+# package.sh - assemble the Linux release directory and its tarball.
 #
 #   task package:linux
-#   VERSION=0.6.1 sh scripts/package-linux.sh [output-directory]
+#   VERSION=0.6.1 sh packaging/linux/package.sh [output-directory]
 #
 # One directory holds both binaries, the layout the shell's own lookup expects:
 # it starts the backend when nothing answers on the control endpoint,
@@ -15,7 +15,7 @@
 # and both come from theirs (docs/packaging.md, docs/install.md).
 set -euo pipefail
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 # The run names the version and no file in the tree does
 # (.github/workflows/version.yml).
 # Unset, the archive and the binary inside it both call themselves dev,

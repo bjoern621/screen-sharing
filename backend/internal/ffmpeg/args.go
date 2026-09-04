@@ -2,7 +2,7 @@
 // and supervises the child processes.
 // Watch commands live in the watch package.
 //
-// scripts/publish.ps1 is the reference for what the builder produces:
+// tools/publish.ps1 is the reference for what the builder produces:
 // values that hold against a live relay.
 // The destination and the muxer come from the transport registry,
 // so the encoder arguments carry nothing about how bytes leave the machine.
@@ -41,7 +41,7 @@ type Tap struct {
 
 // BuildPublishArgs returns the arguments, without the executable, that capture the selected monitor
 // and push the encoded stream to the relay.
-// The order is scripts/publish.ps1's: capture input, encoder, pixel format and colour range, GOP,
+// The order is tools/publish.ps1's: capture input, encoder, pixel format and colour range, GOP,
 // then the transport's muxer and destination.
 //
 // taps is empty for a command with one output.

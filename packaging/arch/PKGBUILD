@@ -122,10 +122,10 @@ package() {
     "$pkgdir/usr/share/applications/$pkgname.desktop"
   # hicolor's index declares 48 through 512,
   # and a size it omits is a directory no lookup walks.
-  # `task icons` draws these from build/appicon.png and they are committed,
+  # `task icons` draws these from packaging/icons/appicon.png and they are committed,
   # so no channel needs ImageMagick at build time.
   for size in 48 64 128 256 512; do
-    install -Dm644 "build/icons/$size.png" \
+    install -Dm644 "packaging/icons/$size.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$pkgname.png"
   done
   install -Dm644 docs/install.md \

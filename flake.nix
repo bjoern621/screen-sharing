@@ -54,7 +54,7 @@
         # A relay without moqQUICAddress therefore does not start at all:
         # it exits with `ERR: json: unknown field "moq"`.
         # The key exists from v1.20.0,
-        # and scripts/relay.ps1 downloads that same version for Windows,
+        # and deploy/relay.ps1 downloads that same version for Windows,
         # where no dev shell carries a relay.
         mediamtx = prev.mediamtx.overrideAttrs (
           finalAttrs: _: {
@@ -189,7 +189,7 @@
           # what backend/internal/receive compiles against.
           pkg-config
         ];
-        # The programs the backend spawns on Linux, the set nix/package.nix wraps onto PATH.
+        # The programs the backend spawns on Linux, the set packaging/nix/package.nix wraps onto PATH.
         # xrandr and wlr-randr enumerate monitors, one per session type (backend/internal/display).
         # vainfo names the VA driver an encode runs through (backend/internal/gpu).
         #
@@ -265,7 +265,7 @@
         # A capability-bearing binary runs in glibc's secure-execution mode,
         # where that variable is ignored,
         # so the kmsgrab wrapper takes the runtime on libavutil's RUNPATH instead
-        # (nix/mirrorme.nix, the kmsgrab.amf option).
+        # (packaging/nix/mirrorme.nix, the kmsgrab.amf option).
         amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
         # Intel's oneVPL runtime, the implementation behind every QSV encoder and decoder.
         # Both engines reach it through a dispatcher that loads the runtime by filename at startup:
@@ -339,16 +339,16 @@
       {
         # The installable app: both binaries,
         # each wrapped so it finds the programs and libraries it resolves at run time
-        # (nix/package.nix).
+        # (packaging/nix/package.nix).
         #
         #   nix run github:bjoern621/screen-sharing
         #   environment.systemPackages = [ mirrorme.packages.${system}.default ];
-        packages.mirrorme = pkgs.callPackage ./nix/package.nix { inherit version; };
+        packages.mirrorme = pkgs.callPackage ./packaging/nix/package.nix { inherit version; };
         packages.default = self.packages.${system}.mirrorme;
 
-        # The service that runs beside the relay rather than on a desktop (nix/groupd.nix).
+        # The service that runs beside the relay rather than on a desktop (packaging/nix/groupd.nix).
         # A NixOS host installs it through the overlay below.
-        packages.groupd = pkgs.callPackage ./nix/groupd.nix { inherit version; };
+        packages.groupd = pkgs.callPackage ./packaging/nix/groupd.nix { inherit version; };
 
         # A relay deployment's three processes as container images,
         # for a relay on Kubernetes instead of on a host of its own.
@@ -364,9 +364,9 @@
         # Each carries the deploy/ file it runs on,
         # so an image tag pins a binary and the configuration written against it together,
         # rather than leaving the second half to a ConfigMap somewhere else.
-        packages.relay-image = pkgs.callPackage ./nix/relay-image.nix { inherit version; };
-        packages.proxy-image = pkgs.callPackage ./nix/proxy-image.nix { inherit version; };
-        packages.groupd-image = pkgs.callPackage ./nix/groupd-image.nix {
+        packages.relay-image = pkgs.callPackage ./packaging/nix/relay-image.nix { inherit version; };
+        packages.proxy-image = pkgs.callPackage ./packaging/nix/proxy-image.nix { inherit version; };
+        packages.groupd-image = pkgs.callPackage ./packaging/nix/groupd-image.nix {
           inherit version;
           screenshare-groupd = self.packages.${system}.groupd;
         };
@@ -392,7 +392,7 @@
               # and encoders.Detect greys whichever the build lacks.
               ffmpeg-full
               mpv # single-stream viewer, selected by MIRRORME_VIEWER below
-              mediamtx # the relay, run natively by scripts/relay.sh
+              mediamtx # the relay, run natively by deploy/relay.sh
               openssl # draws that relay's certificate, the TLS listeners taking one either way
               go-task # runs Taskfile.yml
               # The contract's own toolchain, which `task api` runs:
@@ -476,7 +476,7 @@
       #   imports = [ mirrorme.nixosModules.mirrorme ];
       #   programs.mirrorme.kmsgrab.enable = true;
       #   users.users.bjoern.extraGroups = [ "mirrorme" ];
-      nixosModules.mirrorme = import ./nix/mirrorme.nix;
+      nixosModules.mirrorme = import ./packaging/nix/mirrorme.nix;
       nixosModules.default = self.nixosModules.mirrorme;
 
       # The MediaMTX build deploy/mediamtx-groups.yml is written against,
@@ -491,7 +491,7 @@
       #   nixpkgs.overlays = [ mirrorme.overlays.groupd ];
       #   systemd.services.groupd.serviceConfig.ExecStart = lib.getExe pkgs.screenshare-groupd;
       overlays.groupd = final: _: {
-        screenshare-groupd = final.callPackage ./nix/groupd.nix { inherit version; };
+        screenshare-groupd = final.callPackage ./packaging/nix/groupd.nix { inherit version; };
       };
 
       # A relay host wants both halves, so the default is the pair:

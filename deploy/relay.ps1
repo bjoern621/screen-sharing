@@ -6,7 +6,7 @@
   so a relay started on its own refuses every publisher:
   the two come up together or neither serves anything.
 
-  Linux and macOS take both binaries from the flake's dev shell (scripts/relay.sh),
+  Linux and macOS take both binaries from the flake's dev shell (deploy/relay.sh),
   which Windows has none of,
   so mediamtx.exe is fetched into bin/ on first run and the group service is built out of backend/.
   Anything putting a NAT between the host and the relay is worth avoiding here:

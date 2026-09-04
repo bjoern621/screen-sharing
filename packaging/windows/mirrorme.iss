@@ -1,5 +1,5 @@
 ﻿; The Windows installer, over the same staged directory the zip is made from
-; (scripts/package-windows.ps1).
+; (packaging/windows/package.ps1).
 ;
 ; Everything the app runs is inside that directory: both binaries, ffmpeg, ffplay,
 ; the GStreamer tools and the plugin set.
@@ -17,7 +17,7 @@
 #endif
 ; The file-version resource takes digits and dots alone,
 ; and a run behind no release is stamped 0.0.0.dev.<commit> (.github/workflows/version.yml).
-; scripts/installer-windows.ps1 cuts that down to what the resource accepts.
+; packaging/windows/installer.ps1 cuts that down to what the resource accepts.
 #ifndef NumericVersion
   #error "NumericVersion is undefined: iscc /DNumericVersion=0.6.2"
 #endif

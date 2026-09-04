@@ -67,11 +67,11 @@ let
   # so a source carrying those would be gigabytes and would change on every local build.
   src = lib.cleanSourceWith {
     name = "mirrorme-source";
-    src = ../.;
+    src = ../../.;
     filter =
       path: type:
       let
-        rel = lib.removePrefix "${toString ../.}/" (toString path);
+        rel = lib.removePrefix "${toString ../../.}/" (toString path);
         top = lib.head (lib.splitString "/" rel);
       in
       lib.elem top [
@@ -285,25 +285,25 @@ symlinkJoin {
   # The desktop entry is what a menu launch goes through, and every Linux channel installs it,
   # so a menu shows the same app whichever built it.
   postBuild = ''
-    install -Dm444 ${../packaging/linux/mirrorme.desktop} \
+    install -Dm444 ${../linux/mirrorme.desktop} \
       $out/share/applications/mirrorme.desktop
 
-    # `task icons` draws these from build/appicon.png and they are committed,
+    # `task icons` draws these from packaging/icons/appicon.png and they are committed,
     # so no channel needs ImageMagick at build time.
     for size in ${lib.concatStringsSep " " (map toString iconSizes)}; do
-      install -Dm444 ${../build/icons}/''${size}.png \
+      install -Dm444 ${../icons}/''${size}.png \
         $out/share/icons/hicolor/''${size}x''${size}/apps/mirrorme.png
     done
 
-    install -Dm444 ${../LICENSE} $out/share/licenses/mirrorme/LICENSE
-    install -Dm444 ${../THIRD-PARTY-NOTICES.md} \
+    install -Dm444 ${../../LICENSE} $out/share/licenses/mirrorme/LICENSE
+    install -Dm444 ${../../THIRD-PARTY-NOTICES.md} \
       $out/share/doc/mirrorme/THIRD-PARTY-NOTICES.md
   '';
 
   passthru = {
     inherit backend shell;
     # A changed PackageReference needs the NuGet lock rewritten before this package builds again:
-    # `nix run .#mirrorme.fetch-deps -- nix/deps.json`.
+    # `nix run .#mirrorme.fetch-deps -- packaging/nix/deps.json`.
     inherit (shell) fetch-deps;
   };
 

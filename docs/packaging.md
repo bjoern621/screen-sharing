@@ -41,7 +41,7 @@ A missing runtime is not a failure the app handles: the encoder refuses to open,
 `LD_LIBRARY_PATH` reaches an unprivileged `ffmpeg` alone.
 The kmsgrab wrapper carries file capabilities, which puts it in glibc's secure-execution mode where that variable is ignored, so a runtime delivered through the environment never reaches its loader.
 Untreated that is a wrong answer rather than a missing encoder: the probe runs the unprivileged binary, finds the runtime, and the form offers a family that dies at launch under kmsgrab.
-The `kmsgrab.amf` option of `nix/mirrorme.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
+The `kmsgrab.amf` option of `packaging/nix/mirrorme.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
 Ordinary variables survive, so the oneVPL runtime behind QSV, located through `ONEVPL_SEARCH_PATH`, is unaffected.
 
 ## Version pinning
@@ -52,7 +52,7 @@ Every dependency this repository resolves is pinned, so the tree decides which t
 |------|-----------|----------|
 | Nix package set: ffmpeg, GStreamer, the .NET SDK, Go, AMF, MediaMTX | input revisions in `flake.nix`, recorded in `flake.lock` | editing the revision, then `nix flake lock` |
 | Go modules | `backend/go.sum` | `go get`, then `go mod tidy` |
-| NuGet packages | exact versions in each `.csproj`, hashed in `nix/deps.json` | editing the version, then regenerating `nix/deps.json` |
+| NuGet packages | exact versions in each `.csproj`, hashed in `packaging/nix/deps.json` | editing the version, then regenerating `packaging/nix/deps.json` |
 | CI actions | commit SHAs in `.github/workflows` | replacing the SHA and the version comment beside it |
 
 The Nix inputs name revisions rather than branches, which leaves `nix flake update` with nothing to do.
@@ -173,16 +173,18 @@ One section per channel, naming its recipe and which of the two provisioning mod
 
 ### Windows (self-contained)
 
-Two downloads over one staging step: `scripts/package-windows.ps1` writes the zip and leaves the staged directory, and `scripts/installer-windows.ps1` compiles `packaging/windows/mirrorme.iss` over that same directory.
+Two downloads over one staging step: `packaging/windows/package.ps1` writes the zip and leaves the staged directory, and `packaging/windows/installer.ps1` compiles `packaging/windows/mirrorme.iss` over that same directory.
 So the installer and the zip carry one set of files rather than two assemblies free to disagree.
 The install is per user, under `%LocalAppData%\Programs\MirrorMe`, which is what keeps a UAC prompt off an unsigned binary.
 Inno Setup's compiler is the one build dependency neither the runner image nor a Windows checkout carries; `choco install innosetup` is how the release workflow gets it.
 
-`scripts/package-windows.ps1` assembles this channel over what `task build:windows` and `task bundle:windows` produce.
+`packaging/windows/package.ps1` assembles this channel over what `task build:windows` and `task bundle:windows` produce.
 Windows has no dependency manager the installer can rely on, so the app ships ffmpeg.
 The build task copies `ffmpeg.exe` and `ffplay.exe` next to the backend binary, where `FindExe` finds them first.
+Both are fetched into `build/windows/redist` once per machine, by `packaging/windows/get-ffmpeg.ps1`.
+`build/bin` is a build output and is rebuilt, so a pair kept there is downloaded again every build.
 A development run needs no bundle, `FindExe` falling back to `PATH`.
-The bundle takes a third-party build (Gyan or BtbN) carrying `ddagrab`.
+The bundle takes a third-party build (Gyan or BtbN) carrying `ddagrab`, static, so the copied pair carries no DLL of its own.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
 
 A receive pipeline ends in `appsink`, which is core, so the tile path needs no plugin of its own.
@@ -200,7 +202,7 @@ What it needs is the source element of the leg it watches.
 `gst-rtsp-server` is pulled in by none of the `gst-plugins-*` packages, and its absence shows up as `no element "rtspclientsink"` the first time a test stream or an RTSP publish starts, long after the build succeeded.
 A machine registering none of the `gl` elements falls back to the CPU chain rather than failing (`viewer-architecture.md`).
 
-A machine that runs the app has no MSYS2, so `scripts/bundle-windows.sh` copies the runtime beside the binaries:
+A machine that runs the app has no MSYS2, so `packaging/windows/bundle-runtime.sh` copies the runtime beside the binaries:
 
 - the DLL closure of the backend, of `gst-launch-1.0.exe` and of every installed plugin, flat next to the executables where the Windows loader looks first,
 - `gst-launch-1.0.exe` and `gst-inspect-1.0.exe`, the launcher the test streams and the encode-rate probe spawn and the inspector the encoder probe asks,
@@ -239,7 +241,7 @@ Note it in the description and leave the `setcap` step, or the portal, to the us
 
 ### NixOS / nixpkgs
 
-`nix/package.nix`, exported from the flake as `packages.default`.
+`packaging/nix/package.nix`, exported from the flake as `packages.default`.
 The derivation wraps the app binary so ffmpeg and ffplay are on its `PATH`:
 
 ```nix
@@ -263,7 +265,7 @@ Same model as Arch: declare the dependency, do not bundle.
 - Debian: `Depends: ffmpeg`, in a `.deb` no recipe here builds. A Debian install takes the tarball below instead, which is why `docs/install.md` names the apt packages it has to be given.
 - Fedora: `Requires: ffmpeg`. `packaging/fedora/mirrorme.spec` requires the two paths rather than the name, `ffmpeg-free` and RPM Fusion's `ffmpeg` both providing them.
 
-Distributions with no package here take the tarball `scripts/package-linux.sh` builds, which carries both binaries and the .NET runtime and takes ffmpeg and GStreamer from the distribution.
+Distributions with no package here take the tarball `packaging/linux/package.sh` builds, which carries both binaries and the .NET runtime and takes ffmpeg and GStreamer from the distribution.
 
 ### Flatpak
 
@@ -279,7 +281,7 @@ The `ffmpeg-full` extension carries the codecs the runtime leaves out, libx264 a
 The manifest itself compiles ffmpeg and ffplay, which no extension ships: the extension's own ffmpeg is configured `--disable-programs` and is libraries alone.
 
 What the app is comes in already built.
-The shell is a self-contained .NET publish whose restore reaches NuGet, and a `flatpak-builder` module builds with no network, so `scripts/package-linux.sh` runs first and the manifest assembles what it staged.
+The shell is a self-contained .NET publish whose restore reaches NuGet, and a `flatpak-builder` module builds with no network, so `packaging/linux/package.sh` runs first and the manifest assembles what it staged.
 
 Capture goes through the portal, so the sandbox needs no capability.
 `kmsgrab` is unreachable from inside it and wants `CAP_SYS_ADMIN`, which is the whole reason the portal path exists.
@@ -291,7 +293,7 @@ The model is the Flatpak's without the runtime: ffmpeg goes inside the image nex
 
 ### Container images
 
-The relay, the proxy and the group service, built by `nix build .#relay-image` and its two siblings under `nix/`.
+The relay, the proxy and the group service, built by `nix build .#relay-image` and its two siblings under `packaging/nix/`.
 Each writes a `docker-archive` tarball, which is the format `docker load` reads.
 
 `.github/workflows/images.yml` publishes them to `ghcr.io/bjoern621/screenshare-relay`, `-proxy` and `-groupd`.

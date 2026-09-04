@@ -39,9 +39,9 @@ tasks:
     # and draws the certificate through .NET.
     cmds:
       - platforms: [linux, darwin]
-        cmd: bash scripts/relay.sh
+        cmd: bash deploy/relay.sh
       - platforms: [windows]
-        cmd: pwsh -NoProfile -File scripts/relay.ps1
+        cmd: pwsh -NoProfile -File deploy/relay.ps1
 
   api:
     desc: Lint, breaking-check and regenerate the control contract
@@ -124,7 +124,7 @@ tasks:
       # and the gst-launch-1.0.exe the publish side spawns.
       # Nothing puts that prefix on a normal PATH,
       # so a dev run without it does not build, and a build that skipped cgo finds no launcher either.
-      # A packaged build carries its own copy of both beside the binary (scripts/bundle-windows.sh).
+      # A packaged build carries its own copy of both beside the binary (packaging/windows/bundle-runtime.sh).
       #
       # Appended rather than prepended: MSYS2 ships an ffmpeg of its own,
       # and the prefix first would move every capture and encode onto it
@@ -146,12 +146,12 @@ tasks:
       # `go run`'s child keeps the pipe open when a dev run ends without Ctrl+C reaching it,
       # and the next backend starts with no control socket at all,
       # so the shell connects to the older one and every edit looks like it did nothing.
-      # scripts/dev-stop.ps1 carries the rest of that reasoning.
+      # tools/dev-stop.ps1 carries the rest of that reasoning.
       # It does nothing when the pipe is free,
       # and fails this task rather than starting a second backend
       # when something outside this build tree holds it.
       - platforms: [windows]
-        cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/scripts/dev-stop.ps1'
+        cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/tools/dev-stop.ps1'
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
       # gcc and pkg-config by path, for the reason build:windows states.
@@ -168,7 +168,7 @@ tasks:
     # a packaged build, a debugger run, a shell that keeps finding a backend nobody is looking at.
     platforms: [windows]
     cmds:
-      - powershell -NoProfile -File scripts/dev-stop.ps1
+      - powershell -NoProfile -File tools/dev-stop.ps1
 
   build:
     desc: Build the backend binary into build/bin
@@ -204,7 +204,7 @@ tasks:
           go build -ldflags "-X main.version={{default "dev" .STAMP}}"
           -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
-      # so both executables go into build/windows/redist first (that directory's README).
+      # so both executables go into build/windows/redist first (docs/packaging.md, "Windows").
       - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
 
   backend:test:
@@ -218,25 +218,25 @@ tasks:
       - go test -tags hardware ./...
 
   icons:
-    desc: Redraw build/icons from the master, for hicolor and for Windows
+    desc: Redraw packaging/icons from the master, for hicolor and for Windows
     # The results are committed, so no packaging recipe carries an ImageMagick build dependency.
     cmds:
-      - for size in 48 64 128 256 512; do magick build/appicon.png -resize ${size}x${size} build/icons/${size}.png; done
+      - for size in 48 64 128 256 512; do magick packaging/icons/appicon.png -resize ${size}x${size} packaging/icons/${size}.png; done
       # One file carrying every size Windows picks between:
       # the executable's own icon, and what the installer stamps on itself
       # (packaging/windows/mirrorme.iss).
       # Inside the shell's project rather than beside the hicolor sizes,
-      # nix/package.nix handing the build api/, backend/ and avalonia/ alone.
-      - magick build/appicon.png -define icon:auto-resize=256,128,64,48,32,16 avalonia/ScreenShare.App/Assets/mirrorme.ico
+      # packaging/nix/package.nix handing the build api/, backend/ and avalonia/ alone.
+      - magick packaging/icons/appicon.png -define icon:auto-resize=256,128,64,48,32,16 avalonia/ScreenShare.App/Assets/mirrorme.ico
 
   package:linux:
     desc: Build the Linux release tarball into build/dist
     # The tarball is for distributions this repository packages nothing for.
-    # Arch, Fedora and NixOS take the recipes under packaging/ and nix/ instead,
+    # Arch, Fedora and NixOS take the recipes under packaging/ instead,
     # which declare ffmpeg and GStreamer as dependencies rather than leaving them to the reader.
     platforms: [linux]
     cmds:
-      - bash scripts/package-linux.sh
+      - bash packaging/linux/package.sh
 
   package:flatpak:
     desc: Build the Flatpak bundle into build/dist
@@ -268,16 +268,16 @@ tasks:
           STAMP:
             sh: echo "${VERSION:-dev}"
     cmds:
-      - powershell -NoProfile -File scripts/package-windows.ps1
+      - powershell -NoProfile -File packaging/windows/package.ps1
 
   package:windows:installer:
     desc: Build the Windows installer into build/dist
     platforms: [windows]
     # Over the directory package:windows staged,
-    # so the installer and the zip carry one set of files (scripts/installer-windows.ps1).
+    # so the installer and the zip carry one set of files (packaging/windows/installer.ps1).
     deps: [package:windows]
     cmds:
-      - powershell -NoProfile -File scripts/installer-windows.ps1
+      - powershell -NoProfile -File packaging/windows/installer.ps1
 
   bundle:windows:
     desc: Copy the GStreamer runtime the backend needs next to the built binaries
@@ -300,5 +300,5 @@ tasks:
     cmds:
       - cmd: >-
           MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;{{.MSYS2_ROOT}}/usr/bin;$PATH"
-          '{{.MSYS2_ROOT}}/usr/bin/sh.exe' '{{.ROOT_DIR}}/scripts/bundle-windows.sh'
+          '{{.MSYS2_ROOT}}/usr/bin/sh.exe' '{{.ROOT_DIR}}/packaging/windows/bundle-runtime.sh'
           '{{.ROOT_DIR}}/build/bin'

@@ -141,7 +141,7 @@ MoQ is the exception: no proxy carries WebTransport, so the relay answers that p
 `docs/network-architecture.md` covers which leg is encrypted with what, and `backend check-relay` says which of them a given machine is answering on.
 
 The binaries come from the flake's dev shell on Linux and macOS.
-Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and starts both against the same configuration.
+Windows has no such shell, so a Windows host runs `pwsh deploy/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and starts both against the same configuration.
 
 ## Capturing a Wayland desktop
 

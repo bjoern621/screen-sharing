@@ -334,7 +334,7 @@ func probeOne(t *testing.T, address string, insecure bool) Result {
 }
 
 // serveTLS answers each connection with whatever handle writes, under a certificate nothing issued,
-// as a development relay runs (scripts/relay.sh).
+// as a development relay runs (deploy/relay.sh).
 func serveTLS(t *testing.T, handle func(net.Conn)) string {
 	t.Helper()
 
