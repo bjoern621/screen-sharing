@@ -397,7 +397,18 @@ internal sealed class PublishingBackend : IBackend
         => _seed.WatchingAsync(cancellation);
 
     public Task StopPublishAsync(CancellationToken cancellation = default)
-        => _seed.StopPublishAsync(cancellation);
+    {
+        if (Refusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(Refusal));
+        }
+
+        Stopped++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Accepted stops, counted: a stop carries nothing worth recording beside how often.</summary>
+    public int Stopped { get; private set; }
 
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => _seed.MeasureUplinkAsync(cancellation);

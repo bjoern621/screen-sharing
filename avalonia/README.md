@@ -79,6 +79,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch, and `SideColumnPanel`, which puts a screen's side column beside its body or over it |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
 | `Features/Shell/` | the window, title bar, shared nav strip, status band, and which destination is showing |
+| `Features/Tray/` | the tray icon: its menu model, the view model pressing the destinations' own commands, and the host drawing the platform icon |
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
 | `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets |
@@ -356,6 +357,21 @@ Hanging them off the tile makes the pointer the rule, so each card listens for k
 The card never takes the keyboard, taking it on hover being taking it out of whatever the reader was typing in.
 The keys are one table, read by the press and by the gesture the menu row prints, a menu naming a key nothing acted on being wrong the moment either half moved.
 A press asks the command whether it can run first, so a key is refused wherever the row it names is greyed.
+
+## The tray
+
+The window closes to the tray, and the tray's quit is the one full shutdown.
+
+The menu decides nothing.
+Its commit row presses the review's commit and the broadcast screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
+The preset rows are the rail card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
+The icon says whether this machine is sharing, as a second baked asset (`task icons`).
+
+The lifetime is the host's (`App.axaml.cs`).
+With an icon registered, closing the window hides it and shutdown is explicit.
+Quit ends a stream running on a backend this shell started, bounded, then shuts down, and the exit hooks take that backend with the process (`Backend/BackendProcess.cs`).
+A backend this shell attached to keeps its stream, the arrangement window close has always left it in.
+Where the platform serves no tray, `TrayIconHost.TryCreate` answers null and quit-on-close stands: a hidden window nothing can reopen is gone.
 
 ## How the repository's principles land in C#
 

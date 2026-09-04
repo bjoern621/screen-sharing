@@ -8,6 +8,7 @@ using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 using ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 using ScreenShare.App.Features.Shell.TitleBar.ViewModel;
+using ScreenShare.App.Features.Tray.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
 using ScreenShare.App.Mvvm;
 
@@ -92,6 +93,11 @@ public sealed class ShellViewModel : Observable
         Broadcast = new BroadcastViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 
+        // The tray presses the destinations' own commands rather than carrying a gate of its own,
+        // so it is built beside them.
+        // Whether this shell owns a backend is read at the press, the spawn being lazy.
+        Tray = new TrayViewModel(backend, _session, Setup, Broadcast, () => BackendProcess.Owns, dispatch);
+
         // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so
         // the preview's end-to-end route and a grid tile can be the same decode.
         // A stop from either would take the picture out of the other, so the card reads the grid's answer
@@ -161,6 +167,9 @@ public sealed class ShellViewModel : Observable
     public BroadcastViewModel Broadcast { get; }
 
     public ViewerViewModel Viewer { get; }
+
+    /// <summary>The tray's state, drawn whether or not the window is on screen.</summary>
+    public TrayViewModel Tray { get; }
 
     // --- Outputs -------------------------------------------------------------------
 
@@ -259,6 +268,9 @@ public sealed class ShellViewModel : Observable
         Setup.Apply();
         Broadcast.Apply();
         Viewer.Apply();
+
+        // After the destinations, so the menu reads the gate and the rows this pass derived.
+        Tray.Apply();
 
         // After the bodies, so the strip's pill and the band's figures are what the destinations derived
         // on this pass rather than what they held before it.

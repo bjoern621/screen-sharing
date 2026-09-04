@@ -228,6 +228,10 @@ tasks:
       # Inside the shell's project rather than beside the hicolor sizes,
       # packaging/nix/package.nix handing the build api/, backend/ and avalonia/ alone.
       - magick packaging/icons/appicon.png -define icon:auto-resize=256,128,64,48,32,16 avalonia/ScreenShare.App/Assets/mirrorme.ico
+      # The tray's two states, baked rather than composited at runtime.
+      # The dot is the palette's Attention red (Design/Palette.axaml).
+      - magick packaging/icons/appicon.png -resize 64x64 avalonia/ScreenShare.App/Assets/tray.png
+      - magick packaging/icons/appicon.png -resize 64x64 '(' -size 64x64 xc:none -fill '#E5484D' -draw 'circle 49,49 49,61' ')' -composite avalonia/ScreenShare.App/Assets/tray-live.png
 
   package:linux:
     desc: Build the Linux release tarball into build/dist

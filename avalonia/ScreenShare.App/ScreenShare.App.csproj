@@ -68,6 +68,9 @@
   -->
   <ItemGroup>
     <AvaloniaResource Include="Assets/Fonts/*" />
+    <!-- The tray's two states, drawn from packaging/icons/appicon.png by `task icons`. -->
+    <AvaloniaResource Include="Assets/tray.png" />
+    <AvaloniaResource Include="Assets/tray-live.png" />
   </ItemGroup>
 
   <!--

@@ -7,6 +7,7 @@ using Avalonia.Media;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Shell.View;
 using ScreenShare.App.Features.Shell.ViewModel;
+using ScreenShare.App.Features.Tray.View;
 
 namespace ScreenShare.App;
 
@@ -53,6 +54,46 @@ public sealed partial class App : Application
             shell.TitleBar.ShowMaximised(window.WindowState == WindowState.Maximized);
 
             desktop.MainWindow = window;
+
+            // With a tray, closing the window keeps the app alive in it,
+            // and only the tray's quit ends the process:
+            // the backend keeps publishing behind a hidden window,
+            // and the exit hooks take a spawned one down with the shell (Backend/BackendProcess.cs).
+            // Without one, a session serving no tray, quit-on-close stands:
+            // a hidden window nothing can reopen is gone.
+            var tray = TrayIconHost.TryCreate(shell.Tray);
+            if (tray is not null)
+            {
+                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+                window.Closing += (_, close) =>
+                {
+                    // The desktop taking the app down closes for real; the reader's close hides to the tray.
+                    if (close.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
+                    {
+                        return;
+                    }
+
+                    close.Cancel = true;
+                    window.Hide();
+                };
+
+                shell.Tray.OpenRequested += () =>
+                {
+                    window.Show();
+                    if (window.WindowState == WindowState.Minimized)
+                    {
+                        window.WindowState = WindowState.Normal;
+                    }
+
+                    window.Activate();
+                };
+
+                // Raised once the quit's own stop attempt is over (Features/Tray/ViewModel/TrayViewModel.cs).
+                shell.Tray.QuitRequested += () => desktop.Shutdown();
+
+                desktop.Exit += (_, _) => tray.Dispose();
+            }
 
             // One render pass before the window shows.
             // Apply is idempotent, so a second one changes nothing.

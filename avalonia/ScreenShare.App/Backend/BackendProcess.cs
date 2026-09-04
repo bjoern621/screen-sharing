@@ -5,7 +5,8 @@ namespace ScreenShare.App.Backend;
 
 /// <summary>
 /// Backend, started when nothing is listening on the control endpoint.
-/// Nothing else starts it on a packaged install: no service, no launcher, no tray.
+/// Nothing else starts it on a packaged install: no service and no launcher, and the tray lives inside
+/// this shell rather than being a starter of its own.
 ///
 /// Connect comes first, so a backend already up (a <c>task dev</c> run, a second window) is used rather than
 /// duplicated.
@@ -100,6 +101,23 @@ internal static class BackendProcess
                 Hook();
             }
             return _started is not null;
+        }
+    }
+
+    /// <summary>
+    /// Whether this shell has a backend of its own running.
+    /// What a quit reads before stopping the stream:
+    /// one this shell started dies with it, so its stream is worth ending cleanly,
+    /// and one it did not start keeps publishing.
+    /// </summary>
+    public static bool Owns
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _started is { HasExited: false };
+            }
         }
     }
 

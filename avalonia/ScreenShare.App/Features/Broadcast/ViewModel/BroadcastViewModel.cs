@@ -229,6 +229,12 @@ public sealed class BroadcastViewModel : Observable
 
     public DelegateCommand ReconnectCommand { get; }
 
+    /// <summary>
+    /// Word on the stop control, wherever it is drawn: this screen's button and the tray's row.
+    /// One place, so the two cannot drift.
+    /// </summary>
+    public const string StopLabel = "Stop sharing";
+
     /// <summary>The one control on this screen ending the stream.</summary>
     public PendingCommand StopCommand { get; }
 
