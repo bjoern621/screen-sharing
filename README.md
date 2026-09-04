@@ -11,7 +11,7 @@ Built for the screens a video call blurs: code, a terminal, a spreadsheet, a gam
 A call spends two to five megabits a second on a screen and softens everything on it.
 MirrorMe spends forty and leaves the text readable, the thin lines whole and the dark scenes dark.
 
-![Picking a screen to share, with the cost of the picture on the right](docs/images/setup-capture.png)
+![Four members of a group, each stream a tile in the grid](docs/images/viewer-grid.png)
 
 ## What it does
 
@@ -51,7 +51,7 @@ One window, and nothing to set up before the first run.
 3. Pick a screen and a preset, or walk the steps and set the picture by hand.
 4. Share.
 
-![The quality step, with the video format, the encoder and the colour settings](docs/images/setup-encode.png)
+![Picking a screen to share, with the cost of the picture on the right](docs/images/setup-capture.png)
 
 Every stream in the group arrives on the Viewer tab, one tile each.
 A stream lives in a group, so sharing waits until this computer has joined one under a name.
