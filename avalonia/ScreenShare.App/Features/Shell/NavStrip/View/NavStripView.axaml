@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:go="using:ScreenShare.App.Features.Shell.Go.View"
              xmlns:vm="using:ScreenShare.App.Features.Shell.NavStrip.ViewModel"
              xmlns:shell="using:ScreenShare.App.Features.Shell.ViewModel"
              x:Class="ScreenShare.App.Features.Shell.NavStrip.View.NavStripView"
@@ -44,6 +45,10 @@
         <controls:StatusPill Label="{Binding SharingLabel}"
                              Detail="{Binding SharingTimer}"
                              IsVisible="{Binding ShowsSharing}" />
+
+        <!-- Drawn only where the shell gave the strip a commit; a test strip carries none. -->
+        <go:GoView DataContext="{Binding Go}"
+                   IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}" />
       </StackPanel>
     </Grid>
   </Border>

@@ -4,6 +4,7 @@ using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Features.Broadcast.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
+using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 using ScreenShare.App.Features.Shell.StatusBar.ViewModel;
@@ -58,10 +59,12 @@ public sealed class ShellViewModel : Observable
 
     private object _body;
 
+    /// <summary>Strip commit, rendered with the destinations' pass. The strip's view draws it.</summary>
+    private readonly GoViewModel _go;
+
     public ShellViewModel()
     {
         TitleBar = new TitleBarViewModel();
-        Nav = new NavStripViewModel(Show);
         StatusBar = new StatusBarViewModel();
 
         // Go control plane over the local socket, constructed here because the shell owns the connection.
@@ -97,6 +100,11 @@ public sealed class ShellViewModel : Observable
         // so it is built beside them.
         // Whether this shell owns a backend is read at the press, the spawn being lazy.
         Tray = new TrayViewModel(backend, _session, Setup, Broadcast, () => BackendProcess.Owns, dispatch);
+
+        // The strip's commit presses the destinations' own commands the way the tray does,
+        // so it is built beside them and handed to the strip as its right-hand control.
+        _go = new GoViewModel(_session, _form, Setup, Broadcast, () => Show(Destination.Setup));
+        Nav = new NavStripViewModel(Show, _go);
 
         // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so
         // the preview's end-to-end route and a grid tile can be the same decode.
@@ -269,8 +277,9 @@ public sealed class ShellViewModel : Observable
         Broadcast.Apply();
         Viewer.Apply();
 
-        // After the destinations, so the menu reads the gate and the rows this pass derived.
+        // After the destinations, so the menu and the strip commit read the gate and the rows this pass derived.
         Tray.Apply();
+        _go.Apply();
 
         // After the bodies, so the strip's pill and the band's figures are what the destinations derived
         // on this pass rather than what they held before it.

@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.Go.ViewModel"
+             x:Class="ScreenShare.App.Features.Shell.Go.View.GoView"
+             x:DataType="vm:GoViewModel">
+
+  <!--
+    The commit and its menu, glued at a shared edge like every paired control.
+    The 1px gap is the strip showing through, the pair having no border to separate them.
+  -->
+  <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+
+    <!--
+      The dot takes the button's own Foreground, which the disabled treatment moves:
+      content naming a brush of its own would stay bright on a locked button.
+    -->
+    <Button Theme="{StaticResource GoButton}"
+            CornerRadius="{StaticResource RadiusButtonLeading}"
+            Command="{Binding CommitCommand}"
+            controls:Pending.IsActive="{Binding CommitCommand.IsRunning}"
+            ToolTip.Tip="{Binding BlockedTip}">
+      <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
+        <Ellipse Width="{StaticResource DotSize}"
+                 Height="{StaticResource DotSize}"
+                 Fill="{Binding $parent[Button].Foreground}"
+                 VerticalAlignment="Center" />
+        <TextBlock Text="{Binding CommitLabel}" />
+      </StackPanel>
+    </Button>
+
+    <Button x:Name="MenuButton"
+            Theme="{StaticResource GoButton}"
+            CornerRadius="{StaticResource RadiusButtonTrailing}"
+            Padding="7,0"
+            Click="OnMenuPressed">
+      <ti:TablerIcon Icon="IconChevronDown" Brush="{Binding $parent[Button].Foreground}" />
+    </Button>
+  </StackPanel>
+</UserControl>

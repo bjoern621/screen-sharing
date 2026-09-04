@@ -1,4 +1,5 @@
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Mvvm;
@@ -25,15 +26,24 @@ public sealed class NavStripViewModel : Observable
 
     private readonly Action<Destination> _select;
 
-    public NavStripViewModel(Action<Destination> select)
+    /// <param name="go">
+    /// The commit beside the pill, the shell's.
+    /// Optional so a test of the segments or the pill builds no publish graph behind it;
+    /// the view draws the control only where one is given.
+    /// </param>
+    public NavStripViewModel(Action<Destination> select, GoViewModel? go = null)
     {
         Assert.NotNull(select, "a strip needs somewhere to send the destination it was asked for");
 
         _select = select;
+        Go = go;
         Tabs = [.. Destinations.All.Select(destination => new DestinationTab(destination))];
 
         Assert.That(Tabs.Count == Destinations.All.Count, "a segment per destination", Tabs.Count, Destinations.All.Count);
     }
+
+    /// <summary>Strip commit and its menu. Null in a strip built without one.</summary>
+    public GoViewModel? Go { get; }
 
     /// <summary>A segment per destination, in the table's order. Fixed for the strip's life.</summary>
     public IReadOnlyList<DestinationTab> Tabs { get; }

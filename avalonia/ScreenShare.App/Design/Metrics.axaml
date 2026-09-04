@@ -24,6 +24,8 @@
   -->
   <CornerRadius x:Key="RadiusControlLeading">5,0,0,5</CornerRadius>
   <CornerRadius x:Key="RadiusControlTrailing">0,5,5,0</CornerRadius>
+  <CornerRadius x:Key="RadiusButtonLeading">6,0,0,6</CornerRadius>
+  <CornerRadius x:Key="RadiusButtonTrailing">0,6,6,0</CornerRadius>
 
   <!--
     Chrome bands, full bleed, so these heights are the window's fixed rows.
