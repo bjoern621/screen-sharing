@@ -34,7 +34,7 @@ buildGoModule {
   # and vendoring would fold it into the hash that pins third-party code.
   # The hash is that package's, both builds downloading what one backend/go.mod lists.
   proxyVendor = true;
-  vendorHash = "sha256-YhwaORkqDclT1JBmo/V+jgICWEdhS6N9w5KQExJilEE=";
+  vendorHash = "sha256-3sMf233ihFSRiN1kr+uG3lljk0XUDrhkTbrGRe5Z1Bs=";
 
   modRoot = "backend";
   subPackages = [ "cmd/groupd" ];

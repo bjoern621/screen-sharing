@@ -180,7 +180,7 @@ let
     # A proxy fetch downloads what backend/go.sum lists and nothing else,
     # so the pin covers third-party code alone and the local module is read from src at build time.
     proxyVendor = true;
-    vendorHash = "sha256-YhwaORkqDclT1JBmo/V+jgICWEdhS6N9w5KQExJilEE=";
+    vendorHash = "sha256-3sMf233ihFSRiN1kr+uG3lljk0XUDrhkTbrGRe5Z1Bs=";
 
     # The Go module is backend/, not the repository root, where api/ and avalonia/ sit beside it.
     modRoot = "backend";

@@ -56,6 +56,16 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
+	# Discord mode: presence, brokered tokens and the browser link flow (docs/discord-mode.md).
+	# Under a prefix of its own because discordd's /presence and /tokens
+	# would otherwise collide with groupd's routes on the one name,
+	# and stripped again before discordd, which serves them at its root.
+	@discord path /discord/*
+	handle @discord {
+		uri strip_prefix /discord
+		reverse_proxy {$SCREENSHARE_DISCORDD:127.0.0.1:9444}
+	}
+
 	# /reconcile has no route here and falls through to the HLS handler below like any unknown path.
 	# It takes no credential at all, being the relay's own read hook reporting a path on loopback,
 	# so a route from outside would let anyone spend this host's relay API on demand.

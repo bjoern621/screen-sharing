@@ -350,6 +350,9 @@
         # A NixOS host installs it through the overlay below.
         packages.groupd = pkgs.callPackage ./packaging/nix/groupd.nix { inherit version; };
 
+        # The Discord manager beside it (packaging/nix/discordd.nix, docs/discord-mode.md).
+        packages.discordd = pkgs.callPackage ./packaging/nix/discordd.nix { inherit version; };
+
         # A relay deployment's three processes as container images,
         # for a relay on Kubernetes instead of on a host of its own.
         # They are what a NixOS relay host runs,
@@ -369,6 +372,12 @@
         packages.groupd-image = pkgs.callPackage ./packaging/nix/groupd-image.nix {
           inherit version;
           screenshare-groupd = self.packages.${system}.groupd;
+        };
+        # The fourth process is opt-in per deployment,
+        # and its image rides beside the three the pod always holds.
+        packages.discordd-image = pkgs.callPackage ./packaging/nix/discordd-image.nix {
+          inherit version;
+          screenshare-discordd = self.packages.${system}.discordd;
         };
 
         # The client the release workflow pushes the build closure to the Attic cache with.

@@ -1,6 +1,6 @@
 # backend
 
-Go module holding two binaries: the headless backend the shell talks to, and the group service that runs beside the relay.
+Go module holding three binaries: the headless backend the shell talks to, the group service beside the relay, and the Discord manager beside that.
 
 Every Go command runs from this directory.
 
@@ -15,17 +15,20 @@ go vet ./...
 backend/
   cmd/backend/     the process the shell starts: capture, encode, publish and decode
   cmd/groupd/      the key, token and index service, installed on the relay's machine
-  internal/        what the two draw on
+  cmd/discordd/    the Discord manager: voice channels as groups (docs/discord-mode.md)
+  internal/        what the three draw on
   go.mod           module bjoernblessin.de/screenshare
 ```
 
 Module path drops the directory name: `bjoernblessin.de/screenshare`, so no import line names `backend`.
 `api` is reached by a filesystem `replace` on `../api`, so the Nix builds read the module cache rather than a vendor directory (`packaging/nix/package.nix`).
 
-## Two binaries, one module
+## Separate binaries, one module
 
-The two land on different machines and ship as different packages (`packaging/nix/package.nix`, `packaging/nix/groupd.nix`).
+The binaries land on different machines and ship as different packages (`packaging/nix/package.nix`, `packaging/nix/groupd.nix`).
 That separation is the `cmd/` directories.
+`discordd` stands beside `groupd` and speaks to it over its public routes alone,
+so the two share the wire and nothing else.
 
 One module, because what they share is a contract rather than convenience code.
 `internal/group` derives a stream's path prefix from the group key, and both sides run that derivation.
