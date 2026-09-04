@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Tray.Model;
 using ScreenShare.App.Features.Tray.ViewModel;
@@ -35,6 +36,17 @@ public sealed class TrayIconHost : IDisposable
         // Registered against the application, which is what holds the platform icon alive.
         TrayIcon.SetIcons(Application.Current!, new TrayIcons { _icon });
 
+        // Disposing the icon on quit takes down the process it is quitting (AvaloniaUI/Avalonia#21979):
+        // the DBus watch loop's cancellation escapes an async void into the dispatcher.
+        // Marked handled here, at the host owning the icon whose dispose arms it, until upstream catches it.
+        Dispatcher.UIThread.UnhandledException += (_, thrown) =>
+        {
+            if (IsWatchDisposeCancellation(thrown.Exception))
+            {
+                thrown.Handled = true;
+            }
+        };
+
         // The menu compares by content, so each notification is a real change and each change one rebuild.
         tray.PropertyChanged += (_, changed) =>
         {
@@ -65,6 +77,15 @@ public sealed class TrayIconHost : IDisposable
 
     /// <summary>Takes the icon out of the tray. A disposed host stays disposed.</summary>
     public void Dispose() => _icon.Dispose();
+
+    /// <summary>
+    /// Whether a dispatcher exception is the tray watch dying of its own disposal,
+    /// matched by type and by the frame that threw it.
+    /// Every other exception passes through and crashes, as a broken contract should.
+    /// </summary>
+    internal static bool IsWatchDisposeCancellation(Exception thrown) =>
+        thrown is OperationCanceledException
+        && thrown.StackTrace?.Contains("DBusTrayIconImpl.WatchAsync") == true;
 
     /// <summary>The one render function: icon and menu, whole, from the menu state.</summary>
     private void Render()
