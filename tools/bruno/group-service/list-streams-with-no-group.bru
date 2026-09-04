@@ -1,0 +1,26 @@
+meta {
+  name: List streams with no group
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{groupService}}/streams
+  body: none
+  auth: none
+}
+
+tests {
+  test("refuses a listing for no group", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}
+
+docs {
+  # List streams with no group
+
+  The same index with no group key, which is refused.
+
+  A stream lives in a group: the relay carries a path under a group's prefix and nothing else, so a caller naming no key is asking about streams nobody holds.
+  What clears the refusal is a group key, which `List group streams` sends.
+}
