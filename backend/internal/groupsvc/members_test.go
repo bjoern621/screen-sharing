@@ -123,6 +123,49 @@ func TestAGroupThatStatesItsMembersRefusesATokenNamingNone(t *testing.T) {
 	}
 }
 
+// A member the group holds no presence for is a subject the next run closes,
+// so the credential is refused rather than issued and taken back a moment later.
+// The refusal names the call that fixes it, presence being stated without a token.
+func TestAGroupThatStatesItsMembersRefusesATokenForAMemberItDoesNotHold(t *testing.T) {
+	key, holding, absent := mustKey(t), mustSecret(t), mustSecret(t)
+	service, _ := enforcing(t)
+
+	if status, body := call(t, service, "PUT", "/members", presence(key, holding, "Björn")); status != 200 {
+		t.Fatalf("stating presence answered %d: %v", status, body)
+	}
+
+	status, body := call(t, service, "POST", "/tokens",
+		`{"groupKey":"`+key.String()+`","memberSecret":"`+absent.String()+`"}`)
+	if status != 400 {
+		t.Fatalf("a token for a member the group does not hold was answered %d: %v", status, body)
+	}
+	want := "this group holds no presence for the member this request names, so state presence before asking for a token"
+	if body["error"] != want {
+		t.Errorf("the refusal reads %q, want %q", body["error"], want)
+	}
+}
+
+// The member that stated presence is the one every other refusal here is measured against:
+// its token carries a subject the leases hold, so no run closes what it opens.
+func TestAMemberTheGroupHoldsBuysAToken(t *testing.T) {
+	key, secret := mustKey(t), mustSecret(t)
+	service, _ := enforcing(t)
+
+	if status, body := call(t, service, "PUT", "/members", presence(key, secret, "Björn")); status != 200 {
+		t.Fatalf("stating presence answered %d: %v", status, body)
+	}
+
+	status, body := call(t, service, "POST", "/tokens",
+		`{"groupKey":"`+key.String()+`","memberSecret":"`+secret.String()+`"}`)
+	if status != 200 {
+		t.Fatalf("a token for a member holding a lease was answered %d: %v", status, body)
+	}
+	claimed := claims(t, body["relayAccessToken"].(string))
+	if want := `"sub":"` + key.MemberID(secret) + `"`; !strings.Contains(claimed, want) {
+		t.Errorf("the token claims %s, and names no member", claimed)
+	}
+}
+
 // The first app in an empty group has nobody to be a member beside,
 // so it buys a token under the group's own id and states its presence with it.
 func TestAGroupWithNoLiveMembersBuysATokenForItself(t *testing.T) {

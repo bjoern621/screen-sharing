@@ -272,22 +272,29 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 		// Naming a member secret moves the subject from the group to the member it derives,
 		// which lets enforcement tell one member's connections from another's at the relay.
 		// The grant does not move with it: membership decides who may connect, never what they reach.
-		switch {
-		case strings.TrimSpace(body.MemberSecret) != "":
+		named := strings.TrimSpace(body.MemberSecret) != ""
+		if named {
 			secret, err := group.ParseMemberSecret(body.MemberSecret)
 			if err != nil {
 				s.refuseToken(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			subject = groupKey.MemberID(secret)
+		}
 
-		// The group's own id is a subject no member matches,
-		// so a token on it is closed the moment anybody states presence.
-		// It is the first app in an empty group bootstrapping itself and nothing else,
-		// so a group whose members are stated refuses it here
-		// rather than issuing a credential that lasts one sweep.
-		case s.members.Live(groupKey):
-			s.refuseToken(w, http.StatusBadRequest, "this group states its members, and this request names none")
+		// The relay checks a token at the handshake and not again,
+		// so a subject the leases do not hold buys a connection the next run closes.
+		// Refused here instead, on the test that run makes (internal/membership).
+		//
+		// Two grounds and a message each, both naming the call that clears them:
+		// a member states presence, which takes no token,
+		// and a request naming none carries the group's own id, a subject no member ever matches.
+		if s.members.Swept(groupKey, subject) {
+			refusal := "this group states its members, and this request names none"
+			if named {
+				refusal = "this group holds no presence for the member this request names, so state presence before asking for a token"
+			}
+			s.refuseToken(w, http.StatusBadRequest, refusal)
 			return
 		}
 

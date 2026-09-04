@@ -65,6 +65,8 @@ type fakeGroups struct {
 	// nil answers the lease of a group this machine is alone in.
 	// Set before the goroutines that reach it start.
 	state func() (groupclient.Membership, error)
+	// token answers a trade for a relay credential, nil handing one back.
+	token func() (string, error)
 
 	mu         sync.Mutex
 	calls      []string
@@ -106,7 +108,16 @@ func (f *fakeGroups) Release(base, groupKey, memberSecret string) error {
 	return nil
 }
 
+// Recorded without the overlap machinery beside it:
+// a trade rides a command path, which runs beside the presence loop rather than in its order.
 func (f *fakeGroups) Token(base, groupKey, memberSecret string) (string, error) {
+	f.mu.Lock()
+	f.calls = append(f.calls, "token")
+	f.mu.Unlock()
+
+	if f.token != nil {
+		return f.token()
+	}
 	return "a token", nil
 }
 
@@ -406,6 +417,22 @@ func TestAPassDrawsTheIdentityTheGroupKeyNames(t *testing.T) {
 	}
 }
 
+// A synthetic publisher carries a token naming this machine's member id,
+// and the group service closes what no live member holds,
+// so the boot set states presence before it trades for one.
+// The trade is refused here, which leaves the order as the whole of what this reads.
+func TestTheBootSetStatesPresenceBeforeItTradesForAToken(t *testing.T) {
+	t.Setenv(EnvTestStreams, "1")
+	groups := &fakeGroups{token: func() (string, error) { return "", errors.New("no token for this group") }}
+	a := inGroupApp(t, groups)
+
+	a.startTestStreamsAtBoot()
+
+	if want := []string{"state", "token"}; strings.Join(groups.asked(), ",") != strings.Join(want, ",") {
+		t.Errorf("the service was asked %v, want %v", groups.asked(), want)
+	}
+}
+
 // A name is what a member is listed under, so a machine without one has nothing to state.
 // Nothing is drawn either: an identity the group never took is a file naming a group nobody joined.
 func TestAPassWithNoNameStatesNothing(t *testing.T) {
@@ -561,6 +588,25 @@ func TestThePassThatDrawsAnIdentityDropsTheTokenMintedWithoutAMember(t *testing.
 
 	if dropped := groups.dropped(); dropped != 1 {
 		t.Errorf("a second pass dropped the relay token %d times in all, want the token it already holds", dropped)
+	}
+}
+
+// A refused statement leaves this machine holding no lease,
+// and the service closes a connection no live member holds,
+// so a held token would buy one child after another that is closed a second later.
+func TestAPassTheServiceRefusedDropsTheHeldToken(t *testing.T) {
+	groups := &fakeGroups{}
+	a := inGroupApp(t, groups)
+
+	// The pass that draws the identity spends the token minted before there was one.
+	a.statePresence()
+	drawing := groups.dropped()
+
+	groups.state = func() (groupclient.Membership, error) { return groupclient.Membership{}, nameTaken() }
+	a.statePresence()
+
+	if dropped := groups.dropped(); dropped == drawing {
+		t.Error("a refused pass kept a token naming a member the group holds no presence for")
 	}
 }
 

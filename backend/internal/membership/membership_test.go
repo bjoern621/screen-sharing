@@ -842,23 +842,33 @@ func TestAReleaseCrossingAStatementAnswers(t *testing.T) {
 	<-restated
 }
 
-// Token issuance asks whether a group states its members,
-// so a group nobody stated presence in has to answer that it does not.
-func TestAGroupAnswersWhetherAnybodyStatedPresence(t *testing.T) {
-	groupKey, secret := mustKey(t), mustSecret(t)
+// Token issuance asks whether a run would close what it is about to sign for,
+// which is the question a run asks of every connection it reads,
+// so both read one set of leases and a credential outlives its subject's presence by nothing.
+func TestASubjectNoLiveMemberHoldsIsSwept(t *testing.T) {
+	groupKey, secret, absent := mustKey(t), mustSecret(t), mustSecret(t)
 	registry := New(&fakeRelay{})
 
-	if registry.Live(groupKey) {
-		t.Error("a group nobody stated presence in reported a live member")
+	// A group nobody states presence in is one a run leaves alone, whatever the subject.
+	if registry.Swept(groupKey, groupKey.MemberID(absent)) {
+		t.Error("a group nobody stated presence in swept a subject")
 	}
+
 	stated(t, registry, groupKey, secret, "Björn")
-	if !registry.Live(groupKey) {
-		t.Error("a group one member states presence in reported none")
+	if registry.Swept(groupKey, groupKey.MemberID(secret)) {
+		t.Error("a member holding a lease was swept")
+	}
+	if !registry.Swept(groupKey, groupKey.MemberID(absent)) {
+		t.Error("a member holding no lease stood in a group that states its members")
+	}
+	// The group's own id is the subject a token naming no member carries.
+	if !registry.Swept(groupKey, groupKey.ID()) {
+		t.Error("the group's own id stood in a group that states its members")
 	}
 
 	at := time.Now().Add(Lease + time.Second)
 	registry.now = func() time.Time { return at }
-	if registry.Live(groupKey) {
-		t.Error("a group whose only lease lapsed reported a live member")
+	if registry.Swept(groupKey, groupKey.MemberID(absent)) {
+		t.Error("a group whose only lease lapsed swept a subject")
 	}
 }

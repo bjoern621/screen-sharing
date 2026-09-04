@@ -109,10 +109,16 @@ A new key moves every remaining member's streams to a new prefix and leaves ever
 `POST /tokens` signs the member id where the request names a member secret, and the relay lists and logs a connection under that subject.
 The grant does not move with it: membership decides who may connect, and the token's prefix decides what they reach.
 
-A request naming no member secret is answered with the group's own id where the group has no live member.
-Where it has one the request is refused: `this group states its members, and this request names none`.
-The group id is a subject no member matches, so a token on it is closed the moment anybody states presence.
+The subject meets the sweep's own test before it is signed, so a credential a run would close is refused.
+A group with no live member sweeps nothing, and every subject is signed there.
+Where the group states its members, two subjects fail that test.
+
+A request naming no member secret carries the group's own id, a subject no member matches: `this group states its members, and this request names none`.
 It is the first app in an empty group bootstrapping itself, and nothing else.
+
+A request naming a member the leases do not hold carries a subject the next run closes: `this group holds no presence for the member this request names, so state presence before asking for a token`.
+Presence is stated without a token, so the refusal names the call that clears it.
+Such a subject on a publisher goes online and is closed by the next statement of presence, which reads at the client as the relay hanging up.
 
 ## Stating presence for somebody else
 

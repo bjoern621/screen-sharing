@@ -183,6 +183,12 @@ func (a *App) startTestStreamsAtBoot() {
 		return
 	}
 
+	// Presence before the first publisher, because a token names this machine's member id
+	// and the group service closes a connection no live member holds (internal/membership).
+	// The poll loop states the same thing on its own clock,
+	// so this is the boot set naming the state it needs rather than racing that loop for it.
+	a.statePresence()
+
 	if err := a.StartTestStreams(count); err != nil {
 		// An Umgebungsfehler: no GStreamer on this machine,
 		// or settings whose RTSP publish leg does not validate.

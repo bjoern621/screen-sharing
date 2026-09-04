@@ -235,6 +235,11 @@ func (a *App) membershipFor(s settings.Settings, held membership) (membership, e
 	answer, err := a.groups.State(base, s.Relay.GroupKey, identity.Secret, s.Relay.DisplayName)
 	if err != nil {
 		if refusal := membershipRefusal(err); refusal != nil {
+			// A statement the service refused took no lease,
+			// and it closes what no live member holds,
+			// so the held token would buy one connection after another that is closed again.
+			// The trade the next command makes is refused in words instead (internal/groupsvc).
+			a.forgetRelayToken()
 			return membership{Group: id, Joined: true, Refusal: refusal}, err
 		}
 		return standing(held, id), err

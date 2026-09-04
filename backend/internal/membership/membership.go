@@ -368,15 +368,38 @@ func (r *Registry) member(prefix, id string) (string, bool) {
 	return held.displayName, true
 }
 
-// Live reports whether any member of this group holds a lease,
-// which decides whether a token request naming no member can be answered (internal/groupsvc).
-func (r *Registry) Live(groupKey group.Key) bool {
+// Swept reports whether a run would close a connection opened under this subject:
+// the group states its members and this subject is none of them.
+//
+// The test a run makes of every connection it reads (enforce.go), asked of a subject alone.
+// The token door asks it before it signs (internal/groupsvc),
+// so a credential and a run read one set of leases,
+// where two would let a token outlive its subject's presence by the whole token window.
+//
+// A group nobody states presence in sweeps nothing, so every subject stands in one.
+func (r *Registry) Swept(groupKey group.Key, subject string) bool {
 	assert.Assert(len(groupKey) == group.KeyBytes, "a group is asked about by a whole group key", len(groupKey))
 
-	return r.live(groupKey.Prefix())
+	now := r.now()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// One pass under one lock:
+	// read apart, a lease lapsing between the two halves reads as a group that states members and holds this one.
+	live := false
+	for id, held := range r.held[groupKey.Prefix()] {
+		if !held.expires.After(now) {
+			continue
+		}
+		if id == subject {
+			return false
+		}
+		live = true
+	}
+	return live
 }
 
-// live is Live for a caller that already derived the prefix.
+// live reports whether any member of this group holds a lease.
 func (r *Registry) live(prefix string) bool {
 	now := r.now()
 	r.mu.Lock()
