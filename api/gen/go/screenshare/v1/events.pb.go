@@ -345,7 +345,8 @@ type TestStreamSlot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Position in the set, counting from zero.
 	Slot int32 `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
-	// Relay path this slot publishes to, e.g. "test-1-bars".
+	// Relay path this slot publishes to, this machine's claim leading it inside a group,
+	// e.g. "bjoern/test-2-hdr".
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// A child is filling the slot.
 	// False while a relaunch waits out its backoff, which is a slot the set still holds.

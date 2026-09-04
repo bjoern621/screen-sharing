@@ -261,15 +261,19 @@ func (r Relay) Path(name string) string {
 // Two machines choosing the same monitor still land on two names, DisplayName being claimed
 // first-come and unique inside a group (internal/membership, ErrNameTaken).
 //
-// WithStreamName stands in front of both facts for a stream neither could name.
+// WithStreamName stands in front of Publish.Name for a stream no capture names,
+// and the claim leads that too:
+// a synthetic set carries one name per slot, so two machines in a group publish over each other
+// under an unclaimed one.
 func (s Settings) StreamName() string {
+	name := s.Publish.Name()
 	if s.streamName != "" {
-		return s.streamName
+		name = s.streamName
 	}
 	if s.Relay.DisplayName == "" {
-		return s.Publish.Name()
+		return name
 	}
-	return s.Relay.DisplayName + "/" + s.Publish.Name()
+	return s.Relay.DisplayName + "/" + name
 }
 
 // PublishPath is where this machine's own stream lives on the relay,

@@ -8,6 +8,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -139,5 +140,24 @@ func TestASlotNamesTheStreamItPublishes(t *testing.T) {
 			t.Errorf("slot %d publishes under %q, which another slot already holds", slot, name)
 		}
 		seen[name] = true
+	}
+}
+
+// TestASlotIsListedUnderTheClaimItPublishesUnder: a slot's name is what the relay carries it under,
+// and inside a group this machine's claim leads that (internal/settings, StreamName).
+// The set names one slot per number, so two machines under one claimless name
+// would publish over each other on one path.
+func TestASlotIsListedUnderTheClaimItPublishesUnder(t *testing.T) {
+	a := &App{
+		settings:    settings.Settings{Relay: settings.Relay{DisplayName: "bjoern"}},
+		testStreams: map[int]*testStream{0: {}},
+	}
+
+	_, slots := a.TestStreamState()
+	if len(slots) != 1 {
+		t.Fatalf("a set holding one slot reports %d rows, want one", len(slots))
+	}
+	if got, want := slots[0].Name, "bjoern/"+testStreamName(0); got != want {
+		t.Errorf("slot 0 is listed as %q, want %q", got, want)
 	}
 }

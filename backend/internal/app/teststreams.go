@@ -57,7 +57,8 @@ type testStream struct {
 	logPath string
 }
 
-// testStreamName is what the relay carries slot i under.
+// testStreamName is slot i's own name, which this machine's claim leads on the relay
+// (settings.StreamName).
 //
 // The slot number leads, so the roster reads in the order the set was launched,
 // and a relaunch comes back under the name it left.
@@ -75,7 +76,7 @@ func testStreamName(i int) string {
 }
 
 // StartTestStreams holds the synthetic set at count publishers,
-// named test-1..test-<count> and pushing to the relay over RTSP.
+// named test-1..test-<count> under this machine's claim and pushing to the relay over RTSP.
 // They exercise the viewing paths without a screen capture:
 // the viewer roster, the per-stream viewers, the receive pipelines.
 //
@@ -327,6 +328,13 @@ func (a *App) emitTestStreamState() {
 //
 // The rows come back in slot order, the order the set was launched in and the names run in.
 func (a *App) TestStreamState() (running int, slots []wire.TestStreamSlot) {
+	// The name a row carries is the one a launch publishes under, claim and all,
+	// so it is derived from the settings rather than from the slot number alone.
+	// Snapshotted first because settingsMu is taken before procMu everywhere (app.go).
+	a.settingsMu.Lock()
+	s := a.settings
+	a.settingsMu.Unlock()
+
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
@@ -345,7 +353,7 @@ func (a *App) TestStreamState() (running int, slots []wire.TestStreamSlot) {
 		assert.Assert(!alive || slot.cause == nil, "a slot a publisher fills carries no reason to have none", i)
 		slots = append(slots, wire.TestStreamSlot{
 			Slot: i,
-			Name: testStreamName(i),
+			Name: s.WithStreamName(testStreamName(i)).StreamName(),
 			// A slot waiting out its relaunch is one the set holds and no child is filling.
 			Running: alive,
 			// Counted from one, where the slot counts the relaunches behind it.

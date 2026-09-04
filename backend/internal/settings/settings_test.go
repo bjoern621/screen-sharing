@@ -563,6 +563,21 @@ func TestTheFullStreamNameLeadsWithTheDisplayName(t *testing.T) {
 	}
 }
 
+// A name given rather than derived leads with the same claim,
+// so two machines running the synthetic set land on two paths
+// instead of publishing over each other under one (internal/publish, teststream.go).
+func TestAGivenStreamNameLeadsWithTheDisplayName(t *testing.T) {
+	s := Settings{Relay: Relay{DisplayName: "bjoern"}, Publish: Publish{Monitor: 0}}.WithStreamName("test-1")
+	if got, want := s.StreamName(), "bjoern/test-1"; got != want {
+		t.Errorf("stream name = %q, want %q", got, want)
+	}
+
+	s.Relay.DisplayName = ""
+	if got, want := s.StreamName(), "test-1"; got != want {
+		t.Errorf("an unclaimed machine names its stream %q, want the bare %q", got, want)
+	}
+}
+
 // The publish path is the stream name carried through the relay's own prefixing,
 // the one derivation transport builders read rather than composing the two themselves.
 func TestPublishPathCarriesTheStreamNameThroughThePrefix(t *testing.T) {

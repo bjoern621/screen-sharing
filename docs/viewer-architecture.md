@@ -412,6 +412,7 @@ What a browser then does with a format the relay does carry is its own affair, s
 
 Three synthetic publishers run for as long as the backend does, so the viewer roster carries streams whether or not this machine is capturing anything.
 Each encodes a test pattern into the relay, named after the slot it holds, and the relay re-serves each on every listener as it does a real one.
+Inside a group this machine's claim leads that name, so two machines running the set land on two paths rather than over each other on one.
 
 What each draws is a row of a table stating the whole surface rather than the pattern alone: the pixel layout and the colour it is drawn in.
 One row is HDR, drawn in PQ at ten bits, so the viewer's HDR path is reachable on a machine whose own screens are all standard range.
