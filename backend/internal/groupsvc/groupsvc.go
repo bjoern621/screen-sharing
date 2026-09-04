@@ -335,7 +335,7 @@ func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
 	if s.streams != nil {
 		for _, stream := range s.streams.Paths() {
 			name, ok := strings.CutPrefix(stream.Path, prefix)
-			if !ok || name == "" || strings.Contains(name, "/") {
+			if !ok || !group.NameHolds(name) {
 				continue
 			}
 			stream.Name = name

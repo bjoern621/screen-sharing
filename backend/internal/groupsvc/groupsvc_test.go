@@ -202,6 +202,22 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	}
 }
 
+// A member's own stream is named for the machine and the monitor, "<display name>/<stream>",
+// so its name inside the group is two segments (settings.Settings.StreamName, group.checkStreamName).
+// The listing carries it: a name a publish is allowed to hold is a name a viewer's roster can show.
+func TestAMembersOwnStreamCarriesItsDisplayNameSegment(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := service(t, groupKey.ID()+"/bjoern-pc/monitor-1")
+
+	_, body := call(t, s, "GET", listing(groupKey), "")
+	if got := names(body); len(got) != 1 || got[0] != "bjoern-pc/monitor-1" {
+		t.Errorf("a member's own stream lists as %v, want its two-segment name", got)
+	}
+}
+
 // names is the stream names off one answer.
 // A row carries what a viewer opens the stream with beside the name,
 // so the name is read out of the row rather than being it.
@@ -214,13 +230,13 @@ func names(body map[string]any) []string {
 }
 
 // A path with no group is in no listing,
-// and neither is one nested a segment deeper than a group's own grant reaches.
+// and neither is one nested a segment deeper than a stream's own name reaches.
 func TestAPathOutsideAGroupIsInNoListing(t *testing.T) {
 	groupKey, err := group.NewKey()
 	if err != nil {
 		t.Fatalf("drawing a group key: %v", err)
 	}
-	s := service(t, "loose", groupKey.ID()+"/team/standup", groupKey.ID()+"/")
+	s := service(t, "loose", groupKey.ID()+"/team/standup/extra", groupKey.ID()+"/")
 
 	_, body := call(t, s, "GET", listing(groupKey), "")
 	if got := names(body); len(got) != 0 {

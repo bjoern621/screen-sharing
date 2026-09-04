@@ -326,6 +326,14 @@ func checkStreamName(name string) error {
 	return nil
 }
 
+// NameHolds reports whether name is one a stream may carry inside its group.
+//
+// The index reads it to decide which relay paths are streams of a group and which are nested deeper
+// than a name reaches (internal/groupsvc), off the one rule a publish is checked against.
+func NameHolds(name string) bool {
+	return checkStreamName(name) == nil
+}
+
 // Prefix leads every path of this group:
 // what a relay permission is written against and what a listing matches on.
 func (k Key) Prefix() string {
