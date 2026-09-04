@@ -39,6 +39,7 @@ obligations beyond attribution.
 |-----------|---------|--------|
 | `ffmpeg.exe`, `ffplay.exe` | GPL, as configured by the build the release workflow fetches | https://github.com/BtbN/FFmpeg-Builds |
 | GStreamer core, its plugin sets and glib | LGPL-2.1-or-later | https://gitlab.freedesktop.org/gstreamer/gstreamer |
+| glib-networking's gnutls module, the TLS behind every `rtsps://` leg, and GnuTLS itself | LGPL-2.1-or-later | https://gitlab.gnome.org/GNOME/glib-networking and https://www.gnutls.org/ |
 | Individual plugins that link a GPL library, among them `x264enc` in `gst-plugins-ugly`, `x265enc` in `gst-plugins-bad` and `gst-libav` | GPL, taken from the library each one links | The same, and https://www.videolan.org/developers/x264.html |
 | libsrt | MPL-2.0 | https://github.com/Haivision/srt |
 | libnice | LGPL-2.1-or-later or MPL-1.1 | https://gitlab.freedesktop.org/libnice/libnice |

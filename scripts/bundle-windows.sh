@@ -27,7 +27,7 @@ prefix=${MINGW_PREFIX:-/mingw64}
 # the directory to POSIX, because ldd is given it,
 # and the prefix to Windows, because ldd's answers are converted to that form to compare against it.
 if ! command -v cygpath >/dev/null 2>&1; then
-    echo "cygpath not found: run this from the MSYS2 MINGW64 shell" >&2
+    echo "cygpath not found: run this from the MSYS2 MINGW64 shell, or with MSYS2's usr/bin on PATH as task bundle:windows does" >&2
     exit 1
 fi
 bin=$(cygpath -u "$bin")
@@ -43,6 +43,28 @@ backend="$bin/mirrorme-backend.exe"
 # A zip with the launcher alone therefore ships a GStreamer runtime the app refuses to use.
 tools=(gst-launch-1.0.exe gst-inspect-1.0.exe)
 
+# GLib carries no TLS of its own and takes it from a GIO module, glib-networking's.
+# Without it every rtsps:// leg fails at the connect, on both sides of the app:
+# the test streams and every RTSP publish through rtspclientsink, every tile through rtspsrc,
+# and nothing on the way names TLS. gst-launch reports "Failed to connect. (Generic error)",
+# and the relay logs a connection that opened and closed
+# (nix/package.nix carries the same module for the same reason).
+#
+# The gnutls module alone. glib-networking also ships two proxy modules,
+# and GIO loads every module it finds in a directory:
+# the libproxy one wants a library nothing here links,
+# and the GNOME one aborts the process over the GSettings schemas a bundle carries none of.
+#
+# Beside the binary under a directory of the bundle's own, named to every process through
+# GIO_EXTRA_MODULES the way the plugins are through GST_PLUGIN_PATH
+# (backend/internal/gstbundle answers both, for this process and for the children).
+# Not the lib/gio/modules GIO scans unaided: on Windows it derives that directory from where its
+# own DLL sits and strips a trailing "bin" or "lib" first, so the same layout loads under one
+# directory name and silently does not under another, build/bin among them.
+gio_source_dir=lib/gio/modules
+gio_module_dir=gio-modules
+gio_modules=(libgiognutls.dll)
+
 if [ ! -f "$backend" ]; then
     echo "$backend does not exist: build it with 'task build:windows' first" >&2
     exit 1
@@ -54,6 +76,12 @@ fi
 for tool in "${tools[@]}"; do
     if [ ! -f "$prefix/bin/$tool" ]; then
         echo "$prefix/bin/$tool does not exist: install the MSYS2 gstreamer packages first" >&2
+        exit 1
+    fi
+done
+for module in "${gio_modules[@]}"; do
+    if [ ! -f "$prefix/$gio_source_dir/$module" ]; then
+        echo "$prefix/$gio_source_dir/$module does not exist: install the MSYS2 glib-networking package first" >&2
         exit 1
     fi
 done
@@ -75,7 +103,13 @@ done
 mkdir -p "$bin/gstreamer-1.0"
 cp -f "$prefix"/lib/gstreamer-1.0/*.dll "$bin/gstreamer-1.0/"
 
-# The DLLs come from the closure of the binary and of every plugin, walked to a fixed point:
+# The TLS module, in the directory the backend names to GIO (gio_module_dir above).
+mkdir -p "$bin/$gio_module_dir"
+for module in "${gio_modules[@]}"; do
+    cp -f "$prefix/$gio_source_dir/$module" "$bin/$gio_module_dir/"
+done
+
+# The DLLs come from the closure of the binary, of every plugin and of the TLS module, walked to a fixed point:
 # a plugin pulls in libraries the backend itself never links,
 # and ldd resolves one level per call on some builds.
 #
@@ -89,6 +123,9 @@ for tool in "${tools[@]}"; do
 done
 for plugin in "$bin"/gstreamer-1.0/*.dll; do
     queue+=("$plugin")
+done
+for module in "${gio_modules[@]}"; do
+    queue+=("$bin/$gio_module_dir/$module")
 done
 
 while [ ${#queue[@]} -gt 0 ]; do
@@ -122,4 +159,4 @@ fi
 # and it answers "File not found - *.dll" and a count of zero over a directory holding plugins.
 plugins=("$bin"/gstreamer-1.0/*.dll)
 
-echo "bundled $copied libraries, ${tools[*]} and ${#plugins[@]} GStreamer plugins into $bin"
+echo "bundled $copied libraries, ${tools[*]}, ${#plugins[@]} GStreamer plugins and ${gio_modules[*]} into $bin"

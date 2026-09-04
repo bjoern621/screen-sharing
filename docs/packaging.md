@@ -195,8 +195,14 @@ A machine registering none of the `gl` elements falls back to the CPU chain rath
 A machine that runs the app has no MSYS2, so `scripts/bundle-windows.sh` copies the runtime beside the binaries:
 
 - the DLL closure of the backend, of `gst-launch-1.0.exe` and of every installed plugin, flat next to the executables where the Windows loader looks first,
-- `gst-launch-1.0.exe` itself,
-- the plugins under `gstreamer-1.0`.
+- `gst-launch-1.0.exe` and `gst-inspect-1.0.exe`, the launcher the test streams and the encode-rate probe spawn and the inspector the encoder probe asks,
+- the plugins under `gstreamer-1.0`,
+- glib-networking's gnutls module under `gio-modules`.
+
+GLib carries no TLS of its own and takes it from a GIO module, so a bundle without one fails every `rtsps://` leg at the connect, the test streams and the RTSP watch included, and names TLS nowhere: `rtspclientsink` and `rtspsrc` both report `Failed to connect. (Generic error)`.
+The Nix package wraps the backend in `GIO_EXTRA_MODULES` for the same module, and the bundle is named to GIO the same way: `backend/internal/gstbundle` answers where the plugins and the module went, as `GST_PLUGIN_PATH` and `GIO_EXTRA_MODULES`, and the backend sets both on itself, on the decode host and on every `gst-launch-1.0.exe` and `gst-inspect-1.0.exe` child.
+Not the `lib/gio/modules` GIO would scan unaided: on Windows it derives that directory from where its own DLL sits and strips a trailing `bin` or `lib` first, so a layout that loads under `mirrorme-<version>-windows-x86_64` silently loads nothing under `build/bin`.
+The gnutls module alone travels, glib-networking's two proxy modules being ones a bundle cannot carry: GIO loads every module in the directory, the libproxy one wants a library nothing here links, and the GNOME one aborts the process over the GSettings schemas no bundle ships.
 
 No GLib schema, icon theme or font is bundled, the shell shipping its own (`avalonia/README.md`).
 
@@ -291,7 +297,7 @@ The backend links GStreamer through cgo and no cross toolchain builds that from 
 Install MSYS2, then from its MINGW64 shell:
 
 ```bash
-pacman -S mingw-w64-x86_64-{toolchain,pkgconf,gstreamer} \
+pacman -S mingw-w64-x86_64-{toolchain,pkgconf,gstreamer,glib-networking} \
           mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
 ```
 

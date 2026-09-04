@@ -100,9 +100,10 @@ func (c *Client) spawn() error {
 	}
 
 	cmd := exec.Command(exe, Subcommand, socket)
-	// The child is the process that plays the pipelines, so the plugin path belongs to it.
-	if path, ok := gstbundle.PluginPath(); ok {
-		cmd.Env = append(os.Environ(), gstbundle.PathVar+"="+path)
+	// The child is the process that plays the pipelines, so the plugin path and the TLS module
+	// belong to it.
+	if env := gstbundle.Env(); len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
 	}
 	cmd.Stdout = logFile
 

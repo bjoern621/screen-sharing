@@ -292,9 +292,13 @@ tasks:
     # Git Bash ships an ldd and a cygpath of its own
     # and sets MINGW_PREFIX to a /mingw64 carrying no GStreamer at all,
     # so left to the shell this bundles the wrong tree or nothing.
-    # The prefix is on PATH so ldd can resolve the DLLs it reports.
+    # The prefix is on PATH so ldd can resolve the DLLs it reports,
+    # and MSYS2's usr/bin behind it because cygpath and that ldd live there:
+    # sh.exe started from a native shell adds neither by itself,
+    # and a PowerShell PATH carries no other copy, so without it the script stops at
+    # "cygpath not found" before copying anything.
     cmds:
       - cmd: >-
-          MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;$PATH"
+          MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;{{.MSYS2_ROOT}}/usr/bin;$PATH"
           '{{.MSYS2_ROOT}}/usr/bin/sh.exe' '{{.ROOT_DIR}}/scripts/bundle-windows.sh'
           '{{.ROOT_DIR}}/build/bin'
