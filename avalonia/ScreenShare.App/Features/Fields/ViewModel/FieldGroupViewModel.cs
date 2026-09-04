@@ -55,11 +55,20 @@ public sealed class FieldGroupViewModel : Observable
     /// Takes the two edges of a gesture on one of these controls, null where the screen has nowhere to report them
     /// (<see cref="FieldViewModel.IsSweeping"/>).
     /// </param>
+    /// <summary>Which keys stay visible while the fold is closed. Null keeps every control on the floor.</summary>
+    private readonly Func<string, bool>? _onFloor;
+
+    /// <param name="onFloor">
+    /// The step's floor, null where the screen folds nothing (the viewer's watch panel).
+    /// A table rather than a flag per field: the fold is placement, which is this side's to decide
+    /// (<c>avalonia/README.md</c>).
+    /// </param>
     public FieldGroupViewModel(
         Action<string, FieldValue> write,
         Func<string, FieldAction?>? actionOf = null,
         Func<FieldGroup, GroupAction?>? groupActionOf = null,
-        Action<bool>? sweep = null)
+        Action<bool>? sweep = null,
+        Func<string, bool>? onFloor = null)
     {
         Assert.NotNull(write, "a group needs somewhere to report what the user moved");
 
@@ -67,7 +76,10 @@ public sealed class FieldGroupViewModel : Observable
         _actionOf = actionOf ?? (_ => null);
         _groupActionOf = groupActionOf ?? (_ => null);
         _sweep = sweep;
+        _onFloor = onFloor;
         Fields = [];
+        Floor = [];
+        Folded = [];
     }
 
     // --- Outputs ------------------------------------------------------------------
@@ -82,6 +94,17 @@ public sealed class FieldGroupViewModel : Observable
 
     /// <summary>Visible controls only, in the form's order. A hidden field is absent rather than collapsed.</summary>
     public ObservableCollection<FieldViewModel> Fields { get; }
+
+    /// <summary>
+    /// <see cref="Fields"/> split by the floor: what the step shows while the fold is closed, and the rest.
+    /// The same view model instances, so a bespoke step reading <see cref="Fields"/> sees every control.
+    /// </summary>
+    public ObservableCollection<FieldViewModel> Floor { get; }
+
+    public ObservableCollection<FieldViewModel> Folded { get; }
+
+    /// <summary>The disclosure over <see cref="Folded"/>.</summary>
+    public FoldViewModel Fold { get; } = new();
 
     public string Title { get => _title; private set => Set(ref _title, value); }
 
@@ -138,8 +161,19 @@ public sealed class FieldGroupViewModel : Observable
         Action = group is null ? null : _groupActionOf(group);
         HasAction = Action is not null;
 
-        Reconcile.Onto(Fields, Rendered(group, words, answered));
+        var rendered = Rendered(group, words, answered);
+        Reconcile.Onto(Fields, rendered);
 
+        // Split second, off the one rendered list, so the two halves and the whole cannot disagree.
+        // The fold's own open state is the reader's and stays untouched here.
+        var floor = _onFloor is null ? rendered : [.. rendered.Where(model => _onFloor(model.Key))];
+        Reconcile.Onto(Floor, floor);
+        Reconcile.Onto(Folded, _onFloor is null ? [] : [.. rendered.Where(model => !_onFloor(model.Key))]);
+        Fold.Apply(Folded.Count);
+
+        Assert.That(
+            Floor.Count + Folded.Count == Fields.Count,
+            "every drawn control stands on the floor or behind the fold", Floor.Count, Folded.Count, Fields.Count);
         Assert.That(
             IsResolved || Fields.Count == 0,
             "a group the form did not carry draws no fields", Title, Fields.Count);

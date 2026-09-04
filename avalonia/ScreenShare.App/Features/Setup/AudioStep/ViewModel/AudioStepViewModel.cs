@@ -69,6 +69,12 @@ public sealed class AudioStepViewModel : Observable
     /// <summary>Every control of the group that belongs to no entry, drawn under the list.</summary>
     public ObservableCollection<FieldViewModel> UnderList { get; }
 
+    /// <summary>
+    /// The disclosure over <see cref="UnderList"/>.
+    /// The source rows are the step's floor; the format under them has a default behind it and folds.
+    /// </summary>
+    public FoldViewModel Fold { get; } = new();
+
     public string Title { get => _title; private set => Set(ref _title, value); }
 
     public string Help { get => _help; private set => Set(ref _help, value); }
@@ -182,6 +188,7 @@ public sealed class AudioStepViewModel : Observable
 
         Reconcile.Onto(Rows, rows);
         Reconcile.Onto(UnderList, under);
+        Fold.Apply(UnderList.Count);
 
         HasRows = Rows.Count > 0;
         LiveLine = LiveLineOf(Rows.Count > 0 ? Rows[0] : null);

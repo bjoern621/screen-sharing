@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:copy="using:ScreenShare.App.Copy"
              xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
              xmlns:vm="using:ScreenShare.App.Features.Setup.AudioStep.ViewModel"
              xmlns:ti="using:TablerIcons"
@@ -194,12 +195,25 @@
         </StackPanel>
       </Button>
 
+      <!-- The format's fold: a default stands behind it, so the rows above keep the floor to themselves. -->
+      <Button Theme="{StaticResource LinkButton}"
+              HorizontalAlignment="Left"
+              Margin="0,18,0,0"
+              IsVisible="{Binding Fold.HasAny}"
+              Command="{Binding Fold.ToggleCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ti:TablerIcon Icon="{Binding Fold.Glyph}" Brush="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+          <TextBlock Classes="secondary" Text="{x:Static copy:Fields.AdvancedTitle}" VerticalAlignment="Center" />
+          <TextBlock Classes="hint" Text="{Binding Fold.Count}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+
       <!--
         Everything the group holds that belongs to no entry, drawn under the list in the form's order.
         Every control kind the contract carries is here,
         so a field the backend adds to this group is drawn without an edit to this file.
       -->
-      <ItemsControl ItemsSource="{Binding UnderList}" Margin="0,18,0,0">
+      <ItemsControl ItemsSource="{Binding UnderList}" Margin="0,12,0,0" IsVisible="{Binding Fold.Shown}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="fields:FieldViewModel">
             <StackPanel Spacing="6" Margin="0,0,0,18">

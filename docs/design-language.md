@@ -121,6 +121,14 @@ The status band along the foot states the running build, leading the row and dra
 The figures beside it speak for the viewer alone, where the build is the app's own fact and holds wherever the reader is standing.
 It goes here rather than in the title bar because the foot is the one band every platform draws.
 
+## The wizard's floor
+
+A setup step shows what a guest has to touch: the screen to send, the group to join, the sources to record.
+Everything else folds behind the step's disclosure, closed on every launch (`Features/Setup/Model/FloorLayout.cs`).
+A preset or a shipped default stands behind every folded control.
+The quality step folds whole, the Advanced card with it, and the audio step folds the format under its rows.
+The fold is view state: opening one is the reader's press, and no run remembers it.
+
 ## Narrow windows
 
 A window is the width the desktop gives it.

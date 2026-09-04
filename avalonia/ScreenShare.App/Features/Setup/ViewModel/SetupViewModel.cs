@@ -900,7 +900,7 @@ public sealed class SetupViewModel : Observable
             return group;
         }
 
-        group = new FieldGroupViewModel(Write, ActionFor, GroupActionFor, _form.Sweeping);
+        group = new FieldGroupViewModel(Write, ActionFor, GroupActionFor, _form.Sweeping, FloorLayout.OnFloor);
         _groups[key] = group;
         return group;
     }

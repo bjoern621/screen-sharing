@@ -27,8 +27,14 @@ public static class Fields
     /// </summary>
     public const string RefusedTitle = "Unavailable options";
 
-    /// <summary>Entries held back, beside the disclosure: the figure says whether opening it is worth the trip.</summary>
-    public static string RefusedCount(int count) => count == 1 ? "1 option" : $"{count} options";
+    /// <summary>
+    /// Names where a step's folded controls are, on the same terms as <see cref="RefusedTitle"/>:
+    /// the presets and the shipped defaults already cover them.
+    /// </summary>
+    public const string AdvancedTitle = "Advanced options";
+
+    /// <summary>Entries held back, beside a disclosure: the figure says whether opening it is worth the trip.</summary>
+    public static string OptionCount(int count) => count == 1 ? "1 option" : $"{count} options";
 
     /// <summary>
     /// One control's copy.

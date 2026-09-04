@@ -1,5 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:copy="using:ScreenShare.App.Copy"
+             xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Fields.ViewModel"
              x:Class="ScreenShare.App.Features.Fields.View.FieldGroupView"
              x:DataType="vm:FieldGroupViewModel">
@@ -31,7 +33,24 @@
                  IsVisible="{Binding HasHelp}"
                  Text="{Binding Help}" />
 
-      <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldRow}" />
+      <ItemsControl ItemsSource="{Binding Floor}" ItemTemplate="{StaticResource FieldRow}" />
+
+      <!-- The step's fold: what the floor leaves out, behind a closed disclosure (Setup/Model/FloorLayout.cs). -->
+      <Button Theme="{StaticResource LinkButton}"
+              HorizontalAlignment="Left"
+              IsVisible="{Binding Fold.HasAny}"
+              Command="{Binding Fold.ToggleCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ti:TablerIcon Icon="{Binding Fold.Glyph}" Brush="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+          <TextBlock Classes="secondary" Text="{x:Static copy:Fields.AdvancedTitle}" VerticalAlignment="Center" />
+          <TextBlock Classes="hint" Text="{Binding Fold.Count}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+
+      <ItemsControl ItemsSource="{Binding Folded}"
+                    ItemTemplate="{StaticResource FieldRow}"
+                    IsVisible="{Binding Fold.Shown}"
+                    Margin="0,12,0,0" />
     </StackPanel>
   </Border>
 

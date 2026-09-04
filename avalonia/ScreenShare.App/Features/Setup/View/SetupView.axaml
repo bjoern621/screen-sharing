@@ -109,7 +109,10 @@
         <controls:CardColumn Spacing="{StaticResource GapPanel}">
           <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsQuality}">
             <quality:QualityStepView DataContext="{Binding Quality}" />
-            <advanced:AdvancedGroupView DataContext="{Binding Advanced}" />
+            <!-- Behind the step's fold with everything else quality; the wrapper keeps the binding on this flow. -->
+            <Panel IsVisible="{Binding Quality.Fold.Shown}">
+              <advanced:AdvancedGroupView DataContext="{Binding Advanced}" />
+            </Panel>
           </controls:CardColumn>
 
           <!--

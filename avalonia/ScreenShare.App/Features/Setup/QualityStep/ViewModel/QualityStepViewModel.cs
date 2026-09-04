@@ -72,6 +72,13 @@ public sealed class QualityStepViewModel : Observable
         Apply();
     }
 
+    /// <summary>
+    /// The disclosure the whole step sits behind: every quality control is covered by a preset,
+    /// so the floor of this step is empty and the fold carries it all, the Advanced card included
+    /// (<c>Setup/View/SetupView.axaml</c> gates that card on it).
+    /// </summary>
+    public FoldViewModel Fold { get; } = new();
+
     /// <summary>Read-back row: every control the group offers as a select, in the form's order.</summary>
     public ObservableCollection<FieldViewModel> Selects { get; }
 
@@ -144,6 +151,9 @@ public sealed class QualityStepViewModel : Observable
         ApplyQuantizerLabels();
 
         Reconcile.Onto(Selects, Placed());
+
+        // The whole group: mode, quantizer, selects and the Advanced card's rows all sit behind the fold.
+        Fold.Apply(_group.Fields.Count);
 
         Assert.That(IsResolved || Selects.Count == 0, "a step the form did not describe draws no controls", Selects.Count);
         Assert.That(HasMode == (Mode is not null), "the mode flag and the mode agree", HasMode);

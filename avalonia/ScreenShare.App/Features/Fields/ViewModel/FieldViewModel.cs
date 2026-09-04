@@ -584,7 +584,7 @@ public sealed class FieldViewModel : Observable
         // so a control whose last refused entry became reachable stops drawing a disclosure over nothing.
         var refused = Options.Count(option => !option.IsEnabled);
         HasRefused = refused > 0;
-        RefusedCount = refused > 0 ? Copy.Fields.RefusedCount(refused) : "";
+        RefusedCount = refused > 0 ? Copy.Fields.OptionCount(refused) : "";
         RefusedGlyph = RefusedShown ? Icons.IconChevronDown : Icons.IconChevronRight;
         Reconcile.Onto(Shown, ShownRows());
         Reconcile.Onto(MenuRows, MenuRowsOf());
