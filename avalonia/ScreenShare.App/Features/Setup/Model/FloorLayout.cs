@@ -14,6 +14,7 @@ public static class FloorLayout
     private static readonly HashSet<string> Floor =
     [
         "publish.monitor",
+        "relay.discord_mode",
         "relay.group_key",
         "relay.display_name",
     ];

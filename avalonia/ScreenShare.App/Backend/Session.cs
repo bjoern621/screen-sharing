@@ -220,6 +220,12 @@ public sealed class Session
     public MembersState? Members { get; private set; }
 
     /// <summary>
+    /// Discord mode as the backend's last manager pass read it: link, channel and freshness.
+    /// Null until the first read lands, and the zero state while the mode has never run a pass.
+    /// </summary>
+    public DiscordState? Discord { get; private set; }
+
+    /// <summary>
     /// Synthetic publishers this machine runs, a row per slot of the set.
     /// Null until the first read lands, an empty set being a different reading from an unread one.
     /// </summary>
@@ -421,6 +427,7 @@ public sealed class Session
         var receiving = await _backend.ReceivingAsync(cancellation).ConfigureAwait(false);
         var previewed = await _backend.PreviewedMonitorsAsync(cancellation).ConfigureAwait(false);
         var members = await _backend.MembersAsync(cancellation).ConfigureAwait(false);
+        var discord = await _backend.DiscordAsync(cancellation).ConfigureAwait(false);
         var testStreams = await _backend.TestStreamsAsync(cancellation).ConfigureAwait(false);
         var version = await _backend.VersionAsync(cancellation).ConfigureAwait(false);
 
@@ -439,6 +446,7 @@ public sealed class Session
             Receiving = receiving;
             PreviewedMonitors = previewed;
             Members = members;
+            Discord = discord;
             TestStreams = testStreams;
             IsLoaded = true;
         });
@@ -615,6 +623,11 @@ public sealed class Session
                 // The whole group on every presence the service answers, so a shell draws it rather than merging
                 // arrivals and departures into what it held.
                 Members = change.MembersState;
+                break;
+
+            case Event.PayloadOneofCase.DiscordState:
+                // A whole state on every Discord pass, the members state's companion.
+                Discord = change.DiscordState;
                 break;
 
             case Event.PayloadOneofCase.TestStreamState:

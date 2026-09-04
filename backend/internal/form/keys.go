@@ -26,6 +26,7 @@ import (
 const (
 	KeyRelayHost   = "relay.host"
 	KeyRelayTls    = "relay.tls"
+	KeyDiscordMode = "relay.discord_mode"
 	KeyGroupKey    = "relay.group_key"
 	KeyDisplayName = "relay.display_name"
 	KeySrtPort     = "relay.srt_port"

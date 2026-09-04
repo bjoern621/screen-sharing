@@ -18,7 +18,7 @@ import (
 // An anchor no shell has a widget for renders the diagnostic nowhere and reports nothing,
 // so every anchor a rule below writes is held against this list.
 var warningAnchors = []string{
-	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
+	KeyRelayHost, KeyRelayTls, KeyDiscordMode, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
@@ -110,6 +110,20 @@ var warningPeaks = map[string]string{
 func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
 	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.InGroup() {
 		return nil
+	}
+	// Discord mode's two missing halves, both anchored on the toggle:
+	// the manual controls are greyed there, so neither can carry the refusal.
+	// InGroup above already read the brokered membership the resolve injected
+	// (internal/app, Brokered), so reaching here is really being outside.
+	if s.Relay.DiscordMode {
+		if s.Relay.DiscordLink == "" {
+			return []*screensharev1.Diagnostic{
+				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordNotLinked)),
+			}
+		}
+		return []*screensharev1.Diagnostic{
+			diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordNoVoiceChannel)),
+		}
 	}
 	if s.Relay.GroupKey == "" {
 		return []*screensharev1.Diagnostic{

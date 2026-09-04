@@ -180,6 +180,12 @@ public static class Cards
 
     public const string GridIdle = "Nobody in the group is sharing a screen.";
 
+    public const string GridUnlinked =
+        "Not linked to Discord. Link Discord on the Relay step, and the group follows the voice channel.";
+
+    public const string GridNoChannel =
+        "Not in a voice channel. Join one in Discord, and every member's stream shows here.";
+
     public const string GridUnwatched = "Nothing is picked to watch. Click a stream on the left to open its picture.";
 
     // --- The synthetic publishers ---------------------------------------------------

@@ -290,6 +290,20 @@ public sealed class ControlBackend : IBackend
             cancellation);
     }
 
+    /// <inheritdoc />
+    public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.GetDiscordStateAsync(new GetDiscordStateRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
+    public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(relay, "a link runs against the relay the draft names");
+
+        return ReadAsync(
+            c => c.LinkDiscordAsync(new LinkDiscordRequest { Relay = relay }, cancellationToken: cancellation),
+            cancellation);
+    }
+
 
     /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)

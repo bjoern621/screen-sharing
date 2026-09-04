@@ -507,6 +507,17 @@ public static class Statements
                 "Sharing needs a group, and this computer is in none. Set a group key to join one, "
                 + "or create a group and share its key.",
 
+            TextCode.GroupFollowsDiscord =>
+                "The group follows the voice channel while Follow Discord is on. "
+                + "Turn it off to set a key and a name by hand.",
+
+            TextCode.DiscordNotLinked =>
+                "Follow Discord is on, but this computer is not linked to a Discord account. "
+                + "Press Link Discord under Relay.",
+
+            TextCode.DiscordNoVoiceChannel =>
+                "Not in a voice channel. Join one in Discord to get a group.",
+
             TextCode.EncryptionFollowsTheAddress =>
                 "Encryption follows the relay address above. This box shows the result rather than setting it. "
                 + "A relay on this computer or the local network is reached directly. Anything further away "

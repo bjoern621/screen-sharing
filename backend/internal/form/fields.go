@@ -410,6 +410,15 @@ var fieldTable = []field{
 	// a port answered against no host being a number about nothing,
 	// and which port is read follows from the leg chosen further up.
 	{
+		// The group follows the voice channel this machine's linked Discord account sits in
+		// (docs/discord-mode.md).
+		// Ahead of the key and the name, being the fact that decides whether either is read.
+		key:     KeyDiscordMode,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.DiscordMode) },
+	},
+	{
 		// The group is where every stream of this machine lives on the relay.
 		//
 		// Text and not a list, the key being a secret somebody was handed: the key service draws it,

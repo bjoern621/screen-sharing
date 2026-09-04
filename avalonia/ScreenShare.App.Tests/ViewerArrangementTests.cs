@@ -138,6 +138,12 @@ public sealed class ViewerArrangementTests
         public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
             => _seed.MembersAsync(cancellation);
 
+        public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
+            => _seed.DiscordAsync(cancellation);
+
+        public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
+            => _seed.LinkDiscordAsync(relay, cancellation);
+
         public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
             => _seed.TestStreamsAsync(cancellation);
 

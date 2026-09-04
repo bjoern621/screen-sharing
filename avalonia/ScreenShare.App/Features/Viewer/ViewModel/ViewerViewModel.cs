@@ -447,7 +447,9 @@ public sealed class ViewerViewModel : Observable
         Members.Reported = _session.Members;
         Members.Apply();
 
-        GridEmptyLine = GridEmpty.For(_session.Members, Streams.Count, _tiles.Count, relay?.Reachable == true);
+        GridEmptyLine = GridEmpty.For(
+            _session.Members, _session.Discord, _form.Stored?.Relay?.DiscordMode == true,
+            Streams.Count, _tiles.Count, relay?.Reachable == true);
         ShowsGridEmpty = GridEmptyLine.Length > 0;
 
         // Draws from the same draft on every pass,

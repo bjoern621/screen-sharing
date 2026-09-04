@@ -618,6 +618,21 @@ internal sealed class SeededBackend : IBackend
     public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
         => Task.FromResult(Members);
 
+    /// <summary>Discord mode as a manager pass would have read it. Unlinked until a test says otherwise.</summary>
+    public DiscordState Discord { get; set; } = new();
+
+    public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
+        => Task.FromResult(Discord);
+
+    /// <summary>Presses recorded, the reading staying where the test put it, as the group effects do.</summary>
+    public List<RelaySettings> DiscordLinks { get; } = [];
+
+    public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
+    {
+        DiscordLinks.Add(relay);
+        return Task.CompletedTask;
+    }
+
     /// <summary>Synthetic publishers, none until a test states a set.</summary>
     public TestStreamState TestStreams { get; set; } = new();
 
@@ -1583,6 +1598,7 @@ internal sealed class SeededBackend : IBackend
             Fields =
             [
                 new() { Key = "relay.host", Control = ControlKind.Text },
+                new() { Key = "relay.discord_mode", Control = ControlKind.Toggle },
                 new() { Key = "relay.group_key", Control = ControlKind.Text },
                 new() { Key = "relay.srt_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },

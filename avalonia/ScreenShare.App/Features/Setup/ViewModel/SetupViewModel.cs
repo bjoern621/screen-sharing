@@ -124,6 +124,16 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private readonly PendingCommand _createGroup;
 
+    /// <summary>
+    /// Links this install to a Discord account.
+    /// The round trip holds while the person clicks through the browser leg,
+    /// so the button waits it out on the same field every pending call draws from.
+    /// </summary>
+    private readonly PendingCommand _linkDiscord;
+
+    /// <summary>What the last link attempt answered where it failed, empty otherwise.</summary>
+    private string _linkFailed = "";
+
     // --- What the screen is drawn from ---------------------------------------------
 
     /// <summary>
@@ -207,6 +217,11 @@ public sealed class SetupViewModel : Observable
         // (backend/internal/settings, Relay.GroupService).
         _createGroup = new PendingCommand(
             CreateGroupAsync, dispatch, () => _form.Draft is not null && _form.Draft.Relay is not null
+                && _form.Draft.Relay.Host.Length > 0);
+
+        // Linking runs against the manager beside the relay, so it is pressable on the same ground.
+        _linkDiscord = new PendingCommand(
+            LinkDiscordAsync, dispatch, () => _form.Draft is not null && _form.Draft.Relay is not null
                 && _form.Draft.Relay.Host.Length > 0);
 
         // News that the draft, or the form behind it, moved: the one thing this flow draws from.
@@ -535,6 +550,7 @@ public sealed class SetupViewModel : Observable
         RetryCommand.Refresh();
         _measure.Refresh();
         _createGroup.Refresh();
+        _linkDiscord.Refresh();
 
         var forms = (ShowsFields ? 1 : 0) + (ShowsQuality ? 1 : 0) + (ShowsAudio ? 1 : 0) + (ShowsReview ? 1 : 0);
 
@@ -691,6 +707,70 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private string GroupNotice()
         => GroupRefusal() is { Length: > 0 } refusal ? refusal : _groupDrawn;
+
+    /// <summary>
+    /// Runs the link, on the terms <see cref="CreateGroupAsync"/> runs on.
+    /// Nothing is written back here: the secret lands in the stored settings on the backend's side,
+    /// and the settings-changed announcement is what moves the draft.
+    /// </summary>
+    private async Task LinkDiscordAsync()
+    {
+        _linkFailed = "";
+        Apply();
+
+        var relay = _form.Draft?.Relay;
+        if (relay is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _backend.LinkDiscordAsync(relay).ConfigureAwait(false);
+            _dispatch(Apply);
+        }
+        catch (BackendUnavailableException e)
+        {
+            _dispatch(() => LinkFailed(e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+            _dispatch(() => LinkFailed(""));
+        }
+    }
+
+    /// <summary>Takes a link that did not land, on the UI loop.</summary>
+    private void LinkFailed(string reason)
+    {
+        _linkFailed = reason;
+        Apply();
+    }
+
+    /// <summary>
+    /// What the link button carries beside it: the failure of the last attempt,
+    /// or the Discord state as the backend's last pass read it.
+    /// </summary>
+    private string LinkNotice()
+    {
+        if (_linkFailed.Length > 0)
+        {
+            return _linkFailed;
+        }
+
+        var discord = _session.Discord;
+        if (discord is null)
+        {
+            return "";
+        }
+        var state = !discord.Linked
+            ? "Not linked yet."
+            : discord.InChannel
+                ? $"Linked. Sharing follows {discord.ChannelName} in {discord.GuildName}."
+                : "Linked. Join a voice channel in Discord to get a group.";
+        return discord.Stale
+            ? state + " The Discord manager is not answering, so this may be out of date."
+            : state;
+    }
 
     /// <summary>
     /// Takes the measured figure, on the UI loop.
@@ -960,6 +1040,11 @@ public sealed class SetupViewModel : Observable
             "Draws a new group key at the relay and puts it in the box. Hand the key to the people who should be able to watch. Leaving the box empty publishes where anyone can watch.",
             GroupNotice(),
             _createGroup),
+        RelayLayout.DiscordModeKey => new FieldAction(
+            "Link Discord",
+            "Opens the browser on Discord's consent screen and ties this computer to a Discord account. One time per computer. The link is what tells the relay which voice channel this computer follows.",
+            LinkNotice(),
+            _linkDiscord),
         _ => null,
     };
 

@@ -129,6 +129,13 @@ public interface IBackend
     Task<MembersState> MembersAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// Discord mode as the backend's last manager pass read it: the link, the channel and its freshness.
+    /// Meaningful while the settings hold Discord mode, and the zero state before a pass has run.
+    /// The same state arrives on the event stream thereafter, as the members state does.
+    /// </summary>
+    Task<DiscordState> DiscordAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Synthetic publishers this machine runs, one entry per slot of the set whether or not a child is filling
     /// it.
     /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable only
@@ -277,6 +284,13 @@ public interface IBackend
     /// A relay with no group service is refused with the backend's own sentence.
     /// </summary>
     Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Links this install to a Discord account at the relay's manager, holding the call while the person
+    /// completes the browser leg: the backend opens the consent flow and stores the secret it lands with.
+    /// The stored settings moving is announced like any other settings write, so the answer carries nothing.
+    /// </summary>
+    Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens an external viewer for one stream over one transport.

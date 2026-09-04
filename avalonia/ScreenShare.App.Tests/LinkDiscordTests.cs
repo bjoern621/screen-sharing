@@ -1,0 +1,95 @@
+using ScreenShare.Api.V1;
+using ScreenShare.App.Backend;
+using ScreenShare.App.Features.Fields.ViewModel;
+using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.ViewModel;
+using Xunit;
+
+namespace ScreenShare.App.Tests;
+
+/// <summary>
+/// The Discord toggle carries the button that links this install,
+/// so tying the group to a voice channel is reachable where the mode is switched on.
+/// The secret lands in the stored settings on the backend's side,
+/// which is why the press writes nothing here and the notice reads the session's Discord state.
+/// </summary>
+public sealed class LinkDiscordTests
+{
+    private static async Task<SetupViewModel> FlowAsync(SeededBackend backend)
+    {
+        var flow = Flows.Setup(backend);
+        await flow.Settled;
+        return flow;
+    }
+
+    /// <summary>Toggle control, reached by moving the flow to the step the form puts the relay on.</summary>
+    private static FieldViewModel DiscordMode(SetupViewModel flow)
+    {
+        flow.CurrentStep = "relay";
+        return flow.CurrentGroup!.Fields.Single(field => field.Key == RelayLayout.DiscordModeKey);
+    }
+
+    [Fact]
+    public async Task TheToggleCarriesTheButtonThatLinks()
+    {
+        var flow = await FlowAsync(new SeededBackend("linux"));
+
+        Assert.True(DiscordMode(flow).HasAction);
+        Assert.Equal("Link Discord", DiscordMode(flow).Action!.Label);
+        Assert.True(DiscordMode(flow).Action!.Command.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task APressRunsTheLinkAgainstTheDraftsRelay()
+    {
+        var backend = new SeededBackend("linux");
+        var flow = await FlowAsync(backend);
+
+        DiscordMode(flow).Action!.Command.Execute(null);
+        await flow.Settled;
+
+        var linked = Assert.Single(backend.DiscordLinks);
+        Assert.Equal(backend.RelayHost, linked.Host);
+    }
+
+    /// <summary>
+    /// The notice beside the button is the session's Discord state,
+    /// so what the reader stands in is readable without pressing anything.
+    /// </summary>
+    [Fact]
+    public async Task TheNoticeNamesTheChannelTheGroupFollows()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState
+            {
+                Linked = true, InChannel = true,
+                GuildName = "Guild", ChannelName = "General",
+            },
+        };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        // The notice reads the session's Discord state, so the session has to have loaded it,
+        // and the pass after that load is what composes the action row again.
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.True(DiscordMode(flow).HasActionNotice);
+        Assert.Contains("General", DiscordMode(flow).ActionNotice);
+        Assert.Contains("Guild", DiscordMode(flow).ActionNotice);
+    }
+
+    [Fact]
+    public async Task AMachineWithNoRelayCannotLink()
+    {
+        var flow = await FlowAsync(new SeededBackend("linux") { RelayHost = "" });
+
+        Assert.True(DiscordMode(flow).HasAction);
+        Assert.False(DiscordMode(flow).Action!.Command.CanExecute(null));
+    }
+}

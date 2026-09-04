@@ -17,4 +17,10 @@ public static class RelayLayout
 
     /// <summary>Secret whose possession is membership of a group.</summary>
     public const string GroupKeyKey = "relay.group_key";
+
+    /// <summary>
+    /// The toggle tying the group to the voice channel, named here because linking is an effect too:
+    /// the browser leg runs on a press, and what it stores lands in the settings like something pasted.
+    /// </summary>
+    public const string DiscordModeKey = "relay.discord_mode";
 }

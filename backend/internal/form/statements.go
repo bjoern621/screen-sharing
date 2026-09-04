@@ -88,6 +88,9 @@ const (
 
 	groupRequired               = screensharev1.TextCode_TEXT_CODE_GROUP_REQUIRED
 	groupNameMissing            = screensharev1.TextCode_TEXT_CODE_GROUP_NAME_MISSING
+	groupFollowsDiscord         = screensharev1.TextCode_TEXT_CODE_GROUP_FOLLOWS_DISCORD
+	discordNotLinked            = screensharev1.TextCode_TEXT_CODE_DISCORD_NOT_LINKED
+	discordNoVoiceChannel       = screensharev1.TextCode_TEXT_CODE_DISCORD_NO_VOICE_CHANNEL
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
 

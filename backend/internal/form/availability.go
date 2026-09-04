@@ -103,12 +103,27 @@ var availabilityRules = map[string]func(availability) state{
 	KeyRelayTls: func(availability) state {
 		return availabilityDisabled(say(encryptionFollowsTheAddress))
 	},
-	KeyGroupKey: func(availability) state { return availabilityLive() },
+	// The toggle stays live in both modes, being what moves between them.
+	KeyDiscordMode: func(availability) state { return availabilityLive() },
+	// Both manual group controls grey while the group follows the voice channel:
+	// the key is unread there and the name comes off the Discord account,
+	// so either would be a control that changes nothing (docs/discord-mode.md).
+	KeyGroupKey: func(av availability) state {
+		if av.s.Relay.DiscordMode {
+			return availabilityDisabled(say(groupFollowsDiscord))
+		}
+		return availabilityLive()
+	},
 	// A name is claimed per group, so no capture backend, encoder
 	// or leg on this screen rules one out.
 	// An empty name greys nothing either: it is what leaves this machine outside the group
 	// the key names, and this control is where that is answered.
-	KeyDisplayName: func(availability) state { return availabilityLive() },
+	KeyDisplayName: func(av availability) state {
+		if av.s.Relay.DiscordMode {
+			return availabilityDisabled(say(groupFollowsDiscord))
+		}
+		return availabilityLive()
+	},
 	// Every listener port follows both legs, because the relay serves one listener per protocol
 	// in both directions and the number here is what each of them is addressed on (reachesOver).
 	// HLS reaches the same rule from the other side: the relay serves it and ingests nothing over it,

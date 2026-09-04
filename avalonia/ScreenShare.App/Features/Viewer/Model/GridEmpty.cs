@@ -11,7 +11,9 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// </summary>
 public static class GridEmpty
 {
-    public static string For(MembersState? members, int streams, int tiles, bool relayReady)
+    public static string For(
+        MembersState? members, DiscordState? discord, bool discordMode,
+        int streams, int tiles, bool relayReady)
     {
         if (tiles > 0 || members is null)
         {
@@ -20,6 +22,12 @@ public static class GridEmpty
 
         if (!members.Joined)
         {
+            // In Discord mode the next step is Discord's rather than a key:
+            // link once, then stand in a voice channel.
+            if (discordMode)
+            {
+                return discord is { Linked: true } ? Cards.GridNoChannel : Cards.GridUnlinked;
+            }
             return Cards.GridOutside;
         }
 

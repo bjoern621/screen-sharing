@@ -67,6 +67,12 @@ public static class Fields
             "Relay uses TLS",
             "Whether the relay answers on one address behind a certificate, or directly on the ports below. It follows the relay address rather than being set here. A relay on this computer or the local network is reached directly. Anything further away is always encrypted."),
 
+        ["relay.discord_mode"] = new(
+            "Follow Discord",
+            "Ties the group to the voice channel this computer's linked Discord account is in. "
+            + "Joining a channel joins its group, and whoever leaves the channel can no longer watch. "
+            + "The group key and the name come from the channel while this is on."),
+
         ["relay.group_key"] = new(
             "Group key",
             "The secret that decides who can watch. Everyone holding it sees your streams, and nobody else does. Share it like a meeting link. Setting a key puts this computer in that group, and clearing the field takes it out. Change it to cut someone off. Sharing needs one, so nothing is published while this is empty."),
