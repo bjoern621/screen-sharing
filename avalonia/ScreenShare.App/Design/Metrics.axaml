@@ -15,6 +15,8 @@
   <CornerRadius x:Key="RadiusStrip">7</CornerRadius>
   <CornerRadius x:Key="RadiusPanel">8</CornerRadius>
   <CornerRadius x:Key="RadiusTile">9</CornerRadius>
+  <!-- RadiusTile again, for a Shape whose corner takes a Double. The two state one radius. -->
+  <sys:Double x:Key="RadiusTileValue">9</sys:Double>
   <!-- The one capsule: a stream chip. -->
   <CornerRadius x:Key="RadiusChip">14</CornerRadius>
 

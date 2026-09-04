@@ -135,6 +135,8 @@ public sealed class ViewerViewModel : Observable
     private string _shownSummary = "";
     private string _notice = "";
     private bool _hasNotice;
+    private string _gridEmptyLine = "";
+    private bool _showsGridEmpty;
     private bool _noticeIsFailure;
     private bool _isDialling;
     private string _refusal = "";
@@ -314,6 +316,11 @@ public sealed class ViewerViewModel : Observable
 
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
 
+    /// <summary>What the empty grid says, empty while a tile is up or another notice speaks (<see cref="Model.GridEmpty"/>).</summary>
+    public string GridEmptyLine { get => _gridEmptyLine; private set => Set(ref _gridEmptyLine, value); }
+
+    public bool ShowsGridEmpty { get => _showsGridEmpty; private set => Set(ref _showsGridEmpty, value); }
+
     /// <summary>
     /// Whether the notice reports a failure rather than a state of the relay.
     /// True for the backend's own sentence, which is the one thing here that is broken:
@@ -439,6 +446,9 @@ public sealed class ViewerViewModel : Observable
 
         Members.Reported = _session.Members;
         Members.Apply();
+
+        GridEmptyLine = GridEmpty.For(_session.Members, Streams.Count, _tiles.Count, relay?.Reachable == true);
+        ShowsGridEmpty = GridEmptyLine.Length > 0;
 
         // Draws from the same draft on every pass,
         // so a vocabulary arriving with the catalog reaches the panel's entries without a notification of its own.

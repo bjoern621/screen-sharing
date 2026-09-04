@@ -246,6 +246,8 @@
     <!-- No summary and no hint here: the shell's status band prints both off this same view model. -->
     <DockPanel Margin="{StaticResource InsetPanel}">
 
+      <Panel>
+
       <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Tiles}">
           <ItemsControl.ItemsPanel>
@@ -273,6 +275,34 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
+
+      <!--
+        The empty state the design language draws: dashed border, muted badge, one sentence,
+        nothing to press (docs/design-language.md, "Empty states").
+        The sentence is per cause and quiet where the rail's notice speaks (Model/GridEmpty.cs).
+      -->
+      <Grid IsVisible="{Binding ShowsGridEmpty}">
+        <Rectangle Stroke="{StaticResource DividerBrush}"
+                   StrokeThickness="1"
+                   StrokeDashArray="4,4"
+                   RadiusX="{StaticResource RadiusTileValue}"
+                   RadiusY="{StaticResource RadiusTileValue}" />
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="360">
+          <Border Width="32" Height="32" CornerRadius="16"
+                  Background="{StaticResource PanelBrush}"
+                  HorizontalAlignment="Center">
+            <ti:TablerIcon Classes="button" Icon="IconUsers" Brush="{StaticResource HintBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <TextBlock Classes="muted"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     TextAlignment="Center"
+                     Text="{Binding GridEmptyLine}" />
+        </StackPanel>
+      </Grid>
+
+      </Panel>
 
     </DockPanel>
 

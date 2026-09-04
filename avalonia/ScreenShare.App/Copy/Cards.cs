@@ -169,6 +169,19 @@ public static class Cards
 
     public const string MembersNone = "Nobody is listed in this group.";
 
+    // --- The grid --------------------------------------------------------------------
+
+    /// <summary>
+    /// What the empty grid says, one sentence per cause and each naming the next step.
+    /// Quiet where the rail's own notice already speaks (<c>Features/Viewer/Model/GridEmpty.cs</c>).
+    /// </summary>
+    public const string GridOutside =
+        "Not in a group. Set a group key and a name on the Relay step, and every member's stream shows here.";
+
+    public const string GridIdle = "Nobody in the group is sharing a screen.";
+
+    public const string GridUnwatched = "Nothing is picked to watch. Click a stream on the left to open its picture.";
+
     // --- The synthetic publishers ---------------------------------------------------
 
     /// <summary>Heading over the test-stream slots.</summary>
