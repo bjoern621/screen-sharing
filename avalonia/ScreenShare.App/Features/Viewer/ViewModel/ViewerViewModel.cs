@@ -135,6 +135,7 @@ public sealed class ViewerViewModel : Observable
     private string _shownSummary = "";
     private string _notice = "";
     private bool _hasNotice;
+    private bool _noticeIsFailure;
     private bool _isDialling;
     private string _refusal = "";
     private bool _hasRefusal;
@@ -314,6 +315,13 @@ public sealed class ViewerViewModel : Observable
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
 
     /// <summary>
+    /// Whether the notice reports a failure rather than a state of the relay.
+    /// True for the backend's own sentence, which is the one thing here that is broken:
+    /// a relay carrying nothing answered (<c>docs/design-language.md</c>, "Palette").
+    /// </summary>
+    public bool NoticeIsFailure { get => _noticeIsFailure; private set => Set(ref _noticeIsFailure, value); }
+
+    /// <summary>
     /// Whether the window is still dialling behind the notice.
     /// False where the notice is not about the backend.
     /// The window opens on this screen, so a shell launched before its backend draws it,
@@ -414,8 +422,11 @@ public sealed class ViewerViewModel : Observable
         HasStreams = Streams.Count > 0;
         Notice = HasStreams ? "" : absent ? _session.Unavailable : NoticeFor(relay);
         HasNotice = Notice.Length > 0;
+        NoticeIsFailure = absent;
 
-        IsDialling = HasNotice && absent;
+        // Read off the sentence's own verdict: an attempt is coming for the notice that is a failure,
+        // and for no other.
+        IsDialling = NoticeIsFailure;
 
         var watched = rows.Count(row => row.IsWatched);
         ShownSummary = HasStreams ? $"{watched} of {rows.Count} streams watched" : "";
@@ -451,6 +462,7 @@ public sealed class ViewerViewModel : Observable
         Assert.That(_tiles.Count == Tiles.Count, "one tile per stream in the grid", _tiles.Count, Tiles.Count);
         Assert.That(HasStreams == (Notice.Length == 0), "a list and the sentence standing in for it are never both on screen", HasStreams);
         Assert.That(HasNotice == (Notice.Length > 0), "the notice and its text agree", HasNotice);
+        Assert.That(!NoticeIsFailure || HasNotice, "a failure is marked on the sentence stating it", NoticeIsFailure, HasNotice);
         Assert.That(!IsDialling || HasNotice, "the wait appears under the notice it belongs to", IsDialling, HasNotice);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
     }

@@ -90,6 +90,7 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     private string _title = "";
     private string _notice = "";
     private bool _hasNotice;
+    private bool _noticeIsFailure;
     private bool _isFocused;
     private bool _isPoppedOut;
     private bool _isFullscreen;
@@ -207,6 +208,13 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
+
+    /// <summary>
+    /// Whether the notice reports a failure rather than a stream on its way.
+    /// A decode that ended and a frame this renderer could not draw are broken;
+    /// idle and connecting are not (<c>docs/design-language.md</c>, "Palette").
+    /// </summary>
+    public bool NoticeIsFailure { get => _noticeIsFailure; private set => Set(ref _noticeIsFailure, value); }
 
     // --- Audio -----------------------------------------------------------------------
     //
@@ -372,8 +380,10 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     {
         // Only a relay decode crossed a protocol, so only a relay decode has a leg to name beside the stream.
         Title = _source.IsRelay ? $"{Name} · {Words.Transport(Transport)}" : Name;
-        Notice = NoticeFor(pipeline);
+        var notice = NoticeFor(pipeline);
+        Notice = notice.Text;
         HasNotice = Notice.Length > 0;
+        NoticeIsFailure = notice.Failure;
         Aspect = AspectOf();
 
         TileStats.Merge(Stats, ShowStats ? TileStats.Of(sample, _report) : []);
@@ -405,6 +415,7 @@ public sealed partial class TileViewModel : Observable, IFrameSource
         ToggleToneMap.Refresh();
 
         Assert.That(HasNotice == (Notice.Length > 0), "a notice and its sentence agree", Name);
+        Assert.That(!NoticeIsFailure || HasNotice, "a failure is marked on the sentence stating it", Name);
         Assert.That(HasColourNote == (ColourNote.Length > 0), "a colour badge and its sentence agree", Name);
         Assert.That(!CanToneMap || IsHdr, "only a stream that carries the range is offered a way out of it", Name);
         Assert.That(Aspect > 0, "a tile has a positive shape to be arranged at", Name, Aspect);
@@ -582,36 +593,38 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     }
 
     /// <summary>
-    /// Why this tile is dark, empty while it draws.
+    /// Why this tile is dark, empty while it draws, and whether that is a failure.
     /// The states a reader tells apart, in the order they happen: nothing decoding, a pipeline up with no frame
     /// out of it, a pipeline with something to report, or a frame the tile could not draw.
     /// The last is the control's own sentence, shown as it stands, naming a driver or a handle type nothing else
     /// here knows.
+    /// Idle and connecting are states of a stream on its way, so the mark separates them from the two that broke
+    /// (<c>docs/design-language.md</c>, "Palette").
     /// </summary>
-    private string NoticeFor(TilePipeline? pipeline)
+    private (string Text, bool Failure) NoticeFor(TilePipeline? pipeline)
     {
         if (_report.Notice.Length > 0)
         {
-            return _report.Notice;
+            return (_report.Notice, true);
         }
 
         if (pipeline is null)
         {
             // In the source's own terms: a decode nobody opened and a screen nobody reads are different things
             // to act on.
-            return _source.Missing;
+            return (_source.Missing, false);
         }
 
         if (pipeline.Value.Live)
         {
-            return "";
+            return ("", false);
         }
 
         // A pipeline that stated why carries the one thing a reader can act on,
         // where "Connecting." over it would promise a picture nothing is bringing.
         return Statements.Any(pipeline.Value.Failure)
-            ? Statements.Of(pipeline.Value.Failure)
-            : "Connecting.";
+            ? (Statements.Of(pipeline.Value.Failure), true)
+            : ("Connecting.", false);
     }
 
 }

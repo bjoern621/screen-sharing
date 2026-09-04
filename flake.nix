@@ -188,31 +188,26 @@
           # cgo reads this to find the GStreamer development files gstDeps carries,
           # what backend/internal/receive compiles against.
           pkg-config
-          xrandr # X11 monitor enumeration (display pkg listX11)
         ];
-        # Linux capture path: the kmsgrab pipeline, the unprivileged Wayland alternatives,
-        # and the tools to inspect either.
-        # kmsgrab needs CAP_SYS_ADMIN at runtime,
-        # which nix/mirrorme.nix grants to a dedicated ffmpeg-kmsgrab wrapper.
-        # Without that module, kmsgrab runs under sudo.
-        linuxCaptureDeps = with pkgs; [
-          wl-screenrec # wlroots screencopy, zero-copy DMA-BUF, hardware encode, no root
-          wf-recorder # wlroots screencopy, ffmpeg-backed, no root
-          wlr-randr # wlroots monitor enumeration (display pkg listWlrRandr)
-          # VAAPI is split across two closures and vainfo is what checks them against each other:
-          # the dispatch library comes from this shell,
-          # and the driver it loads is the host's, under /run/opengl-driver.
-          # libva locates that driver through a version-stamped init symbol,
-          # probing from its own VA-API version downwards,
-          # so a libva older than the one the host's Mesa was built against opens no driver at all.
-          # Both engines then lose every VAAPI element:
-          # the gst va plugin registers zero features, and ffmpeg's vaapi device creation fails.
-          # encoders.Detect greys every VAAPI row for it,
-          # which reads as a machine with no hardware encode rather than as a version mismatch,
-          # so the nixpkgs pin is what has to move.
-          libva-utils # vainfo: confirm VAAPI encode entrypoints for hardware encode
-          libdrm # modetest: enumerate CRTCs and planes to pick a kmsgrab device
-          drm_info # DRM connector, plane, and format dump
+        # The programs the backend spawns on Linux, the set nix/package.nix wraps onto PATH.
+        # xrandr and wlr-randr enumerate monitors, one per session type (backend/internal/display).
+        # vainfo names the VA driver an encode runs through (backend/internal/gpu).
+        #
+        # VAAPI is split across two closures and vainfo is what checks them against each other:
+        # the dispatch library comes from this shell,
+        # and the driver it loads is the host's, under /run/opengl-driver.
+        # libva locates that driver through a version-stamped init symbol,
+        # probing from its own VA-API version downwards,
+        # so a libva older than the one the host's Mesa was built against opens no driver at all.
+        # Both engines then lose every VAAPI element:
+        # the gst va plugin registers zero features, and ffmpeg's vaapi device creation fails.
+        # encoders.Detect greys every VAAPI row for it,
+        # which reads as a machine with no hardware encode rather than as a version mismatch,
+        # so the nixpkgs pin is what has to move.
+        linuxSpawnedTools = with pkgs; [
+          xrandr
+          wlr-randr
+          libva-utils
         ];
         # GStreamer runs on both sides of the wire, in two processes.
         # Publish: pipewiresrc reads the xdg-desktop-portal ScreenCast node and the rest
@@ -270,7 +265,7 @@
         # A capability-bearing binary runs in glibc's secure-execution mode,
         # where that variable is ignored,
         # so the kmsgrab wrapper takes the runtime on libavutil's RUNPATH instead
-        # (nix/mirrorme.nix, the amf option).
+        # (nix/mirrorme.nix, the kmsgrab.amf option).
         amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
         # Intel's oneVPL runtime, the implementation behind every QSV encoder and decoder.
         # Both engines reach it through a dispatcher that loads the runtime by filename at startup:
@@ -411,7 +406,7 @@
             ]
             ++ dotnetDeps
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux (
-              linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime ++ vplRuntime ++ avaloniaRuntimeDeps
+              linuxDeps ++ linuxSpawnedTools ++ gstDeps ++ amfRuntime ++ vplRuntime ++ avaloniaRuntimeDeps
             );
 
           shellHook = ''
@@ -476,10 +471,9 @@
       }
     )
     // {
-      # Imported by a host config for the capture tools,
-      # and for the privileged kmsgrab wrapper where a second option asks for it:
+      # Imported by a host config for the privileged kmsgrab wrapper, the whole of what it carries.
+      # The app installs without root and comes from packages above:
       #   imports = [ mirrorme.nixosModules.mirrorme ];
-      #   programs.mirrorme.enable = true;
       #   programs.mirrorme.kmsgrab.enable = true;
       #   users.users.bjoern.extraGroups = [ "mirrorme" ];
       nixosModules.mirrorme = import ./nix/mirrorme.nix;

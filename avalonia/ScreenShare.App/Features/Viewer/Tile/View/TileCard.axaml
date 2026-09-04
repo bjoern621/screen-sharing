@@ -243,8 +243,13 @@
               Canvas.Top="{Binding PointerTop}" />
       </Canvas>
 
-      <!-- Why the tile is dark: nothing decoding, connecting, or a handle this renderer cannot open. -->
+      <!--
+        Why the tile is dark: nothing decoding, connecting, or a handle this renderer cannot open.
+        Red for the two that broke, the other two being a stream on its way
+        (docs/design-language.md, "Palette").
+      -->
       <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
+                           Classes.danger="{Binding NoticeIsFailure}"
                            IsVisible="{Binding HasNotice}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            TextAlignment="Center" Margin="{StaticResource InsetSection}" />

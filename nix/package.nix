@@ -29,6 +29,10 @@
   # so the setup screen offers one nameless screen and refuses every monitor but the first.
   xrandr,
   wlr-randr,
+  # vainfo, which internal/gpu reads the VA driver's name, adapter and release from.
+  # Without it no driver is identified, so the codec table's DriverDefect rows match nothing
+  # and the form offers a combination the running driver is known to crash on.
+  libva-utils,
   # The hardware encoder runtimes ffmpeg loads by name rather than links,
   # each reached through an environment variable and neither able to find a store path on its own.
   # flake.nix states what each one is and why the dev shell sets the same two.
@@ -113,15 +117,16 @@ let
     512
   ];
 
-  # The monitor enumerators, which are Linux session tools and have no counterpart elsewhere.
+  # The programs the backend spawns, Linux session tools with no counterpart elsewhere.
   # pipewire carries pw-dump, which the audio device list subscribes to for the daemon's
   # add and remove events (internal/audiodev).
   # A closure without it enumerates nothing and every audio kind keeps its own default,
   # which reads as a machine that plays no sound rather than as a missing tool.
-  displayTools = lib.optionals stdenv.hostPlatform.isLinux [
+  spawnedTools = lib.optionals stdenv.hostPlatform.isLinux [
     xrandr
     wlr-randr
     pipewire
+    libva-utils
   ];
 
   # AMD and Intel ship these runtimes for x86_64 alone,
@@ -220,7 +225,7 @@ let
               ffmpeg-full
               gst_all_1.gstreamer
             ]
-            ++ displayTools
+            ++ spawnedTools
           )
         } \
         --set-default GST_PLUGIN_SYSTEM_PATH_1_0 "${gstPluginPath}" \

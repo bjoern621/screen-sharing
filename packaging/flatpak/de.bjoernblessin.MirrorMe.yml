@@ -86,6 +86,27 @@ modules:
         url: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
         sha256: 464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c
 
+  # vainfo, which names the VA driver an encode runs through (backend/internal/gpu).
+  # Without it no driver is identified, so the codec table's DriverDefect rows all miss
+  # and the form offers a combination the running driver is known to crash on.
+  # The runtime carries libva and no program to query it with,
+  # freedesktop shipping vainfo as an application of its own.
+  #
+  # 2.22.0 is the libva the runtime carries.
+  # Only the vainfo target is compiled,
+  # the rest of the project being VA-API sample programs that install a dozen binaries beside it.
+  # internal/gpu asks for the drm display first, so the build requires that backend.
+  - name: libva-utils
+    buildsystem: simple
+    build-commands:
+      - meson setup _build --prefix=/app -Ddrm=true -Dx11=false -Dwayland=false
+      - meson compile -C _build vainfo
+      - install -Dm755 _build/vainfo/vainfo /app/bin/vainfo
+    sources:
+      - type: archive
+        url: https://github.com/intel/libva-utils/archive/refs/tags/2.22.0.tar.gz
+        sha256: 7b57615c130427ec134bb5d2b80af516ce5bb19a40e89b1dab46a0d59760d96c
+
   # What scripts/package-linux.sh assembled: both binaries in one directory,
   # which is the layout the shell's own lookup expects.
   - name: mirrorme

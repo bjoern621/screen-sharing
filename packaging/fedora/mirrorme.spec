@@ -90,6 +90,10 @@ Requires:       libglvnd-glx
 # so the setup screen offers one nameless screen and every monitor past the first is refused.
 # By file name, as ffmpeg is above: what matters is the program being on PATH.
 Requires:       /usr/bin/xrandr
+# vainfo, which names the VA driver an encode runs through (backend/internal/gpu).
+# Without it no driver is identified, so the codec table's DriverDefect rows all miss
+# and the form offers a combination the running driver is known to crash on.
+Requires:       /usr/bin/vainfo
 
 # RPM Fusion, for the encoders Fedora's own packages leave out.
 Recommends:     gstreamer1-plugins-ugly

@@ -12,6 +12,7 @@ Neither binary carries ffmpeg or GStreamer, so a build is complete only once tho
 | `ffplay` | yes | The watch/viewer window. | The same ffmpeg distribution. |
 | `gst-launch-1.0` | for the GStreamer publish engine | The portal and `*src` capture backends, the encode-rate probe on that engine, the synthetic test streams. | GStreamer, plus the plugin packages below. |
 | GStreamer libraries | for the shell's tile grid | Linked into the backend through go-gst; a receive pipeline decodes and converts in-process. The single-stream player needs none of them. | The same packages, plus development files at build time. |
+| `vainfo` | for driver-scoped codec gaps | Names the VA driver an encode runs through, which the codec table's `DriverDefect` rows match on. | `libva-utils`. |
 
 `ffplay` is part of a full ffmpeg build, so one install satisfies both.
 
@@ -40,7 +41,7 @@ A missing runtime is not a failure the app handles: the encoder refuses to open,
 `LD_LIBRARY_PATH` reaches an unprivileged `ffmpeg` alone.
 The kmsgrab wrapper carries file capabilities, which puts it in glibc's secure-execution mode where that variable is ignored, so a runtime delivered through the environment never reaches its loader.
 Untreated that is a wrong answer rather than a missing encoder: the probe runs the unprivileged binary, finds the runtime, and the form offers a family that dies at launch under kmsgrab.
-The `amf` option of `nix/mirrorme.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
+The `kmsgrab.amf` option of `nix/mirrorme.nix` records the runtime on `libavutil`'s `RUNPATH` instead, which the loader does honour.
 Ordinary variables survive, so the oneVPL runtime behind QSV, located through `ONEVPL_SEARCH_PATH`, is unaffected.
 
 ## Version pinning
@@ -62,7 +63,6 @@ The revision tracks nixos-unstable rather than a release channel: a release chan
 
 Moving it is followed by re-measuring.
 A package set that moved can change which codecs probe usable, which elements a receive pipeline autoplugs, and which pixel formats an element accepts.
-"Verifying a build" answers the first two.
 
 ### The build stamp
 
@@ -135,17 +135,16 @@ On NixOS the store is read-only, so `setcap` cannot target the store path.
 `nixosModules.mirrorme` writes the `security.wrappers` entry that produces one under `/run/wrappers/bin`:
 
 ```nix
-programs.mirrorme.enable = true;
 programs.mirrorme.kmsgrab.enable = true;
 users.users.<name>.extraGroups = [ "mirrorme" ];
 ```
 
-The two options are two decisions.
-`enable` installs the capture tools and creates the `mirrorme` group, granting nothing.
-`kmsgrab.enable` adds `ffmpeg-kmsgrab`, mode 0510 `root:mirrorme`, and exports `MIRRORME_FFMPEG_KMSGRAB` for the app to run.
+That adds `ffmpeg-kmsgrab`, mode 0510 `root:mirrorme`, and exports `MIRRORME_FFMPEG_KMSGRAB` for the app to run.
+The capability is the module's whole contents: the app and ffmpeg install without root, so they come from wherever the host declares its packages.
 
 The group is the gate, so the capability reaches whoever joins it and no other local user.
 A dedicated group rather than `video`, which carries the machine's GPU users and is wider than the set trusted with `CAP_SYS_ADMIN`.
+The wrapper takes a name of its own rather than shadowing `ffmpeg` on `PATH`, which would hand the capability to every capture path that needs none.
 
 ### The portal alternative
 
@@ -315,23 +314,3 @@ Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, so `bundle:windows` names
 A build reporting `build constraints exclude all Go files` for a go-gst package ran against a `go` that found no C compiler and disabled cgo, which excludes every file in a binding whose files are all cgo.
 The extra tell is a `go: downloading go1.26.4` line, which a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
 The build task asks for cgo outright so this surfaces as the missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
-
-## Verifying a build
-
-```bash
-# The app resolves ffmpeg (bundled copy or PATH).
-ffmpeg -version
-
-# The encoder probe the app runs at startup, ffmpeg engine: a codec must encode one frame.
-ffmpeg -hide_banner -f lavfi -i color=c=black:s=64x64 -frames:v 1 -c:v libx264 -f null -
-
-# The same probe on the GStreamer publish engine (the portal capture backend): the encoder
-# element must be in the plugin registry.
-gst-inspect-1.0 --exists x264enc
-
-# kmsgrab reaches the framebuffer (fails without CAP_SYS_ADMIN):
-ffmpeg -hide_banner -device /dev/dri/card1 -f kmsgrab -i - -frames:v 1 -f null -
-```
-
-A successful `kmsgrab` frame confirms both the device node and the capability.
-`No handle set on framebuffer` means the capability is missing.

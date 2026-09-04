@@ -1,9 +1,9 @@
-# NixOS module for MirrorMe's system-level capture support.
+# NixOS module for MirrorMe's privileged kmsgrab capture path.
 #
-# Two decisions, taken separately.
-# `enable` installs the tools a capture path needs and creates the mirrorme group, granting nothing.
-# `kmsgrab.enable` puts CAP_SYS_ADMIN on a dedicated ffmpeg wrapper for that group,
-# which is what the DRM scanout path needs and what nothing else here does.
+# The capability and nothing else.
+# The app, ffmpeg and the inspection tools install without root,
+# so they belong wherever the rest of a user's packages are declared,
+# and the app carries its own ffmpeg on PATH already (nix/package.nix).
 #
 # kmsgrab reads the raw KMS scanout framebuffer,
 # and the kernel gates that read behind CAP_SYS_ADMIN:
@@ -24,38 +24,19 @@
 }:
 
 let
-  cfg = config.programs.mirrorme;
+  cfg = config.programs.mirrorme.kmsgrab;
 
   kmsgrabFFmpeg = pkgs.callPackage ./kmsgrab-ffmpeg.nix { inherit (cfg) ffmpeg amf; };
 in
 {
-  imports = [
-    (lib.mkRemovedOptionModule [ "programs" "mirrorme" "user" ] ''
-      Add the user to the mirrorme group instead:
-      users.users.<name>.extraGroups = [ "mirrorme" ];
-    '')
-  ];
-
-  options.programs.mirrorme = {
+  options.programs.mirrorme.kmsgrab = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to install the tools MirrorMe's capture paths need and create the
-        'mirrorme' group. Nothing installed here is privileged. Reaching the DRM
-        scanout framebuffer takes the separate `kmsgrab.enable` option below.
-      '';
-    };
-
-    kmsgrab.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = ''
-        Whether to allow users in the 'mirrorme' group to capture the DRM scanout
-        framebuffer. This configures a `CAP_SYS_ADMIN` wrapper around
-        {option}`programs.mirrorme.ffmpeg` under {file}`/run/wrappers/bin` and points
-        the app at it. Add a user with
-        `users.users.<name>.extraGroups = [ "mirrorme" ];`.
+        Whether to configure a setcap wrapper letting MirrorMe capture the DRM scanout
+        framebuffer. To use it, add your user to the `mirrorme` group. Installing the
+        app itself is separate and needs no privilege.
 
         `CAP_SYS_ADMIN` is close to full root, and the wrapper is a complete ffmpeg
         that also parses untrusted media, so any member of that group can run
@@ -70,9 +51,8 @@ in
 
     ffmpeg = lib.mkPackageOption pkgs "ffmpeg-full" {
       extraDescription = ''
-        Exposed through the kmsgrab wrapper and installed unwrapped for every other
-        capture path. Must include the kmsgrab input device, which `ffmpeg-full`
-        provides.
+        Exposed through the wrapper. Must include the kmsgrab input device, which
+        `ffmpeg-full` provides.
       '';
     };
 
@@ -101,18 +81,13 @@ in
     # video carries the machine's GPU users, a wider set than the one trusted with the capability.
     users.groups.mirrorme = { };
 
-    # The unprivileged ffmpeg every other capture path runs, plus what inspecting this one takes.
-    environment.systemPackages = [
-      cfg.ffmpeg
-      pkgs.libva-utils # vainfo: VAAPI encode entrypoints, for the zero-copy path
-      pkgs.libdrm # modetest: CRTCs and planes, to pick a kmsgrab device
-      pkgs.drm_info # DRM connectors, planes and formats
-    ];
-
     # One capability-bearing copy of ffmpeg under /run/wrappers/bin.
     # Mode 0510 root:mirrorme, the activation script chmodding from 0000,
     # so group membership is what authorizes it and CAP_SYS_ADMIN reaches no other local user.
-    security.wrappers.ffmpeg-kmsgrab = lib.mkIf cfg.kmsgrab.enable {
+    #
+    # A name of its own rather than shadowing ffmpeg on PATH,
+    # which would hand the capability to every capture path that needs none.
+    security.wrappers.ffmpeg-kmsgrab = {
       source = "${kmsgrabFFmpeg}/bin/ffmpeg";
       owner = "root";
       group = "mirrorme";
@@ -123,8 +98,6 @@ in
     # The wrapper by absolute path,
     # so the app depends on nothing having put /run/wrappers/bin on its inherited PATH.
     # A session variable reaches a menu-launched GUI, which a login shell's PATH export does not.
-    environment.sessionVariables = lib.mkIf cfg.kmsgrab.enable {
-      MIRRORME_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
-    };
+    environment.sessionVariables.MIRRORME_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
   };
 }

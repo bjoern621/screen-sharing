@@ -100,18 +100,26 @@
           <Border Classes="dividerh" Margin="0,10,0,0" />
         </StackPanel>
 
-        <!-- Backend's own sentence for a refused open or close, shown as it arrived. -->
-        <SelectableTextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Refusal}"
+        <!--
+          Backend's own sentence for a refused open or close, shown as it arrived.
+          Red without a condition: a refusal is a failure and nothing else lands here
+          (docs/design-language.md, "Palette").
+        -->
+        <SelectableTextBlock DockPanel.Dock="Bottom" Classes="hint danger" Text="{Binding Refusal}"
                              IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
 
-        <!-- What the relay answered, the reader's only account of an unreachable one. -->
+        <!--
+          What the relay answered, the reader's only account of an unreachable one.
+          Red for the backend's own sentence alone: a relay carrying nothing answered.
+        -->
         <SelectableTextBlock DockPanel.Dock="Top" Classes="hint" Text="{Binding Notice}"
+                             Classes.danger="{Binding NoticeIsFailure}"
                              IsVisible="{Binding HasNotice}" Margin="2,0" />
 
         <!--
           Left-aligned rather than centred: it belongs to the line above it and not to the empty grid.
-          The arc takes that line's hue and not the banner's failure red,
-          this notice standing in for a list rather than reporting a fault.
+          The arc takes that line's hue, and the line it turns under is the failure one:
+          a notice about the relay has nothing being dialled behind it.
         -->
         <Border DockPanel.Dock="Top"
                 Background="Transparent"
@@ -119,7 +127,7 @@
                 Margin="2,6,2,0"
                 IsVisible="{Binding IsDialling}"
                 ToolTip.Tip="{x:Static copy:Cards.Redialling}">
-          <controls:Spinner Foreground="{StaticResource HintBrush}" />
+          <controls:Spinner Foreground="{StaticResource AttentionBrush}" />
         </Border>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

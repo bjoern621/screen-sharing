@@ -52,6 +52,10 @@ depends=(
   # Both are named because either session can be the one running.
   'xorg-xrandr'
   'wlr-randr'
+  # vainfo, which names the VA driver an encode runs through (backend/internal/gpu).
+  # Without it no driver is identified, so the codec table's DriverDefect rows all miss
+  # and the form offers a combination the running driver is known to crash on.
+  'libva-utils'
 )
 # The development files are in the same packages as the runtime,
 # so what the cgo build compiles against comes from depends.

@@ -98,7 +98,7 @@ GStreamer has to be 1.26 or newer, the backend linking symbols that release intr
 sudo apt install ffmpeg gstreamer1.0-tools \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-  gstreamer1.0-libav gstreamer1.0-rtsp gstreamer1.0-pipewire libnice10
+  gstreamer1.0-libav gstreamer1.0-rtsp gstreamer1.0-pipewire libnice10 vainfo
 
 tar xf mirrorme-<version>-linux-x86_64-portable.tar.gz
 ./mirrorme-<version>-linux-x86_64-portable/mirrorme
