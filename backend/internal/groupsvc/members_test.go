@@ -93,7 +93,7 @@ func TestATokenForAMemberNamesThatMember(t *testing.T) {
 
 // A member belongs to a group,
 // so naming one without the group key that derives it is a request this service cannot answer
-// rather than one it answers for the public prefix.
+// rather than one it answers for a group nobody named.
 func TestAMemberSecretNamedWithoutAGroupKeyIsRefused(t *testing.T) {
 	service, _ := enforcing(t)
 
@@ -476,23 +476,6 @@ func TestAMembersRequestWithoutAGroupKeyIsRefused(t *testing.T) {
 	}
 	if status, _ := call(t, service, "GET", "/members", ""); status != 400 {
 		t.Error("a view with no group key was answered")
-	}
-}
-
-// Streams under the public prefix are watchable by anybody,
-// so a run there is refused with the reason
-// rather than answered as a group nobody stated presence in.
-func TestAReconcileOnThePublicPrefixIsRefused(t *testing.T) {
-	service, relayed := enforcing(t,
-		relay.Session{Segment: "srtconns", ID: "public-read", Path: group.PublicPrefix + "desk", User: "public", State: "read"},
-	)
-
-	status, body := call(t, service, "POST", "/reconcile", `{"path":"`+group.PublicPrefix+`desk"}`)
-	if status != 400 {
-		t.Fatalf("a run on the public prefix was answered %d: %v", status, body)
-	}
-	if len(relayed.kicked) != 0 {
-		t.Errorf("a run on the public prefix closed %v", relayed.kicked)
 	}
 }
 

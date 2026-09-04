@@ -77,20 +77,6 @@ func TestStatingPresenceKeysThePrefix(t *testing.T) {
 	}
 }
 
-// The public prefix is keyed statically in the relay's own configuration,
-// no key existing to derive from, so a public token writes nothing.
-func TestAPublicTokenKeysNothing(t *testing.T) {
-	s, keys := keyedService(t)
-
-	status, body := call(t, s, "POST", "/tokens", "")
-	if status != http.StatusOK {
-		t.Fatalf("issuing a public token answered %d: %v", status, body)
-	}
-	if len(keys.ensured) != 0 {
-		t.Errorf("a public token keyed %v", keys.ensured)
-	}
-}
-
 // An unreachable relay API costs the SRT leg until a later call reaches it,
 // and it may not cost the token:
 // every other leg still works, and a refusal here would take all of them.

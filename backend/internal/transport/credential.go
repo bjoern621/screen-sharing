@@ -6,7 +6,6 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
-	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -39,11 +38,9 @@ const Redacted = "<redacted>"
 // its own wording are all still there, and only the two values that are worth stealing are not.
 // The passphrase in particular is the group's and outlives every token, so a log offered to whoever
 // is helping is exactly how it leaves.
-// The public prefix's passphrase stays readable: a well-known label, and blacking it out would
-// dress it up as a secret worth asking about.
 func Redact(s settings.Settings, text string) string {
 	for _, secret := range []string{s.Relay.Token, s.Relay.SrtPassphrase()} {
-		if secret == "" || secret == group.PublicSrtPassphrase {
+		if secret == "" {
 			continue
 		}
 		text = strings.ReplaceAll(text, secret, Redacted)
@@ -133,8 +130,8 @@ func credentialQuery(s settings.Settings, separator string) string {
 // rtspCredential is the token as an RTSP session's user and password, ok=false without one.
 //
 // rtspsrc alone: it sets up a track at the SDP's control attribute joined onto the session URL, and
-// that join keeps neither the query nor the last path segment, so ".../public/desk?jwt=<token>"
-// is set up as ".../public/trackID=0" and the relay answers 401 Unauthorized on a path nothing
+// that join keeps neither the query nor the last path segment, so ".../<group>/desk?jwt=<token>"
+// is set up as ".../<group>/trackID=0" and the relay answers 401 Unauthorized on a path nothing
 // serves.
 // A credential the element holds as properties is sent with every request instead, SETUP included.
 // ffmpeg's reader and rtspclientsink join the same pair losing neither half, so the query form

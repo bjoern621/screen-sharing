@@ -39,7 +39,7 @@ func indexAt(t *testing.T) string {
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"prefix":"public/","streams":[{"name":"bob","ready":true,"tracks":"H264","format":"h264"}]}`))
+		_, _ = w.Write([]byte(`{"prefix":"group/","streams":[{"name":"bob","ready":true,"tracks":"H264","format":"h264"}]}`))
 	}))
 	server.Listener.Close()
 	server.Listener = listener
@@ -56,7 +56,8 @@ func backendAt(host string) *App {
 		events:    events.New(),
 		groups:    groupclient.New(),
 		relayStop: make(chan struct{}),
-		settings:  settings.Settings{Relay: settings.Relay{Host: host}},
+		// A listing is a group's, so the machine asking for one holds a key.
+		settings: settings.Settings{Relay: settings.Relay{Host: host, GroupKey: aGroupKey}},
 	}
 }
 
@@ -76,6 +77,22 @@ func awaitSnapshot(t *testing.T, a *App) relay.Status {
 			t.Fatalf("no relay snapshot was recorded within 5s: %+v", a.lastRelayStatus())
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// A listing is a group's, so a machine holding no key asks for none,
+// and what it records is the snapshot of a relay nobody asked rather than a refusal to read out.
+func TestAMachineInNoGroupAsksForNoListing(t *testing.T) {
+	// A loopback address of its own, so a listing that was asked for would fail and say so.
+	a := backendAt("127.0.0.2")
+	a.settings.Relay.GroupKey = ""
+
+	status := a.relayStatusFor(a.settings)
+	if status.Reachable {
+		t.Error("a machine holding no group key read a listing")
+	}
+	if status.Error != "" {
+		t.Errorf("the snapshot carries the failure %q, want none to report", status.Error)
 	}
 }
 

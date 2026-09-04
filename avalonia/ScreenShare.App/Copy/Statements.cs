@@ -503,10 +503,9 @@ public static class Statements
 
             // The audience and the wire.
 
-            TextCode.StreamIsPublic =>
-                "No group key is set, so anyone who knows the relay address can watch this stream. "
-                + "The connection is still encrypted. Create a group and share the key to restrict "
-                + "watching, or leave it open.",
+            TextCode.GroupRequired =>
+                "Sharing needs a group, and this computer is in none. Set a group key to join one, "
+                + "or create a group and share its key.",
 
             TextCode.EncryptionFollowsTheAddress =>
                 "Encryption follows the relay address above. This box shows the result rather than setting it. "

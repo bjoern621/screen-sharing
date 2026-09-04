@@ -6,7 +6,6 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
-	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/relay"
 )
 
@@ -94,11 +93,7 @@ func (r *Registry) sweep(prefix string) (Result, []relay.Session) {
 	}
 	r.mu.Unlock()
 
-	// Streams under the public prefix are watchable by anybody,
-	// so there is no membership to hold them against.
-	// No key derives that prefix, which makes a lease there unreachable rather than merely unstated,
-	// and this states the same thing where a path arrives instead of a key.
-	if len(live) == 0 || prefix == group.PublicPrefix {
+	if len(live) == 0 {
 		return Result{Prefix: prefix, Members: []string{}, Kicked: []Connection{}}, nil
 	}
 

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -39,16 +38,6 @@ func TestASecretIsHiddenInEveryCarriageForm(t *testing.T) {
 		if !strings.Contains(got, Redacted) {
 			t.Errorf("%q named no redaction: %q", line, got)
 		}
-	}
-}
-
-// The public prefix's passphrase is a well-known label, so a log keeps it: blacking it out would
-// dress it up as a secret worth asking about.
-func TestThePublicPassphraseStaysReadable(t *testing.T) {
-	s := testStream()
-	line := "srt://relay:8890?passphrase=" + url.QueryEscape(group.PublicSrtPassphrase)
-	if got := Redact(s, line); got != line {
-		t.Errorf("the public passphrase was redacted: %q", got)
 	}
 }
 
@@ -94,8 +83,9 @@ func TestEveryPlayerPageCarriesTheCredentialAsUserinfo(t *testing.T) {
 
 // An empty secret is a substring of every position in the line, so a relay carrying none must leave
 // the line alone rather than redact between every character.
+// A machine outside a group holds neither token nor passphrase, which is the settings this reads.
 func TestSettingsCarryingNoSecretChangeNothing(t *testing.T) {
-	s := testStream()
+	s := settings.Settings{Relay: settings.Relay{Host: "10.0.0.5", SrtPort: 8890}}
 	line := "srt://relay:8890?streamid=publish:alice"
 	if got := Redact(s, line); got != line {
 		t.Errorf("a run carrying no secret was rewritten: %q", got)

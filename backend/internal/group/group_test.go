@@ -1,8 +1,6 @@
 package group
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -272,36 +270,11 @@ func TestTwoKeysAreTwoPassphrases(t *testing.T) {
 }
 
 // libsrt refuses a passphrase outside 10 to 79 characters,
-// and the group service writes this one into the relay's path configuration,
+// and the group service writes each one into the relay's path configuration,
 // so an out-of-bounds derivation is a leg nothing can open.
-// The public one is under the same bound for the same reason.
 func TestEveryPassphraseFitsSrtsBounds(t *testing.T) {
-	for name, passphrase := range map[string]string{
-		"a derived passphrase": mustKey(t).SrtPassphrase(),
-		"the public one":       PublicSrtPassphrase,
-	} {
-		if len(passphrase) < 10 || len(passphrase) > 79 {
-			t.Errorf("%s is %d characters, and libsrt takes 10 to 79", name, len(passphrase))
-		}
-	}
-}
-
-// The public prefix's passphrase is spelled twice,
-// in PublicSrtPassphrase and in the relay's own configuration,
-// no group service standing in the path to write it there.
-// This holds the two spellings together:
-// a relay keyed on one and an app on the other is a public SRT leg that never connects.
-func TestTheRelayConfigurationSpellsThePublicPassphrase(t *testing.T) {
-	config, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "mediamtx-groups.yml"))
-	if err != nil {
-		t.Fatalf("reading the relay configuration every deployment runs: %v", err)
-	}
-
-	for _, key := range []string{"srtPublishPassphrase", "srtReadPassphrase"} {
-		want := key + `: "` + PublicSrtPassphrase + `"`
-		if !strings.Contains(string(config), want) {
-			t.Errorf("the relay configuration does not key the public prefix with %s", want)
-		}
+	if passphrase := mustKey(t).SrtPassphrase(); len(passphrase) < 10 || len(passphrase) > 79 {
+		t.Errorf("a derived passphrase is %d characters, and libsrt takes 10 to 79", len(passphrase))
 	}
 }
 

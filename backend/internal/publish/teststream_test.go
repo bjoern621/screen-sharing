@@ -20,6 +20,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 		Relay: settings.Relay{
 			Host:     "10.0.0.5",
 			RtspPort: 8554,
+			GroupKey: testGroupKey.String(),
 		},
 		Publish: settings.Publish{
 			Monitor:             3,
@@ -38,7 +39,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 		"pattern=smpte",
 		"x264enc",
 		"protocols=tcp",
-		"location=rtsps://10.0.0.5:8554/public/test-1",
+		"location=rtsps://10.0.0.5:8554/" + testGroupKey.Prefix() + "test-1",
 	} {
 		if !slices.Contains(args, want) {
 			t.Errorf("missing %q in %v", want, args)

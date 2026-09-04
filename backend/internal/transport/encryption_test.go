@@ -23,7 +23,7 @@ func behindTheProxy() settings.Settings {
 	return s
 }
 
-// onThisNetwork is a relay this network reaches directly, the shape scripts/relay.sh starts.
+// onThisNetwork is a relay this network reaches directly, the shape deploy/relay.sh starts.
 func onThisNetwork() settings.Settings {
 	s := behindTheProxy()
 	s.Relay.Host = "192.168.1.9"
@@ -56,7 +56,7 @@ func TestEveryRelayAddressesItsEncryptedMediaListeners(t *testing.T) {
 	}
 }
 
-// The certificate a relay on a trusted network holds is the self-signed pair scripts/relay.sh
+// The certificate a relay on a trusted network holds is the self-signed pair deploy/relay.sh
 // draws, which nothing issued and no store carries, so a leg that validates it opens nothing
 // at all.
 //
@@ -144,24 +144,24 @@ func TestTheRtspWatchLegRefusesUdpOnEveryRelay(t *testing.T) {
 
 // SRT is UDP with no TLS, so the passphrase is not one credential among several: it is the whole
 // of what makes the leg unreadable.
-// It derives from the group key, so the one machine none derives for is one whose stored key will
-// not read back, and across the internet that publish is refused rather than sent in the clear.
+// It derives from the group key, so a machine holding none derives none,
+// and across the internet that publish is refused rather than sent in the clear.
 func TestSrtAcrossTheInternetRefusesAnUnderivablePassphrase(t *testing.T) {
 	s := behindTheProxy()
-	s.Relay.GroupKey = "not a group key"
 
-	if err := (SRT{}).ValidatePublishSettings(s); err == nil {
-		t.Fatal("a relay across the internet accepted SRT with no passphrase, which sends the stream in the clear")
+	for deployment, groupKey := range map[string]string{
+		"a stored key that will not read back": "not a group key",
+		"a machine in no group":                "",
+	} {
+		s.Relay.GroupKey = groupKey
+		if err := (SRT{}).ValidatePublishSettings(s); err == nil {
+			t.Errorf("%s published SRT with no passphrase, which sends the stream in the clear", deployment)
+		}
 	}
 
-	// A member and a keyless machine both derive one, so both publish.
 	s.Relay.GroupKey = mustGroupKey(t).String()
 	if err := (SRT{}).ValidatePublishSettings(s); err != nil {
 		t.Errorf("a member's SRT publish was refused: %v", err)
-	}
-	s.Relay.GroupKey = ""
-	if err := (SRT{}).ValidatePublishSettings(s); err != nil {
-		t.Errorf("a keyless machine's SRT publish was refused: %v", err)
 	}
 }
 

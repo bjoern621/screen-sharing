@@ -11,6 +11,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -28,6 +29,8 @@ func baseStream() settings.Settings {
 			// and a publish that is refused builds no arguments to read.
 			Host:    "relay.example",
 			SrtPort: 8890,
+			// A publish lives in a group, so a keyless fixture is one every transport refuses.
+			GroupKey: group.Key(make([]byte, group.KeyBytes)).String(),
 		},
 		Publish: settings.Publish{
 			Transport:  "srt",

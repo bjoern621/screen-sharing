@@ -12,8 +12,9 @@ import (
 func TestATokenIssuedIsCounted(t *testing.T) {
 	s := service(t)
 
-	if status, _ := call(t, s, "POST", "/tokens", "{}"); status != http.StatusOK {
-		t.Fatalf("issuing a token for the public prefix answered %d", status)
+	body := `{"groupKey": "` + mustKey(t).String() + `"}`
+	if status, _ := call(t, s, "POST", "/tokens", body); status != http.StatusOK {
+		t.Fatalf("issuing a token answered %d", status)
 	}
 
 	tallies := s.Tallies()

@@ -2,7 +2,7 @@
 #
 # Every relay this repository runs reads this file,
 # a deployment on the internet behind deploy/Caddyfile
-# and a relay on a development machine alike (scripts/relay.sh).
+# and a relay on a development machine alike (deploy/relay.sh).
 # What differs between the two is a path rather than a policy,
 # and a path is handed to MediaMTX through its own environment:
 # MTX_RTSPSERVERCERT and its siblings for the certificate,
@@ -10,16 +10,14 @@
 # A second copy of this file would be a second set of permissions to keep in step with the tokens.
 #
 # What enforces a prefix is here and not in the app.
-# The app puts its streams under the prefix its key derives,
-# or under the public one where it holds no key (backend/internal/group),
+# The app puts its streams under the prefix its key derives (backend/internal/group),
 # and the relay refuses anything else:
 # a client that skipped the prefix is refused by the machine serving the stream
 # rather than by a convention it could ignore.
 #
-# Publishing without a group is still publishing with a token.
-# A caller holding no key trades for one granting the public prefix,
-# so every connection here is authenticated and encrypted whoever opened it,
-# and what "public" drops is who may watch and nothing else.
+# A stream lives in a group, so there is nothing to publish or read outside one.
+# Every connection carries a token a group key bought,
+# which is what makes each of them authenticated and encrypted whoever opened it.
 
 logLevel: info
 
@@ -51,21 +49,10 @@ authMethod: jwt
 authJWTJWKS: http://127.0.0.1:9443/jwks.json
 authJWTClaimKey: mediamtx_permissions
 
-# Reading under the public prefix takes no token.
-# The prefix is what a caller holding no key trades for, so a token on it proves nothing.
-# What requiring one costs is the browser: an address opened by hand carries no header,
-# and the 401 that follows asks a person to type a JWT.
-#
-# Read alone, so publishing under the prefix still names a token.
-#
-# The expression is anchored and a group prefix is base32, so no group is reachable through it.
-# An exclusion names an action and a path and no protocol,
-# so an RTSP or RTMP reader of a public stream is unauthenticated on the same terms,
-# and SRT keeps the public path entry's passphrase.
+# Nothing is read without a token, a stream living in a group and a group being what a token names.
+# A browser reaches one the same way, the address carrying the credential as userinfo
+# (backend/internal/transport, BrowserURL).
 authJWTExclude:
-  - action: read
-    path: ~^public/
-
   # The scrape, which carries counters and no stream.
   # A collector holds no group key, and a token it could hold expires between scrapes,
   # so the network decides who reads the counters rather than a credential:
@@ -93,9 +80,6 @@ authJWTExclude:
 # and a restart that drops them is re-seeded by the next statement of presence or token,
 # which rides every member's poll.
 #
-# The public prefix is the exception, with its entry under paths below:
-# no key derives it, so its passphrase is spelled in the open,
-# here and in the app (backend/internal/group, PublicSrtPassphrase).
 srt: yes
 srtAddress: :8890
 
@@ -124,7 +108,7 @@ pathDefaults:
 # the way the SRT passphrase above is set.
 # A host names the certificate it already has
 # (modules/mediamtx-relay.nix in the nixos-config repository),
-# and a development machine names the self-signed pair scripts/relay.sh draws for it.
+# and a development machine names the self-signed pair deploy/relay.sh draws for it.
 #
 # `strict` on both, so the cleartext listener is absent rather than merely unexposed:
 # a relay bound to 8554 would carry a stream in the clear for anyone who reached it,
@@ -216,16 +200,10 @@ moqServerKey: auto.key
 # and a request the entry admits is still refused by the permission check above
 # (backend/internal/token, GroupPermissions).
 #
-# The public entry keys SRT under the one prefix no group key derives.
-# The value is not a secret, exactly as the prefix is not:
-# anybody may watch, so the wire key is as public as the audience.
-# What it buys is uniformity: every SRT leg runs encrypted,
-# and a keyless handshake is refused on this prefix the way a group's entry refuses one.
-# The app spells the same value as PublicSrtPassphrase,
-# and a test in backend/internal/group holds the two spellings together.
+# A catch-all rather than a group-shaped expression, which is what keeps the SRT keys working:
+# MediaMTX matches regular expressions in the order they are configured,
+# and the group service adds an entry per prefix over the API after this file is read,
+# so an expression here matching a group's paths would shadow the entry carrying its passphrase.
+# What refuses a path outside every group is the token: none is issued for one (backend/internal/groupsvc).
 paths:
-  "~^public/":
-    srtPublishPassphrase: "screenshare/public-srt/v1"
-    srtReadPassphrase: "screenshare/public-srt/v1"
-
   all_others:

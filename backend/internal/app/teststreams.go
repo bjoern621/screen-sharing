@@ -93,6 +93,9 @@ func (a *App) StartTestStreams(count int) error {
 	if count <= 0 || count > maxTestStreams {
 		return fmt.Errorf("test stream count must be 1..%d, got %d", maxTestStreams, count)
 	}
+	if !a.settingsInGroup() {
+		return errNoGroup
+	}
 
 	s, exe, env, err := a.testStreamLaunch()
 	if err != nil {
@@ -197,6 +200,23 @@ func (a *App) startTestStreamsAtBoot() {
 		// and the roster shows what the relay carries rather than a promise.
 		logger.Warnf("test streams not started: %v", err)
 	}
+}
+
+// settingsInGroup reports whether the held settings state membership of a group.
+// Read under settingsMu like every other use of them (app.go).
+func (a *App) settingsInGroup() bool {
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+	return a.settings.Relay.InGroup()
+}
+
+// joinedAGroup reports whether a settings write moved this machine into a group.
+//
+// What the boot set is launched again off (settings.go, SaveSettings):
+// a machine that joins can publish what it was refused a moment earlier,
+// and the set is always-on rather than something a user asks for per run.
+func joinedAGroup(before, after settings.Relay) bool {
+	return !before.InGroup() && after.InGroup()
 }
 
 // testStreamsAtBootWanted is how many slots the boot set holds:

@@ -707,11 +707,11 @@ const (
 	// The stream stopped arriving at the relay, so there is nothing on the path to receive.
 	// No arguments.
 	TextCode_TEXT_CODE_STREAM_LEFT_THE_RELAY TextCode = 148
-	// No group key is set,
-	// so the stream is published where anybody who reaches the relay may watch it.
-	// Not a refusal: publishing without a group is a choice this app carries out.
+	// A stream lives in a group and the settings name none,
+	// so nothing can be published until one is joined.
+	// The group key is the control that joins one.
 	// No arguments.
-	TextCode_TEXT_CODE_STREAM_IS_PUBLIC TextCode = 138
+	TextCode_TEXT_CODE_GROUP_REQUIRED TextCode = 171
 	// Whether the connection is encrypted follows the relay's address and is stored nowhere,
 	// so the control saying so is a reading rather than a setting.
 	// No arguments.
@@ -866,7 +866,7 @@ var (
 		146: "TEXT_CODE_GROUP_NAME_MISSING",
 		147: "TEXT_CODE_GROUP_SERVICE_REFUSED",
 		148: "TEXT_CODE_STREAM_LEFT_THE_RELAY",
-		138: "TEXT_CODE_STREAM_IS_PUBLIC",
+		171: "TEXT_CODE_GROUP_REQUIRED",
 		139: "TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS",
 		141: "TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP",
 		140: "TEXT_CODE_PRESET_UNREACHABLE",
@@ -997,7 +997,7 @@ var (
 		"TEXT_CODE_GROUP_NAME_MISSING":                        146,
 		"TEXT_CODE_GROUP_SERVICE_REFUSED":                     147,
 		"TEXT_CODE_STREAM_LEFT_THE_RELAY":                     148,
-		"TEXT_CODE_STREAM_IS_PUBLIC":                          138,
+		"TEXT_CODE_GROUP_REQUIRED":                            171,
 		"TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS":            139,
 		"TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP":            141,
 		"TEXT_CODE_PRESET_UNREACHABLE":                        140,
@@ -1357,7 +1357,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x92+\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xb4+\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1481,14 +1481,14 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1aTEXT_CODE_GROUP_NAME_TAKEN\x10\x91\x01\x12!\n" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_SERVICE_REFUSED\x10\x93\x01\x12$\n" +
-	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12\x1f\n" +
-	"\x1aTEXT_CODE_STREAM_IS_PUBLIC\x10\x8a\x01\x12-\n" +
+	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12\x1d\n" +
+	"\x18TEXT_CODE_GROUP_REQUIRED\x10\xab\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS\x10\x8b\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP\x10\x8d\x01\x12!\n" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\x12!\n" +
-	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8a\x01\x10\x8a\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO*\x1aTEXT_CODE_STREAM_IS_PUBLIC**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once

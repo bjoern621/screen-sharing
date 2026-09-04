@@ -36,6 +36,8 @@ func (h *applierHandle) ApplyLive(s settings.Settings) error {
 func liveStream(t *testing.T) (*App, *applierHandle, settings.Settings) {
 	t.Helper()
 	s := settings.Defaults()
+	// A publish lives in a group, so keyless settings are ones every transport refuses.
+	s.Relay.GroupKey = aGroupKey
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
@@ -132,6 +134,7 @@ func TestAFailedWriteFallsBackToTheRelaunch(t *testing.T) {
 // so a change there relaunches even where the same change on the other engine is a write.
 func TestAHandleThatTakesNothingRelaunches(t *testing.T) {
 	s := settings.Defaults()
+	s.Relay.GroupKey = aGroupKey
 	s.Publish.Capture = "x11grab"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
@@ -156,3 +159,48 @@ type plainHandle struct{ stopped bool }
 
 func (h *plainHandle) Running() bool { return !h.stopped }
 func (h *plainHandle) Stop()         { h.stopped = true }
+
+// A stream lives in a group, so a start naming none is refused before a child is launched.
+// The form greys the commit for the same reason (internal/form, diagnosticsAboutTheAudience),
+// and this is what holds for a shell that pressed it anyway.
+func TestAPublishOutsideAGroupIsRefused(t *testing.T) {
+	a := &App{}
+	s := settings.Defaults()
+
+	if err := a.startPublish(s); err == nil {
+		t.Fatal("a machine in no group started a publish")
+	}
+	if a.run != nil {
+		t.Error("a refused start left a run behind")
+	}
+}
+
+// The synthetic set publishes to the relay like any other stream, so it needs the group too.
+func TestTheSyntheticSetOutsideAGroupIsRefused(t *testing.T) {
+	a := &App{}
+
+	if err := a.StartTestStreams(1); err == nil {
+		t.Fatal("a machine in no group launched the synthetic set")
+	}
+	if len(a.testStreams) != 0 {
+		t.Errorf("a refused set holds %d slots, want none", len(a.testStreams))
+	}
+}
+
+// A machine that joins a group can publish what it was refused a moment earlier,
+// so the boot set is launched again off that write rather than at the next start of the app.
+func TestJoiningAGroupIsWhatBringsTheSetBack(t *testing.T) {
+	member := settings.Relay{GroupKey: aGroupKey, DisplayName: "bjoern"}
+	unnamed := settings.Relay{GroupKey: aGroupKey}
+
+	for state, move := range map[string]struct{ before, after settings.Relay }{
+		"joining":            {before: unnamed, after: member},
+		"already a member":   {before: member, after: member},
+		"leaving":            {before: member, after: unnamed},
+		"outside either way": {before: settings.Relay{}, after: unnamed},
+	} {
+		if got, want := joinedAGroup(move.before, move.after), state == "joining"; got != want {
+			t.Errorf("%s is a join = %v, want %v", state, got, want)
+		}
+	}
+}

@@ -12,6 +12,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -30,9 +31,14 @@ const encodeTimeout = 20 * time.Second
 // it.
 // An unnamed step resolves to the codec's own (capabilities.Ladder.Resolve),
 // so each codec here encodes at the step its row names for the mode under test.
+// testGroupKey is the group every fixture in this package publishes into.
+// A key of zeroes, so a path derived from it reads the same on every run.
+var testGroupKey = group.Key(make([]byte, group.KeyBytes))
+
 func baseStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Effort, s.Publish.Tune = "", ""
+	s.Relay.GroupKey = testGroupKey.String()
 	return s
 }
 

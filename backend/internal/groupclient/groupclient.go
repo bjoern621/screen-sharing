@@ -146,10 +146,9 @@ func New() *Client {
 // Token trades a group key and a member secret for a relay access token,
 // handing back the held one while it has long enough left to open a connection with.
 //
-// An empty group key is a request for the public prefix rather than a missing argument,
-// so it is sent like any other:
-// the service answers a token granting the streams anybody may watch,
-// and a publisher in no group gets one instead of a refusal it could not act on.
+// A stream lives in a group, so an empty group key is refused by the service,
+// and the refusal travels back like any other:
+// what clears it is joining a group, which is a settings write rather than a retry.
 // Only the service's address is required, and a relay nobody named has nowhere to ask.
 //
 // The window is the service's and this asks for none.

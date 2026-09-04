@@ -148,31 +148,20 @@ func TestAKeyTheServiceCannotReadBuysNothing(t *testing.T) {
 	}
 }
 
-// A caller naming no group key is asking for the public prefix, which this service answers.
-// Refusing it instead leaves a publisher who chose no group with nothing to present at the relay,
-// and the relay refusing them says nothing about why.
-func TestNoKeyBuysThePublicPrefix(t *testing.T) {
+// A stream lives in a group, so a request naming none names no prefix to grant either.
+// Refused here rather than at the relay, which closes a connection without saying why.
+func TestNoKeyBuysNothing(t *testing.T) {
 	s := service(t)
 	for _, body := range []string{``, `{}`, `{"groupKey":""}`, `{"groupKey":"  "}`} {
-		status, answered := call(t, s, "POST", "/tokens", body)
-		if status != http.StatusOK {
-			t.Errorf("%q was answered %d, want a public token", body, status)
-			continue
-		}
-		if answered["prefix"] != PublicPrefix {
-			t.Errorf("%q bought a token for %v, want the public prefix", body, answered["prefix"])
-		}
-
-		signed, _ := answered["relayAccessToken"].(string)
-		if !strings.Contains(claims(t, signed), "~^"+PublicSubject) {
-			t.Errorf("%q bought %s, which does not name the public prefix", body, claims(t, signed))
+		if status, _ := call(t, s, "POST", "/tokens", body); status != http.StatusBadRequest {
+			t.Errorf("%q was answered %d, want a refusal", body, status)
 		}
 	}
 }
 
 // The index enforces the split rather than leaving a shell to filter:
-// a group key sees its own group, naming none sees the public streams,
-// and neither sees the other's.
+// one group key answers one group's streams,
+// and a caller naming no group key is asking about streams no group holds.
 func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	mine, err := group.NewKey()
 	if err != nil {
@@ -185,7 +174,6 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	s := service(t,
 		mine.ID()+"/standup",
 		theirs.ID()+"/secret",
-		PublicPrefix+"demo",
 		"loose",
 	)
 
@@ -194,11 +182,8 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 		t.Errorf("a member sees %v, want their own group's one stream", got)
 	}
 
-	// Without a group key: the public streams and neither group's.
-	// A group's listing hides the public ones for the same reason it hides another group's.
-	_, public := call(t, s, "GET", "/streams", "")
-	if got := names(public); len(got) != 1 || got[0] != "demo" {
-		t.Errorf("a caller with no group key sees %v, want the public streams", got)
+	if status, _ := call(t, s, "GET", "/streams", ""); status != http.StatusBadRequest {
+		t.Errorf("a caller naming no group key was answered %d, want a refusal", status)
 	}
 }
 

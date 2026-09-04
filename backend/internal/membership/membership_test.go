@@ -270,7 +270,7 @@ func TestAConnectionOutsideTheGroupIsNotTouched(t *testing.T) {
 	here, elsewhere := mustKey(t), mustKey(t)
 	live := &fakeRelay{live: []relay.Session{
 		{Segment: "srtconns", ID: "theirs", Path: elsewhere.Prefix() + "desk", User: "somebody", State: "read"},
-		{Segment: "srtconns", ID: "public", Path: group.PublicPrefix + "desk", User: "public", State: "read"},
+		{Segment: "srtconns", ID: "reader", Path: elsewhere.Prefix() + "standup", User: "anybody", State: "read"},
 	}}
 
 	stated(t, New(live), here, mustSecret(t), "Björn")
@@ -716,42 +716,6 @@ func TestTheReaperClosesWhatALapsedLeaseHeld(t *testing.T) {
 	members := registry.View(groupKey).Members
 	if len(members) != 1 || members[0].DisplayName != "Alice" {
 		t.Errorf("a sweep left the group as %+v", members)
-	}
-}
-
-// Streams under the public prefix are watchable by anybody,
-// so there is no membership to hold them against and a run there closes nothing.
-func TestThePublicPrefixIsNeverEnforced(t *testing.T) {
-	live := &fakeRelay{live: []relay.Session{
-		{Segment: "srtconns", ID: "watcher", Path: group.PublicPrefix + "desk", User: "public", State: "read"},
-	}}
-
-	result := New(live).Reconcile(group.PublicPrefix)
-	if result.Enforced {
-		t.Error("the public prefix reported as enforced")
-	}
-	if len(live.kicked) != 0 {
-		t.Errorf("a run on the public prefix closed %v", live.kicked)
-	}
-}
-
-// A member watching a public stream is watching something their group does not own,
-// so their own group's membership leaves it alone.
-func TestAMembersPublicViewingIsNotTheGroupsToClose(t *testing.T) {
-	groupKey := mustKey(t)
-	live := &fakeRelay{live: []relay.Session{
-		{Segment: "srtconns", ID: "public-read", Path: group.PublicPrefix + "desk",
-			User: "bob", State: "read"},
-	}}
-	registry := New(live)
-
-	stated(t, registry, groupKey, mustSecret(t), "Alice")
-	result := registry.Reconcile(groupKey.Prefix())
-	if len(live.kicked) != 0 {
-		t.Errorf("enforcing a group closed a public stream's reader: %v", live.kicked)
-	}
-	if result.Kept != 0 {
-		t.Errorf("a public stream's reader was counted as the group's: %+v", result)
 	}
 }
 

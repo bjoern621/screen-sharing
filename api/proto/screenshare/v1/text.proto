@@ -656,11 +656,16 @@ enum TextCode {
 
   // --- The audience and the wire -------------------------------------------------
 
-  // No group key is set,
-  // so the stream is published where anybody who reaches the relay may watch it.
-  // Not a refusal: publishing without a group is a choice this app carries out.
+  // A stream lives in a group and the settings name none,
+  // so nothing can be published until one is joined.
+  // The group key is the control that joins one.
   // No arguments.
-  TEXT_CODE_STREAM_IS_PUBLIC = 138;
+  TEXT_CODE_GROUP_REQUIRED = 171;
+  // 138 warned that a keyless stream is published where anybody reaching the relay may watch it,
+  // which stopped holding once every stream came to live in a group:
+  // 171 refuses the settings that name none.
+  reserved 138;
+  reserved "TEXT_CODE_STREAM_IS_PUBLIC";
   // Whether the connection is encrypted follows the relay's address and is stored nowhere,
   // so the control saying so is a reading rather than a setting.
   // No arguments.

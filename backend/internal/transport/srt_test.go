@@ -13,8 +13,9 @@ import (
 func testStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:    "10.0.0.5",
-			SrtPort: 8890,
+			Host:     "10.0.0.5",
+			SrtPort:  8890,
+			GroupKey: testGroupKey.String(),
 		},
 		Publish: settings.Publish{
 			Transport:           "srt",
@@ -59,7 +60,7 @@ func TestSRTPublishArgs(t *testing.T) {
 	url := args[2]
 	for _, want := range []string{
 		"srt://10.0.0.5:8890",
-		"streamid=publish:public/monitor-0",
+		"streamid=publish:" + testGroupKey.Prefix() + "monitor-0",
 		"pkt_size=1316",
 		"latency=300000", // ffmpeg's srt protocol counts microseconds
 	} {
@@ -85,8 +86,7 @@ func TestSRTGstSource(t *testing.T) {
 	}
 }
 
-// Every SRT leg is keyed with the passphrase the settings derive, both engines and both directions,
-// and a member's legs carry the group's own where a keyless machine's carry the public one.
+// Every SRT leg is keyed with the passphrase the settings derive, both engines and both directions.
 // A leg missing it connects to a relay that refuses the handshake, and one carrying another group's
 // plays nothing.
 func TestEverySRTLegCarriesTheDerivedPassphrase(t *testing.T) {
@@ -94,8 +94,8 @@ func TestEverySRTLegCarriesTheDerivedPassphrase(t *testing.T) {
 	member.Relay.GroupKey = mustGroupKey(t).String()
 
 	for deployment, s := range map[string]settings.Settings{
-		"a member's machine": member,
-		"a keyless machine":  testStream(),
+		"a member's machine":      member,
+		"the fixture's own group": testStream(),
 	} {
 		passphrase := s.Relay.SrtPassphrase()
 		if passphrase == "" {

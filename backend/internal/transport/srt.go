@@ -139,8 +139,8 @@ func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(
 //
 // The passphrase encrypts SRT, there being no TLS on it: UDP, and the reverse proxy wrapping every
 // HTTP leg of an encrypted relay never sees this one.
-// It derives from the group key, so the one deployment none derives for is a stored key that will
-// not read back, and a relay across the internet refuses the leg here rather than sending
+// It derives from the group key, so a machine outside a group derives none,
+// and a relay across the internet refuses the leg here rather than sending
 // the stream in the clear to a path the relay refuses anyway.
 func (SRT) ValidatePublishSettings(s settings.Settings) error {
 	id := srtStreamID(s, "publish", s.PublishPath())
@@ -149,7 +149,7 @@ func (SRT) ValidatePublishSettings(s settings.Settings) error {
 			len(id), srtStreamIDBytes, len(id)-srtStreamIDBytes)
 	}
 	if s.Relay.Tls() && s.Relay.SrtPassphrase() == "" {
-		return errors.New("SRT is encrypted with a key derived from the group key, and the stored group key cannot be read: rejoin the group, or leave it to stream publicly")
+		return errors.New("SRT is encrypted with a key derived from the group key, and none is available. Join a group to stream over SRT.")
 	}
 	return nil
 }

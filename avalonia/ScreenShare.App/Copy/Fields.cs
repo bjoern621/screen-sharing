@@ -63,11 +63,11 @@ public static class Fields
 
         ["relay.group_key"] = new(
             "Group key",
-            "The secret that decides who can watch. Everyone holding it sees your streams, and nobody else does. Share it like a meeting link. Setting a key puts this computer in that group, and clearing the field takes it out. Change it to cut someone off. Left empty, anyone who knows the relay address can watch."),
+            "The secret that decides who can watch. Everyone holding it sees your streams, and nobody else does. Share it like a meeting link. Setting a key puts this computer in that group, and clearing the field takes it out. Change it to cut someone off. Sharing needs one, so nothing is published while this is empty."),
 
         ["relay.display_name"] = new(
             "Name in the group",
-            "What this computer goes by in the group: its row in the member list, and the name beside each stream it publishes. The first claim on a name holds it, so a name another member uses cannot be taken. Without one, this computer stays out of the member list."),
+            "What this computer goes by in the group: its row in the member list, and the name beside each stream it publishes. The first claim on a name holds it, so a name another member uses cannot be taken. Sharing needs one, so nothing is published while this is empty."),
 
         ["relay.host"] = new(
             "Relay address",

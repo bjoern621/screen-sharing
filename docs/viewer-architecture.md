@@ -424,6 +424,8 @@ The other rows stay silent, so the volume a tile carries, the meter beside it an
 
 Measured through a running relay: the HDR row is received carrying PQ at ten bits, so a tile draws it as HDR and offers the tone-map choice rather than merely looking bright, and the sounding row is received with its track beside the picture.
 
+A stream lives in a group, so the set waits for one: a machine outside a group launches nothing, and the write that joins one brings the set up.
+
 They are always on because the screens that watch are built against them.
 A relay carrying nothing puts the roster in its empty state rather than the one under construction.
 

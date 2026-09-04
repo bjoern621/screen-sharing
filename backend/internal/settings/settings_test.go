@@ -503,6 +503,27 @@ func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
 	}
 }
 
+// Membership is a key to derive the prefix from and a name claimed under it, both or neither:
+// a machine holding a key it has claimed no name in states no presence,
+// and the relay closes what it publishes on the next sweep (internal/membership).
+func TestMembershipTakesAKeyAndANameTogether(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+
+	for state, relay := range map[string]Relay{
+		"a member":          {Host: "relay.example", GroupKey: groupKey.String(), DisplayName: "bjoern"},
+		"a key and no name": {Host: "relay.example", GroupKey: groupKey.String()},
+		"a name and no key": {Host: "relay.example", DisplayName: "bjoern"},
+		"neither":           {Host: "relay.example"},
+	} {
+		if got, want := relay.InGroup(), state == "a member"; got != want {
+			t.Errorf("%s is in a group = %v, want %v", state, got, want)
+		}
+	}
+}
+
 // The prefix a list shortens a name by and the prefix a path is published under are one string.
 // Two derivations of it would let a viewer's list print a name the relay has no path for,
 // which reads as a stream that will not open.
@@ -526,11 +547,11 @@ func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	if got := (Relay{Host: "relay.example", GroupKey: groupKey.String()}).Prefix(); got != groupKey.Prefix() {
 		t.Errorf("a member reaches under %q, want the group's own %q", got, groupKey.Prefix())
 	}
-	// Every relay authenticates,
-	// so a keyless machine reaches the prefix anybody may watch wherever that relay stands.
+	// A stream lives in a group, so a machine holding no key reaches under no prefix,
+	// wherever that relay stands.
 	for _, host := range []string{"relay.example", "192.168.1.9"} {
-		if got := (Relay{Host: host}).Prefix(); got != group.PublicPrefix {
-			t.Errorf("a keyless machine on %s reaches under %q, want the public prefix", host, got)
+		if got := (Relay{Host: host}).Prefix(); got != "" {
+			t.Errorf("a keyless machine on %s reaches under %q, want no prefix", host, got)
 		}
 	}
 	if got := (Relay{}).Prefix(); got != "" {
@@ -621,10 +642,10 @@ func TestTheSrtPassphraseFollowsTheGroupKey(t *testing.T) {
 
 	for deployment, want := range map[Relay]string{
 		{Host: "relay.example", GroupKey: groupKey.String()}: groupKey.SrtPassphrase(),
-		{Host: "relay.example"}:                              group.PublicSrtPassphrase,
-		{Host: "192.168.1.9"}:                                group.PublicSrtPassphrase,
-		// A damaged key publishes to the bare name every relay refuses (Path),
-		// so the leg it would have keyed opens nowhere.
+		// A machine in no group, and one whose key is damaged, both publish to the bare name
+		// every relay refuses (Path), so the leg either would have keyed opens nowhere.
+		{Host: "relay.example"}:                              "",
+		{Host: "192.168.1.9"}:                                "",
 		{Host: "relay.example", GroupKey: "not a group key"}: "",
 		{}: "",
 	} {
@@ -708,7 +729,7 @@ func TestLoadMigratesTheOneCodecKeyOntoThePair(t *testing.T) {
 // Every relay this app is pointed at runs a group service,
 // and the address of one follows the address of the relay:
 // the proxy's own name off a trusted network,
-// and the port groupd binds where the relay is reached directly (scripts/relay.sh, cmd/groupd).
+// and the port groupd binds where the relay is reached directly (deploy/relay.sh, cmd/groupd).
 //
 // A relay on this machine answering none is a development relay that issues no token,
 // and the relay refuses every publisher that carries none.

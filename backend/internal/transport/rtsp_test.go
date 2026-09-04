@@ -21,6 +21,7 @@ func rtspStream() settings.Settings {
 		Relay: settings.Relay{
 			Host:     "10.0.0.5",
 			RtspPort: 8322,
+			GroupKey: testGroupKey.String(),
 		},
 		Publish: settings.Publish{
 			Transport:           "rtsp",
@@ -33,9 +34,9 @@ func rtspStream() settings.Settings {
 	}
 }
 
-// rtspPath is where the fixture's stream lives on the relay: every relay authenticates, so
-// a machine in no group publishes under the prefix anybody may watch.
-const rtspPath = "public/monitor-0"
+// rtspPath is where the fixture's stream lives on the relay:
+// a stream lives in a group, so the path leads with that group's prefix.
+var rtspPath = testGroupKey.Prefix() + "monitor-0"
 
 func TestRTSPRegistered(t *testing.T) {
 	tr, ok := Get("rtsp")

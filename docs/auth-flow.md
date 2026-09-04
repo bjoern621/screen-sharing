@@ -65,19 +65,14 @@ sequenceDiagram
     M-->>X: 401
 
     X->>G: POST /tokens, no groupKey
-    G-->>X: JWT granting public only
-    X->>M: GET prefix/name, public token
-    M-->>X: 401, path outside the grant
+    G-->>X: 400, a stream lives in a group
 
     Note over X: takes the group key, 256 bits
 ```
 
 Read is an authenticated action on every listener, not only on the API.
-Knowing a group's path buys a 401.
-
-`public/` is the exception, and it is the whole of what the prefix means.
-The relay excludes read there (`authJWTExclude`, `deploy/mediamtx-groups.yml`), so an address opened in a browser plays.
-Publishing under it still takes a token.
+Knowing a group's path buys a 401, and there is no path outside a group to know.
+A browser reaches a stream on the same terms, its address carrying the token as userinfo.
 
 ## Leaving
 
@@ -92,12 +87,12 @@ Membership is therefore enforced by closing connections, against the presence le
 | Door | Takes | Path alone enough |
 | --- | --- | --- |
 | `POST /groups` | nothing, rate limited per address | makes a fresh group, reaches no existing one |
-| `POST /tokens` | group key and member secret, or nothing for public | no, the request has no path field at all |
-| `GET /streams` | group key, or nothing for public | no, a prefix is not a group key |
+| `POST /tokens` | group key, and the member secret naming who asks | no, the request has no path field at all |
+| `GET /streams` | group key | no, a prefix is not a group key |
 | `PUT /members`, `DELETE /members`, `GET /members` | group key, and the member secret on the two that state and release | no |
 | `POST /reconcile` | nothing, on loopback only | a path names a group and buys a run against the leases that group's own members stated |
 | publish | JWT | no, the grant is `~^prefix` and the relay matches it |
-| read | JWT, nothing under `public/` | outside `public/` no, under it yes |
+| read | JWT | no, the grant is `~^prefix` and the relay matches it |
 
 ## What a leak costs
 

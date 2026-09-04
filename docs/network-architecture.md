@@ -62,8 +62,7 @@ TCP is the encrypted session's only lower transport rather than its slower one.
 SRT is UDP with no TLS at all, so what protects it is a passphrase rather than a certificate, one per path prefix.
 A group's passphrase derives from its group key on both ends, so nobody sets or sees one.
 The app keys its legs with it, and the group service writes the same derivation into the relay's path configuration.
-The public prefix has no key to derive from and takes a well-known value spelled in the app and the relay configuration alike, as public as the audience it keys.
-A publish whose stored group key will not read back derives nothing, and an encrypted relay refuses that leg rather than sending it in the clear.
+A publish holding no readable group key derives nothing, and an encrypted relay refuses that leg rather than sending it in the clear.
 
 WebRTC media negotiates a direct UDP path to the viewer, which is the point of it, so it never meets the proxy either.
 It is DTLS-SRTP by construction.
@@ -98,7 +97,7 @@ MediaMTX therefore generates it rather than taking it from configuration, ECDSA 
 The relay's API and the group service.
 The cleartext RTSP and RTMP listeners are not bound at all: the relay sets `strict` on both, so there is nothing on those ports to reach rather than something a firewall is hiding.
 The API is not a member's endpoint: a group token grants publishing and reading under one prefix and names no API action, so an exposed API would refuse every caller it could reach.
-Reading it takes an operator's own token, on the machine the relay runs on (`bruno/README.md`).
+Reading it takes an operator's own token, on the machine the relay runs on (`tools/bruno/README.md`).
 
 The port numbers live in `deploy/mediamtx-groups.yml` and the routing in `deploy/Caddyfile`.
 Those two files are what every relay obeys, a deployment and a development machine alike.
@@ -138,9 +137,8 @@ A group key is drawn at the service on request, so a group is made by asking for
 The relay holds no list of groups, and the service stores nothing beyond the presence leases each member's own app states, the prefix being the group key's own digest.
 `auth-flow.md` draws the exchanges and `membership.md` the leases.
 
-A publisher holding no group key trades for a token on the public prefix instead of being refused.
-That stream is authenticated at the relay and encrypted on the wire like any other.
-What it lacks is a restriction on who may watch it, the one thing the app says out loud before the stream starts.
+A publisher holding no group key is refused a token, so nothing it builds reaches the relay.
+The app says so before the stream starts: the commit is greyed and the reason names the group key.
 
 Where the token rides is the protocol's answer rather than a choice:
 

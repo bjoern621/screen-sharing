@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,9 +34,8 @@ type groupService interface {
 // settingsForCommand returns s carrying the token this relay connection needs.
 // The one site that attaches one, so it reaches neither the held settings nor the store.
 //
-// A relay with a group service is asked for a token whether or not there is a group key,
-// an empty key being a request for the public prefix (internal/groupclient).
-// Without that, a publisher who set no key would build a command with no credential,
+// A relay with a group service is asked for a token, the group key being what buys one.
+// Without it a publisher would build a command with no credential,
 // and meet a refusal at the handshake with nothing naming the cause.
 //
 // The trade names this machine's member secret,
@@ -61,6 +61,12 @@ func (a *App) settingsForCommand(s settings.Settings) (settings.Settings, error)
 	s.Relay.Token = token
 	return s, nil
 }
+
+// errNoGroup refuses everything this machine would publish while it is in no group.
+//
+// One sentence for the publish and for the synthetic set, both being streams on the relay,
+// and both refused on settings.Relay.InGroup.
+var errNoGroup = errors.New("this computer is in no group, so there is nowhere to publish: set a group key and a name under Relay")
 
 // forgetRelayToken drops the held credential, so the next command trades the group key again.
 // Called where the relay refused a connection this app built, the one sign a held token is spent:
@@ -101,9 +107,12 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 //
 // A relay nobody named is asked nothing, and the zero snapshot is the answer:
 // unreachable, with no failure to name about a relay that is not there (watch.go, lastRelayStatus).
+// A machine holding no group key is the same case:
+// a listing is a group's, so there is nothing to ask about
+// and the refusal that came back would be read out as a relay that is down.
 func (a *App) relayStatusFor(s settings.Settings) relay.Status {
 	base, ok := s.Relay.GroupService()
-	if !ok {
+	if !ok || s.Relay.GroupKey == "" {
 		return relay.Status{}
 	}
 	return insidePrefix(a.groupIndexStatus(s, base), s.Relay.Prefix())

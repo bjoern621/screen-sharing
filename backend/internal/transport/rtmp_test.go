@@ -13,13 +13,14 @@ func rtmpTestStream() settings.Settings {
 		Relay: settings.Relay{
 			Host:     "10.0.0.5",
 			RtmpPort: 1936,
+			GroupKey: testGroupKey.String(),
 		},
 	}
 }
 
-// rtmpPath is where the fixture's stream lives on the relay: every relay authenticates, so
-// a machine in no group publishes under the prefix anybody may watch.
-const rtmpPath = "public/monitor-0"
+// rtmpPath is where the fixture's stream lives on the relay:
+// a stream lives in a group, so the path leads with that group's prefix.
+var rtmpPath = testGroupKey.Prefix() + "monitor-0"
 
 func TestRTMPRegistered(t *testing.T) {
 	tr, ok := Get("rtmp")

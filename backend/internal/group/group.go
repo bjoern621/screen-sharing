@@ -65,14 +65,6 @@ var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 // and a second use changes nothing about what the first produces.
 const idLabel = "screenshare/group-id/v1"
 
-// PublicPrefix leads every stream nobody restricted the audience of.
-//
-// An id's shape without being one: no key derives it,
-// so a group's prefix cannot collide with it and holding a key cannot publish into it.
-// The relay authenticates a publisher and a viewer here and carries them over an encrypted transport.
-// What "public" drops is who may watch, and nothing else.
-const PublicPrefix = "public" + separator
-
 // separator divides a group's id from a stream's own name.
 //
 // A slash, because MediaMTX matches path permissions on prefixes
@@ -238,16 +230,6 @@ const srtLabel = "screenshare/srt-passphrase/v1"
 // srtEncoding spells a passphrase in characters no URL query and no pipeline description escapes.
 var srtEncoding = base64.RawURLEncoding
 
-// PublicSrtPassphrase keys SRT under PublicPrefix,
-// where no group key exists to derive one from.
-// deploy/mediamtx-groups.yml spells the same value into the relay's public path entry.
-//
-// Not a secret, exactly as the prefix it keys is not:
-// anybody may watch a public stream, so its wire key is only ever as private as its audience.
-// What it buys is uniformity: every SRT leg runs encrypted,
-// and the handshake refuses a keyless caller on the public prefix the way a group's refuses one.
-const PublicSrtPassphrase = "screenshare/public-srt/v1"
-
 // SrtPassphrase keys this group's SRT legs, both directions.
 //
 // SRT is UDP with no TLS, so a passphrase is the whole of what encrypts it,
@@ -289,22 +271,6 @@ func (k Key) Path(name string) (string, error) {
 
 	path := k.ID() + separator + name
 	assert.Assert(strings.HasPrefix(path, k.Prefix()), "a stream's path starts with its group's prefix", path)
-	return path, nil
-}
-
-// PublicPath is where a stream nobody restricted the audience of lives.
-//
-// The counterpart of Key.Path for a publisher holding no key,
-// and a whole answer rather than a fallback:
-// a stream published here is one anybody may watch,
-// a choice the publisher made rather than a group that went missing.
-func PublicPath(name string) (string, error) {
-	if err := checkStreamName(name); err != nil {
-		return "", err
-	}
-
-	path := PublicPrefix + name
-	assert.Assert(strings.HasPrefix(path, PublicPrefix), "a public stream's path starts with the public prefix", path)
 	return path, nil
 }
 

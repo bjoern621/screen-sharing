@@ -81,7 +81,16 @@ func (a *App) StartPublish(s settings.Settings) error {
 }
 
 // startPublish is the one place a publish begins, whichever caller chose the settings.
+//
+// A stream lives in a group, so settings stating no membership are refused here.
+// The form greys the commit on the same fact and names the control that clears it
+// (internal/form, diagnosticsAboutTheAudience),
+// and this holds for a caller that asked anyway.
 func (a *App) startPublish(s settings.Settings) error {
+	if !s.Relay.InGroup() {
+		return errNoGroup
+	}
+
 	// Attached here rather than in the callers,
 	// so every publish carries the same credential (groups.go).
 	s, err := a.settingsForCommand(s)

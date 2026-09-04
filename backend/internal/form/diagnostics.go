@@ -18,7 +18,7 @@ import (
 // An anchor no shell has a widget for renders the diagnostic nowhere and reports nothing,
 // so every anchor a rule below writes is held against this list.
 var warningAnchors = []string{
-	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
+	KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
@@ -96,21 +96,28 @@ var warningPeaks = map[string]string{
 	capabilities.ModeVbr:      KeyMaxrateM,
 }
 
-// diagnosticsAboutTheAudience says who will be able to watch,
-// where that is more than the people the user handed a key to.
+// diagnosticsAboutTheAudience refuses a draft that has no group to publish into.
 //
-// A warning, because publishing without a group is a choice this app carries out,
-// and the stream is authenticated and encrypted either way (docs/network-architecture.md).
-// What it is not is private, and that is the one thing nothing else on the screen says.
+// A stream lives in a group: the relay carries a path under a group's prefix and nothing else,
+// so a keyless machine reaches a path every relay refuses (settings.Relay.Path).
+// An error rather than a warning, which is what greys the commit
+// and puts the reason beside the control that clears it.
 //
-// Only on a relay somebody named, an unnamed one having no service to draw a group
-// from and no prefix to publish under either.
+// Membership is settings.Relay.InGroup's answer,
+// and the two branches under it name the control the reader fills in rather than restating the rule.
+//
+// Only on a relay somebody named, an unnamed one having no service to draw a group from.
 func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
-	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.GroupKey != "" {
+	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.InGroup() {
 		return nil
 	}
+	if s.Relay.GroupKey == "" {
+		return []*screensharev1.Diagnostic{
+			diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyGroupKey, say(groupRequired)),
+		}
+	}
 	return []*screensharev1.Diagnostic{
-		diagnosticFor(screensharev1.Severity_SEVERITY_WARNING, KeyGroupKey, say(streamIsPublic)),
+		diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDisplayName, say(groupNameMissing)),
 	}
 }
 

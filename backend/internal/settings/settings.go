@@ -192,7 +192,7 @@ const GroupServicePort = 9443
 // Every relay this repository runs has one beside it,
 // so both deployments are addresses rather than a presence and an absence:
 // the proxy's own name, one certificate covering relay and service (deploy/Caddyfile),
-// or the port groupd binds where the relay is reached directly (scripts/relay.sh).
+// or the port groupd binds where the relay is reached directly (deploy/relay.sh).
 //
 // The relay refuses a publisher carrying no token,
 // so a service this answered false for is a relay nothing can publish to.
@@ -206,6 +206,21 @@ func (r Relay) GroupService() (base string, ok bool) {
 	return "https://" + r.Host, true
 }
 
+// InGroup reports whether these settings state membership of a group.
+//
+// A key and a name together, membership being both:
+// the key derives the prefix every path lives under,
+// and the name is what this machine claims inside the group (internal/membership).
+// A key with no name claimed states no presence,
+// so the relay closes what it publishes on the next sweep,
+// and a publish is refused ahead of that (internal/form, diagnosticsAboutTheAudience).
+//
+// A key that will not parse reads as membership here and reaches a path every relay refuses (Path),
+// this being the settings a user typed rather than a fact this app can repair.
+func (r Relay) InGroup() bool {
+	return r.GroupKey != "" && r.DisplayName != ""
+}
+
 // Path is where a stream of this name lives on the relay,
 // which every transport builds its URL from.
 //
@@ -214,37 +229,26 @@ func (r Relay) GroupService() (base string, ok bool) {
 // and "which streams may I see" is a string match rather than a query its API cannot answer
 // (docs/plan.md).
 //
-// Three answers, and which one applies is the deployment's rather than a preference:
+// Two answers, and which one applies is the deployment's rather than a preference:
 //   - a group key, so the group's own prefix
-//   - no key, so the public prefix, a stream anybody may watch
-//   - a relay nobody named, or a key that will not parse, so the bare name
+//   - no key, or one that will not parse, so the bare name
 //
-// A stored key that will not parse is an Umgebungsfehler and yields the bare name,
-// never the public prefix.
-// The two keyless cases are not one:
-// a field nobody filled in is a stream nobody restricted,
-// and a key that came back damaged is a stream somebody meant to restrict,
-// so widening its audience on the strength of a broken key would publish to everyone,
-// on the evidence that something is wrong.
-// The bare name is under no group's prefix and every relay refuses it,
-// which is the outcome that keeps the stream off the public prefix.
+// A stream lives in a group, so the bare name is under no prefix and every relay refuses it.
+// A stored key that will not parse is an Umgebungsfehler and reaches it like an empty field:
+// somebody who set a key meant to restrict who watches,
+// and a damaged one is answered by a path nobody can open rather than by a wider audience.
+// What keeps a machine outside a group from reaching here at all
+// is the publish refusing before a path is built (internal/form, diagnosticsAboutTheAudience).
 func (r Relay) Path(name string) string {
-	if r.GroupKey != "" {
-		groupKey, err := group.ParseKey(r.GroupKey)
-		if err != nil {
-			return name
-		}
-		path, err := groupKey.Path(name)
-		if err != nil {
-			return name
-		}
-		return path
-	}
-
-	if _, hasService := r.GroupService(); !hasService {
+	if r.GroupKey == "" {
 		return name
 	}
-	path, err := group.PublicPath(name)
+
+	groupKey, err := group.ParseKey(r.GroupKey)
+	if err != nil {
+		return name
+	}
+	path, err := groupKey.Path(name)
 	if err != nil {
 		return name
 	}
@@ -305,29 +309,25 @@ func (s Settings) WatchPath(streamName string) string {
 // It follows the group key the way Path does,
 // so the audience of the packets is the audience of the stream:
 // the group's own derivation under its key,
-// the well-known public value under the prefix anybody may watch,
 // and none where Path answers the bare name every relay refuses.
 // The relay's side of the same value is written per prefix by the group service
-// (internal/groupsvc), and spelled into the public path entry (deploy/mediamtx-groups.yml).
+// (internal/groupsvc).
 func (r Relay) SrtPassphrase() string {
-	if r.GroupKey != "" {
-		groupKey, err := group.ParseKey(r.GroupKey)
-		if err != nil {
-			return ""
-		}
-		return groupKey.SrtPassphrase()
-	}
-
-	if _, hasService := r.GroupService(); !hasService {
+	if r.GroupKey == "" {
 		return ""
 	}
-	return group.PublicSrtPassphrase
+
+	groupKey, err := group.ParseKey(r.GroupKey)
+	if err != nil {
+		return ""
+	}
+	return groupKey.SrtPassphrase()
 }
 
 // Prefix leads every path this machine reaches, and is empty where Path answers a bare name.
 //
 // Read back off Path rather than restating the choice Path makes,
-// between a group's prefix, the public one and none.
+// between a group's prefix and none.
 // Two statements of that rule drift, and the wrong one would be the one a viewer's list prints.
 func (r Relay) Prefix() string {
 	// One path segment, the shape Path puts a prefix in front of:

@@ -65,21 +65,6 @@ const TokenWindow = 5 * time.Minute
 // low enough that a script filling the relay with prefixes does.
 const CreationsPerHour = 60
 
-// PublicPrefix is where a stream anybody may watch lives, as internal/group derives every path from.
-//
-// Named through rather than restated:
-// the publisher builds its path from that constant and this service grants a token on it,
-// and two spellings of one prefix issue a token for a path nobody publishes to.
-const PublicPrefix = group.PublicPrefix
-
-// PublicSubject is what a public token is issued to.
-//
-// A subject is what the relay logs and lists a connection under:
-// a member's id where one was named, and the group's own id otherwise.
-// There is neither here, no key having derived this prefix,
-// so the prefix's own name stands in and a log line says which audience a connection belonged to.
-const PublicSubject = "public"
-
 // Stream is one path the relay carries, as far as a member is told about it.
 //
 // Enough to open it and to say how it is going: the name, whether it carries anything,
@@ -239,72 +224,65 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 // Minted per call and never stored: the signature derives from the key like every other answer here,
 // so a held token would be a second copy of a fact the key already carries.
 //
-// A request naming no group key is answered rather than refused,
-// and answering it grants nothing a refusal would have withheld:
-// the public prefix is one anybody may ask for a token on,
-// so the token says who the audience is and never who the caller is.
-// The relay authenticates the connection and encrypts it.
-// Only a malformed group key is a refusal,
-// an empty one being a request for the public prefix
-// and a truncated one being a group the caller cannot reach.
+// A stream lives in a group, so a request naming no key is refused:
+// there is no prefix to grant and nothing outside a group for the relay to carry.
+// A malformed key is refused on its own ground, being a group the caller cannot reach.
 func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		GroupKey     string `json:"groupKey"`
 		MemberSecret string `json:"memberSecret"`
 	}
-	// An empty body is a request for the public prefix, the same as a body naming an empty group key.
+	// An empty body reads as a request naming no group key, which the refusal below covers.
 	// Anything else that will not decode is malformed rather than keyless,
-	// and a caller who meant to send a key is better told than quietly given somebody else's audience.
+	// and a caller who meant to send a key is better told.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyLimit)).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
 		s.refuseToken(w, http.StatusBadRequest, "the request carries no group key this service can read")
 		return
 	}
+	if strings.TrimSpace(body.GroupKey) == "" {
+		s.refuseToken(w, http.StatusBadRequest, "a stream lives in a group, and this request names none")
+		return
+	}
 
-	subject, prefix := PublicSubject, PublicPrefix
-	if strings.TrimSpace(body.GroupKey) != "" {
-		groupKey, err := group.ParseKey(body.GroupKey)
+	groupKey, err := group.ParseKey(body.GroupKey)
+	if err != nil {
+		s.refuseToken(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	subject, prefix := groupKey.ID(), groupKey.Prefix()
+
+	// Naming a member secret moves the subject from the group to the member it derives,
+	// which lets enforcement tell one member's connections from another's at the relay.
+	// The grant does not move with it: membership decides who may connect, never what they reach.
+	named := strings.TrimSpace(body.MemberSecret) != ""
+	if named {
+		secret, err := group.ParseMemberSecret(body.MemberSecret)
 		if err != nil {
 			s.refuseToken(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		subject, prefix = groupKey.ID(), groupKey.Prefix()
+		subject = groupKey.MemberID(secret)
+	}
 
-		// Naming a member secret moves the subject from the group to the member it derives,
-		// which lets enforcement tell one member's connections from another's at the relay.
-		// The grant does not move with it: membership decides who may connect, never what they reach.
-		named := strings.TrimSpace(body.MemberSecret) != ""
+	// The relay checks a token at the handshake and not again,
+	// so a subject the leases do not hold buys a connection the next run closes.
+	// Refused here instead, on the test that run makes (internal/membership).
+	//
+	// Two grounds and a message each, both naming the call that clears them:
+	// a member states presence, which takes no token,
+	// and a request naming none carries the group's own id, a subject no member ever matches.
+	if s.members.Swept(groupKey, subject) {
+		refusal := "this group states its members, and this request names none"
 		if named {
-			secret, err := group.ParseMemberSecret(body.MemberSecret)
-			if err != nil {
-				s.refuseToken(w, http.StatusBadRequest, err.Error())
-				return
-			}
-			subject = groupKey.MemberID(secret)
+			refusal = "this group holds no presence for the member this request names, so state presence before asking for a token"
 		}
-
-		// The relay checks a token at the handshake and not again,
-		// so a subject the leases do not hold buys a connection the next run closes.
-		// Refused here instead, on the test that run makes (internal/membership).
-		//
-		// Two grounds and a message each, both naming the call that clears them:
-		// a member states presence, which takes no token,
-		// and a request naming none carries the group's own id, a subject no member ever matches.
-		if s.members.Swept(groupKey, subject) {
-			refusal := "this group states its members, and this request names none"
-			if named {
-				refusal = "this group holds no presence for the member this request names, so state presence before asking for a token"
-			}
-			s.refuseToken(w, http.StatusBadRequest, refusal)
-			return
-		}
-
-		// Ahead of every connection the token buys,
-		// so the relay knows the prefix's SRT keys before the first handshake carries them.
-		s.keySrt(groupKey)
-	} else if strings.TrimSpace(body.MemberSecret) != "" {
-		s.refuseToken(w, http.StatusBadRequest, "a member belongs to a group, and this request names no group key")
+		s.refuseToken(w, http.StatusBadRequest, refusal)
 		return
 	}
+
+	// Ahead of every connection the token buys,
+	// so the relay knows the prefix's SRT keys before the first handshake carries them.
+	s.keySrt(groupKey)
 
 	now := s.now()
 	signed, err := s.signer.Sign(subject, token.GroupPermissions(prefix), now, TokenWindow)
@@ -320,23 +298,24 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// listStreams answers which streams the caller may see:
-// their group's on a group key, the public ones without.
+// listStreams answers which streams the caller may see: their own group's, and no other's.
 //
 // The split is enforced here rather than left to a shell, which is the point of the index:
 // a listing a client narrowed arrived carrying every group's streams.
-// A group's listing hides the public ones for the same reason it hides another group's,
-// that a member asked about their group.
+// A stream lives in a group, so a request naming no key is asking about streams nobody holds,
+// and it is refused rather than answered with a listing of everything outside every group.
 func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
-	prefix := PublicPrefix
-	if encoded := strings.TrimSpace(r.URL.Query().Get("groupKey")); encoded != "" {
-		groupKey, err := group.ParseKey(encoded)
-		if err != nil {
-			refuse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		prefix = groupKey.Prefix()
+	encoded := strings.TrimSpace(r.URL.Query().Get("groupKey"))
+	if encoded == "" {
+		refuse(w, http.StatusBadRequest, "a stream lives in a group, and this request names none")
+		return
 	}
+	groupKey, err := group.ParseKey(encoded)
+	if err != nil {
+		refuse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	prefix := groupKey.Prefix()
 
 	streams := []Stream{}
 	if s.streams != nil {
@@ -469,14 +448,6 @@ func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		refuse(w, http.StatusBadRequest,
 			"a run is named by the relay path a connection is on, and this one belongs to no group")
-		return
-	}
-	// Refused rather than answered as a group with no live member, which is what it would look like:
-	// streams under the public prefix are watchable by anybody,
-	// so a run there has nobody to hold them against and a caller expecting one is better told.
-	if prefix == PublicPrefix {
-		refuse(w, http.StatusBadRequest,
-			"streams under "+PublicPrefix+" are watchable by anybody, and membership names who may watch")
 		return
 	}
 	answer(w, s.members.Reconcile(prefix))

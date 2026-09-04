@@ -13,6 +13,10 @@ import (
 // publish outside the group its own token grants, which the relay refuses and which reaches
 // the user as a stream that will not start.
 
+// testGroupKey is the group every fixture in this package publishes into.
+// A key of zeroes, so a path derived from it reads the same on every run.
+var testGroupKey = group.Key(make([]byte, group.KeyBytes))
+
 // grouped is settings publishing under a group, with the group key they joined with.
 func grouped(t *testing.T) (settings.Settings, group.Key) {
 	t.Helper()
@@ -72,32 +76,30 @@ func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	}
 }
 
-// A machine in no group publishes where anybody may watch, which is a stream the user chose
-// to leave open rather than one that failed to find its group.
-// On every relay, each of them having a group service beside it and refusing a path under no
-// prefix.
-func TestNoGroupPublishesPublicly(t *testing.T) {
+// A stream lives in a group, so a machine holding no key reaches the bare name every relay refuses.
+// On every relay, each of them having a group service beside it and no path under no prefix.
+func TestNoGroupReachesTheBareName(t *testing.T) {
 	for _, host := range []string{"relay.example", "192.168.1.9"} {
 		s := settings.Defaults()
 		s.Relay.Host = host
 		s.Relay.GroupKey = ""
 
-		if got := s.Relay.Path("standup"); got != group.PublicPrefix+"standup" {
-			t.Errorf("a keyless publish to %s goes to %q, want the public prefix", host, got)
+		if got := s.Relay.Path("standup"); got != "standup" {
+			t.Errorf("a keyless publish to %s goes to %q, want the bare name", host, got)
 		}
 	}
 }
 
 // The audience is never widened on the strength of a group key that came back damaged.
 // Somebody who set a group key meant to restrict who watches, so a broken one publishes where
-// the relay refuses it rather than where everybody can see it.
-func TestABrokenKeyNeverFallsToThePublicPrefix(t *testing.T) {
+// the relay refuses it rather than under a prefix this app picked for them.
+func TestABrokenKeyReachesNoPrefixOfItsOwn(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
 	s.Relay.GroupKey = "not a group key"
 
 	if got := s.Relay.Path("standup"); got != "standup" {
-		t.Errorf("a broken group key publishes to %q, want the bare name and never the public prefix", got)
+		t.Errorf("a broken group key publishes to %q, want the bare name", got)
 	}
 }
 

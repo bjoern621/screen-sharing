@@ -86,9 +86,6 @@ A member whose lease lapsed comes back on a token that has not expired, the read
 A group with no live member is not enforced.
 Membership nobody stated is not the same as a group nobody is in, and enforcing the empty case would close the connections of an app that has not stated its presence.
 
-Streams under `public/` are outside all of it.
-No group key derives that prefix, so no member can hold a lease there, and a run against it is refused: anybody may watch, so there is nobody to remove.
-
 A run that could not read one of the relay's lists says so in `unread`, and a close the relay refused lands in `failed`.
 Both are a member possibly still watching, so neither is folded into the count of what was closed.
 

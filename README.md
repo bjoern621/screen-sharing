@@ -54,7 +54,7 @@ One window, and nothing to set up before the first run.
 ![The quality step, with the video format, the encoder and the colour settings](docs/images/setup-encode.png)
 
 Every stream in the group arrives on the Viewer tab, one tile each.
-Sharing without a group key makes the stream public, and the app says so before it starts.
+A stream lives in a group, so sharing waits until this computer has joined one under a name.
 
 ## Who sees it
 

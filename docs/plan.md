@@ -162,9 +162,8 @@ so two implementations of one hash would be a member issued a token for a path n
 The id is a keyed digest under its own label rather than a hash of the group key:
 the id is public, in every URL a member pastes, and must say nothing about the secret behind it.
 Every second use of the group key derives under a second label, the member id included, so what one use publishes cannot be replayed as another's input.
-A stream with no group key is published under the public prefix rather than under its bare name,
-which is where "every stream lives under a prefix somebody was granted" can be enforced:
-the bare name is granted by no token, so a relay that authenticates refuses it.
+A machine holding no group key publishes nowhere: the app refuses the start, and the bare name it would otherwise build is granted by no token.
+That is what "every stream lives under a prefix somebody was granted" rests on.
 
 ## Joining a group
 
@@ -183,17 +182,16 @@ it leaves every live connection alone and moves every remaining member's streams
 Switching groups moves the stream's path, so it stops the publish.
 Switching while live is out of scope, and the failure that must not happen is a user moving channels and broadcasting to the old one.
 
-## Public streams
+## Nothing outside a group
 
-**Public means watchable and discoverable.** Publishing always requires a token.
-A publisher holding no group key trades for one granting the public prefix,
-so the connection is authenticated and encrypted like every other and what "public" drops is who may watch.
-The index takes credentials and returns that group's streams, or public streams without them, enforcing the split rather than leaving a shell to filter.
-A group listing hides public streams.
+**A stream lives in a group.** Publishing requires a token, a token requires a group key, and no key is issued one for anything else.
+The app refuses a start that names no group and greys the control with the reason,
+the group service refuses a token and an index listing to a caller naming no key,
+and the relay carries no path a token does not grant.
 
-An unreadable group key is not a publisher holding none.
-A field nobody filled in is a stream nobody restricted, and a group key that came back damaged is a stream somebody meant to restrict,
-so the second falls to the bare name the relay refuses rather than to the prefix everyone can read.
+A group key that came back damaged is answered the same way as none:
+somebody who set a key meant to restrict who watches,
+so the app builds the bare name the relay refuses rather than widening the audience on the evidence that something is wrong.
 
 ## Tokens and encryption
 
@@ -205,7 +203,6 @@ So withholding one reaches only the next connection, which is why membership is 
 and ACME lives in the proxy because MediaMTX has no ACME of its own.
 SRT is the one exception: UDP with no TLS, taking a passphrase per path prefix.
 A group's derives from its group key on both ends, the service writing it into the relay's path configuration and the app keying its legs with it, so nobody sets one.
-The public prefix takes a well-known value spelled in the app and the relay configuration alike.
 
 Encryption is a flag plus a second port only where the relay has a second listener.
 RTSP and RTMP have their own TLS listeners.
@@ -223,7 +220,7 @@ because the path-prefix derivation has to be identical on both sides and two rep
 **Built: the service.**
 It holds a signing key and the presence leases: a group is created by drawing a group key,
 that key is traded for a short relay token granting its prefix,
-and the index answers a caller's group or the public streams by reading the relay's own path list.
+and the index answers a caller's own group by reading the relay's own path list.
 Nothing else is stored, holding the group key being what lets somebody join and the prefix being that key's own digest.
 Rotation is therefore drawing a second group key and using it.
 The leases are held in memory alone, so a restart forgets every one and every live app re-states its own within one refresh interval.
@@ -252,7 +249,7 @@ a group's grant covers publishing and reading under one prefix and names no API 
 ## Deployment, and the app's half
 
 **Built: the deployment.** `deploy/` carries the relay configured for groups
-(`authJWTJWKS` pointed at the service, the public prefix's SRT entry, every other listener on loopback)
+(`authJWTJWKS` pointed at the service, every listener but the ones a proxy cannot front on loopback)
 and the reverse proxy that terminates TLS and renews the certificate for all of them.
 The NixOS modules in the `nixos-config` repository read both files straight out of this one,
 so what the relay carries stays the app's decision and which listeners a machine exposes stays the host's.
@@ -262,8 +259,7 @@ a development relay and a deployment differ in the certificate and hook paths ha
 The app publishes under its group: the group key is a relay setting, every transport builds its path from it,
 and the SRT passphrase derives from the same key and rides both legs.
 What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix.
-A machine holding no group key still publishes, under the public prefix anybody reaching the relay can watch,
-and the bare name is what a machine pointed at no relay builds.
+A machine holding no group key is refused before a child is launched, and the bare name is what it would have built.
 
 **Built: the app's credential.**
 The group key is traded for a relay token, and the minted one is held until it is close to expiring.
@@ -392,6 +388,6 @@ Settled, and kept here until the work they belong to lands:
   The pointer is a plane of its own and the capture takes one.
 - The MediaMTX version matters.
   `flake.nix` pins v1.20.0, because `deploy/mediamtx-groups.yml` turns on the MoQ server and a relay that predates `moqQUICAddress` refuses the whole config rather than ignoring the key.
-  `scripts/relay.ps1` fetches that same version, and the NixOS relay module takes it from this flake's overlay for the same reason.
+  `deploy/relay.ps1` fetches that same version, and the NixOS relay module takes it from this flake's overlay for the same reason.
 - `buf` is in neither the dev shell nor on PATH, so `task api` does not run.
   Regeneration goes through `protoc` with a `protoc-gen-go` built from the module cache, which is the path this repository's generated Go comes from.

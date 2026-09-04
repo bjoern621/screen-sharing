@@ -23,11 +23,12 @@ func TestWebRTCPublishArgs(t *testing.T) {
 		Relay: settings.Relay{
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
+			GroupKey:   testGroupKey.String(),
 		},
 	}
 	args := WebRTC{}.PublishArgs(s)
 
-	want := []string{"-f", "whip", "http://10.0.0.5:8889/public/monitor-0/whip"}
+	want := []string{"-f", "whip", "http://10.0.0.5:8889/" + testGroupKey.Prefix() + "monitor-0/whip"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -38,6 +39,7 @@ func TestWebRTCGstSink(t *testing.T) {
 		Relay: settings.Relay{
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
+			GroupKey:   testGroupKey.String(),
 		},
 	}
 	sink := WebRTC{}.GstSink(s)
@@ -47,7 +49,7 @@ func TestWebRTCGstSink(t *testing.T) {
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
-		"signaller::whip-endpoint=http://10.0.0.5:8889/public/monitor-0/whip",
+		"signaller::whip-endpoint=http://10.0.0.5:8889/" + testGroupKey.Prefix() + "monitor-0/whip",
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)
@@ -85,6 +87,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 		Relay: settings.Relay{
 			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
+			GroupKey:   testGroupKey.String(),
 		},
 		Publish: settings.Publish{
 			Transport: "webrtc",
@@ -128,7 +131,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
 	}
-	if want := "http://10.0.0.5:8889/public/bob/"; page != want {
+	if want := "http://10.0.0.5:8889/" + testGroupKey.Prefix() + "bob/"; page != want {
 		t.Errorf("BrowserURL = %q, want %q", page, want)
 	}
 	if !CanWatch("webrtc", EngineBrowser) {
@@ -141,13 +144,15 @@ func TestWebRTCCapabilities(t *testing.T) {
 // What tells the page from the HLS one instead is the prefix the proxy strips again, and
 // the address without it is the HLS page (deploy/Caddyfile).
 func TestWebRTCPageTakesAPrefixBehindTheProxy(t *testing.T) {
-	s := settings.Settings{Relay: settings.Relay{Host: "relay.example.com", WebrtcPort: 8889, HlsPort: 8888}}
+	s := settings.Settings{Relay: settings.Relay{
+		Host: "relay.example.com", WebrtcPort: 8889, HlsPort: 8888, GroupKey: testGroupKey.String(),
+	}}
 
 	page, ok := BrowserURL("webrtc", s, "bob")
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
 	}
-	if want := "https://relay.example.com/webrtc/public/bob/"; page != want {
+	if want := "https://relay.example.com/webrtc/" + testGroupKey.Prefix() + "bob/"; page != want {
 		t.Errorf("BrowserURL = %q, want %q", page, want)
 	}
 }

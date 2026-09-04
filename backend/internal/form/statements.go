@@ -86,7 +86,8 @@ const (
 	vaapiCeilingBound          = screensharev1.TextCode_TEXT_CODE_VAAPI_CEILING_BOUND
 	portalServesNoCursorMode   = screensharev1.TextCode_TEXT_CODE_PORTAL_SERVES_NO_CURSOR_MODE
 
-	streamIsPublic              = screensharev1.TextCode_TEXT_CODE_STREAM_IS_PUBLIC
+	groupRequired               = screensharev1.TextCode_TEXT_CODE_GROUP_REQUIRED
+	groupNameMissing            = screensharev1.TextCode_TEXT_CODE_GROUP_NAME_MISSING
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
 

@@ -39,7 +39,66 @@ func diagnosticTestStream() settings.Settings {
 	// A builder refuses a step off the ladder,
 	// which would make this draft unbuildable for a reason no case below is about.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
+	// A stream lives in a group, so a draft outside one is refused for that alone.
+	// The key is spelled rather than derived, this package declaring a type named group.
+	s.Relay.GroupKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+	s.Relay.DisplayName = "bjoern"
 	return s
+}
+
+// A stream lives in a group, so a draft naming none cannot be published,
+// and the refusal anchors on the control that joins one.
+func TestADraftOutsideAGroupIsRefused(t *testing.T) {
+	d := diagnosticTestDeps()
+	s := diagnosticTestStream()
+	s.Relay.GroupKey = ""
+
+	diags := diagnostics(d, s, estimate(d, s))
+	if publishable(diags) {
+		t.Error("a machine in no group reaches no path, and this draft was publishable")
+	}
+
+	refusal := diagnosticTestNaming(diags, groupRequired)
+	if refusal == nil {
+		t.Fatalf("no statement names the missing group: %v", diags)
+	}
+	if refusal.GetSeverity() != screensharev1.Severity_SEVERITY_ERROR {
+		t.Errorf("the missing group ranks %v, want the rank that refuses", refusal.GetSeverity())
+	}
+	if refusal.GetFieldKey() != KeyGroupKey {
+		t.Errorf("the refusal anchors on %q, want the group key", refusal.GetFieldKey())
+	}
+}
+
+// A group is joined under a name, so a key with no name beside it is a machine on its way in.
+// Publishing there would take a path no member holds, which the relay closes on the next sweep.
+func TestADraftWithNoNameToJoinUnderIsRefused(t *testing.T) {
+	d := diagnosticTestDeps()
+	s := diagnosticTestStream()
+	s.Relay.DisplayName = ""
+
+	diags := diagnostics(d, s, estimate(d, s))
+	if publishable(diags) {
+		t.Error("a machine that has claimed no name is in no group, and this draft was publishable")
+	}
+
+	refusal := diagnosticTestNaming(diags, groupNameMissing)
+	if refusal == nil {
+		t.Fatalf("no statement names the missing name: %v", diags)
+	}
+	if refusal.GetFieldKey() != KeyDisplayName {
+		t.Errorf("the refusal anchors on %q, want the display name", refusal.GetFieldKey())
+	}
+}
+
+// diagnosticTestNaming is the diagnostic carrying code, nil where none does.
+func diagnosticTestNaming(diags []*screensharev1.Diagnostic, code screensharev1.TextCode) *screensharev1.Diagnostic {
+	for _, w := range diags {
+		if w.GetText().GetCode() == code {
+			return w
+		}
+	}
+	return nil
 }
 
 func diagnosticTestOfRank(diags []*screensharev1.Diagnostic, rank screensharev1.Severity) []*screensharev1.Diagnostic {

@@ -43,6 +43,11 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	if before.GroupKey != s.Relay.GroupKey {
 		a.releaseGroup(before)
 	}
+	if joinedAGroup(before, s.Relay) {
+		// On a goroutine of its own, for the reason the boot call is:
+		// it states presence and each child opens its run log, and this write answers at its own speed.
+		go a.startTestStreamsAtBoot()
+	}
 
 	a.emitPublishState()
 	a.emit(wire.SettingsChangedEvent())
