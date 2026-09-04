@@ -21,6 +21,23 @@ func FindGstExe() (string, error) {
 	return ffmpeg.FindExe(GstExe)
 }
 
+// GstInspectExe queries the registry the launcher plays against, and answers whether an element
+// is there before a pipeline naming it is built (internal/encoders).
+// It ships in the same package as the launcher, so an install that can publish carries it, and
+// scripts/bundle-windows.sh copies both beside the binary for the same reason.
+const GstInspectExe = "gst-inspect-1.0"
+
+// FindGstInspect locates the inspector the encoder probe spawns, by the resolution FindGstExe uses.
+//
+// One rule for every GStreamer child: a bare name handed to exec.LookPath searches PATH alone,
+// and a Windows bundle puts nothing on PATH, so the inspector sitting beside the binary was passed
+// over and the whole engine read as an install carrying no GStreamer tooling.
+// The bundled inspector then also needs GstChildEnv, the plugins it was built against being where
+// the launcher's are.
+func FindGstInspect() (string, error) {
+	return ffmpeg.FindExe(GstInspectExe)
+}
+
 // GstSubcommand is the first argument of every child spawned to play a publish pipeline, and what
 // this binary dispatches on when it sees it (cmd/backend).
 const GstSubcommand = "gst-publish"
@@ -39,13 +56,10 @@ func FindGstRunner() (string, error) {
 // GstChildEnv is what a spawned GStreamer child gets on top of this process's environment,
 // empty where there is nothing to add.
 //
-// gstbundle answers where the plugins are, internal/receive asking that of the same installation.
-// Nothing is set on this process: a publish pipeline links no GStreamer, so the variable belongs
+// gstbundle answers where the plugins and the GIO TLS module are, internal/receive asking that of
+// the same installation.
+// Nothing is set on this process: a publish pipeline links no GStreamer, so the variables belong
 // to the child that does.
 func GstChildEnv() []string {
-	path, ok := gstbundle.PluginPath()
-	if !ok {
-		return nil
-	}
-	return []string{gstbundle.PathVar + "=" + path}
+	return gstbundle.Env()
 }

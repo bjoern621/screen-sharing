@@ -83,14 +83,15 @@ The flake reads the same variable, under `--impure`, and stamps the revision it 
 
 ## How the app locates the programs it spawns
 
-`FindExe` in the `ffmpeg` package resolves the name (`ffmpeg`, `ffplay` or `gst-launch-1.0`, `.exe` on Windows) in this order:
+`FindExe` in the `ffmpeg` package resolves the name (`ffmpeg`, `ffplay`, `gst-launch-1.0` or `gst-inspect-1.0`, `.exe` on Windows) in this order:
 
 1. A copy next to the app binary.
 2. The first match on `PATH`.
 3. Otherwise an error naming the missing program and both places it looked.
 
-Every GStreamer child goes through the same lookup: the publish engine, the encode probe and the test streams.
+Every GStreamer child goes through the same lookup: the publish engine, the encode-rate probe, the test streams, and the `gst-inspect-1.0` the encoder probe asks whether an element is registered.
 A bare name handed to the process launcher would search `PATH` alone and pass over the copy a bundle ships.
+A Windows bundle puts nothing on `PATH`, so a lookup there alone greys the whole GStreamer engine as tooling that is not installed, on an install that shipped the inspector beside the binary.
 A bundled launcher is also given `GST_PLUGIN_PATH` at spawn, the prefix it was built against existing on no machine but the build host.
 
 Two provisioning models follow: bundle ffmpeg next to the binary, or declare a dependency and rely on `PATH`.

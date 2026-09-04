@@ -25,6 +25,7 @@ package encoders
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -38,10 +39,6 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
-
-// gstInspectExe queries the GStreamer registry.
-// Ships in the same package as the pipeline launcher, so an install that can publish carries it.
-const gstInspectExe = "gst-inspect-1.0"
 
 // engineProbe is one publish engine's answer to "does this machine run this codec".
 // available answers for the engine as a whole, codecs lists what is worth testing there,
@@ -76,11 +73,39 @@ func ffmpegAvailable() error {
 
 // gstAvailable reports whether the GStreamer registry can be queried.
 // Missing tools mean the engine does not run here at all rather than one plugin being absent.
+//
+// Resolved the way every GStreamer child is, beside the binary before PATH
+// (publish.FindGstInspect): a Windows bundle puts nothing on PATH, and a lookup there alone
+// greyed the whole engine on an install that shipped the inspector.
 func gstAvailable() error {
-	if _, err := exec.LookPath(gstInspectExe); err != nil {
-		return fmt.Errorf("%s not found: this install carries no GStreamer command-line tools, so no encoder element can be located", gstInspectExe)
+	if _, err := publish.FindGstInspect(); err != nil {
+		return fmt.Errorf("%w: this install carries no GStreamer command-line tools, so no encoder element can be located", err)
 	}
 	return nil
+}
+
+// gstElementExists asks the inspector whether this install registers elem.
+//
+// The inspector is the bundle's where there is one, and so are the plugins it scans:
+// built against a prefix that exists on no machine but the build host, the bundled inspector
+// answers "no element" for every plugin sitting beside it unless publish.GstChildEnv names them,
+// the same way the launcher is told at spawn.
+// Detect located the inspector first (gstAvailable), so an unresolvable one here is the machine
+// changing under the sweep and reads as the element being absent.
+func gstElementExists(ctx context.Context, elem string) bool {
+	assert.IsNotNil(ctx, "an element query runs under a context")
+	assert.Assert(elem != "", "an element query names what it looks up")
+
+	exe, err := publish.FindGstInspect()
+	if err != nil {
+		return false
+	}
+
+	cmd := exec.CommandContext(ctx, exe, "--exists", elem)
+	if env := publish.GstChildEnv(); len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	return cmd.Run() == nil
 }
 
 // ffmpegAssumed are the encoders no probe is spent on:
@@ -232,7 +257,7 @@ func gstElementsExist(ctx context.Context, elements []string) bool {
 	defer cancel()
 
 	for _, elem := range elements {
-		if exec.CommandContext(ctx, gstInspectExe, "--exists", elem).Run() != nil {
+		if !gstElementExists(ctx, elem) {
 			return false
 		}
 	}
@@ -308,5 +333,5 @@ func gstUsable(ctx context.Context, codec string) bool {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
-	return exec.CommandContext(ctx, gstInspectExe, "--exists", elem).Run() == nil
+	return gstElementExists(ctx, elem)
 }
