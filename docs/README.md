@@ -19,6 +19,7 @@ Read the page before guessing, and put a new fact on the page that owns it.
 | [network-architecture.md](network-architecture.md) | what travels between which machines, over which leg, encrypted with what |
 | [membership.md](membership.md) | who is in a group, and what the relay does about anybody else |
 | [auth-flow.md](auth-flow.md) | what a group key is, what a token grants, and what a leak costs |
+| [discord-mode.md](discord-mode.md) | how a voice channel becomes a group, and who is cut when they leave it |
 | [capture-architecture.md](capture-architecture.md) | how a screen becomes a stream on the relay |
 | [viewer-architecture.md](viewer-architecture.md) | three ways to watch one stream, each with its own decoder |
 | [decode-timing.md](decode-timing.md) | how a live decode stays on the clock |
