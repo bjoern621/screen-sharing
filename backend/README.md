@@ -20,11 +20,11 @@ backend/
 ```
 
 Module path drops the directory name: `bjoernblessin.de/screenshare`, so no import line names `backend`.
-`api` is reached by a filesystem `replace` on `../api`, so the Nix builds read the module cache rather than a vendor directory (`nix/package.nix`).
+`api` is reached by a filesystem `replace` on `../api`, so the Nix builds read the module cache rather than a vendor directory (`packaging/nix/package.nix`).
 
 ## Two binaries, one module
 
-The two land on different machines and ship as different packages (`nix/package.nix`, `nix/groupd.nix`).
+The two land on different machines and ship as different packages (`packaging/nix/package.nix`, `packaging/nix/groupd.nix`).
 That separation is the `cmd/` directories.
 
 One module, because what they share is a contract rather than convenience code.
