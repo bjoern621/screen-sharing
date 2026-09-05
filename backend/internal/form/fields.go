@@ -345,7 +345,7 @@ var fieldTable = []field{
 		control: screensharev1.ControlKind_CONTROL_KIND_SLIDER,
 		unit:    screensharev1.Unit_UNIT_MILLISECONDS,
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Publish.SrtPublishLatencyMs) },
-		bounds:  fieldLatencyBounds,
+		bounds:  fieldSrtPublishLatencyBounds,
 	},
 	{
 		key:     KeyRtspPublishProtocol,
@@ -639,6 +639,13 @@ func fieldBframeBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 // A range that differed per leg would be a claim about the legs the transports never made.
 func fieldLatencyBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(fieldLatencyFloor, fieldLatencyCeiling, fieldLatencyStep)
+}
+
+// fieldSrtPublishLatencyBounds starts at the relay's own floor (settings.SrtRelayFloorMs):
+// the handshake takes the larger end,
+// so a slider value below it names a window the hop does not run.
+func fieldSrtPublishLatencyBounds(Deps, settings.Settings) *screensharev1.NumericRange {
+	return bounded(settings.SrtRelayFloorMs, fieldLatencyCeiling, fieldLatencyStep)
 }
 
 // fieldUplinkBounds runs from one megabit up past any line a prediction is weighed against.

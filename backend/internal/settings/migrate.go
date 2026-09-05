@@ -206,6 +206,12 @@ func migratePublish(p, d Publish) Publish {
 	// A file from before the per-hop latency split lacks this key,
 	// and zero disables SRT's retransmit window entirely.
 	fillNum(&p.SrtPublishLatencyMs, d.SrtPublishLatencyMs)
+	// The relay negotiates the larger of its window and this one,
+	// so a stored figure below the floor names a window the hop does not run at,
+	// and the form would show it as if it did.
+	if p.SrtPublishLatencyMs < SrtRelayFloorMs {
+		p.SrtPublishLatencyMs = SrtRelayFloorMs
+	}
 	// The publish leg's protocol was fixed before it was a field,
 	// so a file from then names none and the transport refuses the publish over the empty value.
 	fillText(&p.RtspPublishProtocol, d.RtspPublishProtocol)

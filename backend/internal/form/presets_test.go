@@ -367,3 +367,15 @@ func TestAPresetProducesSettingsTheEncodersCanExpress(t *testing.T) {
 		}
 	}
 }
+
+// The relay negotiates the larger of its window and the one asked for (settings.SrtRelayFloorMs),
+// so a base below the floor shows a figure the link does not run at.
+func TestEveryPresetBaseClearsTheRelayFloor(t *testing.T) {
+	for _, p := range presetTable {
+		base := p.base(settings.Defaults().Publish)
+		if base.SrtPublishLatencyMs < settings.SrtRelayFloorMs {
+			t.Errorf("%s asks for %d ms and the relay raises anything below %d",
+				p.key, base.SrtPublishLatencyMs, settings.SrtRelayFloorMs)
+		}
+	}
+}

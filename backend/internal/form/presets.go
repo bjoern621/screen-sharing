@@ -164,9 +164,9 @@ var presetTable = []preset{
 			p.Fps = 60
 			p.Gop = 0
 			p.Bframes = 0
-			// Loss on a LAN is near zero, so the window absorbs
-			// scheduling jitter rather than a WAN's retransmits.
-			p.SrtPublishLatencyMs = 50
+			// The relay's own floor, the smallest window the hop runs at:
+			// a smaller figure here would be raised on the wire.
+			p.SrtPublishLatencyMs = settings.SrtRelayFloorMs
 			return p
 		},
 		// Planar RGB is the desktop's own format and reaches the encoder without a colour conversion,
@@ -200,7 +200,7 @@ var presetTable = []preset{
 			// Around six frames of rate buffer at 60 fps: room to carry the target across a scene change,
 			// short enough that the buffer adds no delay a player would show.
 			p.VbvMs = 100
-			p.SrtPublishLatencyMs = 100
+			p.SrtPublishLatencyMs = settings.SrtRelayFloorMs
 			return p
 		},
 		// Quarter-resolution chroma is the cheapest encode and the one every encoder here codes,

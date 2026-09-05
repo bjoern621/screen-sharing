@@ -20,9 +20,7 @@ import (
 //
 // A latency set here is what this end asks for, not what the link runs at.
 // The handshake negotiates one delay per direction and the larger of the two ends' values wins, so
-// the relay's own figure is a floor under every hop.
-// MediaMTX exposes no SRT latency option and runs on its library's 120 ms default, so a window
-// below 120 ms comes back as 120 and only one above it changes anything.
+// the relay's own figure is a floor under every hop (settings.SrtRelayFloorMs).
 type SRT struct{}
 
 func init() {

@@ -842,3 +842,20 @@ func TestARelayOnItsOwnPortsKeepsThem(t *testing.T) {
 			got.Relay.RtspPort, got.Relay.RtmpPort)
 	}
 }
+
+// The relay negotiates the larger of its window and the stored one (SrtRelayFloorMs),
+// so a stored figure below the floor names a window the hop does not run at.
+func TestLoadRaisesAPublishWindowBelowTheRelayFloor(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Publish.SrtPublishLatencyMs = 50
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := mustLoad(t); got.Publish.SrtPublishLatencyMs != SrtRelayFloorMs {
+		t.Errorf("publish latency = %d, want raised to the relay floor of %d",
+			got.Publish.SrtPublishLatencyMs, SrtRelayFloorMs)
+	}
+}

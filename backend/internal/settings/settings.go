@@ -578,6 +578,15 @@ func (p Publish) CapabilityOptions() map[string]string {
 	}
 }
 
+// SrtRelayFloorMs is the retransmit window every relay SRT hop runs at least at.
+// MediaMTX exposes no SRT latency option and runs on its library's 120 ms default,
+// and the handshake takes the larger of the two ends' windows,
+// so a window asked for below this comes back as this and only one above it changes anything.
+//
+// Here rather than beside the SRT transport, which reads this package:
+// the migration raises a stored window to it, and the form floors the slider on it.
+const SrtRelayFloorMs = 120
+
 // Defaults is what a fresh installation starts with.
 // The capture backend is the one this OS runs.
 func Defaults() Settings {
