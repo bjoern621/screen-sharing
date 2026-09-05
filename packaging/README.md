@@ -15,7 +15,7 @@ One directory per channel, each holding what that channel's tooling reads.
 | `linux/` | the desktop entry, and `package.sh` for the portable tarball |
 | `windows/` | the Inno Setup script, and the scripts that stage, bundle and compile |
 | `nix/` | the derivations `flake.nix` exposes: the app, the group service, three container images, the NixOS module |
-| `icons/` | `appicon.png` and the hicolor sizes drawn from it |
+| `icons/` | `appicon.svg`, the master raster drawn from it, and the hicolor sizes |
 
 ## Building
 
@@ -46,6 +46,6 @@ The tag is the one place the number lives, and `.github/workflows/version.yml` r
 
 ## Icons
 
-`icons/appicon.png` is the master.
-`task icons` redraws the hicolor sizes beside it, and the multi-size `.ico` inside the shell's project, where the Nix build can reach it.
+`icons/appicon.svg` is the master, and `icons/appicon.png` is the 1024px raster drawn from it that every other size comes off.
+`task icons` redraws both, the hicolor sizes beside them, and the multi-size `.ico` inside the shell's project, where the Nix build can reach it.
 All of them are committed, so no recipe carries an ImageMagick build dependency.

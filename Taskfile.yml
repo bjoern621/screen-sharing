@@ -221,6 +221,8 @@ tasks:
     desc: Redraw packaging/icons from the master, for hicolor and for Windows
     # The results are committed, so no packaging recipe carries an ImageMagick build dependency.
     cmds:
+      # The master is the SVG, and magick needs its librsvg delegate to render it.
+      - magick -background none packaging/icons/appicon.svg -resize 1024x1024 packaging/icons/appicon.png
       - for size in 48 64 128 256 512; do magick packaging/icons/appicon.png -resize ${size}x${size} packaging/icons/${size}.png; done
       # One file carrying every size Windows picks between:
       # the executable's own icon, and what the installer stamps on itself
