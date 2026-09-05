@@ -111,15 +111,16 @@
   -->
   <UserControl.ContextFlyout>
     <MenuFlyout>
-      <!-- The one row carrying a tip: focus rearranges tiles, and with one tile there is nothing to rearrange. -->
       <MenuItem Header="Focus" Command="{Binding ToggleFocus}"
                 InputGesture="{x:Static tiles:TileKeys.Focus}"
-                IsChecked="{Binding IsFocused, Mode=OneWay}"
-                ToolTip.Tip="One stream fills the space, the rest line up beneath it. The change shows only with two or more streams.">
+                IsChecked="{Binding IsFocused, Mode=OneWay}">
         <MenuItem.Icon>
           <ti:TablerIcon Icon="IconLayoutDistributeHorizontal" />
         </MenuItem.Icon>
       </MenuItem>
+      <!-- The one row carrying a note: focus rearranges tiles, and with one tile there is nothing to rearrange. -->
+      <MenuItem Theme="{StaticResource MenuNote}" Header="One stream fills the space, the rest beneath it." />
+      <MenuItem Theme="{StaticResource MenuNote}" Header="Shows only with two or more streams." />
 
       <MenuItem Header="Own window" Command="{Binding TogglePopOut}"
                 InputGesture="{x:Static tiles:TileKeys.PopOut}"

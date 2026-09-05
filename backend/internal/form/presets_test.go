@@ -517,3 +517,30 @@ func TestBalancedSpendsAShareOfTheMeasuredLine(t *testing.T) {
 		}
 	}
 }
+
+// The walk is for followed drafts alone: a detached transport is the user's own word,
+// and trading it away would be a substitution nobody declared.
+func TestOnlyAFollowedDraftWalksTheTransportLadder(t *testing.T) {
+	followed := settings.Defaults()
+	if next, ok := NextTransport(followed); !ok || next != "rtsp" {
+		t.Errorf("a followed draft on srt walks to (%q, %v), want rtsp", next, ok)
+	}
+
+	last := followed
+	last.Publish.Transport = "rtsp"
+	if next, ok := NextTransport(last); ok {
+		t.Errorf("the last rung walks to %q, want the walk to end", next)
+	}
+
+	outside := followed
+	outside.Publish.Transport = "webrtc"
+	if _, ok := NextTransport(outside); ok {
+		t.Error("a leg outside the walk was traded away")
+	}
+
+	detached := settings.Defaults()
+	detached.Publish.Preset = ""
+	if _, ok := NextTransport(detached); ok {
+		t.Error("a detached draft was walked off its transport")
+	}
+}

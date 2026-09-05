@@ -166,6 +166,9 @@ enum TextArgName {
 
   // The longest keyframe interval an encoder's own field holds, in frames.
   TEXT_ARG_NAME_GOP_LIMIT_FRAMES = 64;
+  // The transport a pending relaunch runs, beside TEXT_ARG_NAME_TRANSPORT carrying the one
+  // given up (TEXT_CODE_TRANSPORT_FALLING_BACK).
+  TEXT_ARG_NAME_NEXT_TRANSPORT = 65;
 
   // Reserved for a rename rather than a removal:
   // TEXT_ARG_NAME_EFFORT carries the number,
@@ -653,6 +656,12 @@ enum TextCode {
   // The stream stopped arriving at the relay, so there is nothing on the path to receive.
   // No arguments.
   TEXT_CODE_STREAM_LEFT_THE_RELAY = 148;
+  // The publish leg spent its attempts and the pending relaunch tries the preset's next transport.
+  // Only a followed preset walks, its ladder ending on a leg that asks the least of the path,
+  // so a hand-picked transport is never traded away (docs/presets.md).
+  // TEXT_ARG_NAME_TRANSPORT carries the leg given up,
+  // TEXT_ARG_NAME_NEXT_TRANSPORT the one the relaunch runs.
+  TEXT_CODE_TRANSPORT_FALLING_BACK = 175;
 
   // --- The audience and the wire -------------------------------------------------
 

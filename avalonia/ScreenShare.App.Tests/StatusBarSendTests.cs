@@ -17,7 +17,7 @@ public sealed class StatusBarSendTests
     private static StatusBarViewModel Band(Func<CancellationToken, Task<string>> send)
     {
         var band = new StatusBarViewModel(send, action => action());
-        band.Show(Destination.Setup, "", [], "", "0.4.0");
+        band.Show(Destination.Setup, [], "", "0.4.0");
         return band;
     }
 
@@ -74,7 +74,7 @@ public sealed class StatusBarSendTests
 
         band.SendLogs.Execute(null);
         await Eventually(() => band.ShowsSendOutcome);
-        band.Show(Destination.Viewer, "", [], "", "0.4.0");
+        band.Show(Destination.Viewer, [], "", "0.4.0");
 
         Assert.True(band.ShowsSendOutcome);
     }

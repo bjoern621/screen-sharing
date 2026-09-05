@@ -26,10 +26,13 @@ func countReleases(t *testing.T) *int {
 }
 
 // deadRun is a publish whose child has exited, on settings both engines can render.
+// The settings are detached: a followed preset walks its transport ladder on a spent budget,
+// and these tests are about the run that ends.
 func deadRun(t *testing.T, attempts int) (*App, *publishRun) {
 	t.Helper()
 
 	s := settings.Defaults()
+	s.Publish.Preset = ""
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"

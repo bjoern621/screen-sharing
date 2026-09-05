@@ -9,7 +9,9 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/form"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -19,7 +21,12 @@ import (
 // seconds rather than milliseconds.
 // It ends: a pipeline this machine cannot run fails the same way every time,
 // and an encoder that takes the GPU down with it does so once per attempt.
-var publishBackoff = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
+//
+// The budget is per transport rung.
+// A followed preset spends it again on each leg of its walk (publishEnded),
+// so a longer table here multiplies the wait before a blocked path falls through to a leg
+// that crosses it.
+var publishBackoff = []time.Duration{2 * time.Second, 4 * time.Second}
 
 // publishHealthy is how long a pipeline has to have run for its settings to count as viable on this
 // machine.
@@ -125,6 +132,21 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 	spent, wait, retrying := publishRetryAfter(err, time.Since(run.startedAt), run.attempts)
 	if retrying {
 		a.scheduleRetryLocked(run.settings, spent, wait, cause, message)
+	} else if err != nil {
+		// A followed preset's stream walks to the preset's next transport on a fresh budget
+		// where this leg spent its own: the exit alone cannot tell a blocked path from a dead
+		// relay, and the walk's last leg is the one that asks the least of the path.
+		// The walk is the relaunch's alone, so the stored settings keep their leg
+		// and the next start begins the walk over.
+		if next, ok := form.NextTransport(run.settings); ok {
+			walked := run.settings
+			walked.Publish.Transport = next
+			cause = text.Of(screensharev1.TextCode_TEXT_CODE_TRANSPORT_FALLING_BACK,
+				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, run.settings.Publish.Transport),
+				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_NEXT_TRANSPORT, next))
+			retrying = true
+			a.scheduleRetryLocked(walked, 0, publishBackoff[0], cause, message)
+		}
 	}
 	// The relaunch is the one thing the held screen source is held for,
 	// so it survives a scheduled retry and goes with an exit that ends the stream.

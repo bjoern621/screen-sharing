@@ -662,6 +662,32 @@ func presetByKey(key string) (preset, bool) {
 	return preset{}, false
 }
 
+// presetTransports is the walk a followed draft's relaunch takes when a publish leg spends
+// its retry attempts: SRT first for its retransmit window,
+// RTSP behind it interleaving over the one TCP connection the session already made,
+// which crosses a path that blocks UDP.
+// One list for every built-in, the walk trading reach for delay the same way on each,
+// and RTSP's carriage covering every format SRT's does.
+//
+// The search never reads it: a preset resolves on the leg the settings hold (docs/presets.md),
+// and the walk belongs to the relaunch alone (app, publishEnded).
+var presetTransports = []string{"srt", "rtsp"}
+
+// NextTransport is the leg a followed draft's relaunch tries after its own,
+// and false where the walk ends: the draft follows no built-in,
+// its leg is outside the walk, or it stands on the last rung.
+// A detached draft never walks, the transport being the user's own word.
+func NextTransport(draft settings.Settings) (string, bool) {
+	if !Followed(draft) {
+		return "", false
+	}
+	i := slices.Index(presetTransports, draft.Publish.Transport)
+	if i < 0 || i+1 >= len(presetTransports) {
+		return "", false
+	}
+	return presetTransports[i+1], true
+}
+
 // Followed reports whether the draft follows a built-in preset this build carries.
 // An unknown key reads as detached, the reading presetByKey gives every caller,
 // so a start and a form answer a stored stranger the same way.

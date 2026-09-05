@@ -4,6 +4,10 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
+	"bjoernblessin.de/screenshare/internal/settings"
 )
 
 // exit stands in for what a dead child leaves behind.
@@ -83,5 +87,41 @@ func TestTheHealthyBoundIsWhatSeparatesTheTwo(t *testing.T) {
 	spent, _, _ = publishRetryAfter(exit, publishHealthy, 1)
 	if spent != 0 {
 		t.Errorf("spent at the bound = %d, want the budget refilled", spent)
+	}
+}
+
+// A followed preset walks to its next transport when a leg spends its attempts,
+// on a fresh budget and with the walk named as the cause,
+// so a path that blocks the first leg still ends in a picture.
+func TestASpentLegWalksAFollowedPresetToTheNextTransport(t *testing.T) {
+	a, run := deadRun(t, len(publishBackoff))
+	run.settings.Publish.Preset = settings.PresetBalanced
+
+	a.publishEnded(run, exit, "", "")
+
+	if a.retry == nil {
+		t.Fatal("a spent leg ended a followed stream, want a relaunch on the walk's next transport")
+	}
+	if got := a.retry.settings.Publish.Transport; got != "rtsp" {
+		t.Errorf("the relaunch runs %s, want rtsp", got)
+	}
+	if a.retry.attempts != 1 {
+		t.Errorf("the walked relaunch is attempt %d, want a fresh budget", a.retry.attempts)
+	}
+	if got := a.retry.cause.GetCode(); got != screensharev1.TextCode_TEXT_CODE_TRANSPORT_FALLING_BACK {
+		t.Errorf("the cause is %v, want the walk named", got)
+	}
+}
+
+// The walk ends on its last rung, so a spent budget there ends the stream.
+func TestTheWalkEndsOnItsLastRung(t *testing.T) {
+	a, run := deadRun(t, len(publishBackoff))
+	run.settings.Publish.Preset = settings.PresetBalanced
+	run.settings.Publish.Transport = "rtsp"
+
+	a.publishEnded(run, exit, "", "")
+
+	if a.retry != nil {
+		t.Fatal("the last rung scheduled another attempt")
 	}
 }

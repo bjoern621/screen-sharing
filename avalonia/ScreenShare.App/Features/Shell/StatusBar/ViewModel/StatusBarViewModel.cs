@@ -40,7 +40,6 @@ public sealed class StatusBarViewModel : Observable
     // --- What the shell says -------------------------------------------------------
 
     private Destination _current = Destination.Setup;
-    private string _figuresStreams = "";
     private IReadOnlyList<string> _figuresLoad = [];
     private string _figuresHint = "";
     private string _build = "";
@@ -58,15 +57,13 @@ public sealed class StatusBarViewModel : Observable
     /// It arrives with the figures rather than being set once, so the band keeps one render pass.
     /// Idempotent.
     /// </summary>
-    public void Show(Destination current, string streams, IReadOnlyList<string> load, string hint, string build)
+    public void Show(Destination current, IReadOnlyList<string> load, string hint, string build)
     {
-        Assert.NotNull(streams, "a status band is told how much of what arrives is on screen");
         Assert.NotNull(load, "a status band is told what the link and the units are carrying");
         Assert.NotNull(hint, "a status band is told what the view in front of it affords");
         Assert.NotNull(build, "a status band is told which build is running");
 
         _current = current;
-        _figuresStreams = streams;
         _figuresLoad = load;
         _figuresHint = hint;
         _build = build;
@@ -113,7 +110,6 @@ public sealed class StatusBarViewModel : Observable
     // --- Outputs -------------------------------------------------------------------
 
     private bool _showsMetrics;
-    private string _streams = "";
     private string _hint = "";
     private bool _showsHint;
     private string _version = "";
@@ -124,9 +120,6 @@ public sealed class StatusBarViewModel : Observable
 
     /// <summary>Whether this destination has figures worth stating.</summary>
     public bool ShowsMetrics { get => _showsMetrics; private set => Set(ref _showsMetrics, value); }
-
-    /// <summary>Prose: how much of what arrives is on screen.</summary>
-    public string Streams { get => _streams; private set => Set(ref _streams, value); }
 
     /// <summary>Measurements, in the order the destination handed them over.</summary>
     public ObservableCollection<string> Load { get; } = [];
@@ -161,8 +154,7 @@ public sealed class StatusBarViewModel : Observable
     {
         var speaks = SpeaksFor(_current);
 
-        ShowsMetrics = speaks && _figuresStreams.Length > 0;
-        Streams = ShowsMetrics ? _figuresStreams : "";
+        ShowsMetrics = speaks && _figuresLoad.Count > 0;
 
         // Emptied where the destination reports nothing, rather than left standing
         // (docs/development-principles.md, "One render function").
@@ -179,8 +171,7 @@ public sealed class StatusBarViewModel : Observable
         ShowsSendOutcome = SendOutcome.Length > 0;
         SendFailed = _sentFailed && ShowsSendOutcome;
 
-        Assert.That(ShowsMetrics == (Streams.Length > 0), "the figures and the prose beside them appear together", ShowsMetrics, Streams);
-        Assert.That(ShowsMetrics || Load.Count == 0, "a band that states no counts states no measurements either", ShowsMetrics, Load.Count);
+        Assert.That(ShowsMetrics == (Load.Count > 0), "the figures and the flag drawing them agree", ShowsMetrics, Load.Count);
         Assert.That(ShowsHint == (Hint.Length > 0), "the trailing hint and its text agree", ShowsHint, Hint);
         Assert.That(ShowsVersion == (Version.Length > 0), "the version and its text agree", ShowsVersion, Version);
         Assert.That(ShowsSendOutcome == (SendOutcome.Length > 0), "the send outcome and its text agree", ShowsSendOutcome, SendOutcome);

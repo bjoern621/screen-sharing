@@ -35,10 +35,6 @@
                    IsVisible="{Binding ShowsVersion}"
                    VerticalAlignment="Center" />
 
-        <TextBlock Classes="muted"
-                   Text="{Binding Streams}"
-                   IsVisible="{Binding ShowsMetrics}" />
-
         <!-- Tighter spacing inside than the panel's own: the figures read as one group. -->
         <ItemsControl ItemsSource="{Binding Load}">
           <ItemsControl.ItemsPanel>

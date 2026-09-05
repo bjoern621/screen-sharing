@@ -159,6 +159,9 @@ const (
 	TextArgName_TEXT_ARG_NAME_REACH  TextArgName = 63
 	// The longest keyframe interval an encoder's own field holds, in frames.
 	TextArgName_TEXT_ARG_NAME_GOP_LIMIT_FRAMES TextArgName = 64
+	// The transport a pending relaunch runs, beside TEXT_ARG_NAME_TRANSPORT carrying the one
+	// given up (TEXT_CODE_TRANSPORT_FALLING_BACK).
+	TextArgName_TEXT_ARG_NAME_NEXT_TRANSPORT TextArgName = 65
 )
 
 // Enum value maps for TextArgName.
@@ -224,6 +227,7 @@ var (
 		62: "TEXT_ARG_NAME_COST",
 		63: "TEXT_ARG_NAME_REACH",
 		64: "TEXT_ARG_NAME_GOP_LIMIT_FRAMES",
+		65: "TEXT_ARG_NAME_NEXT_TRANSPORT",
 	}
 	TextArgName_value = map[string]int32{
 		"TEXT_ARG_NAME_UNSPECIFIED":        0,
@@ -286,6 +290,7 @@ var (
 		"TEXT_ARG_NAME_COST":               62,
 		"TEXT_ARG_NAME_REACH":              63,
 		"TEXT_ARG_NAME_GOP_LIMIT_FRAMES":   64,
+		"TEXT_ARG_NAME_NEXT_TRANSPORT":     65,
 	}
 )
 
@@ -707,6 +712,12 @@ const (
 	// The stream stopped arriving at the relay, so there is nothing on the path to receive.
 	// No arguments.
 	TextCode_TEXT_CODE_STREAM_LEFT_THE_RELAY TextCode = 148
+	// The publish leg spent its attempts and the pending relaunch tries the preset's next transport.
+	// Only a followed preset walks, its ladder ending on a leg that asks the least of the path,
+	// so a hand-picked transport is never traded away (docs/presets.md).
+	// TEXT_ARG_NAME_TRANSPORT carries the leg given up,
+	// TEXT_ARG_NAME_NEXT_TRANSPORT the one the relaunch runs.
+	TextCode_TEXT_CODE_TRANSPORT_FALLING_BACK TextCode = 175
 	// A stream lives in a group and the settings name none,
 	// so nothing can be published until one is joined.
 	// The group key is the control that joins one.
@@ -879,6 +890,7 @@ var (
 		146: "TEXT_CODE_GROUP_NAME_MISSING",
 		147: "TEXT_CODE_GROUP_SERVICE_REFUSED",
 		148: "TEXT_CODE_STREAM_LEFT_THE_RELAY",
+		175: "TEXT_CODE_TRANSPORT_FALLING_BACK",
 		171: "TEXT_CODE_GROUP_REQUIRED",
 		172: "TEXT_CODE_GROUP_FOLLOWS_DISCORD",
 		173: "TEXT_CODE_DISCORD_NOT_LINKED",
@@ -1013,6 +1025,7 @@ var (
 		"TEXT_CODE_GROUP_NAME_MISSING":                        146,
 		"TEXT_CODE_GROUP_SERVICE_REFUSED":                     147,
 		"TEXT_CODE_STREAM_LEFT_THE_RELAY":                     148,
+		"TEXT_CODE_TRANSPORT_FALLING_BACK":                    175,
 		"TEXT_CODE_GROUP_REQUIRED":                            171,
 		"TEXT_CODE_GROUP_FOLLOWS_DISCORD":                     172,
 		"TEXT_CODE_DISCORD_NOT_LINKED":                        173,
@@ -1314,7 +1327,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xdf\r\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x81\x0e\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1376,7 +1389,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xa6,\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
+	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xcd,\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1500,7 +1514,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1aTEXT_CODE_GROUP_NAME_TAKEN\x10\x91\x01\x12!\n" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_SERVICE_REFUSED\x10\x93\x01\x12$\n" +
-	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12\x1d\n" +
+	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12%\n" +
+	" TEXT_CODE_TRANSPORT_FALLING_BACK\x10\xaf\x01\x12\x1d\n" +
 	"\x18TEXT_CODE_GROUP_REQUIRED\x10\xab\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_FOLLOWS_DISCORD\x10\xac\x01\x12!\n" +
 	"\x1cTEXT_CODE_DISCORD_NOT_LINKED\x10\xad\x01\x12'\n" +

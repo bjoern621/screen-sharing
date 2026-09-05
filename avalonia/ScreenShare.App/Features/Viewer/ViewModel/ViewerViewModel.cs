@@ -132,7 +132,6 @@ public sealed class ViewerViewModel : Observable
 
     // --- Outputs --------------------------------------------------------------------
 
-    private string _shownSummary = "";
     private string _notice = "";
     private bool _hasNotice;
     private string _gridEmptyLine = "";
@@ -302,9 +301,6 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public event Action? WindowsChanged;
 
-    /// <summary>How much of what the relay carries this machine is watching, as the status band prints it.</summary>
-    public string ShownSummary { get => _shownSummary; private set => Set(ref _shownSummary, value); }
-
     /// <summary>
     /// Relay's cost, as the status band prints it.
     /// A list rather than named slots, so what a destination reports stays that destination's business.
@@ -345,9 +341,9 @@ public sealed class ViewerViewModel : Observable
 
     /// <summary>
     /// Printed by the status band rather than over the grid.
-    /// The gestures it names are the tile's own (<c>Features/Viewer/Tile/View/TileKeys.cs</c>).
+    /// The gesture it names is the tile's own (<c>Features/Viewer/Tile/View/TileKeys.cs</c>).
     /// </summary>
-    public string Hint => "Right-click a tile for fullscreen, focus, pop-out, and volume. Escape leaves fullscreen";
+    public string Hint => "Right-click a tile for more options.";
 
     /// <summary>Heading over the rail's list.</summary>
     public string ShowingLabel => "On the relay";
@@ -435,8 +431,6 @@ public sealed class ViewerViewModel : Observable
         // and for no other.
         IsDialling = NoticeIsFailure;
 
-        var watched = rows.Count(row => row.IsWatched);
-        ShownSummary = HasStreams ? $"{watched} of {rows.Count} streams watched" : "";
         Figures = FiguresFor(rows);
 
         HasRefusal = Refusal.Length > 0;
@@ -539,8 +533,8 @@ public sealed class ViewerViewModel : Observable
     }
 
     /// <summary>
-    /// What the band prints: the relay's total ingest, and its readers across every path.
-    /// Both are the relay's own figures, this machine's decode being reported per tile in the stats panel.
+    /// What the band prints: the relay's total ingest.
+    /// The relay's own figure, this machine's decode being reported per tile in the stats panel.
     /// </summary>
     private static IReadOnlyList<string> FiguresFor(IReadOnlyList<StreamRow> rows)
     {
@@ -550,9 +544,8 @@ public sealed class ViewerViewModel : Observable
         }
 
         var ingest = rows.Where(row => row.IsReady).Sum(row => row.InMbps);
-        var readers = rows.Sum(row => row.Readers);
 
-        return [$"relay in {ingest:0.0} Mb/s", $"{readers} readers"];
+        return [$"relay in {ingest:0.0} Mb/s"];
     }
 
     private StreamRowViewModel Of(string name)
