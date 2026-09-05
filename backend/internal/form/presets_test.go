@@ -481,3 +481,39 @@ func TestAnUnreachableFollowedPresetBlocksThePublish(t *testing.T) {
 		t.Error("no error diagnostic names the unreachable preset")
 	}
 }
+
+// The balanced target spends a share of the measured line and leans on no claim:
+// the stated figure is a guess until a measurement stands behind it.
+func TestBalancedSpendsAShareOfTheMeasuredLine(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	cases := []struct {
+		name         string
+		uplink       int
+		measuredUnix int64
+		want         int
+	}{
+		{"an unmeasured line takes the modest figure", 50, 0, 8},
+		{"a measured 20 Mbit/s line spends its share", 20, 1, 14},
+		{"a measured fat line stops at the ceiling", 200, 1, 40},
+		{"a measured thin line keeps the floor", 3, 1, 3},
+	}
+
+	for _, tc := range cases {
+		s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+		s.Publish.UplinkMbps, s.Publish.UplinkMeasuredUnix = tc.uplink, tc.measuredUnix
+		s, _ = Repair(deps, s)
+
+		reached, ok := presetResolve(deps, presetOf(t, settings.PresetBalanced), s)
+		if !ok {
+			t.Fatalf("%s: balanced reaches nothing", tc.name)
+		}
+		if reached.Publish.BitrateM != tc.want {
+			t.Errorf("%s: the target is %d Mbit/s, want %d", tc.name, reached.Publish.BitrateM, tc.want)
+		}
+		if reached.Publish.MaxrateM <= reached.Publish.BitrateM || reached.Publish.MaxrateM > 2*reached.Publish.BitrateM {
+			t.Errorf("%s: the burst ceiling %d sits outside the target's band of %d..%d",
+				tc.name, reached.Publish.MaxrateM, reached.Publish.BitrateM+1, 2*reached.Publish.BitrateM)
+		}
+	}
+}

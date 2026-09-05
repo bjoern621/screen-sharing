@@ -175,14 +175,11 @@ var presetTable = []preset{
 			p.Fps = 60
 			p.Gop = 0
 			p.Bframes = 0
-			// Modest enough for the uplinks machines actually have:
-			// the stated line is a guess until a measurement replaces it,
-			// so the target leans on neither.
-			p.BitrateM = 8
+			p.BitrateM = balancedBitrate(p)
 			// Written beside the target rather than left to the draft:
 			// the VA elements express the burst as a share of the target
 			// and refuse a ceiling far above it.
-			p.MaxrateM = 12
+			p.MaxrateM = p.BitrateM + p.BitrateM/2
 			p.VbvMs = 0
 			p.SrtPublishLatencyMs = settings.SrtRelayFloorMs
 			return p
@@ -517,6 +514,30 @@ func presetField(key string) *field {
 	}
 	assert.Never("a searched field is a row of the field table", key)
 	return nil
+}
+
+// The balanced target's shape: a share of the measured line, held inside a band.
+//
+// The share leaves room on the line for the audio track, retransmits
+// and whatever else the machine sends.
+// The ceiling is where more H.264 stops showing on desktop content,
+// and the floor is the least a readable 1080p60 picture takes.
+// The unmeasured figure fits the modest end of home uplinks,
+// since the stated line is a guess until a measurement stands behind it
+// (settings.Publish.UplinkMeasuredUnix).
+const (
+	balancedUplinkSharePct     = 70
+	balancedBitrateCeilingM    = 40
+	balancedBitrateFloorM      = 3
+	balancedBitrateUnmeasuredM = 8
+)
+
+// balancedBitrate is the target the balanced preset writes, in Mbit/s.
+func balancedBitrate(p settings.Publish) int {
+	if p.UplinkMeasuredUnix == 0 {
+		return balancedBitrateUnmeasuredM
+	}
+	return min(max(p.UplinkMbps*balancedUplinkSharePct/100, balancedBitrateFloorM), balancedBitrateCeilingM)
 }
 
 // presetEncodeHeight is the height of the picture a candidate's encoder is fed:

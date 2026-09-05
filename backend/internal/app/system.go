@@ -3,10 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"math"
 	"os/exec"
 	goruntime "runtime"
+	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/audiodev"
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -20,6 +23,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // The long-running calls here take the caller's own context, a shell's request context,
@@ -27,8 +31,62 @@ import (
 
 // measureUplink probes this machine's real upload throughput in Mbit/s,
 // so a shell can replace the guessed uplink figure with a measured one.
+// A successful probe is recorded into the stored settings (recordUplink),
+// so the figure and its timestamp outlive the shell that asked.
 func (a *App) measureUplink(ctx context.Context) (float64, error) {
-	return netspeed.MeasureUplink(ctx)
+	mbps, err := netspeed.MeasureUplink(ctx)
+	if err != nil {
+		return 0, err
+	}
+	a.recordUplink(mbps)
+	return mbps, nil
+}
+
+// recordUplink writes a measured uplink beside its timestamp into the settings and persists them.
+//
+// The backend writes, the timestamp being bookkeeping no control edits:
+// a shell-side write would leave it to whichever window pressed the button.
+// The change is announced like every settings change,
+// so an open form re-reads the draft it stages over.
+//
+// A store that cannot be written keeps the measurement for this run and warns,
+// an Umgebungsfehler: a later run starting without one measures again (measureUplinkAtBoot).
+func (a *App) recordUplink(mbps float64) {
+	a.settingsMu.Lock()
+	s := a.settings
+	s.Publish.UplinkMbps = max(1, int(math.Round(mbps)))
+	s.Publish.UplinkMeasuredUnix = time.Now().Unix()
+	a.settings = s
+	a.settingsMu.Unlock()
+
+	a.emit(wire.SettingsChangedEvent())
+	if err := settings.Save(s); err != nil {
+		logger.Warnf("cannot store the measured uplink: %v", err)
+	}
+}
+
+// measureUplinkAtBoot runs the first measurement of this machine's line, in the background,
+// where none has ever been recorded.
+// The balanced bitrate then prices against a measurement from the first stream on (form).
+//
+// A publishing stream skips it, the probe competing with the stream for the line,
+// which is the refusal the control's own measurement states.
+// A failure stays at a log line: the unmeasured figure keeps its conservative default,
+// and the measure control stays.
+func (a *App) measureUplinkAtBoot() {
+	a.settingsMu.Lock()
+	measured := a.settings.Publish.UplinkMeasuredUnix != 0
+	a.settingsMu.Unlock()
+	if measured || a.GetPublishState().Publishing {
+		return
+	}
+
+	mbps, err := a.measureUplink(context.Background())
+	if err != nil {
+		logger.Warnf("first-run uplink measurement: %v", err)
+		return
+	}
+	logger.Infof("first-run uplink measurement: %.0f Mbit/s", mbps)
 }
 
 // checkRelay dials every leg of the relay the given settings name and answers what each listener said,

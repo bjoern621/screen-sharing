@@ -94,6 +94,10 @@ type App struct {
 	// so a second launch would ask for that number again on top of the set running (teststreams.go).
 	testStreamsOnce sync.Once
 
+	// uplinkOnce guards the first-run line measurement,
+	// so a second Start does not upload a second payload over the first (system.go).
+	uplinkOnce sync.Once
+
 	// Serializes the probe: the caller asking for the answer runs it, one asking while it runs waits
 	// rather than starting a second sweep.
 	// A mutex and not a sync.Once, because a cancelled sweep has to be forgotten and a Once keeps
@@ -239,6 +243,7 @@ func (a *App) Start() {
 	a.startRelayPoll()
 	a.startReceiveStatsPoll()
 	a.testStreamsOnce.Do(func() { go a.startTestStreamsAtBoot() })
+	a.uplinkOnce.Do(func() { go a.measureUplinkAtBoot() })
 }
 
 // Stop takes every child down, so no orphan ffmpeg keeps encoding after the process ends.

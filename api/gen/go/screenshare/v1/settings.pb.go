@@ -393,6 +393,11 @@ type PublishSettings struct {
 	// Nothing is enforced against it: the warnings in Form.summary are weighed against it,
 	// and MeasureUplink replaces the guess with a measurement.
 	UplinkMbps int32 `protobuf:"varint,34,opt,name=uplink_mbps,json=uplinkMbps,proto3" json:"uplink_mbps,omitempty"`
+	// Unix seconds of the measurement uplink_mbps carries, zero while it is the stated guess.
+	// The backend writes it beside a successful measurement and reads it where a derived figure
+	// must not lean on a claim, the balanced preset's bitrate being the case.
+	// No shell writes it by name: it rides the draft whole, as every field does.
+	UplinkMeasuredUnix int64 `protobuf:"varint,44,opt,name=uplink_measured_unix,json=uplinkMeasuredUnix,proto3" json:"uplink_measured_unix,omitempty"`
 	// Picture the encoder is fed, as "1920x1080",
 	// and empty where the capture's own size reaches the encoder unscaled.
 	// One field rather than a width and a height, because the two are only ever legal in pairs,
@@ -609,6 +614,13 @@ func (x *PublishSettings) GetRtspPublishProtocol() string {
 func (x *PublishSettings) GetUplinkMbps() int32 {
 	if x != nil {
 		return x.UplinkMbps
+	}
+	return 0
+}
+
+func (x *PublishSettings) GetUplinkMeasuredUnix() int64 {
+	if x != nil {
+		return x.UplinkMeasuredUnix
 	}
 	return 0
 }
@@ -926,7 +938,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12!\n" +
 	"\fdiscord_mode\x18\r \x01(\bR\vdiscordMode\x12!\n" +
 	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLinkJ\x04\b\t\x10\n" +
-	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\xe9\b\n" +
+	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\x9b\t\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +
 	" \x01(\tR\x10publishTransport\x12\x16\n" +
@@ -955,7 +967,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x16srt_publish_latency_ms\x18\x1d \x01(\x05R\x13srtPublishLatencyMs\x122\n" +
 	"\x15rtsp_publish_protocol\x18\x1f \x01(\tR\x13rtspPublishProtocol\x12\x1f\n" +
 	"\vuplink_mbps\x18\" \x01(\x05R\n" +
-	"uplinkMbps\x12+\n" +
+	"uplinkMbps\x120\n" +
+	"\x14uplink_measured_unix\x18, \x01(\x03R\x12uplinkMeasuredUnix\x12+\n" +
 	"\x11output_resolution\x18% \x01(\tR\x10outputResolution\x12\x16\n" +
 	"\x06cursor\x18& \x01(\tR\x06cursor\x12\x16\n" +
 	"\x06preset\x18+ \x01(\tR\x06presetJ\x04\b\x01\x10\n" +

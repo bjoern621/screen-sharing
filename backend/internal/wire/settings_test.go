@@ -59,6 +59,7 @@ func populatedSettings() settings.Settings {
 			SrtPublishLatencyMs: 555,
 			RtspPublishProtocol: "udp",
 			UplinkMbps:          888,
+			UplinkMeasuredUnix:  999,
 			OutputResolution:    "1280x720",
 			Preset:              "fixture-preset",
 		},

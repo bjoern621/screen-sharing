@@ -222,6 +222,11 @@ message PublishSettings {
   // Nothing is enforced against it: the warnings in Form.summary are weighed against it,
   // and MeasureUplink replaces the guess with a measurement.
   int32 uplink_mbps = 34;
+  // Unix seconds of the measurement uplink_mbps carries, zero while it is the stated guess.
+  // The backend writes it beside a successful measurement and reads it where a derived figure
+  // must not lean on a claim, the balanced preset's bitrate being the case.
+  // No shell writes it by name: it rides the draft whole, as every field does.
+  int64 uplink_measured_unix = 44;
 
   // Picture the encoder is fed, as "1920x1080",
   // and empty where the capture's own size reaches the encoder unscaled.

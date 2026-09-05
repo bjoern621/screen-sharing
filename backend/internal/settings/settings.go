@@ -446,7 +446,12 @@ type Publish struct {
 	// The watch leg names its own,
 	// the two crossing different networks and the network deciding whether that pair survives.
 	RtspPublishProtocol string `json:"rtspPublishProtocol"`
-	UplinkMbps          int    `json:"uplinkMbps"` // Mbps of upload the user states, read for warnings
+	UplinkMbps int `json:"uplinkMbps"` // Mbps of upload the user states, read for warnings
+	// UplinkMeasuredUnix is when UplinkMbps was measured, unix seconds,
+	// and zero while the figure is the stated guess.
+	// Written beside a successful measurement (app.recordUplink);
+	// a derived figure that must not lean on a claim reads it, the balanced bitrate being the case.
+	UplinkMeasuredUnix int64 `json:"uplinkMeasuredUnix"`
 	// OutputResolution is the picture the encoder is fed, "1920x1080",
 	// and empty where the capture's own size reaches it unscaled.
 	//
