@@ -105,6 +105,24 @@ func TestChainFitTakesWidthThenHeight(t *testing.T) {
 	}
 }
 
+// TestConvertingChainsPinSquarePixels holds every converting chain to the frame channel's shape
+// contract: the pool announces raster width and height,
+// the window derives the picture's shape from them, and no pixel aspect ratio crosses the wire.
+// A scaler left free satisfies a bound by bending that ratio instead of the raster,
+// and an encoder's SAR survives the decode,
+// so a chain without the pin hands the window a raster whose shape is not the picture's,
+// drawn stretched.
+func TestConvertingChainsPinSquarePixels(t *testing.T) {
+	for _, c := range chains {
+		if c.colour == ColourUnstated {
+			continue
+		}
+		if !strings.Contains(strings.Join(c.elements, " ! "), "pixel-aspect-ratio=1/1") {
+			t.Errorf("chain %q leaves the pixel aspect ratio free", c.name)
+		}
+	}
+}
+
 // TestChainLaunchIsComplete covers what a chain carries whether or not its row says so: the decoder
 // the audio branch hangs off, the queue between the two threads, and the sink the receiver reads
 // back by name.

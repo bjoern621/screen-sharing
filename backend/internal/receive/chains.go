@@ -122,6 +122,13 @@ const (
 // so the video pad alone joins the branch and an audio pad is given a branch of its own when it
 // turns up (audio.go).
 //
+// Every converting chain pins square pixels at its format caps.
+// The pool announces raster width and height alone and the window derives the picture's shape
+// from them, while a scaler left free satisfies a size bound by bending the pixel aspect ratio
+// and an encoder's SAR survives the decode:
+// either way the raster's shape stops being the picture's, and the window draws it stretched.
+// The pin makes the chain's own scaler resample instead, so the raster is the shape on screen.
+//
 // No CUDA chain exists.
 // The nvcodec plugin registers cudaupload and cudadownload and stops there:
 // cudaconvert and cudaconvertscale want nvrtc, so CUDA memory moves and does not convert,
@@ -149,7 +156,7 @@ var chains = []chain{
 			"videoscale n-threads=0",
 			"capsfilter name=" + fitName + " caps=video/x-raw",
 			"videoconvert n-threads=0",
-			"video/x-raw,format=RGBA,colorimetry=sRGB",
+			"video/x-raw,format=RGBA,colorimetry=sRGB,pixel-aspect-ratio=1/1",
 		},
 		fitCaps: "video/x-raw,width=[1,%d],height=[1,%d]",
 		colour:  ColourStated,
@@ -181,7 +188,7 @@ var chains = []chain{
 			"glupload",
 			"glcolorconvert",
 			"glcolorscale",
-			"video/x-raw(" + glMemory + "),format=RGBA,colorimetry=sRGB",
+			"video/x-raw(" + glMemory + "),format=RGBA,colorimetry=sRGB,pixel-aspect-ratio=1/1",
 		},
 		device: glMemory,
 		colour: ColourStated,
@@ -205,7 +212,7 @@ var chains = []chain{
 			"d3d11upload",
 			"d3d11convert",
 			"capsfilter name=" + fitName + " caps=video/x-raw(" + d3d11Memory + ")",
-			"video/x-raw(" + d3d11Memory + "),format=RGBA,colorimetry=sRGB",
+			"video/x-raw(" + d3d11Memory + "),format=RGBA,colorimetry=sRGB,pixel-aspect-ratio=1/1",
 		},
 		fitCaps: "video/x-raw(" + d3d11Memory + "),width=[1,%d],height=[1,%d]",
 		device:  d3d11Memory,
@@ -223,7 +230,7 @@ var chains = []chain{
 			"d3d12upload",
 			"d3d12convert",
 			"capsfilter name=" + fitName + " caps=video/x-raw(" + d3d12Memory + ")",
-			"video/x-raw(" + d3d12Memory + "),format=RGBA,colorimetry=sRGB",
+			"video/x-raw(" + d3d12Memory + "),format=RGBA,colorimetry=sRGB,pixel-aspect-ratio=1/1",
 			"d3d12download",
 		},
 		fitCaps: "video/x-raw(" + d3d12Memory + "),width=[1,%d],height=[1,%d]",

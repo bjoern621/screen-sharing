@@ -677,6 +677,7 @@ type FramePool struct {
 	// What the render chain produced, rather than what the stream was encoded in.
 	Format FrameFormat `protobuf:"varint,3,opt,name=format,proto3,enum=screenshare.v1.FrameFormat" json:"format,omitempty"`
 	// Slots' pixel dimensions, negotiated by the pipeline rather than set by the render size.
+	// Square pixels wherever the chain converts, so width over height is the picture's shape.
 	Width  uint32 `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
 	Height uint32 `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
 	// Allocation size in bytes where the import needs one,

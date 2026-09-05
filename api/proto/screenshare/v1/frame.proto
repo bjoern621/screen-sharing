@@ -143,6 +143,7 @@ message FramePool {
   FrameFormat format = 3;
 
   // Slots' pixel dimensions, negotiated by the pipeline rather than set by the render size.
+  // Square pixels wherever the chain converts, so width over height is the picture's shape.
   uint32 width = 4;
   uint32 height = 5;
 

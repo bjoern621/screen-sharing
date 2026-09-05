@@ -416,9 +416,10 @@ func (r *Receiver) ToneMap() bool { return r.toneMap }
 // pixels away again at draw time.
 //
 // The bound is a maximum and not a size.
-// The chain's scaler fixates inside the range and corrects the pixel aspect ratio to hold
-// the display aspect ratio, so the picture needs no borders and a tile larger than its stream
-// negotiates the stream's own size rather than an upscale nobody asked for.
+// The chain's scaler fixates inside the range at the square pixels the format caps pin
+// (chains.go), so the picture keeps its shape without borders,
+// and a tile larger than its stream negotiates the stream's own size rather than an upscale
+// nobody asked for.
 //
 // The caps come from the chain, feature and all: caps naming no memory feature pin the frames
 // into system memory, so a bare video/x-raw written here downloads every frame of a device chain
