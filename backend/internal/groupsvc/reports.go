@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"bjoernblessin.de/go-utils/util/logger"
 )
 
 // Reports keeps the bundles members send in,
@@ -53,6 +55,9 @@ func (s *Service) takeReport(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusInternalServerError, "the report could not be stored")
 		return
 	}
+
+	// The line the operator's logs dashboard lists report intake by.
+	logger.Infof("stored report %s", id)
 	answer(w, map[string]string{"reportId": id})
 }
 
