@@ -92,7 +92,16 @@ func (s *Server) GetSettings(ctx context.Context, req *screensharev1.GetSettings
 // it walks a draft the tables forbid to the first legal value and names what it moved,
 // and an empty draft is the far end of that same walk.
 func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveFormRequest) (*screensharev1.ResolveFormResponse, error) {
-	deps := form.Deps{
+	// Brokered ahead of the resolve, so the audience diagnostic reads Discord mode's membership.
+	draft := s.backend.Brokered(wire.ToSettings(req.GetSettings()))
+	return &screensharev1.ResolveFormResponse{Form: form.Resolve(s.formDeps(), draft)}, nil
+}
+
+// formDeps is what a resolve reads off this machine, one builder for every caller:
+// the form read and the start that resolves a followed preset (effects.go)
+// answer from the same machine.
+func (s *Server) formDeps() form.Deps {
+	return form.Deps{
 		Monitors:     s.backend.Monitors(),
 		Platform:     s.backend.Platform(),
 		Device:       s.backend.Device(),
@@ -100,9 +109,6 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 		AudioDevices: s.backend.AudioDevices(),
 		Portal:       s.backend.PortalCapabilities(),
 	}
-	// Brokered ahead of the resolve, so the audience diagnostic reads Discord mode's membership.
-	draft := s.backend.Brokered(wire.ToSettings(req.GetSettings()))
-	return &screensharev1.ResolveFormResponse{Form: form.Resolve(deps, draft)}, nil
 }
 
 // ListPresets answers with the user's saved configurations.

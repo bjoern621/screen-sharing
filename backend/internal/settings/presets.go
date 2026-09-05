@@ -76,6 +76,8 @@ func LoadPresets() ([]Preset, error) {
 	// Each is upgraded the way Load upgrades the working settings.
 	for i := range presets {
 		presets[i].Settings = migratePublish(presets[i].Settings, Defaults().Publish)
+		// Cleared on read as on save, so a hand-edited entry follows no built-in either.
+		presets[i].Settings.Preset = ""
 	}
 	return presets, nil
 }
@@ -100,6 +102,11 @@ func savePresets(presets []Preset) error {
 // so the same save repeated writes a fresh file and the reason names where the old values went.
 func SavePreset(name string, s Publish) error {
 	assert.Assert(name != "", "a saved preset is saved under a name")
+
+	// A saved preset is the concrete snapshot alone.
+	// A built-in key kept here would re-engage that preset's search on apply,
+	// and the values shown at save time are what the name promises.
+	s.Preset = ""
 
 	presetsMu.Lock()
 	defer presetsMu.Unlock()

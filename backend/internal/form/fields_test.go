@@ -1264,7 +1264,9 @@ func TestTheRateBufferStaysInsideTheEncodersOwnField(t *testing.T) {
 // CONTROL_KIND_NUMBER_SELECT).
 func TestTheBurstCeilingOffersNoCeilingBesideItsBand(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
-	s.Publish.BitrateM = 40
+	// The pair moves together: a held ceiling under the new target would ride the ladder
+	// until the next repair walks it up, which this test runs without.
+	s.Publish.BitrateM, s.Publish.MaxrateM = 40, 80
 
 	for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr, capabilities.ModeAbr} {
 		s.Publish.Mode = mode

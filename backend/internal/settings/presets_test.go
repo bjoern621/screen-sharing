@@ -108,3 +108,23 @@ func TestSavePresetSucceedsAfterTheCorruptFileIsKept(t *testing.T) {
 		t.Errorf("presets = %+v, want one entry named new", presets)
 	}
 }
+
+// A saved preset is the concrete snapshot alone: a built-in key kept on it would re-engage
+// that preset's search on apply, and the values shown at save time are what the name promises.
+func TestASavedPresetFollowsNoBuiltin(t *testing.T) {
+	isolateConfig(t)
+
+	p := Defaults().Publish
+	p.Preset = PresetBalanced
+	if err := SavePreset("snapshot", p); err != nil {
+		t.Fatalf("SavePreset: %v", err)
+	}
+
+	presets, err := LoadPresets()
+	if err != nil {
+		t.Fatalf("LoadPresets: %v", err)
+	}
+	if len(presets) != 1 || presets[0].Settings.Preset != "" {
+		t.Errorf("the stored snapshot follows %q, want no built-in", presets[0].Settings.Preset)
+	}
+}

@@ -859,3 +859,25 @@ func TestLoadRaisesAPublishWindowBelowTheRelayFloor(t *testing.T) {
 			got.Publish.SrtPublishLatencyMs, SrtRelayFloorMs)
 	}
 }
+
+func TestAFreshInstallationFollowsTheBalancedPreset(t *testing.T) {
+	if got := Defaults().Publish.Preset; got != PresetBalanced {
+		t.Errorf("a fresh installation follows %q, want %q", got, PresetBalanced)
+	}
+}
+
+// The empty key is the detached state, so no migration fills it and no save drops it:
+// either would put a machine back on a preset the user left.
+func TestADetachedDraftStaysDetachedAcrossAReload(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Publish.Preset = ""
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := mustLoad(t).Publish.Preset; got != "" {
+		t.Errorf("a detached draft reloaded following %q", got)
+	}
+}

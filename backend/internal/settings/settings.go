@@ -456,6 +456,15 @@ type Publish struct {
 	// the legal values are a list the backend generates from the selected monitor,
 	// so the only strings that arrive are ones this side wrote (api/proto/screenshare/v1).
 	OutputResolution string `json:"outputResolution"`
+	// Preset is the key of the built-in preset these settings follow,
+	// "" for settings the user owns.
+	// While set, the form and every start resolve the preset against this machine
+	// and the concrete fields above seed that search rather than decide what runs
+	// (docs/presets.md).
+	//
+	// No omitempty and never filled by the migration: the empty key is the detached state,
+	// and a file from before the key follows the default, which is the balanced preset.
+	Preset string `json:"preset"`
 }
 
 // Viewer is how this machine watches, independent of what it publishes.
@@ -578,6 +587,11 @@ func (p Publish) CapabilityOptions() map[string]string {
 	}
 }
 
+// PresetBalanced is the key of the built-in preset a fresh installation follows.
+// What it promises and how it is searched out live beside the other built-ins (form/presets.go);
+// here is only the key, because Defaults writes it.
+const PresetBalanced = "balanced"
+
 // SrtRelayFloorMs is the retransmit window every relay SRT hop runs at least at.
 // MediaMTX exposes no SRT latency option and runs on its library's 120 ms default,
 // and the handshake takes the larger of the two ends' windows,
@@ -603,9 +617,17 @@ func Defaults() Settings {
 			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{
-			Transport: "srt", Format: "hevc", Encoder: capabilities.FamilyNvenc,
-			Mode: "lossless", Chroma: "gbrp",
-			ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
+			// A fresh installation follows the balanced preset,
+			// so the concrete fields here seed its search rather than decide what runs.
+			// The seed is the configuration every build carries:
+			// H.264 out of x264 at quarter-resolution chroma in the limited range,
+			// held to a constant rate, the one bounded mode both engines run,
+			// what a machine with no working probe and no GPU still encodes and every player takes.
+			Preset:    PresetBalanced,
+			Transport: "srt", Format: "h264", Encoder: "x264",
+			Mode: capabilities.ModeCbr, Chroma: "yuv420p",
+			ColorRange: capabilities.ColorRangeLimited,
+			Fps: 60, Cq: 19, BitrateM: 8, MaxrateM: 12, VbvMs: 0,
 			Gop: 0, Bframes: 0,
 			Capture: capture, DrmMap: "auto", Monitor: 0,
 			// No source: a fresh installation publishes the picture alone,

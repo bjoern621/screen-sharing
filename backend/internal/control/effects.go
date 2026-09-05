@@ -14,6 +14,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/form"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -148,6 +149,29 @@ func (s *Server) DeletePreset(ctx context.Context, req *screensharev1.DeletePres
 	return &screensharev1.DeletePresetResponse{}, nil
 }
 
+// resolveFollowed turns a draft that follows a built-in preset into the configuration
+// that preset produces on this machine at this moment, and leaves a detached draft alone.
+//
+// At the press rather than at the form:
+// the machine may have changed since the form was drawn, and what was asked for is the promise,
+// so the search runs against the machine as it stands.
+// A preset nothing here reaches is FAILED_PRECONDITION,
+// the verdict the form already blocks the start with,
+// so the refusal repeats what the screen says rather than surprising it.
+func (s *Server) resolveFollowed(draft settings.Settings) (settings.Settings, error) {
+	if !form.Followed(draft) {
+		return draft, nil
+	}
+
+	resolved, ok := form.ResolveBuiltin(s.formDeps(), draft)
+	if !ok {
+		return settings.Settings{}, failedPrecondition(
+			"no configuration on this machine delivers the selected preset (%s). Open the stream settings to see what stands in the way",
+			draft.Publish.Preset)
+	}
+	return resolved, nil
+}
+
 // StartPublish persists the settings and starts the encoder on them.
 //
 // A start naming a *different* pipeline while a stream is in force is FAILED_PRECONDITION,
@@ -164,6 +188,10 @@ func (s *Server) DeletePreset(ctx context.Context, req *screensharev1.DeletePres
 // "these two settings are one stream" being one fact.
 func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPublishRequest) (*screensharev1.StartPublishResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "publish")
+	if err != nil {
+		return nil, err
+	}
+	draft, err = s.resolveFollowed(draft)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +225,10 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 // an apply asks for the live stream to change, and StartPublish is what brings a stopped one back.
 func (s *Server) ApplyToStream(ctx context.Context, req *screensharev1.ApplyToStreamRequest) (*screensharev1.ApplyToStreamResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "apply")
+	if err != nil {
+		return nil, err
+	}
+	draft, err = s.resolveFollowed(draft)
 	if err != nil {
 		return nil, err
 	}

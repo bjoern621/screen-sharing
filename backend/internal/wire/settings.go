@@ -84,6 +84,8 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		UplinkMbps: int32(p.UplinkMbps),
 
 		OutputResolution: p.OutputResolution,
+
+		Preset: p.Preset,
 	}
 }
 
@@ -175,6 +177,8 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		UplinkMbps: int(m.GetUplinkMbps()),
 
 		OutputResolution: m.GetOutputResolution(),
+
+		Preset: m.GetPreset(),
 	}
 }
 

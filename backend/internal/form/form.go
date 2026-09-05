@@ -29,6 +29,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -134,14 +135,39 @@ type group struct {
 // Describing what was sent while returning what was repaired would hand a shell a greyed option
 // and a replacement that disagree.
 //
+// A draft following a built-in preset describes that preset's answer for this machine instead:
+// the search runs on the repaired draft and its find replaces it whole,
+// so every field, figure and diagnostic below is about what a start would run.
+// The repair's account is dropped with the draft it described;
+// what the search moved getting there is the preset's own business rather than a walked field.
+// A preset nothing here reaches leaves the repaired draft standing and blocks the start with
+// the same verdict the preset row carries: the fields shown are the seed and never the promise,
+// so publishing them under the preset's name would put a stream on the air nobody asked for.
+//
 // The built-in presets are resolved against the repaired draft for a sharper form
 // of the same reason: a candidate counts only where the repair leaves it untouched,
 // so one stranded value still in the draft would leave every preset unreachable (presets.go).
 func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	s, repaired := Repair(d, draft)
 
+	followed, ok := presetByKey(s.Publish.Preset)
+	unreached := ok
+	if ok {
+		if reached, found := presetResolve(d, followed, s); found {
+			s, repaired = reached, nil
+			unreached = false
+		}
+	}
+
 	est := estimate(d, s)
 	diags := diagnostics(d, s, est)
+	if unreached {
+		diags = append([]*screensharev1.Diagnostic{diagnosticFor(
+			screensharev1.Severity_SEVERITY_ERROR, "",
+			text.Of(screensharev1.TextCode_TEXT_CODE_PRESET_UNREACHABLE,
+				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_PRESET, s.Publish.Preset),
+				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, s.Publish.Transport)))}, diags...)
+	}
 
 	// What a fresh installation holds, which every field states beside its own value.
 	// Read once and handed down: the row functions that read the draft read this too,

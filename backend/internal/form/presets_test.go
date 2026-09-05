@@ -5,7 +5,10 @@ import (
 	"slices"
 	"testing"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/publish"
@@ -218,8 +221,8 @@ func TestApplyingAPresetSelectsIt(t *testing.T) {
 }
 
 // A field edited to a value the promise still covers is not a different way of publishing,
-// however the settings got there, which is the whole of what a derived selection buys.
-func TestTheSelectionFollowsTheSettingsRatherThanTheApply(t *testing.T) {
+// which is what lets the search hold every candidate to the claim after the repair.
+func TestAClaimCoversTheWholePromiseAndNothingOutside(t *testing.T) {
 	gaming := presetOf(t, "gaming")
 
 	inside := settings.Defaults().Publish
@@ -377,5 +380,104 @@ func TestEveryPresetBaseClearsTheRelayFloor(t *testing.T) {
 			t.Errorf("%s asks for %d ms and the relay raises anything below %d",
 				p.key, base.SrtPublishLatencyMs, settings.SrtRelayFloorMs)
 		}
+	}
+}
+
+// Balanced is what a fresh installation follows, so it is held to reaching every machine
+// the cases name plus the one with nothing but a CPU: a picture on the first press is its point.
+// The find carries H.264, the one bitstream every transport row carries.
+func TestBalancedReachesEveryMachine(t *testing.T) {
+	cpuOnly := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	cpuOnly.Encoders = presetOnlyFamilies(capabilities.FamilySoftware)
+	cases := append(presetCases(), availabilityCase{
+		"a machine with nothing but a CPU", cpuOnly,
+		availabilityDraft("x11grab", "libx264", "yuv420p", "srt")})
+
+	for _, tc := range cases {
+		s, _ := Repair(tc.deps, tc.s)
+		reached, ok := presetResolve(tc.deps, presetOf(t, settings.PresetBalanced), s)
+		if !ok {
+			t.Errorf("%s: balanced reaches nothing", tc.name)
+			continue
+		}
+		if reached.Publish.Format != "h264" {
+			t.Errorf("%s: balanced resolved to %s, want the bitstream every transport carries",
+				tc.name, reached.Publish.Format)
+		}
+		if reached.Publish.Preset != settings.PresetBalanced {
+			t.Errorf("%s: the find follows %q, want the preset that produced it", tc.name, reached.Publish.Preset)
+		}
+	}
+}
+
+// The one rung closed by height: a CPU encode of a display taller than a desktop
+// resolves to half the motion, so the frame rate shown is one the machine delivers.
+func TestBalancedHalvesTheMotionOnACpuAboveDesktopHeights(t *testing.T) {
+	deps := Deps{
+		Platform: platform.Info{OS: "linux", Display: "x11"},
+		Monitors: []display.Monitor{{Index: 0, Width: 3840, Height: 2160}},
+	}
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilySoftware)
+
+	s, _ := Repair(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"))
+	reached, ok := presetResolve(deps, presetOf(t, settings.PresetBalanced), s)
+	if !ok {
+		t.Fatal("balanced reaches no software encoder")
+	}
+	if reached.Publish.Fps != 30 {
+		t.Errorf("a 4K software encode resolved to %d fps, want the 30 the ladder trades to", reached.Publish.Fps)
+	}
+}
+
+func TestBalancedKeepsFullMotionOnACpuAtDesktopHeights(t *testing.T) {
+	deps := Deps{
+		Platform: platform.Info{OS: "linux", Display: "x11"},
+		Monitors: []display.Monitor{{Index: 0, Width: 2560, Height: 1440}},
+	}
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilySoftware)
+
+	s, _ := Repair(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"))
+	reached, ok := presetResolve(deps, presetOf(t, settings.PresetBalanced), s)
+	if !ok {
+		t.Fatal("balanced reaches no software encoder")
+	}
+	if reached.Publish.Fps != 60 {
+		t.Errorf("a 1440p software encode resolved to %d fps, want the full 60", reached.Publish.Fps)
+	}
+}
+
+// A draft that follows a preset is described as that preset's find,
+// so the fields, figures and diagnostics are about what a start would run.
+func TestAFollowedDraftIsDescribedAsItsFind(t *testing.T) {
+	form := Resolve(fieldTestDeps(), settings.Defaults())
+
+	got := wire.ToPublish(form.GetSettings().GetPublish())
+	if got.Preset != settings.PresetBalanced {
+		t.Fatalf("the form describes a draft following %q, want the balanced find", got.Preset)
+	}
+	if !presetHolds(got, presetOf(t, settings.PresetBalanced).claim) {
+		t.Errorf("the form describes mode %s at %d fps, outside the balanced promise", got.Mode, got.Fps)
+	}
+}
+
+// A followed preset nothing here reaches leaves the seed on screen and blocks the start:
+// publishing the seed under the preset's name would put a stream on the air nobody asked for.
+func TestAnUnreachableFollowedPresetBlocksThePublish(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
+	deps.Encoders = presetOnlyCodecs("av1_vaapi")
+
+	form := Resolve(deps, settings.Defaults())
+	if form.GetPublishable() {
+		t.Error("the form allows a start on a promise this machine cannot deliver")
+	}
+
+	blocked := false
+	for _, d := range form.GetDiagnostics() {
+		if d.GetText().GetCode() == screensharev1.TextCode_TEXT_CODE_PRESET_UNREACHABLE {
+			blocked = d.GetSeverity() == screensharev1.Severity_SEVERITY_ERROR
+		}
+	}
+	if !blocked {
+		t.Error("no error diagnostic names the unreachable preset")
 	}
 }

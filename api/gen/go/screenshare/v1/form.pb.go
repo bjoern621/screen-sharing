@@ -1147,12 +1147,16 @@ func (x *Form) GetPublishable() bool {
 // keyed by this identifier like every other value on the contract.
 type BuiltinPreset struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// "lossless", "gaming" or "readability".
+	// "balanced", "lossless", "gaming" or "readability".
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Configuration this preset produces here,
 	// absent exactly where nothing this machine runs delivers the promise.
 	// No separate reachability flag exists, since a reachable preset is one with settings,
 	// and two fields could contradict each other about it.
+	//
+	// It carries this preset's key in PublishSettings.preset,
+	// so applying it is what makes the draft follow the preset,
+	// and every later resolve and start searches the promise out again.
 	//
 	// A preset is PublishSettings and nothing more:
 	// applying one swaps that group of the draft,
@@ -1162,13 +1166,12 @@ type BuiltinPreset struct {
 	// TEXT_CODE_PRESET_UNREACHABLE carries the preset and the publish transport bounding the search,
 	// transport being the dimension the search holds still.
 	Reason *Text `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
-	// Whether the resolved settings deliver this promise already.
-	// Derived from them at every resolve instead of remembered from whichever call applied one,
-	// so an edit staying inside the promise keeps the mark,
-	// and an edit leaving it drops the mark, with no stored selection to reconcile.
+	// Whether the draft follows this preset (PublishSettings.preset).
+	// The stored key answers rather than a reading off the values:
+	// two promises may cover one configuration, and the key says which one was asked for.
 	//
-	// Never more than one selected: the promises are written pairwise disjoint,
-	// and the backend keeps a table holding them to it.
+	// Never more than one selected: the keys are unique,
+	// and the backend's table is held to it at load.
 	Selected      bool `protobuf:"varint,4,opt,name=selected,proto3" json:"selected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

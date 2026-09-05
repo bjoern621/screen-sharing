@@ -403,7 +403,14 @@ type PublishSettings struct {
 	// "metadata" sends its position beside the stream for a viewer to draw itself.
 	// Which values a capture backend serves is the backend's own fact,
 	// so the form greys the rest with what each one is missing.
-	Cursor        string `protobuf:"bytes,38,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Cursor string `protobuf:"bytes,38,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// Key of the built-in preset these settings follow, "" for settings the user owns.
+	// While set, the backend searches out the preset's configuration for this machine
+	// on every resolve and every start, so a changed machine changes what runs,
+	// and the concrete fields of this message seed that search rather than decide it.
+	// Editing any publish field detaches: the shell clears this key with the edit,
+	// and the resolved values it was showing become the draft (docs/presets.md).
+	Preset        string `protobuf:"bytes,43,opt,name=preset,proto3" json:"preset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -616,6 +623,13 @@ func (x *PublishSettings) GetOutputResolution() string {
 func (x *PublishSettings) GetCursor() string {
 	if x != nil {
 		return x.Cursor
+	}
+	return ""
+}
+
+func (x *PublishSettings) GetPreset() string {
+	if x != nil {
+		return x.Preset
 	}
 	return ""
 }
@@ -912,7 +926,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12!\n" +
 	"\fdiscord_mode\x18\r \x01(\bR\vdiscordMode\x12!\n" +
 	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLinkJ\x04\b\t\x10\n" +
-	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\xd1\b\n" +
+	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\xe9\b\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +
 	" \x01(\tR\x10publishTransport\x12\x16\n" +
@@ -943,7 +957,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vuplink_mbps\x18\" \x01(\x05R\n" +
 	"uplinkMbps\x12+\n" +
 	"\x11output_resolution\x18% \x01(\tR\x10outputResolution\x12\x16\n" +
-	"\x06cursor\x18& \x01(\tR\x06cursorJ\x04\b\x01\x10\n" +
+	"\x06cursor\x18& \x01(\tR\x06cursor\x12\x16\n" +
+	"\x06preset\x18+ \x01(\tR\x06presetJ\x04\b\x01\x10\n" +
 	"J\x04\b\v\x10\fJ\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x04nameR\x05audioR\x05codecR\n" +
 	"relay_hostR\n" +
 	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\n" +

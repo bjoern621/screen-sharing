@@ -236,6 +236,14 @@ message PublishSettings {
   // so the form greys the rest with what each one is missing.
   string cursor = 38;
 
+  // Key of the built-in preset these settings follow, "" for settings the user owns.
+  // While set, the backend searches out the preset's configuration for this machine
+  // on every resolve and every start, so a changed machine changes what runs,
+  // and the concrete fields of this message seed that search rather than decide it.
+  // Editing any publish field detaches: the shell clears this key with the edit,
+  // and the resolved values it was showing become the draft (docs/presets.md).
+  string preset = 43;
+
   // 1 was the free-text stream name.
   // A viewer's identity for a stream is derived and computed rather than typed
   // (Settings.stream_name, needing the relay group beside it that a preset does not carry),

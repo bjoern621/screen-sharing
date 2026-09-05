@@ -60,6 +60,7 @@ func populatedSettings() settings.Settings {
 			RtspPublishProtocol: "udp",
 			UplinkMbps:          888,
 			OutputResolution:    "1280x720",
+			Preset:              "fixture-preset",
 		},
 		Viewer: settings.Viewer{
 			TileWatchTransport: "webrtc",

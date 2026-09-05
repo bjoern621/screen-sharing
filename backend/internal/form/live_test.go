@@ -39,6 +39,9 @@ func liveFlags(t *testing.T, s settings.Settings) []string {
 // and a source in the mix whose level the mixer takes.
 func liveSettings() settings.Settings {
 	s := settings.Defaults()
+	// Detached: the values below are this test's own, and a followed preset would
+	// have the resolve describe its find instead of them.
+	s.Publish.Preset = ""
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.UseCodec("libx264")
 	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"

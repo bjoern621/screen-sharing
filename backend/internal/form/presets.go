@@ -38,6 +38,13 @@ import (
 type presetRung struct {
 	chroma   string
 	onDevice bool
+	// fps overrides the base's frame rate on this rung, zero keeping it.
+	// How a ladder trades motion away where the encoders left to it cannot keep up.
+	fps int
+	// maxHeight closes this rung to machines whose encode is taller, zero keeping it open.
+	// The height is the picture the encoder is fed (presetEncodeHeight),
+	// so a rung can admit a software encode at desktop sizes and refuse it at display-wall ones.
+	maxHeight int
 }
 
 // presetRange is an inclusive bound on one numeric axis of a claim.
@@ -63,12 +70,12 @@ const presetUnbounded = 1 << 30
 // every settings object inside it delivers what the preset promises,
 // and every object outside it does not.
 //
-// Two operations read a claim, both walking the axis tables
-// below rather than a condition written per preset.
-// presetHolds decides whether a preset is still the selected one after a field changed.
-// presetOverlaps decides whether two presets could both describe one settings object,
-// which is the question the table is held to at load: a surface has one selection to show,
-// so intersecting claims are a defect rather than a case to render.
+// presetHolds reads it, walking the axis tables below rather than a condition written per preset,
+// and asks it of the settings a search reached:
+// a candidate the repair walked out of the claim is one that stopped delivering the promise.
+// Which preset is selected is the settings' own statement (settings.Publish.Preset),
+// so two claims may overlap: balanced and gaming meet at 60 fps VBR,
+// and the stored key says which of them the user asked for.
 //
 // An axis the claim leaves out is unconstrained.
 type presetClaim struct {
@@ -90,8 +97,7 @@ type presetClaim struct {
 // The axes a claim carves the settings space on, one entry per axis: where the value is read from,
 // and which part of the claim bounds it.
 //
-// Both operations below walk these tables, so an axis added to presetClaim cannot be honoured
-// by one and missed by the other.
+// presetHolds walks these tables, so an axis added to presetClaim cannot be missed by it.
 var presetEnumAxes = []struct {
 	of      func(settings.Publish) string
 	allowed func(presetClaim) []string
@@ -135,6 +141,11 @@ type preset struct {
 	// rescaled to each candidate codec's own.
 	// Zero on a preset whose mode targets no quantizer.
 	cq51 int
+	// formats narrows the search to these bitstreams, empty searching every codec.
+	// For a preset whose promise is reach rather than efficiency:
+	// balanced pins H.264 because every transport carries it and every viewer decodes it,
+	// where the efficiency order would spend that compatibility on a better codec.
+	formats []string
 	// rungs is the quality ladder, best first.
 	// The search takes the highest rung an encoder here reaches,
 	// so the order is where the preset states what it gives up first.
@@ -143,9 +154,49 @@ type preset struct {
 
 // presetTable is every built-in preset, in the order a surface offers them.
 //
-// Every claim is disjoint from every other, which the init below holds this table to,
-// so at most one of them describes one settings object.
+// Every key is named once, which the init below holds this table to,
+// so the key the settings follow addresses at most one row.
 var presetTable = []preset{
+	{
+		key: settings.PresetBalanced,
+		claim: presetClaim{
+			// A bounded rate is the promise, whichever control delivers it:
+			// the GStreamer software elements run no constrained VBR (gstNoRateCeiling),
+			// so a claim on vbr alone would strand the preset on every machine
+			// whose only encode is one of them.
+			modes: []string{capabilities.ModeVbr, capabilities.ModeCbr, capabilities.ModeAbr},
+			fps:   &presetRange{min: 30, max: 60},
+		},
+		// H.264 alone: the one bitstream every transport row carries and every viewer decodes,
+		// which is the reach a first stream is judged by.
+		formats: []string{"h264"},
+		base: func(p settings.Publish) settings.Publish {
+			p.Mode = capabilities.ModeVbr
+			p.Fps = 60
+			p.Gop = 0
+			p.Bframes = 0
+			// Modest enough for the uplinks machines actually have:
+			// the stated line is a guess until a measurement replaces it,
+			// so the target leans on neither.
+			p.BitrateM = 8
+			// Written beside the target rather than left to the draft:
+			// the VA elements express the burst as a share of the target
+			// and refuse a ceiling far above it.
+			p.MaxrateM = 12
+			p.VbvMs = 0
+			p.SrtPublishLatencyMs = settings.SrtRelayFloorMs
+			return p
+		},
+		// One picture, three admissions: silicon first at full motion,
+		// then a CPU where the desktop is small enough for one to keep up,
+		// then a CPU at half the motion.
+		// Quarter-resolution chroma throughout, the cheapest encode and the one every encoder codes.
+		rungs: []presetRung{
+			{chroma: "yuv420p", onDevice: true},
+			{chroma: "yuv420p", maxHeight: 1440},
+			{chroma: "yuv420p", fps: 30},
+		},
+	},
 	{
 		key: "lossless",
 		claim: presetClaim{
@@ -232,13 +283,9 @@ var presetTable = []preset{
 	},
 }
 
-// The table is held to the one property a surface cannot render its way out of:
-// two presets whose claims intersect would both describe one settings object,
-// and there is one selection to show.
-//
-// The claims are written to part on an axis, the rate-control mode telling lossless from the rest
-// and the frame rate telling those apart, so a claim widened past its neighbour fails here rather
-// than at a surface left to pick one of two right answers.
+// The table is held to what the stored selection stands on:
+// the settings name their preset by key, so a key written twice would make one name
+// address two promises, and no surface could say which one the user asked for.
 func init() {
 	for i, a := range presetTable {
 		assert.Assert(a.key != "", "every preset is named", i)
@@ -246,8 +293,7 @@ func init() {
 		assert.IsNotNil(a.base, "every preset states what its candidates carry", a.key)
 
 		for _, b := range presetTable[i+1:] {
-			assert.Assert(!presetOverlaps(a.claim, b.claim),
-				"preset promises are pairwise disjoint", a.key, b.key)
+			assert.Assert(a.key != b.key, "every preset key names one promise", a.key)
 		}
 	}
 }
@@ -272,34 +318,9 @@ func presetHolds(p settings.Publish, c presetClaim) bool {
 	return true
 }
 
-// presetOverlaps reports whether some settings object lies in both claims.
-// One separating axis is enough for two regions to miss each other,
-// so a pair that shares every axis overlaps.
-func presetOverlaps(a, b presetClaim) bool {
-	for _, axis := range presetEnumAxes {
-		x, y := axis.allowed(a), axis.allowed(b)
-		if len(x) == 0 || len(y) == 0 {
-			continue
-		}
-		if !slices.ContainsFunc(x, func(v string) bool { return slices.Contains(y, v) }) {
-			return false
-		}
-	}
-	for _, axis := range presetRangeAxes {
-		x, y := axis.bound(a), axis.bound(b)
-		if x == nil || y == nil {
-			continue
-		}
-		if max(x.min, y.min) > min(x.max, y.max) {
-			return false
-		}
-	}
-	return true
-}
-
 // resolvePresets is every built-in preset against these settings:
 // the settings applying it would produce here, or the reason nothing here reaches it,
-// and whether the settings already deliver it.
+// and whether the settings follow it.
 //
 // It runs on the repaired settings,
 // so rejecting a repaired candidate is sound rather than merely strict.
@@ -311,7 +332,9 @@ func resolvePresets(d Deps, s settings.Settings) []*screensharev1.BuiltinPreset 
 	selected := 0
 
 	for _, p := range presetTable {
-		entry := &screensharev1.BuiltinPreset{Key: p.key, Selected: presetHolds(s.Publish, p.claim)}
+		// Selected is the settings' own statement rather than a reading off the values:
+		// two claims may overlap, and the key says which promise the user asked for.
+		entry := &screensharev1.BuiltinPreset{Key: p.key, Selected: s.Publish.Preset == p.key}
 		if entry.GetSelected() {
 			selected++
 		}
@@ -334,7 +357,7 @@ func resolvePresets(d Deps, s settings.Settings) []*screensharev1.BuiltinPreset 
 	}
 
 	assert.Assert(len(out) == len(presetTable), "an entry per preset", len(out), len(presetTable))
-	assert.Assert(selected <= 1, "settings deliver at most one preset's promise", selected)
+	assert.Assert(selected <= 1, "settings follow at most one preset", selected)
 	return out
 }
 
@@ -363,11 +386,21 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 	captures := presetCaptures(d, s)
 
 	for _, rung := range p.rungs {
-		for _, codec := range presetCodecs(rung) {
+		if rung.maxHeight > 0 && presetEncodeHeight(d, s) > rung.maxHeight {
+			continue
+		}
+		for _, codec := range presetCodecs(p, rung) {
 			for _, capture := range captures {
 				candidate := s
 				candidate.Publish = p.base(s.Publish)
+				// The find follows the preset that produced it,
+				// so applying it is what selects the preset,
+				// and a start on it resolves the same promise again.
+				candidate.Publish.Preset = p.key
 				candidate.Publish.Chroma = rung.chroma
+				if rung.fps > 0 {
+					candidate.Publish.Fps = rung.fps
+				}
 				candidate.Publish.Format, candidate.Publish.Encoder = codec.Format, codec.Encoder()
 				candidate.Publish.Capture = capture
 				// The ladder steps are the codec's own identifiers, so they are written here rather
@@ -435,21 +468,21 @@ func presetKeeps(repaired []string) bool {
 	return true
 }
 
-// presetStrands reports whether the repair would already walk one of the axes this candidate names
-// off the value the search put there, the mark of a rejected candidate.
+// presetStrands reports whether one of the axes the search wrote cannot run as this candidate
+// holds it: the entry is ruled out on this machine, by the probe, an engine gap
+// or the leg's carriage.
 //
-// It decides nothing the repair does not: it asks legalOption, the function the walk itself asks,
-// about the fields the search sets.
-// What it saves is the rest of the walk, a fixed point over every field in the table several rounds
-// deep, for a candidate whose own encoder or pixel format is already gone.
+// The option's own state is asked rather than whether the repair would walk it.
+// The walk keeps a value whose every alternative is also ruled out,
+// so a machine whose probe refused a whole format would hand the search a candidate
+// that dies at launch, wearing the name of a preset that promised it runs.
+// The repair's answer is narrower on exactly that candidate, and only there:
+// a ruled-out value it would walk is ruled out here too.
+//
+// It also spares the rest of the walk, a fixed point over every field several rounds deep,
+// for a candidate whose own encoder is already gone.
 // The ladder is a few hundred candidates long, and a machine that reaches no preset would otherwise
 // pay for a repair per candidate on every keystroke.
-//
-// legalOption rather than optionState is what keeps the two in step.
-// An entry the form greys is not always one the repair moves:
-// a field whose every entry is greyed keeps the value it has,
-// and a candidate dropped for that would report a preset
-// unreachable for an axis the repair would have left alone.
 func presetStrands(d Deps, candidate settings.Settings) bool {
 	// One evaluation for every field asked about: the candidate does not move between them,
 	// and the search runs this over a few hundred candidates on every keystroke.
@@ -457,7 +490,7 @@ func presetStrands(d Deps, candidate settings.Settings) bool {
 
 	for _, key := range presetSearchedKeys {
 		f := presetField(key)
-		if _, walked := legalOption(av, d, candidate, f, optionValue(f.value(candidate)), noEntry); walked {
+		if enabled, _ := optionStateOf(av, f.key, optionValue(f.value(candidate)), noEntry); !enabled {
 			return true
 		}
 	}
@@ -486,6 +519,26 @@ func presetField(key string) *field {
 	return nil
 }
 
+// presetEncodeHeight is the height of the picture a candidate's encoder is fed:
+// the scaled output where one is set, the selected monitor's where this machine lists it,
+// and the tallest monitor otherwise, any of them being what a capture could hand over.
+// Zero where nothing states a height, which closes no rung:
+// an unlisted display greys nothing, as an unprobed engine does (Deps).
+func presetEncodeHeight(d Deps, s settings.Settings) int {
+	if size, scaled, err := s.Publish.OutputSize(); err == nil && scaled {
+		return size.Height
+	}
+
+	tallest := 0
+	for _, m := range d.Monitors {
+		if m.Index == s.Publish.Monitor {
+			return m.Height
+		}
+		tallest = max(tallest, m.Height)
+	}
+	return tallest
+}
+
 // presetCodecs is the codecs a preset tries at one rung, best first:
 // the encoders that come with a device before the ones that come with a build,
 // and coding efficiency inside each half, in opposite directions.
@@ -502,7 +555,7 @@ func presetField(key string) *field {
 // What this machine has is not filtered here.
 // A codec no encoder was found for is greyed by availability and the repair walks the candidate
 // off it, which is the same verdict arrived at by the one rule that owns it.
-func presetCodecs(rung presetRung) []capabilities.Codec {
+func presetCodecs(p preset, rung presetRung) []capabilities.Codec {
 	type candidate struct {
 		row    capabilities.Codec
 		device bool
@@ -516,6 +569,9 @@ func presetCodecs(rung presetRung) []capabilities.Codec {
 	var ranked []candidate
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
+			continue
+		}
+		if len(p.formats) > 0 && !slices.Contains(p.formats, c.Format) {
 			continue
 		}
 		device := presetOnDevice(c)
@@ -567,6 +623,45 @@ func presetCaptures(d Deps, s settings.Settings) []string {
 		}
 	}
 	return out
+}
+
+// presetByKey is the row the settings name, and false for the detached draft.
+// An unknown key reads as detached rather than asserting:
+// the settings file is the user's to edit, so a key from some other build is an Umgebungsfehler,
+// and the form shows no selection with every verdict beside it.
+func presetByKey(key string) (preset, bool) {
+	if key == "" {
+		return preset{}, false
+	}
+	for _, p := range presetTable {
+		if p.key == key {
+			return p, true
+		}
+	}
+	return preset{}, false
+}
+
+// Followed reports whether the draft follows a built-in preset this build carries.
+// An unknown key reads as detached, the reading presetByKey gives every caller,
+// so a start and a form answer a stored stranger the same way.
+func Followed(draft settings.Settings) bool {
+	_, ok := presetByKey(draft.Publish.Preset)
+	return ok
+}
+
+// ResolveBuiltin is the configuration the preset the draft follows produces on this machine,
+// and false where the draft follows none or nothing here reaches its promise.
+//
+// What a start runs when the settings follow a preset (control.StartPublish):
+// the draft seeds the same search the form ran, against the machine as it stands at the press,
+// so an encoder that left since the form was drawn is one the stream never asks for.
+func ResolveBuiltin(d Deps, draft settings.Settings) (settings.Settings, bool) {
+	p, ok := presetByKey(draft.Publish.Preset)
+	if !ok {
+		return settings.Settings{}, false
+	}
+	s, _ := Repair(d, draft)
+	return presetResolve(d, p, s)
 }
 
 // presetCq places a preset's quantizer target on the scale the named codec counts on,
