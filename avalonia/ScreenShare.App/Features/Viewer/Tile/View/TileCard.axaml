@@ -111,16 +111,21 @@
   -->
   <UserControl.ContextFlyout>
     <MenuFlyout>
-      <MenuItem Header="Focus" Command="{Binding ToggleFocus}"
+      <!-- The one row carrying a note: focus rearranges tiles, and with one tile there is nothing to rearrange. -->
+      <MenuItem Command="{Binding ToggleFocus}"
                 InputGesture="{x:Static tiles:TileKeys.Focus}"
                 IsChecked="{Binding IsFocused, Mode=OneWay}">
         <MenuItem.Icon>
           <ti:TablerIcon Icon="IconLayoutDistributeHorizontal" />
         </MenuItem.Icon>
+        <MenuItem.Header>
+          <StackPanel MaxWidth="260">
+            <TextBlock Text="Focus" />
+            <TextBlock Classes="hint" TextWrapping="Wrap"
+                       Text="One stream fills the space, the rest beneath it. Shows only with two or more streams." />
+          </StackPanel>
+        </MenuItem.Header>
       </MenuItem>
-      <!-- The one row carrying a note: focus rearranges tiles, and with one tile there is nothing to rearrange. -->
-      <MenuItem Theme="{StaticResource MenuNote}" Header="One stream fills the space, the rest beneath it." />
-      <MenuItem Theme="{StaticResource MenuNote}" Header="Shows only with two or more streams." />
 
       <MenuItem Header="Own window" Command="{Binding TogglePopOut}"
                 InputGesture="{x:Static tiles:TileKeys.PopOut}"
