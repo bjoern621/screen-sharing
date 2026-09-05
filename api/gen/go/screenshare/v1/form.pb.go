@@ -1047,9 +1047,18 @@ type Form struct {
 	// False while a SEVERITY_ERROR diagnostic is present.
 	// Given rather than derived,
 	// so a start button disables without a shell ranking diagnostics.
-	Publishable   bool `protobuf:"varint,6,opt,name=publishable,proto3" json:"publishable,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Publishable bool `protobuf:"varint,6,opt,name=publishable,proto3" json:"publishable,omitempty"`
+	// Fields whose values the followed preset writes, empty for a detached draft.
+	// Field.key values.
+	//
+	// The detach rule a shell applies mechanically, as it applies FieldGroup.applied:
+	// a write to one of these keys clears PublishSettings.preset with the edit,
+	// the user having taken a value the preset decides into their own hands.
+	// A write anywhere else keeps the draft following,
+	// the preset promising nothing about the field (docs/presets.md).
+	PresetOwnedFieldKeys []string `protobuf:"bytes,10,rep,name=preset_owned_field_keys,json=presetOwnedFieldKeys,proto3" json:"preset_owned_field_keys,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Form) Reset() {
@@ -1129,6 +1138,13 @@ func (x *Form) GetPublishable() bool {
 		return x.Publishable
 	}
 	return false
+}
+
+func (x *Form) GetPresetOwnedFieldKeys() []string {
+	if x != nil {
+		return x.PresetOwnedFieldKeys
+	}
+	return nil
 }
 
 // A way of publishing this app names as a promise about the picture
@@ -1289,7 +1305,7 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aSummary\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12#\n" +
 	"\rcommand_error\x18\x03 \x01(\tR\fcommandError\x124\n" +
-	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\x8c\x03\n" +
+	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xc3\x03\n" +
 	"\x04Form\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\x12.\n" +
 	"\x13repaired_field_keys\x18\a \x03(\tR\x11repairedFieldKeys\x122\n" +
@@ -1297,7 +1313,9 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\vdiagnostics\x18\b \x03(\v2\x1a.screenshare.v1.DiagnosticR\vdiagnostics\x121\n" +
 	"\asummary\x18\x05 \x01(\v2\x17.screenshare.v1.SummaryR\asummary\x127\n" +
 	"\apresets\x18\t \x03(\v2\x1d.screenshare.v1.BuiltinPresetR\apresets\x12 \n" +
-	"\vpublishable\x18\x06 \x01(\bR\vpublishableJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings\"\xa8\x01\n" +
+	"\vpublishable\x18\x06 \x01(\bR\vpublishable\x125\n" +
+	"\x17preset_owned_field_keys\x18\n" +
+	" \x03(\tR\x14presetOwnedFieldKeysJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings\"\xa8\x01\n" +
 	"\rBuiltinPreset\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12;\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\bsettings\x12,\n" +

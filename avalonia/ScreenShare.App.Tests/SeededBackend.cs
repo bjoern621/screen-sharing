@@ -873,6 +873,18 @@ internal sealed class SeededBackend : IBackend
             form.Presets.Add(Resolve(preset, settings));
         }
 
+        // The detach rule the backend states while a preset is followed:
+        // a write to one of these keys clears the key with the edit
+        // (form.proto, Form.preset_owned_field_keys).
+        // Three representative keys rather than the backend's full list,
+        // the shell reading membership alone.
+        if (settings.Publish.Preset.Length > 0)
+        {
+            form.PresetOwnedFieldKeys.Add("publish.fps");
+            form.PresetOwnedFieldKeys.Add("publish.mode");
+            form.PresetOwnedFieldKeys.Add("publish.bitrate_mbps");
+        }
+
         form.Summary = new Summary
         {
             Command = "",

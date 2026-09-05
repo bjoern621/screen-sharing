@@ -59,6 +59,15 @@ public sealed record BroadcastSnapshot
     /// </summary>
     public string RetryMessage { get; init; } = "";
 
+    /// <summary>
+    /// How the stream leaves this machine: the followed preset over the leg in use, "Balanced over SRT",
+    /// or the leg alone for settings the user owns.
+    /// Empty while nothing publishes.
+    /// The leg is the running pipeline's, so a relaunch walking a preset's transports names the one
+    /// it is trying (<c>docs/presets.md</c>).
+    /// </summary>
+    public string Way { get; init; } = "";
+
     /// <summary>Encoder's running time off the sample's own clock, zero-padded: <c>01:07:44</c>.</summary>
     public string Elapsed { get; init; } = Figure.NoValue;
 
@@ -159,6 +168,7 @@ public sealed record BroadcastSnapshot
             Budget = retry?.Budget ?? 0,
             RetryCause = retry?.Cause,
             RetryMessage = retry?.Message ?? "",
+            Way = WayOf(settings),
             Elapsed = Clock(stats),
             EgressMbps = Measured(stats, sample => sample.HasInstMbps, sample => sample.InstMbps),
             Fps = Measured(stats, sample => sample.HasFps, sample => sample.Fps),
@@ -172,6 +182,21 @@ public sealed record BroadcastSnapshot
             Resolution = settings?.OutputResolution ?? "",
             VbvCeilingMbps = live is { HasRateCeilingMbps: true } ? live.RateCeilingMbps : null,
         };
+    }
+
+    /// <summary>
+    /// The <see cref="Way"/> line of one running pipeline's settings, empty on none.
+    /// Words are this shell's, keyed by the identifiers the backend sent.
+    /// </summary>
+    private static string WayOf(PublishSettings? settings)
+    {
+        if (settings is null)
+        {
+            return "";
+        }
+
+        var leg = Copy.Words.Transport(settings.PublishTransport);
+        return settings.Preset.Length > 0 ? $"{Copy.Words.Preset(settings.Preset)} over {leg}" : leg;
     }
 
     /// <summary>

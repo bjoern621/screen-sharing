@@ -213,7 +213,7 @@ public static class Fields
 
         ["publish.uplink_mbps"] = new(
             "Upload speed",
-            "What the connection actually uploads, not what the plan says. The prediction is weighed against it, so an impossible configuration shows up here rather than at the viewers. Measure it if unknown."),
+            "What the connection actually uploads, not what the plan says. The prediction is weighed against it, and the Balanced preset prices its bitrate from a measured figure. The first start measures it once in the background, uploading 20 MB to a public test endpoint (speed.cloudflare.com). Measure again after switching networks."),
 
         ["viewer.srt_watch_latency_ms"] = new(
             "Retransmit window, watching",

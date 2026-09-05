@@ -47,6 +47,8 @@ public sealed class HeaderStatsViewModel : Observable
 
     private string _elapsed = "";
     private bool _isSharing;
+    private string _way = "";
+    private bool _hasWay;
     private string _retry = "";
     private bool _isRetrying;
     private string _retryCause = "";
@@ -64,6 +66,15 @@ public sealed class HeaderStatsViewModel : Observable
     /// No off-air pill: absence reads as not live, and the red is never spent on an idle state.
     /// </summary>
     public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
+
+    /// <summary>
+    /// How the stream leaves this machine, "Balanced over SRT", empty while nothing publishes.
+    /// The relaunch walks a followed preset's transports, so which leg is in use is a question
+    /// this line answers on screen.
+    /// </summary>
+    public string Way { get => _way; private set => Set(ref _way, value); }
+
+    public bool HasWay { get => _hasWay; private set => Set(ref _hasWay, value); }
 
     /// <summary>
     /// Which relaunch the backend is waiting out, empty while none is.
@@ -102,6 +113,8 @@ public sealed class HeaderStatsViewModel : Observable
 
         IsSharing = reading.IsLive;
         Elapsed = reading.Elapsed;
+        Way = reading.IsLive ? reading.Way : "";
+        HasWay = Way.Length > 0;
         IsRetrying = reading.IsRetrying;
         Retry = IsRetrying ? Cards.RetryAttempt(reading.Attempt, reading.Budget) : "";
 

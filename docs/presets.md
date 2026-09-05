@@ -9,9 +9,11 @@ A machine with no GPU encoder reaches neither at 60 fps.
 A stored set of field values can only be right on the machine it was written on.
 So the table states the goal, and a search finds a configuration for it here.
 
-`lossless`, `gaming` and `readability` are declared beside the capability table the search walks and the repair it holds every candidate to (`ipc-api.md`).
+`balanced`, `lossless`, `gaming` and `readability` are declared beside the capability table the search walks and the repair it holds every candidate to (`ipc-api.md`).
+A fresh installation follows `balanced`: H.264, the one bitstream every transport carries and every viewer decodes, quarter-resolution chroma, a hardware encoder where one runs and x264 behind it.
+Its target spends a share of the measured line and takes a conservative figure while none is recorded, since the stated uplink is a guess until a measurement stands behind it (`settings.Publish.UplinkMeasuredUnix`).
 
-They reach a surface on the resolved form, one entry per preset: the settings applying it would produce here, or the reason nothing here reaches it, and whether the draft already delivers it (`form.proto`, `BuiltinPreset`).
+They reach a surface on the resolved form, one entry per preset: the settings applying it would produce here, or the reason nothing here reaches it, and whether the draft follows it (`form.proto`, `BuiltinPreset`).
 They belong there rather than on a method of their own: each of those answers changes with the draft exactly as a greying does.
 A surface that asked for them separately would hold a preset verdict older than the settings beside it.
 
@@ -40,6 +42,13 @@ The order is where the preset states what it gives up first.
 Lossless gives up the encoder before the format while both run on silicon, and the format before the encoder once neither does.
 A CPU codes lossless 4:4:4 an order of magnitude faster than it codes lossless RGB, and an encode that cannot keep up delivers no format at all.
 
+A rung can trade motion and close itself by height.
+Balanced admits a software encode at full motion only up to desktop sizes,
+and its last rung halves the frame rate,
+so the figure shown is one the machine delivers rather than one it aims at.
+A preset can also pin the bitstreams the search tries:
+balanced searches H.264 alone, reach being its promise, where the efficiency order would spend that compatibility on a better codec.
+
 The rest of a preset is its `base`: the rate-control recipe, frame rate and retransmit window every candidate carries.
 That part is the preset's identity rather than something to search for.
 It writes those fields and leaves the others standing, so a field the preset promises nothing about keeps what the settings hold.
@@ -61,10 +70,15 @@ flowchart TD
 ```
 
 The walk runs one candidate at a time, and every candidate meets the same repair the form uses.
+An axis the search wrote whose entry is ruled out on this machine, by the probe, an engine gap or the leg's carriage, rejects the candidate outright.
+The repair's walk alone is too narrow a test:
+it keeps a value whose every alternative is also ruled out,
+which would hand the search a candidate that dies at launch on a machine whose probe refused a whole format.
 A repair that walks the pixel format, either half of the encode or the capture backend has answered a different question than the one the search asked.
 That candidate is rejected and the next one tried.
 So is one the repair walks outside the publish group, which is what a preset cannot carry.
-The first candidate that survives and delivers the claim is written to the settings whole.
+The first candidate that survives and delivers the claim is written to the settings whole,
+carrying its preset's key, so applying the find is what makes the draft follow the preset.
 
 Every other field arrived holding what the settings held rather than something the preset chose, so the repair's answer for it is the machine's.
 The GStreamer VA elements signal no colour description, and a draft on full range therefore leaves that range behind when it lands on one of them.
@@ -107,25 +121,48 @@ A machine whose only encoders are VAAPI has no lossless preset, because no VA pr
 
 The reason names the publish transport, the one dimension the search worked within rather than varied, so what it hands the reader is something they can change.
 
-## The selection is derived
+A draft that follows a preset nothing here reaches keeps its seed on screen and cannot start.
+The form blocks the publish with the same verdict the preset row carries,
+and a start asked for anyway is refused with it:
+the fields shown are the seed,
+so publishing them under the preset's name would put a stream on the air nobody asked for.
 
-Whether a preset is the one in force is read from the settings on every resolve.
-A field edited to a value the claim still covers keeps the preset.
-One edited past the claim leaves it.
-Changing the codec under `lossless` keeps `lossless`, and dropping the pixel format to 4:2:0 does not, because subsampled chroma is not what the preset promised.
-No stored selection can disagree with the settings, and there is no state to reconcile after a restart.
+## Following a preset
 
-## At most one preset can match
+The settings name the preset they follow (`settings.Publish.Preset`), and the empty key is a draft the user owns.
+While a preset is followed, every form resolve and every start searches the promise out again against the machine as it stands,
+so a GPU that left since the form was drawn is never asked for,
+and the concrete fields seed the search rather than decide what runs.
 
-Two presets whose claims intersect would both describe one settings object, and a surface has one selection to show.
-The claims are therefore written to be pairwise disjoint, each pair parting on one axis.
-The rate-control mode separates `lossless` from the other two, and the frame rate separates those two from each other.
+The stored key answers the selection rather than a reading off the values.
+Two promises may cover one configuration, balanced and gaming meeting at 60 fps VBR,
+and the key says which one was asked for.
+The table is held to unique keys at load, so one name addresses one promise.
 
-The overlap check decides that question from the same axis table the claim test reads, and the preset table is checked against it at load.
-A claim widened past its neighbour fails there, rather than at a surface left to pick one of two right answers.
+Editing any publish field detaches.
+The shell clears the key with the edit, and the resolved values it was showing become the draft,
+so what was on screen is what the user now owns.
+A claim edited past is not what ends the following;
+the following ends where the user takes a value into their own hands.
 
-Settings that satisfy no claim deliver no preset, and nothing is marked.
-That is a state, and the way out of it is to pick a preset.
+A key no row carries reads as detached.
+The settings file is the user's to edit, so a stranger there is an Umgebungsfehler,
+and the form shows no selection with every verdict beside it.
+
+## The relaunch walks the transports
+
+A stream following a preset that dies at launch spends two attempts per transport rung,
+then relaunches on the walk's next leg with a fresh budget: SRT first for its retransmit window,
+RTSP behind it interleaving over the one TCP connection the session already made,
+which crosses a path that blocks UDP.
+The exit alone cannot tell a blocked path from a dead relay, so the walk tries the path question last.
+
+The walk is named as the retry's cause (`TEXT_CODE_TRANSPORT_FALLING_BACK`),
+so every shell says which leg is being tried and why.
+It belongs to the relaunch alone: the stored settings keep their leg and the next start begins the walk over.
+A detached draft never walks.
+The transport is the user's own word, and trading it away would be a substitution nobody declared.
+The search never moves the transport either, the walk being the relaunch's answer to a dead path rather than part of any promise.
 
 ## Saved presets
 
@@ -137,13 +174,17 @@ It carries no claim, so it is marked only while the settings equal it field for 
 The two kinds are two lists rather than one, so a draft that equals a snapshot and delivers a promise marks a row in each.
 Neither has to win: they are two true statements about one draft, made about different things.
 
+A snapshot follows no built-in.
+The key is cleared on save and on load, so applying one never re-engages a search:
+the values shown at save time are what the name promises.
+
 ## Adding a preset
 
 Add the entry.
-Its claim must be disjoint from every existing one, which the load-time check enforces.
-The name a surface writes for it must be true of every settings object the claim accepts, which is what makes the claim a safe test for the selection.
-The ladder holds only the pixel formats the preset would accept.
-The codec and capture backend follow from the tables and need no listing.
+Its key must be one no other row carries, which the load-time check enforces.
+The claim must cover every configuration the base and the ladder can produce, which is what makes it a safe verdict on the search's find.
+The ladder holds only the pixel formats the preset would accept, each rung free to trade the frame rate or close itself by height.
+The codec and capture backend follow from the tables and need no listing, and a preset whose promise is reach pins its formats instead.
 The base writes only what the claim speaks for: a field written past the claim can strand the preset on a machine that refuses that value.
 
 A surface then owes that key a name, as it owes every identifier one (`ipc-api.md`).

@@ -111,7 +111,7 @@ Each tick carries the whole set, fifteen a second, coalesced to the newest, so a
 `ResolveForm` takes the three settings drafts and returns the whole screen: groups, fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its value, and a fresh installation's value.
 Every control offering entries (select, radio, and the number carrying a ladder) carries each option with its value, note, enabled flag and reason.
 The default travels per field for the reason every value does: a shell offering to put a group back would otherwise hold a table of defaults, which is the domain written twice.
-Built-in presets ride here too, one entry each: what applying it would produce here, or a `Text` saying why nothing reaches it, and whether the draft already delivers it (`presets.md`).
+Built-in presets ride here too, one entry each: what applying it would produce here, or a `Text` saying why nothing reaches it, and whether the draft follows it (`presets.md`).
 On the form rather than on a method of their own, all three answers being functions of the draft exactly as a greying is.
 Fetched separately they would be a verdict older than the settings beside them.
 A shell renders that and sends back a changed draft.

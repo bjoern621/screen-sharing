@@ -662,6 +662,22 @@ func presetByKey(key string) (preset, bool) {
 	return preset{}, false
 }
 
+// presetOwnedKeys are the fields a followed preset decides:
+// what a base writes, what the search varies and the ladder steps beside them.
+// A write to one detaches the draft, the user taking the value into their own hands,
+// and a write anywhere else keeps it following, the preset promising nothing about the field.
+//
+// One list for every preset rather than a column per row.
+// The union costs a detach on a field one preset leaves standing,
+// where a per-row list would cost a value silently overwritten on the next resolve
+// wherever the two fell out of step, and the base is a function no table can read.
+var presetOwnedKeys = []string{
+	KeyFormat, KeyEncoder, KeyChroma, KeyCapture,
+	KeyMode, KeyFps, KeyGop, KeyBframes, KeyColorRange,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyCq, KeyEffort, KeyTune,
+	KeySrtPublishLatencyMs,
+}
+
 // presetTransports is the walk a followed draft's relaunch takes when a publish leg spends
 // its retry attempts: SRT first for its retransmit window,
 // RTSP behind it interleaving over the one TCP connection the session already made,

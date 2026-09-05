@@ -290,6 +290,7 @@ public static class Words
     /// </summary>
     private static readonly Dictionary<string, string> Presets = new()
     {
+        ["balanced"] = "Balanced",
         ["lossless"] = "Lossless",
         ["gaming"] = "Gaming",
         ["readability"] = "Text and detail",

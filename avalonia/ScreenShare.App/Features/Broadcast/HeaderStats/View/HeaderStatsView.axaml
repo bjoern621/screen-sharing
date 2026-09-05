@@ -15,6 +15,18 @@
                          VerticalAlignment="Center" />
 
     <!--
+      Which promise and which leg the stream is on, "Balanced over SRT".
+      The relaunch walks a followed preset's transports, so the leg in use is a real question,
+      and it is answered here rather than left to the settings screen.
+    -->
+    <TextBlock DockPanel.Dock="Left"
+               Classes="hint"
+               Margin="8,0,0,0"
+               VerticalAlignment="Center"
+               IsVisible="{Binding HasWay}"
+               Text="{Binding Way}" />
+
+    <!--
       A stream between attempts keeps the pill, so this is what tells it apart from one carrying frames.
       In the red rather than the caution hue: a relaunch is a stream that stopped, on its way back.
 

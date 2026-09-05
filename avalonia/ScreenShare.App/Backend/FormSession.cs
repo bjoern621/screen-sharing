@@ -313,6 +313,15 @@ public sealed class FormSession
         var draft = Assert.NotNull(_draft, "a control the reader moved was drawn from a draft");
         Assert.That(key.Length > 0, "a write names the settings field it changes");
 
+        // A write to a field the followed preset decides takes the value into the reader's own hands,
+        // so the draft stops following with the edit and keeps the resolved values it was showing.
+        // Which fields those are is read off the form, never decided here
+        // (form.proto, Form.preset_owned_field_keys).
+        if (PresetOwns(key))
+        {
+            draft.Publish.Preset = "";
+        }
+
         SettingsDraft.Write(draft, key, value);
         Sync();
 
@@ -474,6 +483,17 @@ public sealed class FormSession
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Whether the followed preset decides this field, which the form states as a key list
+    /// (<c>form.proto</c>, <c>Form.preset_owned_field_keys</c>).
+    /// False for a detached draft, whose list is empty, and before the first form lands,
+    /// so a write nothing has described never drops a followed preset on a guess.
+    /// </summary>
+    private bool PresetOwns(string key)
+    {
+        return _form is not null && _form.PresetOwnedFieldKeys.Contains(key);
     }
 
     /// <summary>

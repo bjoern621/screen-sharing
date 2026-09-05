@@ -501,6 +501,10 @@ public static class Statements
             TextCode.StreamLeftTheRelay =>
                 "The stream stopped arriving at the relay, so there is nothing to receive on this path.",
 
+            TextCode.TransportFallingBack =>
+                $"{Words.Transport(a.Transport)} is not getting through. "
+                + $"The stream tries {Words.Transport(a.NextTransport)} next.",
+
             // The audience and the wire.
 
             TextCode.GroupRequired =>
@@ -665,6 +669,9 @@ public static class Statements
         public string OtherEngine => Id(TextArgName.OtherEngine);
 
         public string Transport => Id(TextArgName.Transport);
+
+        /// <summary>The leg a pending relaunch runs, beside <see cref="Transport"/> carrying the one given up.</summary>
+        public string NextTransport => Id(TextArgName.NextTransport);
 
         /// <summary>Built-in preset. <see cref="Effort"/> carries the NVENC ladder step also called one.</summary>
         public string Preset => Id(TextArgName.Preset);

@@ -544,3 +544,18 @@ func TestOnlyAFollowedDraftWalksTheTransportLadder(t *testing.T) {
 		t.Error("a detached draft was walked off its transport")
 	}
 }
+
+// The detach rule crosses on the form, so a shell applies it rather than holding a list of its own.
+func TestOnlyAFollowedFormNamesThePresetOwnedFields(t *testing.T) {
+	followed := Resolve(fieldTestDeps(), settings.Defaults())
+	if len(followed.GetPresetOwnedFieldKeys()) == 0 {
+		t.Error("a followed form names no preset-owned fields, so no edit could ever detach")
+	}
+
+	detachedDraft := settings.Defaults()
+	detachedDraft.Publish.Preset = ""
+	detached := Resolve(fieldTestDeps(), detachedDraft)
+	if got := detached.GetPresetOwnedFieldKeys(); len(got) > 0 {
+		t.Errorf("a detached form names %v as preset-owned, want none", got)
+	}
+}

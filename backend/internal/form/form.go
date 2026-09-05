@@ -140,8 +140,9 @@ type group struct {
 // so every field, figure and diagnostic below is about what a start would run.
 // The repair's account is dropped with the draft it described;
 // what the search moved getting there is the preset's own business rather than a walked field.
-// A preset nothing here reaches leaves the repaired draft standing and blocks the start with
-// the same verdict the preset row carries: the fields shown are the seed and never the promise,
+// A preset nothing here reaches leaves the repaired draft standing,
+// and blocks the start with the same verdict the preset row carries:
+// the fields shown are the seed,
 // so publishing them under the preset's name would put a stream on the air nobody asked for.
 //
 // The built-in presets are resolved against the repaired draft for a sharper form
@@ -188,6 +189,11 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 		Summary:           summarize(d, s, est),
 		Presets:           resolvePresets(d, s),
 		Publishable:       publishable(diags),
+	}
+	if ok {
+		// The detach rule, stated so a shell applies it rather than deciding it:
+		// a write to one of these clears the followed key with the edit (presetOwnedKeys).
+		form.PresetOwnedFieldKeys = presetOwnedKeys
 	}
 
 	assert.IsNotNil(form.GetSettings(), "a resolved form carries the draft it describes")

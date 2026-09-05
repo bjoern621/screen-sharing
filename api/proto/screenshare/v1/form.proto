@@ -390,6 +390,16 @@ message Form {
   // so a start button disables without a shell ranking diagnostics.
   bool publishable = 6;
 
+  // Fields whose values the followed preset writes, empty for a detached draft.
+  // Field.key values.
+  //
+  // The detach rule a shell applies mechanically, as it applies FieldGroup.applied:
+  // a write to one of these keys clears PublishSettings.preset with the edit,
+  // the user having taken a value the preset decides into their own hands.
+  // A write anywhere else keeps the draft following,
+  // the preset promising nothing about the field (docs/presets.md).
+  repeated string preset_owned_field_keys = 10;
+
   // 2 was repaired and 4 was warnings, renamed above to say what they hold.
   reserved 2, 4;
   reserved "repaired", "warnings";
