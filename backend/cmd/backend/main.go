@@ -60,6 +60,10 @@ func main() {
 	a := app.New(version)
 	a.Start()
 
+	// Off the startup path, as the release read is:
+	// a crashed earlier run is looked for and reported while the app comes up.
+	go a.ReportLastCrash(ownLogTag)
+
 	// Which build this is, beside the one that is published.
 	// A tester runs whatever they downloaded once, so a report about a bug already fixed
 	// carries the build it came from and the log says whether that build predates the fix.

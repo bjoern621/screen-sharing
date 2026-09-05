@@ -166,3 +166,14 @@ One file per run: `backend-<stamp>.log` for the backend, and one per encoder, vi
 The newest stay and the oldest come off as new ones open, so the directory holds what a reader can use.
 `Open full log` in the app opens the newest run's log, or this directory where there is none.
 A bug report takes the backend's log and the run's.
+
+## Sending logs
+
+`Send logs` in the status bar delivers the newest run logs and the machine's facts,
+OS, display server, GPU and toolkit versions among them,
+to the operator of the configured relay.
+The group key, the Discord link and the member secrets stay on the machine.
+The answer names the stored bundle, which is the id to quote in a bug report.
+
+A run that crashed is reported the same way on the next start, once per crash.
+The bundles land where the relay's groupd stores them (`deploy/README.md`, "Reports").

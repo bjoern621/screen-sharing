@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -125,6 +126,10 @@ func (f *fakeGroups) Streams(base, groupKey string) ([]groupclient.Stream, error
 
 func (f *fakeGroups) CreateGroup(base string) (string, string, error) {
 	return aGroupKey, aGroupID, nil
+}
+
+func (f *fakeGroups) SendReport(base string, bundle io.Reader) (string, error) {
+	return "report-1", nil
 }
 
 func (f *fakeGroups) Forget() {

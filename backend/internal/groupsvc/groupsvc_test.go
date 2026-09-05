@@ -49,7 +49,7 @@ func service(t *testing.T, streams ...string) *Service {
 	if err != nil {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
-	return New(signer, paths(streams), membership.New(&carrying{}), &keyed{})
+	return New(signer, paths(streams), membership.New(&carrying{}), &keyed{}, nil)
 }
 
 // call makes one request and returns its status and decoded body.
@@ -302,7 +302,7 @@ func TestTheIndexCarriesTheIngestRateAndReaderCount(t *testing.T) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	relayStreams := rated{path: groupKey.ID() + "/standup", inMbps: 42.5, readers: 3}
-	s := New(signer, relayStreams, membership.New(&carrying{}), &keyed{})
+	s := New(signer, relayStreams, membership.New(&carrying{}), &keyed{}, nil)
 
 	_, body := call(t, s, "GET", listing(groupKey), "")
 

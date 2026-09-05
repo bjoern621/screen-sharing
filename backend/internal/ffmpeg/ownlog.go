@@ -19,6 +19,10 @@ var own struct {
 	file *os.File
 }
 
+// OwnLogName is the file name of this process's own log, empty where it has none.
+// The crash scan reads it to leave the running log out of the candidates (internal/report).
+func OwnLogName() string { return ownName() }
+
 // ownName is the file name of this process's own log, empty where it has none.
 func ownName() string {
 	own.Lock()

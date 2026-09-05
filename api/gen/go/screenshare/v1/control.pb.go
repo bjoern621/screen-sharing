@@ -3050,6 +3050,88 @@ func (*OpenLogsFolderResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{68}
 }
 
+type SendReportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SendReportRequest) Reset() {
+	*x = SendReportRequest{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendReportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendReportRequest) ProtoMessage() {}
+
+func (x *SendReportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendReportRequest.ProtoReflect.Descriptor instead.
+func (*SendReportRequest) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{69}
+}
+
+type SendReportResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name the group service stored the report under,
+	// for the reader to quote to the operator.
+	ReportId      string `protobuf:"bytes,1,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SendReportResponse) Reset() {
+	*x = SendReportResponse{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendReportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendReportResponse) ProtoMessage() {}
+
+func (x *SendReportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendReportResponse.ProtoReflect.Descriptor instead.
+func (*SendReportResponse) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *SendReportResponse) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
 type SubscribeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Empty receives every kind.
@@ -3066,7 +3148,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[69]
+	mi := &file_screenshare_v1_control_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3078,7 +3160,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[69]
+	mi := &file_screenshare_v1_control_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3091,7 +3173,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{69}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SubscribeRequest) GetKinds() []EventKind {
@@ -3113,7 +3195,7 @@ type SubscribeAudioLevelsRequest struct {
 
 func (x *SubscribeAudioLevelsRequest) Reset() {
 	*x = SubscribeAudioLevelsRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[70]
+	mi := &file_screenshare_v1_control_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3125,7 +3207,7 @@ func (x *SubscribeAudioLevelsRequest) String() string {
 func (*SubscribeAudioLevelsRequest) ProtoMessage() {}
 
 func (x *SubscribeAudioLevelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[70]
+	mi := &file_screenshare_v1_control_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3138,7 +3220,7 @@ func (x *SubscribeAudioLevelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeAudioLevelsRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeAudioLevelsRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{70}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{72}
 }
 
 type SubscribePointerRequest struct {
@@ -3155,7 +3237,7 @@ type SubscribePointerRequest struct {
 
 func (x *SubscribePointerRequest) Reset() {
 	*x = SubscribePointerRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[71]
+	mi := &file_screenshare_v1_control_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3167,7 +3249,7 @@ func (x *SubscribePointerRequest) String() string {
 func (*SubscribePointerRequest) ProtoMessage() {}
 
 func (x *SubscribePointerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[71]
+	mi := &file_screenshare_v1_control_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3180,7 +3262,7 @@ func (x *SubscribePointerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribePointerRequest.ProtoReflect.Descriptor instead.
 func (*SubscribePointerRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{71}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *SubscribePointerRequest) GetStream() *StreamRef {
@@ -3220,7 +3302,7 @@ type PointerPosition struct {
 
 func (x *PointerPosition) Reset() {
 	*x = PointerPosition{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[72]
+	mi := &file_screenshare_v1_control_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3232,7 +3314,7 @@ func (x *PointerPosition) String() string {
 func (*PointerPosition) ProtoMessage() {}
 
 func (x *PointerPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[72]
+	mi := &file_screenshare_v1_control_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3245,7 +3327,7 @@ func (x *PointerPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointerPosition.ProtoReflect.Descriptor instead.
 func (*PointerPosition) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{72}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *PointerPosition) GetX() float32 {
@@ -3397,7 +3479,10 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"\x11\n" +
 	"\x0fOpenLogResponse\"\x17\n" +
 	"\x15OpenLogsFolderRequest\"\x18\n" +
-	"\x16OpenLogsFolderResponse\"I\n" +
+	"\x16OpenLogsFolderResponse\"\x13\n" +
+	"\x11SendReportRequest\"1\n" +
+	"\x12SendReportResponse\x12\x1b\n" +
+	"\treport_id\x18\x01 \x01(\tR\breportId\"I\n" +
 	"\x10SubscribeRequest\x12/\n" +
 	"\x05kinds\x18\x02 \x03(\x0e2\x19.screenshare.v1.EventKindR\x05kindsJ\x04\b\x01\x10\x02\"\x1d\n" +
 	"\x1bSubscribeAudioLevelsRequest\"L\n" +
@@ -3412,7 +3497,7 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x1dRELAY_LEG_VERDICT_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bRELAY_LEG_VERDICT_REACHABLE\x10\x01\x12!\n" +
 	"\x1dRELAY_LEG_VERDICT_UNREACHABLE\x10\x02\x12!\n" +
-	"\x1dRELAY_LEG_VERDICT_UNADDRESSED\x10\x032\xc7\x1d\n" +
+	"\x1dRELAY_LEG_VERDICT_UNADDRESSED\x10\x032\x9c\x1e\n" +
 	"\x0eControlService\x12D\n" +
 	"\x05Hello\x12\x1c.screenshare.v1.HelloRequest\x1a\x1d.screenshare.v1.HelloResponse\x12S\n" +
 	"\n" +
@@ -3455,7 +3540,9 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\vCreateGroup\x12\".screenshare.v1.CreateGroupRequest\x1a#.screenshare.v1.CreateGroupResponse\x12V\n" +
 	"\vLinkDiscord\x12\".screenshare.v1.LinkDiscordRequest\x1a#.screenshare.v1.LinkDiscordResponse\x12J\n" +
 	"\aOpenLog\x12\x1e.screenshare.v1.OpenLogRequest\x1a\x1f.screenshare.v1.OpenLogResponse\x12_\n" +
-	"\x0eOpenLogsFolder\x12%.screenshare.v1.OpenLogsFolderRequest\x1a&.screenshare.v1.OpenLogsFolderResponse\x12F\n" +
+	"\x0eOpenLogsFolder\x12%.screenshare.v1.OpenLogsFolderRequest\x1a&.screenshare.v1.OpenLogsFolderResponse\x12S\n" +
+	"\n" +
+	"SendReport\x12!.screenshare.v1.SendReportRequest\x1a\".screenshare.v1.SendReportResponse\x12F\n" +
 	"\tSubscribe\x12 .screenshare.v1.SubscribeRequest\x1a\x15.screenshare.v1.Event0\x01\x12b\n" +
 	"\x14SubscribeAudioLevels\x12+.screenshare.v1.SubscribeAudioLevelsRequest\x1a\x1b.screenshare.v1.AudioLevels0\x01\x12^\n" +
 	"\x10SubscribePointer\x12'.screenshare.v1.SubscribePointerRequest\x1a\x1f.screenshare.v1.PointerPosition0\x01B[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
@@ -3473,7 +3560,7 @@ func file_screenshare_v1_control_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_control_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_screenshare_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
+var file_screenshare_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_screenshare_v1_control_proto_goTypes = []any{
 	(RelayLegVerdict)(0),                  // 0: screenshare.v1.RelayLegVerdict
 	(*HelloRequest)(nil),                  // 1: screenshare.v1.HelloRequest
@@ -3545,59 +3632,61 @@ var file_screenshare_v1_control_proto_goTypes = []any{
 	(*OpenLogResponse)(nil),               // 67: screenshare.v1.OpenLogResponse
 	(*OpenLogsFolderRequest)(nil),         // 68: screenshare.v1.OpenLogsFolderRequest
 	(*OpenLogsFolderResponse)(nil),        // 69: screenshare.v1.OpenLogsFolderResponse
-	(*SubscribeRequest)(nil),              // 70: screenshare.v1.SubscribeRequest
-	(*SubscribeAudioLevelsRequest)(nil),   // 71: screenshare.v1.SubscribeAudioLevelsRequest
-	(*SubscribePointerRequest)(nil),       // 72: screenshare.v1.SubscribePointerRequest
-	(*PointerPosition)(nil),               // 73: screenshare.v1.PointerPosition
-	(*Catalog)(nil),                       // 74: screenshare.v1.Catalog
-	(*Settings)(nil),                      // 75: screenshare.v1.Settings
-	(*Text)(nil),                          // 76: screenshare.v1.Text
-	(*Form)(nil),                          // 77: screenshare.v1.Form
-	(*Preset)(nil),                        // 78: screenshare.v1.Preset
-	(*PublishSettings)(nil),               // 79: screenshare.v1.PublishSettings
-	(*StreamRef)(nil),                     // 80: screenshare.v1.StreamRef
-	(*EncodeRate)(nil),                    // 81: screenshare.v1.EncodeRate
-	(*RelaySettings)(nil),                 // 82: screenshare.v1.RelaySettings
-	(EventKind)(0),                        // 83: screenshare.v1.EventKind
-	(*PublishState)(nil),                  // 84: screenshare.v1.PublishState
-	(*RelayStatus)(nil),                   // 85: screenshare.v1.RelayStatus
-	(*ViewerState)(nil),                   // 86: screenshare.v1.ViewerState
-	(*TestStreamState)(nil),               // 87: screenshare.v1.TestStreamState
-	(*MembersState)(nil),                  // 88: screenshare.v1.MembersState
-	(*DiscordState)(nil),                  // 89: screenshare.v1.DiscordState
-	(*ReceiveState)(nil),                  // 90: screenshare.v1.ReceiveState
-	(*MonitorPreviewState)(nil),           // 91: screenshare.v1.MonitorPreviewState
-	(*Event)(nil),                         // 92: screenshare.v1.Event
-	(*AudioLevels)(nil),                   // 93: screenshare.v1.AudioLevels
+	(*SendReportRequest)(nil),             // 70: screenshare.v1.SendReportRequest
+	(*SendReportResponse)(nil),            // 71: screenshare.v1.SendReportResponse
+	(*SubscribeRequest)(nil),              // 72: screenshare.v1.SubscribeRequest
+	(*SubscribeAudioLevelsRequest)(nil),   // 73: screenshare.v1.SubscribeAudioLevelsRequest
+	(*SubscribePointerRequest)(nil),       // 74: screenshare.v1.SubscribePointerRequest
+	(*PointerPosition)(nil),               // 75: screenshare.v1.PointerPosition
+	(*Catalog)(nil),                       // 76: screenshare.v1.Catalog
+	(*Settings)(nil),                      // 77: screenshare.v1.Settings
+	(*Text)(nil),                          // 78: screenshare.v1.Text
+	(*Form)(nil),                          // 79: screenshare.v1.Form
+	(*Preset)(nil),                        // 80: screenshare.v1.Preset
+	(*PublishSettings)(nil),               // 81: screenshare.v1.PublishSettings
+	(*StreamRef)(nil),                     // 82: screenshare.v1.StreamRef
+	(*EncodeRate)(nil),                    // 83: screenshare.v1.EncodeRate
+	(*RelaySettings)(nil),                 // 84: screenshare.v1.RelaySettings
+	(EventKind)(0),                        // 85: screenshare.v1.EventKind
+	(*PublishState)(nil),                  // 86: screenshare.v1.PublishState
+	(*RelayStatus)(nil),                   // 87: screenshare.v1.RelayStatus
+	(*ViewerState)(nil),                   // 88: screenshare.v1.ViewerState
+	(*TestStreamState)(nil),               // 89: screenshare.v1.TestStreamState
+	(*MembersState)(nil),                  // 90: screenshare.v1.MembersState
+	(*DiscordState)(nil),                  // 91: screenshare.v1.DiscordState
+	(*ReceiveState)(nil),                  // 92: screenshare.v1.ReceiveState
+	(*MonitorPreviewState)(nil),           // 93: screenshare.v1.MonitorPreviewState
+	(*Event)(nil),                         // 94: screenshare.v1.Event
+	(*AudioLevels)(nil),                   // 95: screenshare.v1.AudioLevels
 }
 var file_screenshare_v1_control_proto_depIdxs = []int32{
-	74, // 0: screenshare.v1.GetCatalogResponse.catalog:type_name -> screenshare.v1.Catalog
-	75, // 1: screenshare.v1.GetSettingsResponse.settings:type_name -> screenshare.v1.Settings
-	76, // 2: screenshare.v1.GetSettingsResponse.store_notice:type_name -> screenshare.v1.Text
-	75, // 3: screenshare.v1.ResolveFormRequest.settings:type_name -> screenshare.v1.Settings
-	77, // 4: screenshare.v1.ResolveFormResponse.form:type_name -> screenshare.v1.Form
-	78, // 5: screenshare.v1.ListPresetsResponse.presets:type_name -> screenshare.v1.Preset
-	76, // 6: screenshare.v1.ListPresetsResponse.notice:type_name -> screenshare.v1.Text
-	75, // 7: screenshare.v1.SaveSettingsRequest.settings:type_name -> screenshare.v1.Settings
-	79, // 8: screenshare.v1.SavePresetRequest.settings:type_name -> screenshare.v1.PublishSettings
-	75, // 9: screenshare.v1.StartPublishRequest.settings:type_name -> screenshare.v1.Settings
-	75, // 10: screenshare.v1.ApplyToStreamRequest.settings:type_name -> screenshare.v1.Settings
-	80, // 11: screenshare.v1.StartWatchRequest.viewer:type_name -> screenshare.v1.StreamRef
-	80, // 12: screenshare.v1.StopWatchRequest.viewer:type_name -> screenshare.v1.StreamRef
-	80, // 13: screenshare.v1.OpenInBrowserRequest.viewer:type_name -> screenshare.v1.StreamRef
-	80, // 14: screenshare.v1.StartReceiveRequest.stream:type_name -> screenshare.v1.StreamRef
-	80, // 15: screenshare.v1.StopReceiveRequest.stream:type_name -> screenshare.v1.StreamRef
-	80, // 16: screenshare.v1.SetReceiveAudioRequest.stream:type_name -> screenshare.v1.StreamRef
-	75, // 17: screenshare.v1.MeasureEncodeRateRequest.settings:type_name -> screenshare.v1.Settings
-	81, // 18: screenshare.v1.MeasureEncodeRateResponse.rate:type_name -> screenshare.v1.EncodeRate
-	75, // 19: screenshare.v1.CheckRelayRequest.settings:type_name -> screenshare.v1.Settings
+	76, // 0: screenshare.v1.GetCatalogResponse.catalog:type_name -> screenshare.v1.Catalog
+	77, // 1: screenshare.v1.GetSettingsResponse.settings:type_name -> screenshare.v1.Settings
+	78, // 2: screenshare.v1.GetSettingsResponse.store_notice:type_name -> screenshare.v1.Text
+	77, // 3: screenshare.v1.ResolveFormRequest.settings:type_name -> screenshare.v1.Settings
+	79, // 4: screenshare.v1.ResolveFormResponse.form:type_name -> screenshare.v1.Form
+	80, // 5: screenshare.v1.ListPresetsResponse.presets:type_name -> screenshare.v1.Preset
+	78, // 6: screenshare.v1.ListPresetsResponse.notice:type_name -> screenshare.v1.Text
+	77, // 7: screenshare.v1.SaveSettingsRequest.settings:type_name -> screenshare.v1.Settings
+	81, // 8: screenshare.v1.SavePresetRequest.settings:type_name -> screenshare.v1.PublishSettings
+	77, // 9: screenshare.v1.StartPublishRequest.settings:type_name -> screenshare.v1.Settings
+	77, // 10: screenshare.v1.ApplyToStreamRequest.settings:type_name -> screenshare.v1.Settings
+	82, // 11: screenshare.v1.StartWatchRequest.viewer:type_name -> screenshare.v1.StreamRef
+	82, // 12: screenshare.v1.StopWatchRequest.viewer:type_name -> screenshare.v1.StreamRef
+	82, // 13: screenshare.v1.OpenInBrowserRequest.viewer:type_name -> screenshare.v1.StreamRef
+	82, // 14: screenshare.v1.StartReceiveRequest.stream:type_name -> screenshare.v1.StreamRef
+	82, // 15: screenshare.v1.StopReceiveRequest.stream:type_name -> screenshare.v1.StreamRef
+	82, // 16: screenshare.v1.SetReceiveAudioRequest.stream:type_name -> screenshare.v1.StreamRef
+	77, // 17: screenshare.v1.MeasureEncodeRateRequest.settings:type_name -> screenshare.v1.Settings
+	83, // 18: screenshare.v1.MeasureEncodeRateResponse.rate:type_name -> screenshare.v1.EncodeRate
+	77, // 19: screenshare.v1.CheckRelayRequest.settings:type_name -> screenshare.v1.Settings
 	59, // 20: screenshare.v1.CheckRelayResponse.legs:type_name -> screenshare.v1.RelayLeg
 	0,  // 21: screenshare.v1.RelayLeg.verdict:type_name -> screenshare.v1.RelayLegVerdict
-	76, // 22: screenshare.v1.RelayLeg.unaddressed:type_name -> screenshare.v1.Text
-	82, // 23: screenshare.v1.LinkDiscordRequest.relay:type_name -> screenshare.v1.RelaySettings
-	82, // 24: screenshare.v1.CreateGroupRequest.relay:type_name -> screenshare.v1.RelaySettings
-	83, // 25: screenshare.v1.SubscribeRequest.kinds:type_name -> screenshare.v1.EventKind
-	80, // 26: screenshare.v1.SubscribePointerRequest.stream:type_name -> screenshare.v1.StreamRef
+	78, // 22: screenshare.v1.RelayLeg.unaddressed:type_name -> screenshare.v1.Text
+	84, // 23: screenshare.v1.LinkDiscordRequest.relay:type_name -> screenshare.v1.RelaySettings
+	84, // 24: screenshare.v1.CreateGroupRequest.relay:type_name -> screenshare.v1.RelaySettings
+	85, // 25: screenshare.v1.SubscribeRequest.kinds:type_name -> screenshare.v1.EventKind
+	82, // 26: screenshare.v1.SubscribePointerRequest.stream:type_name -> screenshare.v1.StreamRef
 	1,  // 27: screenshare.v1.ControlService.Hello:input_type -> screenshare.v1.HelloRequest
 	3,  // 28: screenshare.v1.ControlService.GetCatalog:input_type -> screenshare.v1.GetCatalogRequest
 	5,  // 29: screenshare.v1.ControlService.GetSettings:input_type -> screenshare.v1.GetSettingsRequest
@@ -3636,52 +3725,54 @@ var file_screenshare_v1_control_proto_depIdxs = []int32{
 	62, // 62: screenshare.v1.ControlService.LinkDiscord:input_type -> screenshare.v1.LinkDiscordRequest
 	66, // 63: screenshare.v1.ControlService.OpenLog:input_type -> screenshare.v1.OpenLogRequest
 	68, // 64: screenshare.v1.ControlService.OpenLogsFolder:input_type -> screenshare.v1.OpenLogsFolderRequest
-	70, // 65: screenshare.v1.ControlService.Subscribe:input_type -> screenshare.v1.SubscribeRequest
-	71, // 66: screenshare.v1.ControlService.SubscribeAudioLevels:input_type -> screenshare.v1.SubscribeAudioLevelsRequest
-	72, // 67: screenshare.v1.ControlService.SubscribePointer:input_type -> screenshare.v1.SubscribePointerRequest
-	2,  // 68: screenshare.v1.ControlService.Hello:output_type -> screenshare.v1.HelloResponse
-	4,  // 69: screenshare.v1.ControlService.GetCatalog:output_type -> screenshare.v1.GetCatalogResponse
-	6,  // 70: screenshare.v1.ControlService.GetSettings:output_type -> screenshare.v1.GetSettingsResponse
-	8,  // 71: screenshare.v1.ControlService.ResolveForm:output_type -> screenshare.v1.ResolveFormResponse
-	10, // 72: screenshare.v1.ControlService.ListPresets:output_type -> screenshare.v1.ListPresetsResponse
-	84, // 73: screenshare.v1.ControlService.GetPublishState:output_type -> screenshare.v1.PublishState
-	85, // 74: screenshare.v1.ControlService.GetRelayStatus:output_type -> screenshare.v1.RelayStatus
-	86, // 75: screenshare.v1.ControlService.GetViewerState:output_type -> screenshare.v1.ViewerState
-	87, // 76: screenshare.v1.ControlService.GetTestStreamState:output_type -> screenshare.v1.TestStreamState
-	88, // 77: screenshare.v1.ControlService.GetMembersState:output_type -> screenshare.v1.MembersState
-	89, // 78: screenshare.v1.ControlService.GetDiscordState:output_type -> screenshare.v1.DiscordState
-	90, // 79: screenshare.v1.ControlService.GetReceiveState:output_type -> screenshare.v1.ReceiveState
-	91, // 80: screenshare.v1.ControlService.GetMonitorPreviewState:output_type -> screenshare.v1.MonitorPreviewState
-	20, // 81: screenshare.v1.ControlService.SaveSettings:output_type -> screenshare.v1.SaveSettingsResponse
-	22, // 82: screenshare.v1.ControlService.SavePreset:output_type -> screenshare.v1.SavePresetResponse
-	24, // 83: screenshare.v1.ControlService.DeletePreset:output_type -> screenshare.v1.DeletePresetResponse
-	26, // 84: screenshare.v1.ControlService.StartPublish:output_type -> screenshare.v1.StartPublishResponse
-	28, // 85: screenshare.v1.ControlService.ApplyToStream:output_type -> screenshare.v1.ApplyToStreamResponse
-	30, // 86: screenshare.v1.ControlService.StopPublish:output_type -> screenshare.v1.StopPublishResponse
-	32, // 87: screenshare.v1.ControlService.StartWatch:output_type -> screenshare.v1.StartWatchResponse
-	34, // 88: screenshare.v1.ControlService.StopWatch:output_type -> screenshare.v1.StopWatchResponse
-	36, // 89: screenshare.v1.ControlService.OpenInBrowser:output_type -> screenshare.v1.OpenInBrowserResponse
-	38, // 90: screenshare.v1.ControlService.StartReceive:output_type -> screenshare.v1.StartReceiveResponse
-	40, // 91: screenshare.v1.ControlService.StopReceive:output_type -> screenshare.v1.StopReceiveResponse
-	42, // 92: screenshare.v1.ControlService.StartMonitorPreview:output_type -> screenshare.v1.StartMonitorPreviewResponse
-	44, // 93: screenshare.v1.ControlService.StopMonitorPreview:output_type -> screenshare.v1.StopMonitorPreviewResponse
-	46, // 94: screenshare.v1.ControlService.SetReceiveAudio:output_type -> screenshare.v1.SetReceiveAudioResponse
-	48, // 95: screenshare.v1.ControlService.StartTestStreams:output_type -> screenshare.v1.StartTestStreamsResponse
-	50, // 96: screenshare.v1.ControlService.StopTestStreams:output_type -> screenshare.v1.StopTestStreamsResponse
-	52, // 97: screenshare.v1.ControlService.ProbeEncoders:output_type -> screenshare.v1.ProbeEncodersResponse
-	54, // 98: screenshare.v1.ControlService.MeasureUplink:output_type -> screenshare.v1.MeasureUplinkResponse
-	56, // 99: screenshare.v1.ControlService.MeasureEncodeRate:output_type -> screenshare.v1.MeasureEncodeRateResponse
-	58, // 100: screenshare.v1.ControlService.CheckRelay:output_type -> screenshare.v1.CheckRelayResponse
-	61, // 101: screenshare.v1.ControlService.ForgetPortalConsent:output_type -> screenshare.v1.ForgetPortalConsentResponse
-	65, // 102: screenshare.v1.ControlService.CreateGroup:output_type -> screenshare.v1.CreateGroupResponse
-	63, // 103: screenshare.v1.ControlService.LinkDiscord:output_type -> screenshare.v1.LinkDiscordResponse
-	67, // 104: screenshare.v1.ControlService.OpenLog:output_type -> screenshare.v1.OpenLogResponse
-	69, // 105: screenshare.v1.ControlService.OpenLogsFolder:output_type -> screenshare.v1.OpenLogsFolderResponse
-	92, // 106: screenshare.v1.ControlService.Subscribe:output_type -> screenshare.v1.Event
-	93, // 107: screenshare.v1.ControlService.SubscribeAudioLevels:output_type -> screenshare.v1.AudioLevels
-	73, // 108: screenshare.v1.ControlService.SubscribePointer:output_type -> screenshare.v1.PointerPosition
-	68, // [68:109] is the sub-list for method output_type
-	27, // [27:68] is the sub-list for method input_type
+	70, // 65: screenshare.v1.ControlService.SendReport:input_type -> screenshare.v1.SendReportRequest
+	72, // 66: screenshare.v1.ControlService.Subscribe:input_type -> screenshare.v1.SubscribeRequest
+	73, // 67: screenshare.v1.ControlService.SubscribeAudioLevels:input_type -> screenshare.v1.SubscribeAudioLevelsRequest
+	74, // 68: screenshare.v1.ControlService.SubscribePointer:input_type -> screenshare.v1.SubscribePointerRequest
+	2,  // 69: screenshare.v1.ControlService.Hello:output_type -> screenshare.v1.HelloResponse
+	4,  // 70: screenshare.v1.ControlService.GetCatalog:output_type -> screenshare.v1.GetCatalogResponse
+	6,  // 71: screenshare.v1.ControlService.GetSettings:output_type -> screenshare.v1.GetSettingsResponse
+	8,  // 72: screenshare.v1.ControlService.ResolveForm:output_type -> screenshare.v1.ResolveFormResponse
+	10, // 73: screenshare.v1.ControlService.ListPresets:output_type -> screenshare.v1.ListPresetsResponse
+	86, // 74: screenshare.v1.ControlService.GetPublishState:output_type -> screenshare.v1.PublishState
+	87, // 75: screenshare.v1.ControlService.GetRelayStatus:output_type -> screenshare.v1.RelayStatus
+	88, // 76: screenshare.v1.ControlService.GetViewerState:output_type -> screenshare.v1.ViewerState
+	89, // 77: screenshare.v1.ControlService.GetTestStreamState:output_type -> screenshare.v1.TestStreamState
+	90, // 78: screenshare.v1.ControlService.GetMembersState:output_type -> screenshare.v1.MembersState
+	91, // 79: screenshare.v1.ControlService.GetDiscordState:output_type -> screenshare.v1.DiscordState
+	92, // 80: screenshare.v1.ControlService.GetReceiveState:output_type -> screenshare.v1.ReceiveState
+	93, // 81: screenshare.v1.ControlService.GetMonitorPreviewState:output_type -> screenshare.v1.MonitorPreviewState
+	20, // 82: screenshare.v1.ControlService.SaveSettings:output_type -> screenshare.v1.SaveSettingsResponse
+	22, // 83: screenshare.v1.ControlService.SavePreset:output_type -> screenshare.v1.SavePresetResponse
+	24, // 84: screenshare.v1.ControlService.DeletePreset:output_type -> screenshare.v1.DeletePresetResponse
+	26, // 85: screenshare.v1.ControlService.StartPublish:output_type -> screenshare.v1.StartPublishResponse
+	28, // 86: screenshare.v1.ControlService.ApplyToStream:output_type -> screenshare.v1.ApplyToStreamResponse
+	30, // 87: screenshare.v1.ControlService.StopPublish:output_type -> screenshare.v1.StopPublishResponse
+	32, // 88: screenshare.v1.ControlService.StartWatch:output_type -> screenshare.v1.StartWatchResponse
+	34, // 89: screenshare.v1.ControlService.StopWatch:output_type -> screenshare.v1.StopWatchResponse
+	36, // 90: screenshare.v1.ControlService.OpenInBrowser:output_type -> screenshare.v1.OpenInBrowserResponse
+	38, // 91: screenshare.v1.ControlService.StartReceive:output_type -> screenshare.v1.StartReceiveResponse
+	40, // 92: screenshare.v1.ControlService.StopReceive:output_type -> screenshare.v1.StopReceiveResponse
+	42, // 93: screenshare.v1.ControlService.StartMonitorPreview:output_type -> screenshare.v1.StartMonitorPreviewResponse
+	44, // 94: screenshare.v1.ControlService.StopMonitorPreview:output_type -> screenshare.v1.StopMonitorPreviewResponse
+	46, // 95: screenshare.v1.ControlService.SetReceiveAudio:output_type -> screenshare.v1.SetReceiveAudioResponse
+	48, // 96: screenshare.v1.ControlService.StartTestStreams:output_type -> screenshare.v1.StartTestStreamsResponse
+	50, // 97: screenshare.v1.ControlService.StopTestStreams:output_type -> screenshare.v1.StopTestStreamsResponse
+	52, // 98: screenshare.v1.ControlService.ProbeEncoders:output_type -> screenshare.v1.ProbeEncodersResponse
+	54, // 99: screenshare.v1.ControlService.MeasureUplink:output_type -> screenshare.v1.MeasureUplinkResponse
+	56, // 100: screenshare.v1.ControlService.MeasureEncodeRate:output_type -> screenshare.v1.MeasureEncodeRateResponse
+	58, // 101: screenshare.v1.ControlService.CheckRelay:output_type -> screenshare.v1.CheckRelayResponse
+	61, // 102: screenshare.v1.ControlService.ForgetPortalConsent:output_type -> screenshare.v1.ForgetPortalConsentResponse
+	65, // 103: screenshare.v1.ControlService.CreateGroup:output_type -> screenshare.v1.CreateGroupResponse
+	63, // 104: screenshare.v1.ControlService.LinkDiscord:output_type -> screenshare.v1.LinkDiscordResponse
+	67, // 105: screenshare.v1.ControlService.OpenLog:output_type -> screenshare.v1.OpenLogResponse
+	69, // 106: screenshare.v1.ControlService.OpenLogsFolder:output_type -> screenshare.v1.OpenLogsFolderResponse
+	71, // 107: screenshare.v1.ControlService.SendReport:output_type -> screenshare.v1.SendReportResponse
+	94, // 108: screenshare.v1.ControlService.Subscribe:output_type -> screenshare.v1.Event
+	95, // 109: screenshare.v1.ControlService.SubscribeAudioLevels:output_type -> screenshare.v1.AudioLevels
+	75, // 110: screenshare.v1.ControlService.SubscribePointer:output_type -> screenshare.v1.PointerPosition
+	69, // [69:111] is the sub-list for method output_type
+	27, // [27:69] is the sub-list for method input_type
 	27, // [27:27] is the sub-list for extension type_name
 	27, // [27:27] is the sub-list for extension extendee
 	0,  // [0:27] is the sub-list for field type_name
@@ -3705,7 +3796,7 @@ func file_screenshare_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_control_proto_rawDesc), len(file_screenshare_v1_control_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   73,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

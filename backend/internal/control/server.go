@@ -214,6 +214,9 @@ type Backend interface {
 	// holding them.
 	OpenLog(path string) error
 	OpenLogsFolder() error
+	// SendReport bundles this machine's facts and run logs, delivers them to the group service
+	// beside the stored relay, and answers the name the bundle was stored under.
+	SendReport() (string, error)
 }
 
 // FrameStream is one consumer's running subscription to a decode's frames.
@@ -242,7 +245,7 @@ type FrameStream interface {
 // one built against a higher minor may find a method missing.
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 0
+	ProtocolMinor = 1
 )
 
 // Server is the ControlService implementation.

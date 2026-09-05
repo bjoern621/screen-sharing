@@ -56,6 +56,13 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
+	# Report bundles members send in, taken without a group key:
+	# a report is most needed where the settings hold no working group.
+	# The service bounds the body and the rate per address (internal/groupsvc, reports.go).
+	handle /reports* {
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
+	}
+
 	# Discord mode: presence, brokered tokens and the browser link flow (docs/discord-mode.md).
 	# Under a prefix of its own because discordd's /presence and /tokens
 	# would otherwise collide with groupd's routes on the one name,

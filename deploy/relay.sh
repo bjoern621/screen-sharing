@@ -39,7 +39,8 @@ fi
 # the relay caches the key set it fetched,
 # and a service drawing a new key on every start would refuse every connection
 # until that cache turned over.
-"$root/bin/groupd" -key "$dev/signing-key.pem" &
+# Reports land beside the other drawn state, so a development relay takes them like a deployment.
+"$root/bin/groupd" -key "$dev/signing-key.pem" -reports "$dev/reports" &
 groupd=$!
 trap 'kill "$groupd" 2>/dev/null || true' EXIT
 

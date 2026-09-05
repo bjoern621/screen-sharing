@@ -40,12 +40,16 @@ import (
 // so a token that survives that moment carries the whole connection (docs/plan.md).
 const Refresh = 45 * time.Second
 
-// Timeout bounds every call.
+// Timeout bounds every call but the report upload.
 //
 // Short: each call sits in front of something a user asked for,
 // a publish starting or a list refreshing,
 // and a service that is not answering says so rather than holding the app.
 const Timeout = 5 * time.Second
+
+// UploadTimeout bounds the report upload, the one call carrying megabytes.
+// A bundle at the caps (internal/report) crosses a slow home uplink inside this.
+const UploadTimeout = 60 * time.Second
 
 // Stream is one index entry: what the relay carries under the caller's prefix.
 //
@@ -120,6 +124,9 @@ func NameTaken(err error) bool {
 // Safe for concurrent use: a poll and a publish start at once.
 type Client struct {
 	http *http.Client
+	// uploads carries the report bundle, the one large body.
+	// A client of its own: Timeout is sized for small JSON, and megabytes do not fit inside it.
+	uploads *http.Client
 
 	mu sync.Mutex
 	// Token last minted, and what it was minted from, guarded by mu.
@@ -140,7 +147,46 @@ type origin struct {
 }
 
 func New() *Client {
-	return &Client{http: &http.Client{Timeout: Timeout}}
+	return &Client{
+		http:    &http.Client{Timeout: Timeout},
+		uploads: &http.Client{Timeout: UploadTimeout},
+	}
+}
+
+// SendReport delivers one report bundle and answers the name it was stored under.
+// The bundle crosses as it is, the service storing bytes rather than reading fields
+// (internal/groupsvc, POST /reports).
+func (c *Client) SendReport(base string, bundle io.Reader) (string, error) {
+	assert.IsNotNil(c.uploads, "a client calls through a transport")
+	assert.IsNotNil(bundle, "a report carries a bundle")
+
+	if base == "" {
+		return "", errors.New("a report is taken by a group service, and no relay is named to send it to")
+	}
+
+	address := base + "/reports"
+	request, err := http.NewRequest(http.MethodPost, address, bundle)
+	if err != nil {
+		return "", fmt.Errorf("addressing %s: %v", spoken(address), err)
+	}
+	request.Header.Set("Content-Type", "application/gzip")
+
+	resp, err := c.uploads.Do(request)
+	if err != nil {
+		return "", unreachable(address, err)
+	}
+	defer resp.Body.Close()
+
+	var answer struct {
+		ReportID string `json:"reportId"`
+	}
+	if err := read(address, resp, &answer); err != nil {
+		return "", err
+	}
+	if answer.ReportID == "" {
+		return "", fmt.Errorf("the group service at %s stored the report under no name", base)
+	}
+	return answer.ReportID, nil
 }
 
 // Token trades a group key and a member secret for a relay access token,

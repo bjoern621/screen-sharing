@@ -72,7 +72,6 @@ public sealed class ShellViewModel : Observable
     public ShellViewModel()
     {
         TitleBar = new TitleBarViewModel();
-        StatusBar = new StatusBarViewModel();
 
         // Go control plane over the local socket, constructed here because the shell owns the connection.
         // Every value, label, greying and figure a destination draws arrives through it already decided
@@ -87,6 +86,9 @@ public sealed class ShellViewModel : Observable
         // Posted rather than checked first, a post from the UI thread already being right.
         var backend = new ControlBackend();
         var dispatch = (Action<Action>)(action => Dispatcher.UIThread.Post(action));
+
+        // After the backend: the band's send-logs button is an effect of it.
+        StatusBar = new StatusBarViewModel(backend.SendReportAsync, dispatch);
 
         // One session for the window, and the one owner of the running state.
         // Broadcast and the viewer describe that session from two angles, so a session each would be two

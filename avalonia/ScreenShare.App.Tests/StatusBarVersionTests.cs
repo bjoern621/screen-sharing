@@ -19,7 +19,7 @@ public sealed class StatusBarVersionTests
 
     private static StatusBarViewModel Band(Destination destination, string version = Build)
     {
-        var band = new StatusBarViewModel();
+        var band = new StatusBarViewModel(_ => Task.FromResult("report-1"), action => action());
         band.Show(destination, "", [], "", version);
         return band;
     }
@@ -70,7 +70,7 @@ public sealed class StatusBarVersionTests
     [Fact]
     public void TheBuildSurvivesAPassThatStatesNoFigures()
     {
-        var band = new StatusBarViewModel();
+        var band = new StatusBarViewModel(_ => Task.FromResult("report-1"), action => action());
         band.Show(Destination.Viewer, "2 of 3 on screen", ["12 Mbit/s"], "hint", Build);
         band.Show(Destination.Setup, "", [], "", Build);
 

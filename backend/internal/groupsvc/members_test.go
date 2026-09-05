@@ -43,7 +43,7 @@ func enforcing(t *testing.T, live ...relay.Session) (*Service, *carrying) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	relayed := &carrying{live: live}
-	return New(signer, paths(nil), membership.New(relayed), &keyed{}), relayed
+	return New(signer, paths(nil), membership.New(relayed), &keyed{}, nil), relayed
 }
 
 func mustKey(t *testing.T) group.Key {

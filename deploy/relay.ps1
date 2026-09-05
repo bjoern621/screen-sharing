@@ -91,8 +91,9 @@ try {
 # the relay caches the key set it fetched,
 # and a service drawing a new key on every start would refuse every connection
 # until that cache turned over.
+# Reports land beside the other drawn state, so a development relay takes them like a deployment.
 $service = Start-Process -FilePath (Join-Path $bin "groupd.exe") -PassThru -NoNewWindow `
-  -ArgumentList "-key", (Join-Path $dev "signing-key.pem")
+  -ArgumentList "-key", (Join-Path $dev "signing-key.pem"), "-reports", (Join-Path $dev "reports")
 
 $env:MTX_RTSPSERVERCERT = $cert
 $env:MTX_RTSPSERVERKEY  = $key

@@ -215,8 +215,9 @@ func (b controlBackend) LinkDiscord(ctx context.Context, relay settings.Relay) e
 	return b.app.LinkDiscord(ctx, relay)
 }
 
-func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }
-func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder() }
+func (b controlBackend) OpenLog(path string) error   { return b.app.OpenLog(path) }
+func (b controlBackend) OpenLogsFolder() error       { return b.app.OpenLogsFolder() }
+func (b controlBackend) SendReport() (string, error) { return b.app.SendReport() }
 
 // publishSnapshot carries the publish state from this package's flat shape to the contract's nested
 // one.

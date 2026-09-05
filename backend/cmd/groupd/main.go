@@ -30,6 +30,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/membership"
 	"bjoernblessin.de/screenshare/internal/metrics"
 	"bjoernblessin.de/screenshare/internal/relay"
+	"bjoernblessin.de/screenshare/internal/reportstore"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
@@ -46,6 +47,7 @@ func main() {
 	keyPath := flag.String("key", "", "PEM file holding the signing key, drawn on first run where absent")
 	relayHost := flag.String("relay-host", "127.0.0.1", "host the relay's API answers on")
 	relayAPIPort := flag.Int("relay-api-port", 9997, "port the relay's API answers on")
+	reportsDir := flag.String("reports", "", "directory the report bundles members send are stored in, refused where empty")
 	operatorWindow := flag.Duration("api-token", 0, "print a token granting the relay's API for this long and exit, for an operator reading that API directly")
 	flag.Parse()
 
@@ -83,7 +85,16 @@ func main() {
 	go reap(members)
 
 	srtKeys := relayKeys{host: *relayHost, apiPort: *relayAPIPort, client: client}
-	service := groupsvc.New(signer, reader, members, srtKeys)
+
+	// nil turns the report route into a refusal naming the deployment,
+	// so a host that mounts no volume for them serves everything else unchanged.
+	var reports groupsvc.Reports
+	if *reportsDir != "" {
+		reports = reportstore.New(*reportsDir)
+		logger.Infof("storing reports in %s", *reportsDir)
+	}
+
+	service := groupsvc.New(signer, reader, members, srtKeys, reports)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
 	// A listener of its own, off unless a deployment asks for one.

@@ -245,6 +245,9 @@ internal sealed class DeferredBackend : IBackend
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
         => _seed.OpenLogsFolderAsync(cancellation);
 
+    public Task<string> SendReportAsync(CancellationToken cancellation = default)
+        => _seed.SendReportAsync(cancellation);
+
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
 
@@ -494,6 +497,9 @@ internal sealed class PublishingBackend : IBackend
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
         => _seed.OpenLogsFolderAsync(cancellation);
+
+    public Task<string> SendReportAsync(CancellationToken cancellation = default)
+        => _seed.SendReportAsync(cancellation);
 
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);

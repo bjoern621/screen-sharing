@@ -813,6 +813,9 @@ internal sealed class SeededBackend : IBackend
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 
+    public Task<string> SendReportAsync(CancellationToken cancellation = default)
+        => Task.FromResult("report-1");
+
     /// <summary>
     /// Event stream that ends at once.
     /// Nothing here changes on its own, so there is no event to deliver, and the real client reads an ending

@@ -228,6 +228,9 @@ public sealed class BroadcastPreviewTests
         public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
             => _seed.OpenLogsFolderAsync(cancellation);
 
+        public Task<string> SendReportAsync(CancellationToken cancellation = default)
+            => _seed.SendReportAsync(cancellation);
+
         /// <summary>
         /// Ends at once, so nothing arrives after the session's first read.
         /// Running state is written on the fixture and read again instead.

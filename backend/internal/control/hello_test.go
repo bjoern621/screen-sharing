@@ -114,10 +114,10 @@ func (f *fakeBackend) MonitorPreviewState() []wire.PreviewedMonitor { return nil
 
 func (f *fakeBackend) TestStreamState() (int, []wire.TestStreamSlot) { return 0, nil }
 
-func (f *fakeBackend) StartTestStreams(int) error { return f.err }
-func (f *fakeBackend) StopTestStreams()           {}
-func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
-func (f *fakeBackend) OpenLog(string) error       { return f.err }
+func (f *fakeBackend) StartTestStreams(int) error                        { return f.err }
+func (f *fakeBackend) StopTestStreams()                                  {}
+func (f *fakeBackend) ForgetPortalConsent() error                        { return f.err }
+func (f *fakeBackend) OpenLog(string) error                              { return f.err }
 func (f *fakeBackend) LinkDiscord(context.Context, settings.Relay) error { return nil }
 func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
@@ -125,6 +125,7 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 
 func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
+func (f *fakeBackend) SendReport() (string, error)        { return "report-1", f.err }
 
 // The handshake is the last call two sides that disagree about the contract can both understand,
 // so its refusal carries the one thing neither works out afterwards: which major each is on.

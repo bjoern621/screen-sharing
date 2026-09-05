@@ -462,6 +462,15 @@ public interface IBackend
     /// </summary>
     Task OpenLogsFolderAsync(CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Bundles the machine's facts and run logs,
+    /// delivers them to the group service beside the stored relay,
+    /// and answers the name the bundle was stored under, for quoting to the operator.
+    /// The secrets stay behind: the backend blanks them before anything leaves.
+    /// A repeat sends a second report, the departure <see cref="OpenInBrowserAsync"/> states.
+    /// </summary>
+    Task<string> SendReportAsync(CancellationToken cancellation = default);
+
     // --- Stream -------------------------------------------------------------------
 
     /// <summary>

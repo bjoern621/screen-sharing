@@ -120,10 +120,15 @@ type Service struct {
 	// so a test can issue a token at a moment it chooses and read the window back off it.
 	now func() time.Time
 
+	// Report bundles members send in, nil where this deployment keeps none (reports.go).
+	reports Reports
+
 	mu sync.Mutex
 	// created is when each address created groups, oldest first, guarded by mu.
 	// A map of slices rather than a counter per address: each creation ages out on its own hour.
 	created map[string][]time.Time
+	// sent is created's counterpart for reports, guarded by mu.
+	sent map[string][]time.Time
 
 	// What a scrape counts of this service.
 	// Atomic rather than under mu, a count having no business waiting on the rate limiter's map.
@@ -156,8 +161,9 @@ func (s *Service) refuseToken(w http.ResponseWriter, status int, why string) {
 }
 
 // New is a service signing with this key, reading streams from there,
-// holding membership in that and writing SRT keys through there.
-func New(signer *token.Signer, streams Streams, members *membership.Registry, srtKeys SrtKeys) *Service {
+// holding membership in that, writing SRT keys through there
+// and storing report bundles in reports, or none where it is nil.
+func New(signer *token.Signer, streams Streams, members *membership.Registry, srtKeys SrtKeys, reports Reports) *Service {
 	assert.IsNotNil(signer, "a service signs its tokens with a key")
 	assert.IsNotNil(members, "a service holds its groups' membership in a registry")
 	assert.IsNotNil(srtKeys, "a service keys its groups' prefixes at the relay")
@@ -167,8 +173,10 @@ func New(signer *token.Signer, streams Streams, members *membership.Registry, sr
 		streams: streams,
 		members: members,
 		srtKeys: srtKeys,
+		reports: reports,
 		now:     time.Now,
 		created: map[string][]time.Time{},
+		sent:    map[string][]time.Time{},
 	}
 	assert.IsNotNil(s.now, "a service reads the clock its windows are measured on")
 	return s
@@ -194,6 +202,8 @@ func (s *Service) Handler() http.Handler {
 	// the answer is a run against the leases the members themselves stated,
 	// and a group with no live member is left alone.
 	mux.HandleFunc("POST /reconcile", s.reconcile)
+	// Takes a body and no key, bounded per address (reports.go).
+	mux.HandleFunc("POST /reports", s.takeReport)
 	return mux
 }
 
@@ -520,24 +530,33 @@ const bodyLimit = 4096
 // allowCreation reports whether this caller may create another group,
 // and records the creation where it may.
 func (s *Service) allowCreation(caller string) bool {
-	now := s.now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return recordWithin(s.created, caller, CreationsPerHour, s.now())
+}
 
-	kept := s.created[caller][:0]
-	for _, at := range s.created[caller] {
+// recordWithin records one event for caller where fewer than bound happened in the last hour,
+// and reports whether it did.
+// Each event ages out on its own hour, which is what the slices are for.
+// Callers hold mu.
+func recordWithin(record map[string][]time.Time, caller string, bound int, now time.Time) bool {
+	assert.IsNotNil(record, "a bound is kept against a record")
+	assert.Assert(bound > 0, "a bound admits at least one event an hour", bound)
+
+	kept := record[caller][:0]
+	for _, at := range record[caller] {
 		if now.Sub(at) < time.Hour {
 			kept = append(kept, at)
 		}
 	}
-	if len(kept) >= CreationsPerHour {
-		s.created[caller] = kept
+	if len(kept) >= bound {
+		record[caller] = kept
 		return false
 	}
-	s.created[caller] = append(kept, now)
+	record[caller] = append(kept, now)
 
-	assert.Assert(len(s.created[caller]) <= CreationsPerHour,
-		"a caller's recorded creations stay inside the hour's bound", len(s.created[caller]))
+	assert.Assert(len(record[caller]) <= bound,
+		"a caller's recorded events stay inside the hour's bound", len(record[caller]))
 	return true
 }
 

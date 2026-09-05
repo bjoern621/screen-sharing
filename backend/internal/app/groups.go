@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"bjoernblessin.de/screenshare/internal/groupclient"
@@ -29,6 +30,7 @@ type groupService interface {
 	State(base, groupKey, memberSecret, displayName string) (groupclient.Membership, error)
 	Release(base, groupKey, memberSecret string) error
 	CreateGroup(base string) (groupKey, groupID string, err error)
+	SendReport(base string, bundle io.Reader) (string, error)
 }
 
 // settingsForCommand returns s carrying the token this relay connection needs.

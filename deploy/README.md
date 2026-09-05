@@ -35,6 +35,14 @@ and a token issued before a restart still verifies after one.
 The certificate and the hook path reach MediaMTX as environment overrides,
 so the file itself stays the one a deployment reads.
 
+## Reports
+
+The app's send-logs button and its crash reporter deliver bundles to `POST /reports`,
+which groupd stores as files in the directory its `-reports` flag names.
+The flag left empty refuses the route,
+so a deployment that wants them mounts a volume and names it there.
+The development scripts store them in `dev-relay/reports`.
+
 Windows takes `pwsh deploy/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run.
 Elsewhere both binaries come from the flake's dev shell.
 
