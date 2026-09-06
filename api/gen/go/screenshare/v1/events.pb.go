@@ -1894,7 +1894,7 @@ type DiscordState struct {
 	AccountName string `protobuf:"bytes,6,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
 	// The manager declines to resolve the link this install holds, so no group follows the channel.
 	// Linking again is what clears it, and polling never does.
-	// False outside discord_mode, where no pass asks the manager anything.
+	// Stands with discord_mode off, the toggle drawing no link and resolving none.
 	LinkRefused   bool `protobuf:"varint,7,opt,name=link_refused,json=linkRefused,proto3" json:"link_refused,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

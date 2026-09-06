@@ -55,6 +55,8 @@ Holding a link and the manager resolving it are two facts, and `DiscordState.lin
 A refused link stays stored and stays linked, so the mode moves neither field:
 folded into one, the toggle would decide whether this install is linked at all.
 Linking again is what clears a refusal, and no number of passes does.
+The channel is the one half the mode drops, no pass following one while the toggle is off,
+so the app states the link in one sentence wherever it states it.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
 

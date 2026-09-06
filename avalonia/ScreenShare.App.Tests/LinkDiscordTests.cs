@@ -3,6 +3,7 @@ using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
+using ScreenShare.App.Features.Shell.Settings.Model;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
@@ -88,13 +89,49 @@ public sealed class LinkDiscordTests
     }
 
     /// <summary>
-    /// With the mode off no pass runs, so the notice names the toggle beside it
-    /// rather than a channel nothing is following.
+    /// The toggle decides what follows a voice channel and decides nothing about the link,
+    /// so the sentence beside the button reads the same on either side of it.
     /// </summary>
     [Fact]
-    public async Task WithTheModeOffTheNoticeNamesTheToggle()
+    public async Task TheNoticeReadsTheSameOnEitherSideOfTheToggle()
     {
-        var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
+        };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+        var off = DiscordMode(flow).ActionNotice;
+
+        DiscordMode(flow).Flag = true;
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.Equal(off, DiscordMode(flow).ActionNotice);
+    }
+
+    /// <summary>
+    /// One fact, one sentence: the dialog and the button's notice draw the link from one place,
+    /// so neither ends the clause its own way.
+    /// </summary>
+    [Fact]
+    public async Task TheNoticeIsTheSentenceTheSettingsDialogDraws()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState
+            {
+                Linked = true, AccountName = "bjoern", InChannel = true,
+                GuildName = "Guild", ChannelName = "General",
+            },
+        };
         var session = new Session(backend, action => action());
         var flow = Flows.Setup(backend, session);
         _ = session.Start();
@@ -105,8 +142,7 @@ public sealed class LinkDiscordTests
         await flow.Settled;
         flow.Apply();
 
-        Assert.Contains("Follow Discord", DiscordMode(flow).ActionNotice);
-        Assert.DoesNotContain("Join a voice channel", DiscordMode(flow).ActionNotice);
+        Assert.Equal(AppSettingsCopy.DiscordLine(backend.Discord), DiscordMode(flow).ActionNotice);
     }
 
     /// <summary>

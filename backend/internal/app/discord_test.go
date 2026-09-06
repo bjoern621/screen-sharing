@@ -149,8 +149,9 @@ func TestARefusedLinkStandsLinkedInEitherMode(t *testing.T) {
 	}
 
 	a.settings.Relay.DiscordMode = false
-	if off := a.discordWire(); off.Linked != on.Linked {
-		t.Fatalf("the mode decided whether this install holds a link, on %v off %v", on.Linked, off.Linked)
+	off := a.discordWire()
+	if off.Linked != on.Linked || off.Refused != on.Refused || off.AccountName != on.AccountName {
+		t.Fatalf("the mode decided what the link reads as, on %+v off %+v", on, off)
 	}
 }
 

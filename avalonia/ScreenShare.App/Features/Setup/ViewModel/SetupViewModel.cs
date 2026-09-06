@@ -795,33 +795,10 @@ public sealed class SetupViewModel : Observable
             return _linkFailed;
         }
 
-        var discord = _session.Discord;
-        if (discord is null)
-        {
-            return "";
-        }
-        if (!discord.Linked)
-        {
-            return "Not linked yet.";
-        }
-        var linked = Copy.Links.Linked(discord);
-        // A refused link is stored here and declined there,
-        // so the account reads on and the notice names the refusal.
-        if (discord.LinkRefused)
-        {
-            return $"{linked}. The Discord manager does not recognize this link. Press the button to link again.";
-        }
-        // With the mode off the backend follows no channel, so the toggle beside this is the next move.
-        if (_form.Draft?.Relay?.DiscordMode != true)
-        {
-            return $"{linked}. Turn on Follow Discord to tie the group to your voice channel.";
-        }
-        var state = discord.InChannel
-            ? $"{linked}. Sharing follows {discord.ChannelName} in {discord.GuildName}."
-            : $"{linked}. Join a voice channel in Discord to get a group.";
-        return discord.Stale
-            ? state + " The Discord manager is not answering, so this may be out of date."
-            : state;
+        // The settings dialog's sentence, drawn from the backend's answer alone:
+        // the draft is not read here, so this control's own toggle changes no word of it
+        // (Copy/Links.cs).
+        return Copy.Links.State(_session.Discord);
     }
 
     /// <summary>
@@ -830,7 +807,7 @@ public sealed class SetupViewModel : Observable
     /// Everything else the notice says is where sharing stands, which takes no hue
     /// (<c>docs/design-language.md</c>, "Palette").
     /// </summary>
-    private bool LinkNoticeIsFailure() => _linkFailed.Length > 0 || (IsLinked && IsLinkRefused);
+    private bool LinkNoticeIsFailure() => _linkFailed.Length > 0 || Copy.Links.StateIsFailure(_session.Discord);
 
     /// <summary>
     /// Takes the measured figure, on the UI loop.

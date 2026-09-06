@@ -190,19 +190,22 @@ func (a *App) landDiscord(held storedLink, snap discordSnapshot, m membership, s
 // discordWire is Discord mode as a shell draws it:
 // the link the settings hold, and the channel the last pass answered.
 //
-// With the mode off the link is the whole state.
-// No pass runs there, so the channel and the refusal standing are an answer about a mode
-// nothing is following, and drawing them would name a channel no group is under.
+// With the mode off the channel goes and the link stands whole, refusal included.
+// No pass follows a channel there, so a channel and a staleness drawn from one would describe a mode
+// nothing is running; a refusal is about the secret, which the toggle neither draws nor resolves.
+// Both halves reading the same in either mode is what keeps one install from being linked on one side
+// of the toggle and unlinked on the other.
 func (a *App) discordWire() wire.DiscordSnapshot {
 	a.settingsMu.Lock()
 	r := a.settings.Relay
 	a.settingsMu.Unlock()
 
 	held := storedLink{Linked: r.DiscordLink != "", Account: r.DiscordAccount}
+	d := a.discordState()
 	if !r.DiscordMode {
-		return wire.DiscordSnapshot{Linked: held.Linked, AccountName: held.Account}
+		d = discordSnapshot{Refused: d.Refused}
 	}
-	return a.discordState().wire(held)
+	return d.wire(held)
 }
 
 // wire is this snapshot in the contract's shape, the brokered facts staying behind:

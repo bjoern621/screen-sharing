@@ -534,7 +534,7 @@ message DiscordState {
   string account_name = 6;
   // The manager declines to resolve the link this install holds, so no group follows the channel.
   // Linking again is what clears it, and polling never does.
-  // False outside discord_mode, where no pass asks the manager anything.
+  // Stands with discord_mode off, the toggle drawing no link and resolving none.
   bool link_refused = 7;
 }
 

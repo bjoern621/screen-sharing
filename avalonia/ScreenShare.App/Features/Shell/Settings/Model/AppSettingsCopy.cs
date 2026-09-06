@@ -43,41 +43,8 @@ public static class AppSettingsCopy
     public const string VersionLabel = "Version";
 
     /// <summary>
-    /// Where this install stands with Discord, in one sentence.
-    ///
-    /// Five answers, because the reader's next move differs in each: link an account, link again,
-    /// join a channel, nothing, or wait for the manager to answer again (<c>docs/discord-mode.md</c>).
+    /// Where this install stands with Discord, in the sentence the relay step states it in as well
+    /// (<see cref="Copy.Links.State"/>).
     /// </summary>
-    public static string DiscordLine(DiscordState? state)
-    {
-        if (state is null)
-        {
-            return "The link is read once the backend answers.";
-        }
-
-        if (!state.Linked)
-        {
-            return "No Discord account is linked. Link one in Setup to follow a voice channel.";
-        }
-
-        var linked = Copy.Links.Linked(state);
-        // A link the manager declines stands stored,
-        // so the account reads on and the sentence names the move that clears the refusal.
-        if (state.LinkRefused)
-        {
-            return $"{linked}. The Discord manager does not recognize this link. "
-                + "Press Link Discord in Setup to link again.";
-        }
-
-        if (!state.InChannel)
-        {
-            return Stale(state, $"{linked}. The group follows a voice channel once the account joins one.");
-        }
-
-        return Stale(state, $"{linked}. Following {state.GuildName} / {state.ChannelName}.");
-    }
-
-    /// <summary>Adds what an unanswered manager means for the line above it.</summary>
-    private static string Stale(DiscordState state, string line)
-        => state.Stale ? line + " The manager stopped answering, so this is what it last said." : line;
+    public static string DiscordLine(DiscordState? state) => Copy.Links.State(state);
 }

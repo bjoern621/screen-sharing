@@ -166,7 +166,7 @@ public sealed class AppSettingsViewModel : Observable
         var discord = _session.Discord;
         IsDiscordLinked = discord?.Linked ?? false;
         DiscordLine = AppSettingsCopy.DiscordLine(discord);
-        DiscordLineIsFailure = discord?.LinkRefused ?? false;
+        DiscordLineIsFailure = Links.StateIsFailure(discord);
 
         Assert.That(
             Group.IsResolved || Group.Fields.Count == 0,
