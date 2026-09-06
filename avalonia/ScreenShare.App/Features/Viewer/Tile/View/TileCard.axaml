@@ -366,7 +366,7 @@
                         The label takes what its text needs and the figure wraps into the rest,
                         the only way round these two can be sized:
                         the labels are a fixed vocabulary and the readings are not,
-                        so a reading the length of "Graphics card, Direct3D 11 - driver's colour"
+                        so a reading the length of "Graphics card, Direct3D 11 · driver's color"
                         taking its width first would leave its label a column one letter wide.
 
                         The tip belongs to the label and not to the row, opening over whatever it stands on,
