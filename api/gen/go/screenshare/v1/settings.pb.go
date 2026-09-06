@@ -142,8 +142,13 @@ type AppSettings struct {
 	// The published release is read once per start, filling the update state a shell draws.
 	// Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
 	CheckUpdatesOnStart bool `protobuf:"varint,2,opt,name=check_updates_on_start,json=checkUpdatesOnStart,proto3" json:"check_updates_on_start,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// The synthetic publishers this machine exercises the viewing paths with, and an encoder per slot.
+	// A development aid: the streams carry test patterns and reach every viewer of the group
+	// (internal/app/teststreams.go).
+	// Read on the write rather than at the next start, so the set converges with the toggle.
+	TestStreams   bool `protobuf:"varint,3,opt,name=test_streams,json=testStreams,proto3" json:"test_streams,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AppSettings) Reset() {
@@ -186,6 +191,13 @@ func (x *AppSettings) GetSendCrashReports() bool {
 func (x *AppSettings) GetCheckUpdatesOnStart() bool {
 	if x != nil {
 		return x.CheckUpdatesOnStart
+	}
+	return false
+}
+
+func (x *AppSettings) GetTestStreams() bool {
+	if x != nil {
+		return x.TestStreams
 	}
 	return false
 }
@@ -1012,10 +1024,11 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\x12\x1f\n" +
 	"\vstream_name\x18\x04 \x01(\tR\n" +
 	"streamName\x12-\n" +
-	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"p\n" +
+	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"\x93\x01\n" +
 	"\vAppSettings\x12,\n" +
 	"\x12send_crash_reports\x18\x01 \x01(\bR\x10sendCrashReports\x123\n" +
-	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\"\xc1\x03\n" +
+	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\x12!\n" +
+	"\ftest_streams\x18\x03 \x01(\bR\vtestStreams\"\xc1\x03\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x1b\n" +

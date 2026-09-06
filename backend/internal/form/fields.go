@@ -527,6 +527,12 @@ var fieldTable = []field{
 			return flag(s.App.CheckUpdatesOnStart)
 		},
 	},
+	{
+		key:     KeyTestStreams,
+		group:   GroupApp,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.App.TestStreams) },
+	},
 }
 
 // The range builders.

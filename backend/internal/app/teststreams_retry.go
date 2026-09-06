@@ -12,7 +12,7 @@ import (
 )
 
 // testStreamBackoff is the wait before each relaunch of a synthetic publisher that died on its own.
-// Its last entry is the wait the slot then keeps, an always-on set having no attempt budget to spend.
+// Its last entry is the wait the slot then keeps, a set held on having no attempt budget to spend.
 //
 // A publish gives up, settings this machine cannot run failing the same way every time
 // (publish_retry.go).

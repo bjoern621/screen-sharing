@@ -13,7 +13,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on,
+// TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is held on while the setting asks for it,
 // so there is no attempt at which it stops being wanted.
 // What the ladder buys is a relay down for an hour being asked at the last delay,
 // rather than as fast as a child dies.
@@ -43,23 +43,32 @@ func TestTheTestStreamBackoffGrows(t *testing.T) {
 	}
 }
 
-// TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount: the roster carries streams
-// on a machine publishing nothing, at an encoder per slot.
-// The environment is where a run says it wants another number of them, or none.
-func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
+// TestTheSetIsOffUntilTheSettingAsksForIt: the synthetic set is a development aid,
+// so a fresh installation runs none of it and the app group's toggle is what starts it.
+func TestTheSetIsOffUntilTheSettingAsksForIt(t *testing.T) {
 	t.Setenv(EnvTestStreams, "")
-	if count := testStreamsAtBootWanted(); count != testStreamsAtBoot {
-		t.Errorf("boot count with nothing set = %d, want the default %d", count, testStreamsAtBoot)
+
+	if count := testStreamsWanted(settings.App{}); count != 0 {
+		t.Errorf("count with the setting off = %d, want the set off", count)
 	}
+	if count := testStreamsWanted(settings.App{TestStreams: true}); count != testStreamsDefault {
+		t.Errorf("count with the setting on = %d, want the default %d", count, testStreamsDefault)
+	}
+}
+
+// TestTheCountIsTheDefaultUnlessTheEnvironmentNamesOne: the set costs an encoder per slot,
+// so a run measuring something else says how many it wants.
+func TestTheCountIsTheDefaultUnlessTheEnvironmentNamesOne(t *testing.T) {
+	on := settings.App{TestStreams: true}
 
 	t.Setenv(EnvTestStreams, "0")
-	if count := testStreamsAtBootWanted(); count != 0 {
-		t.Errorf("boot count at 0 = %d, want the set off", count)
+	if count := testStreamsWanted(on); count != 0 {
+		t.Errorf("count at 0 = %d, want the set off", count)
 	}
 
 	t.Setenv(EnvTestStreams, "1")
-	if count := testStreamsAtBootWanted(); count != 1 {
-		t.Errorf("boot count at 1 = %d, want the count that was asked for", count)
+	if count := testStreamsWanted(on); count != 1 {
+		t.Errorf("count at 1 = %d, want the count that was asked for", count)
 	}
 }
 
@@ -69,8 +78,8 @@ func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
 func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 	for _, set := range []string{"three", "-1", strconv.Itoa(maxTestStreams + 1)} {
 		t.Setenv(EnvTestStreams, set)
-		if count := testStreamsAtBootWanted(); count != testStreamsAtBoot {
-			t.Errorf("boot count at %q = %d, want the default %d", set, count, testStreamsAtBoot)
+		if count := testStreamsWanted(settings.App{TestStreams: true}); count != testStreamsDefault {
+			t.Errorf("boot count at %q = %d, want the default %d", set, count, testStreamsDefault)
 		}
 	}
 }

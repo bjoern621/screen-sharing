@@ -22,12 +22,12 @@ import (
 // so a large count saturates the CPU without testing anything further.
 const maxTestStreams = 9
 
-// testStreamsAtBoot is the set this process brings up with itself and keeps alive,
+// testStreamsDefault is the size of the set the app group's toggle asks for,
 // so the viewer roster carries streams on a machine publishing nothing.
-const testStreamsAtBoot = 3
+const testStreamsDefault = 3
 
-// EnvTestStreams overrides that count for one run, and 0 turns the boot set off.
-// The default is not free: one x264 encoder per slot runs for as long as the backend does,
+// EnvTestStreams overrides that count for one run, and 0 holds the set empty with the toggle on.
+// The count is not free: one x264 encoder per slot runs for as long as the backend does,
 // watched or not.
 const EnvTestStreams = "MIRRORME_TEST_STREAMS"
 
@@ -88,7 +88,7 @@ func testStreamName(i int) string {
 //
 // The set is kept alive rather than only started:
 // a publisher that dies on its own is relaunched into the slot it held (teststreams_retry.go),
-// which makes the boot set survive a relay that comes up after this process does.
+// which makes the set survive a relay that comes up after this process does.
 func (a *App) StartTestStreams(count int) error {
 	if count <= 0 || count > maxTestStreams {
 		return fmt.Errorf("test stream count must be 1..%d, got %d", maxTestStreams, count)
@@ -175,26 +175,30 @@ func (a *App) StopTestStreams() {
 	a.stopTestStreamsLocked()
 }
 
-// startTestStreamsAtBoot brings the always-on set up beside the process.
+// convergeTestStreams holds the synthetic set at what the settings ask for:
+// the count below the app group's toggle, and none while it is off.
+//
+// Idempotent, so every write of the settings runs it, whichever fact the write moved:
+// the toggle itself, and the group membership a launch is refused without.
 //
 // On a goroutine of its own for the reason everything App.Start begins is:
 // resolving the launcher touches the disk and each child opens its run log,
-// and the contract comes up at its own speed rather than at theirs.
-func (a *App) startTestStreamsAtBoot() {
-	count := testStreamsAtBootWanted()
+// and the caller comes up at its own speed rather than at theirs.
+func (a *App) convergeTestStreams() {
+	count := testStreamsWanted(a.GetSettings().App)
 	if count == 0 {
-		logger.Infof("no test streams at boot (%s=0)", EnvTestStreams)
+		a.StopTestStreams()
 		return
 	}
 
 	// Presence before the first publisher, because a token names this machine's member id
 	// and the group service closes a connection no live member holds (internal/membership).
 	// The poll loop states the same thing on its own clock,
-	// so this is the boot set naming the state it needs rather than racing that loop for it.
+	// so this is the set naming the state it needs rather than racing that loop for it.
 	a.statePresence()
 
 	if err := a.StartTestStreams(count); err != nil {
-		// An Umgebungsfehler: no GStreamer on this machine,
+		// An Umgebungsfehler: no GStreamer on this machine, no group to publish under,
 		// or settings whose RTSP publish leg does not validate.
 		// The backend runs without the set,
 		// and the roster shows what the relay carries rather than a promise.
@@ -212,31 +216,27 @@ func (a *App) settingsInGroup() bool {
 	return a.withBrokered(s).Relay.InGroup()
 }
 
-// joinedAGroup reports whether a settings write moved this machine into a group.
-//
-// What the boot set is launched again off (settings.go, SaveSettings):
-// a machine that joins can publish what it was refused a moment earlier,
-// and the set is always-on rather than something a user asks for per run.
-func joinedAGroup(before, after settings.Relay) bool {
-	return !before.InGroup() && after.InGroup()
-}
-
-// testStreamsAtBootWanted is how many slots the boot set holds:
-// testStreamsAtBoot unless the environment names another count.
+// testStreamsWanted is how many slots the set holds for these app settings:
+// none while the toggle is off, testStreamsDefault where it is on,
+// unless the environment names another count.
 //
 // A value that is not a count in range takes the default rather than stopping the process.
 // A development knob, and a typo in it is not worth a backend that refuses to start.
-func testStreamsAtBootWanted() int {
+func testStreamsWanted(app settings.App) int {
+	if !app.TestStreams {
+		return 0
+	}
+
 	set := os.Getenv(EnvTestStreams)
 	if set == "" {
-		return testStreamsAtBoot
+		return testStreamsDefault
 	}
 
 	count, err := strconv.Atoi(set)
 	if err != nil || count < 0 || count > maxTestStreams {
 		logger.Warnf("%s=%q is not a count of 0..%d, running %d test streams",
-			EnvTestStreams, set, maxTestStreams, testStreamsAtBoot)
-		return testStreamsAtBoot
+			EnvTestStreams, set, maxTestStreams, testStreamsDefault)
+		return testStreamsDefault
 	}
 	return count
 }

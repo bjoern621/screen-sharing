@@ -12,4 +12,8 @@ type App struct {
 	// CheckUpdatesOnStart reads the published release once per start,
 	// which is what fills the update state with no press behind it (internal/update).
 	CheckUpdatesOnStart bool `json:"checkUpdatesOnStart"`
+	// TestStreams runs the synthetic publishers this machine exercises the viewing paths with,
+	// off a fresh installation: an x264 encoder per slot runs for as long as the backend does.
+	// The set converges on the write rather than at the next start (internal/app/teststreams.go).
+	TestStreams bool `json:"testStreams"`
 }

@@ -58,6 +58,11 @@ message AppSettings {
   // The published release is read once per start, filling the update state a shell draws.
   // Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
   bool check_updates_on_start = 2;
+  // The synthetic publishers this machine exercises the viewing paths with, and an encoder per slot.
+  // A development aid: the streams carry test patterns and reach every viewer of the group
+  // (internal/app/teststreams.go).
+  // Read on the write rather than at the next start, so the set converges with the toggle.
+  bool test_streams = 3;
 }
 
 // A field key is the field name this file spells, under the name Settings gives its group:

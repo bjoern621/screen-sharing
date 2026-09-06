@@ -153,6 +153,9 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return availabilityLive()
 	},
+	// The synthetic set publishes to the relay like any other stream and is refused outside a group
+	// the same way, which the start reports where it happens rather than greying the toggle here.
+	KeyTestStreams: func(availability) state { return availabilityLive() },
 
 	// Greyed per entry rather than per control: a greyed entry
 	// and its reason name the thing to change.

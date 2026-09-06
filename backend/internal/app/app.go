@@ -102,7 +102,7 @@ type App struct {
 	receiveStatsStopOnce sync.Once
 	receiveStatsStop     chan struct{}
 
-	// testStreamsOnce guards the boot set, so a second Start does not launch a second one.
+	// testStreamsOnce guards the converge at boot, so a second Start does not launch a second set.
 	// The count is a desired number of slots,
 	// so a second launch would ask for that number again on top of the set running (teststreams.go).
 	testStreamsOnce sync.Once
@@ -245,14 +245,14 @@ func (a *App) StoreNotice() *screensharev1.Text {
 //
 // Nothing here is waited for: the control socket and each poll get a goroutine of their own,
 // so the process comes up at its own speed rather than at the socket's.
-// Idempotent: the control service, both polls and the boot set are each guarded by a sync.Once,
+// Idempotent: the control service, both polls and the synthetic set are each guarded by a sync.Once,
 // so a second Start opens no second socket, runs no second loop and launches no second synthetic set.
 //
 // The relay poll starts here rather than when a shell asks, the snapshot being the backend's to keep:
 // polling only while somebody watched would answer GetRelayStatus with the opening value,
 // unreachable and no reason given, which reads on screen as a relay that is down.
 //
-// The synthetic set comes up here for the same reason and keeps itself up:
+// The synthetic set converges here for the same reason and keeps itself up where the settings ask for it:
 // the viewer roster carries streams whether or not this machine publishes,
 // and a relay not up when this process starts is the normal case rather than a failure
 // (teststreams.go).
@@ -260,7 +260,7 @@ func (a *App) Start() {
 	a.startControl()
 	a.startRelayPoll()
 	a.startReceiveStatsPoll()
-	a.testStreamsOnce.Do(func() { go a.startTestStreamsAtBoot() })
+	a.testStreamsOnce.Do(func() { go a.convergeTestStreams() })
 	a.uplinkOnce.Do(func() { go a.measureUplinkAtBoot() })
 }
 

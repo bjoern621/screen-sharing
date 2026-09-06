@@ -424,14 +424,15 @@ func TestAPassDrawsTheIdentityTheGroupKeyNames(t *testing.T) {
 
 // A synthetic publisher carries a token naming this machine's member id,
 // and the group service closes what no live member holds,
-// so the boot set states presence before it trades for one.
+// so the set states presence before it trades for one.
 // The trade is refused here, which leaves the order as the whole of what this reads.
 func TestTheBootSetStatesPresenceBeforeItTradesForAToken(t *testing.T) {
 	t.Setenv(EnvTestStreams, "1")
 	groups := &fakeGroups{token: func() (string, error) { return "", errors.New("no token for this group") }}
 	a := inGroupApp(t, groups)
+	a.settings.App.TestStreams = true
 
-	a.startTestStreamsAtBoot()
+	a.convergeTestStreams()
 
 	if want := []string{"state", "token"}; strings.Join(groups.asked(), ",") != strings.Join(want, ",") {
 		t.Errorf("the service was asked %v, want %v", groups.asked(), want)

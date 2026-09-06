@@ -94,6 +94,7 @@ const (
 	// What the app does for itself, which is about no stream.
 	KeySendCrashReports    = "app.send_crash_reports"
 	KeyCheckUpdatesOnStart = "app.check_updates_on_start"
+	KeyTestStreams         = "app.test_streams"
 )
 
 // The group keys.

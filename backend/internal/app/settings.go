@@ -49,11 +49,11 @@ func (a *App) SaveSettings(s settings.Settings) error {
 		// the mode leaves the key stored but unread, so the presence under it is released here too.
 		a.releaseGroup(before)
 	}
-	if joinedAGroup(before, s.Relay) {
-		// On a goroutine of its own, for the reason the boot call is:
-		// it states presence and each child opens its run log, and this write answers at its own speed.
-		go a.startTestStreamsAtBoot()
-	}
+	// On a goroutine of its own, for the reason the boot call is:
+	// it states presence and each child opens its run log, and this write answers at its own speed.
+	// Run off every write rather than off the toggle alone:
+	// a machine that joins a group can publish what it was refused a moment earlier.
+	go a.convergeTestStreams()
 
 	a.emitPublishState()
 	a.emit(wire.SettingsChangedEvent())

@@ -418,7 +418,7 @@ What a browser then does with a format the relay does carry is its own affair, s
 
 ## The synthetic set
 
-Three synthetic publishers run for as long as the backend does, so the viewer roster carries streams whether or not this machine is capturing anything.
+Three synthetic publishers run while `app.test_streams` is on, so the viewer roster carries streams whether or not this machine is capturing anything.
 Each encodes a test pattern into the relay, named after the slot it holds, and the relay re-serves each on every listener as it does a real one.
 Inside a group this machine's claim leads that name, so two machines running the set land on two paths rather than over each other on one.
 
@@ -434,8 +434,9 @@ Measured through a running relay: the HDR row is received carrying PQ at ten bit
 
 A stream lives in a group, so the set waits for one: a machine outside a group launches nothing, and the write that joins one brings the set up.
 
-They are always on because the screens that watch are built against them.
-A relay carrying nothing puts the roster in its empty state rather than the one under construction.
+A development aid, off on a fresh installation: an encoder per slot runs for as long as the backend does.
+The toggle is in the app settings dialog, and the backend converges the set on the write, so the streams come and go with it.
+The screens that watch are built against the set, a relay carrying nothing putting the roster in its empty state rather than the one under construction.
 
 The slot is the stream's identity rather than the process's, so a publisher that dies is relaunched into the slot it held and returns as the row the roster already shows.
 The wait walks 2, 4, 8, 15 and 30 seconds and then holds, with no attempt budget unlike the publish leg's: what is waited out is usually the relay, which this process starts before and outlives, and giving up would leave the roster empty for the rest of the run over an outage that ended a minute in.

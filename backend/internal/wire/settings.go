@@ -40,6 +40,7 @@ func AppSettings(a settings.App) *screensharev1.AppSettings {
 	return &screensharev1.AppSettings{
 		SendCrashReports:    a.SendCrashReports,
 		CheckUpdatesOnStart: a.CheckUpdatesOnStart,
+		TestStreams:         a.TestStreams,
 	}
 }
 
@@ -146,6 +147,7 @@ func ToApp(m *screensharev1.AppSettings) settings.App {
 	return settings.App{
 		SendCrashReports:    m.GetSendCrashReports(),
 		CheckUpdatesOnStart: m.GetCheckUpdatesOnStart(),
+		TestStreams:         m.GetTestStreams(),
 	}
 }
 
