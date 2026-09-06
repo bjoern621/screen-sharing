@@ -231,6 +231,15 @@ public sealed class BroadcastPreviewTests
         public Task<string> SendReportAsync(CancellationToken cancellation = default)
             => _seed.SendReportAsync(cancellation);
 
+        public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+            => _seed.UpdateAsync(cancellation);
+
+        public Task CheckUpdateAsync(CancellationToken cancellation = default)
+            => _seed.CheckUpdateAsync(cancellation);
+
+        public Task InstallUpdateAsync(CancellationToken cancellation = default)
+            => _seed.InstallUpdateAsync(cancellation);
+
         /// <summary>
         /// Ends at once, so nothing arrives after the session's first read.
         /// Running state is written on the fixture and read again instead.

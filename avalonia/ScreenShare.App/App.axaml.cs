@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Shell.Update.View;
 using ScreenShare.App.Features.Shell.View;
 using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Features.Tray.View;
@@ -54,6 +55,21 @@ public sealed partial class App : Application
             shell.TitleBar.ShowMaximised(window.WindowState == WindowState.Maximized);
 
             desktop.MainWindow = window;
+
+            // The dialog behind the band's update line.
+            // Constructed here rather than by the band, windows being this file's alone,
+            // and over the same view model, so what it says and what the band says are one answer.
+            // Modal: the reader's next act is the restart or dismissing it.
+            shell.Update.OpenRequested += () =>
+            {
+                var dialog = new UpdateDialog { DataContext = shell.Update };
+                _ = dialog.ShowDialog(window);
+            };
+
+            // Raised once the backend has the install under way.
+            // The applier waits for this process to exit before it replaces a file,
+            // so ending the app is what lets it start (backend/internal/update).
+            shell.Update.RestartRequested += () => desktop.Shutdown();
 
             // With a tray, closing the window keeps the app alive in it,
             // and only the tray's quit ends the process:

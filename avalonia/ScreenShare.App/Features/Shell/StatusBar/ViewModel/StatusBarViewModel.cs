@@ -4,6 +4,7 @@ using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
@@ -24,18 +25,35 @@ public sealed class StatusBarViewModel : Observable
     private readonly Action<Action> _dispatch;
 
     /// <param name="sendReport">Backend effect behind the send-logs button.</param>
+    /// <param name="updates">
+    /// What the app says about the release published beside this build, owned once for the window.
+    /// The band draws its line and its version presses the check;
+    /// the dialog behind that line reads the same view model
+    /// (<c>Features/Shell/Update/ViewModel/UpdateViewModel.cs</c>).
+    /// </param>
     /// <param name="dispatch">Hands a completion back to the UI loop.</param>
-    public StatusBarViewModel(Func<CancellationToken, Task<string>> sendReport, Action<Action> dispatch)
+    public StatusBarViewModel(
+        Func<CancellationToken, Task<string>> sendReport,
+        UpdateViewModel updates,
+        Action<Action> dispatch)
     {
         Assert.NotNull(sendReport, "a status band sends its report through the backend");
+        Assert.NotNull(updates, "a status band states what it knows about the published release");
         Assert.NotNull(dispatch, "a status band marshals completions back to the UI loop");
 
         _dispatch = dispatch;
+        Updates = updates;
         SendLogs = new PendingCommand(() => SendAsync(sendReport), dispatch);
     }
 
     /// <summary>Sends the report, holding the wait on the button.</summary>
     public PendingCommand SendLogs { get; }
+
+    /// <summary>
+    /// The published release, as the band states it: the version's own control and the line beside it.
+    /// Held rather than mirrored, so the band and the dialog read one answer.
+    /// </summary>
+    public UpdateViewModel Updates { get; }
 
     // --- What the shell says -------------------------------------------------------
 
@@ -166,6 +184,9 @@ public sealed class StatusBarViewModel : Observable
         // Every destination, the build being the app's rather than one screen's.
         Version = _build.Length > 0 ? "v" + _build : "";
         ShowsVersion = Version.Length > 0;
+
+        // The version's own control and the line beside it, rendered on this pass so the two agree.
+        Updates.Apply();
 
         SendOutcome = _sentOutcome;
         ShowsSendOutcome = SendOutcome.Length > 0;

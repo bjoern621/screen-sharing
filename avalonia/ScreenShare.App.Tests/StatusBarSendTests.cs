@@ -16,7 +16,7 @@ public sealed class StatusBarSendTests
 {
     private static StatusBarViewModel Band(Func<CancellationToken, Task<string>> send)
     {
-        var band = new StatusBarViewModel(send, action => action());
+        var band = new StatusBarViewModel(send, Flows.Updates(new SeededBackend("linux")), action => action());
         band.Show(Destination.Setup, [], "", "0.4.0");
         return band;
     }

@@ -432,6 +432,18 @@ public sealed class ControlBackend : IBackend
             cancellation);
 
     /// <inheritdoc />
+    public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.GetUpdateStateAsync(new GetUpdateStateRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
+    public Task CheckUpdateAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.CheckUpdateAsync(new CheckUpdateRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
+    public Task InstallUpdateAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.InstallUpdateAsync(new InstallUpdateRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
     public async IAsyncEnumerable<Event> SubscribeAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
     {

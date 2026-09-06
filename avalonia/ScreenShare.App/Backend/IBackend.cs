@@ -463,6 +463,14 @@ public interface IBackend
     Task OpenLogsFolderAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// What this install knows about the release published beside it:
+    /// which build is running, which is published, how far a download has got,
+    /// and why this copy asks nothing or replaces nothing.
+    /// Reaches no network, <see cref="CheckUpdateAsync"/> being what asks.
+    /// </summary>
+    Task<UpdateState> UpdateAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Bundles the machine's facts and run logs,
     /// delivers them to the group service beside the stored relay,
     /// and answers the name the bundle was stored under, for quoting to the operator.
@@ -470,6 +478,26 @@ public interface IBackend
     /// A repeat sends a second report, the departure <see cref="OpenInBrowserAsync"/> states.
     /// </summary>
     Task<string> SendReportAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Reads the published release, and fetches it where this install replaces its own files.
+    ///
+    /// Answers as soon as the work is under way: a download runs for as long as a download runs,
+    /// and every step of it arrives on the event stream, this shell's and every other shell's.
+    /// A repeat over a staged release checks again and downloads nothing.
+    /// Refused where <c>UpdateState.unchecked</c> stands, this install asking nothing at all.
+    /// </summary>
+    Task CheckUpdateAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Starts the staged release and leaves the running app to close.
+    ///
+    /// Answers while the app is still up: what installs is a process of its own that waits for the
+    /// backend to exit, puts the files in place and starts the app again.
+    /// So the caller's next act is to close the window.
+    /// Refused where nothing is staged and verified.
+    /// </summary>
+    Task InstallUpdateAsync(CancellationToken cancellation = default);
 
     // --- Stream -------------------------------------------------------------------
 

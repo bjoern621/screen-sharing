@@ -817,6 +817,32 @@ internal sealed class SeededBackend : IBackend
         => Task.FromResult("report-1");
 
     /// <summary>
+    /// What the fixture says about the published release, settable per test.
+    /// The unchecked stage by default: a fixture that reached a forge would be a test with a network in it.
+    /// </summary>
+    public UpdateState Update { get; set; } = new() { Stage = UpdateStage.Unchecked, Running = Build };
+
+    /// <summary>Counts what a band asked for, so a test asserts the press reached the backend.</summary>
+    public int UpdateChecks { get; private set; }
+
+    public int UpdateInstalls { get; private set; }
+
+    public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+        => Task.FromResult(Update);
+
+    public Task CheckUpdateAsync(CancellationToken cancellation = default)
+    {
+        UpdateChecks++;
+        return Task.CompletedTask;
+    }
+
+    public Task InstallUpdateAsync(CancellationToken cancellation = default)
+    {
+        UpdateInstalls++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Event stream that ends at once.
     /// Nothing here changes on its own, so there is no event to deliver, and the real client reads an ending
     /// stream as the backend going away.

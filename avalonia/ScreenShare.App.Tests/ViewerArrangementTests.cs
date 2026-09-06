@@ -196,6 +196,15 @@ public sealed class ViewerArrangementTests
         public Task<string> SendReportAsync(CancellationToken cancellation = default)
             => _seed.SendReportAsync(cancellation);
 
+        public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+            => _seed.UpdateAsync(cancellation);
+
+        public Task CheckUpdateAsync(CancellationToken cancellation = default)
+            => _seed.CheckUpdateAsync(cancellation);
+
+        public Task InstallUpdateAsync(CancellationToken cancellation = default)
+            => _seed.InstallUpdateAsync(cancellation);
+
         public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
             => _seed.SubscribeAsync(cancellation);
 

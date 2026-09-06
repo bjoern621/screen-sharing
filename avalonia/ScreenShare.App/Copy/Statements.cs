@@ -588,6 +588,37 @@ public static class Statements
             TextCode.RelayLegNoRelay =>
                 "No relay is set, so there is no address to check.",
 
+            // Updates.
+            // The first three are why nothing is checked or installed here, and each names what does it instead.
+
+            TextCode.UpdateCheckOff =>
+                "Update checks are off in this environment (MIRRORME_UPDATE_CHECK=0).",
+
+            TextCode.UpdateBuildUnstamped =>
+                "This build carries no version number, so there is nothing to compare a release against.",
+
+            TextCode.UpdateChannelManaged =>
+                $"{Words.Channel(a.Channel)} installed this copy, so updates come from there.",
+
+            TextCode.UpdateServiceUnreadable =>
+                "The release page could not be reached. Check the network and try again.",
+
+            TextCode.UpdateNoDownload =>
+                $"Release {a.Version} carries no download for this install. Get it from the release page.",
+
+            TextCode.UpdateDownloadUnverifiable =>
+                $"Release {a.Version} publishes no checksum for its download, so it was not installed. "
+                + "Get it from the release page.",
+
+            TextCode.UpdateDownloadFailed =>
+                "The download stopped before it finished. Try again.",
+
+            TextCode.UpdateDownloadCorrupt =>
+                "What arrived does not match the published checksum, so it was deleted. Try again.",
+
+            TextCode.UpdateInstallFailed =>
+                "The staged release could not be started. Get it from the release page instead.",
+
             // A backend newer than this build.
             // The code is printed so it can be searched for and reported.
             _ => text.Code.ToString(),
@@ -717,6 +748,12 @@ public static class Statements
         public string Path => Id(TextArgName.Path);
 
         public string Value => Id(TextArgName.Value);
+
+        /// <summary>Where this copy of the app came from, e.g. "nix", "pacman".</summary>
+        public string Channel => Id(TextArgName.Channel);
+
+        /// <summary>A release, as its tag spells it: "v0.5.1".</summary>
+        public string Version => Id(TextArgName.Version);
 
         public string Element => Id(TextArgName.Element);
 

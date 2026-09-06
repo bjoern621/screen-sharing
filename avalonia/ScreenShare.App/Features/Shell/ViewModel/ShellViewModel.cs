@@ -9,6 +9,7 @@ using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 using ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 using ScreenShare.App.Features.Shell.TitleBar.ViewModel;
+using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Features.Tray.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
 using ScreenShare.App.Mvvm;
@@ -87,9 +88,6 @@ public sealed class ShellViewModel : Observable
         var backend = new ControlBackend();
         var dispatch = (Action<Action>)(action => Dispatcher.UIThread.Post(action));
 
-        // After the backend: the band's send-logs button is an effect of it.
-        StatusBar = new StatusBarViewModel(backend.SendReportAsync, dispatch);
-
         // One session for the window, and the one owner of the running state.
         // Broadcast and the viewer describe that session from two angles, so a session each would be two
         // windows' worth of reads and two answers to what is publishing.
@@ -100,6 +98,12 @@ public sealed class ShellViewModel : Observable
         // copies of one message, with the publish commit persisting whichever of them it held
         // (Backend/FormSession.cs).
         _form = new FormSession(backend, _session, dispatch);
+
+        // After the session, which is where what the backend said about the published release lives.
+        // The band draws it and the dialog behind the band's line reads the same view model,
+        // so the two cannot disagree (Features/Shell/Update/ViewModel/UpdateViewModel.cs).
+        Update = new UpdateViewModel(backend, _session, dispatch);
+        StatusBar = new StatusBarViewModel(backend.SendReportAsync, Update, dispatch);
 
         Setup = new SetupViewModel(backend, _form, _session, dispatch);
         Broadcast = new BroadcastViewModel(backend, _form, _session, dispatch);
@@ -177,6 +181,13 @@ public sealed class ShellViewModel : Observable
     public NavStripViewModel Nav { get; }
 
     public StatusBarViewModel StatusBar { get; }
+
+    /// <summary>
+    /// What the app says about the release published beside this build.
+    /// Held on the shell rather than reached through the band: the app's own lifetime hangs off it,
+    /// and the window is what opens the dialog and closes for the restart.
+    /// </summary>
+    public UpdateViewModel Update { get; }
 
     // --- The destinations ----------------------------------------------------------
 

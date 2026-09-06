@@ -364,6 +364,22 @@ public static class Words
         ["wayland"] = "Wayland",
     };
 
+    /// <summary>
+    /// Where a copy of the app came from, named as the reader's own machine names it.
+    /// The names a sentence about updates puts in front of "installed this copy",
+    /// so each is the thing the reader would type to update it by hand.
+    /// </summary>
+    private static readonly Dictionary<string, string> Channels = new()
+    {
+        ["pacman"] = "pacman",
+        ["dnf"] = "dnf",
+        ["flatpak"] = "Flatpak",
+        ["nix"] = "Nix",
+        ["windows-zip"] = "The zip download",
+        ["windows-setup"] = "The installer",
+        ["portable"] = "The portable download",
+    };
+
     public static string Engine(string id) => Look(Engines, id);
 
     /// <summary>
@@ -437,6 +453,8 @@ public static class Words
     public static string OperatingSystem(string id) => Look(OperatingSystems, id);
 
     public static string DisplayServer(string id) => Look(DisplayServers, id);
+
+    public static string Channel(string id) => Look(Channels, id);
 
     /// <summary>
     /// A list of names as a sentence reads it: "a", "a and b", "a, b or c".

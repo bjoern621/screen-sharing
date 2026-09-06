@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ScreenShare.App.Features.Shell.Update.ViewModel"
+        xmlns:copy="using:ScreenShare.App.Copy"
+        xmlns:controls="using:ScreenShare.App.Controls"
+        x:Class="ScreenShare.App.Features.Shell.Update.View.UpdateDialog"
+        x:DataType="vm:UpdateViewModel"
+        Title="{Binding Title}"
+        Width="440"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource ControlForegroundBrush}">
+
+  <!--
+    The desktop's own frame, where every other window here draws its caption.
+    A dialog is the one surface whose title the platform already states in its task switcher,
+    and a second caption drawn inside it would be that title twice.
+  -->
+  <StackPanel Margin="20"
+              Spacing="{StaticResource GapPanel}">
+
+    <TextBlock Classes="heading"
+               Text="{Binding Title}"
+               TextWrapping="Wrap" />
+
+    <!--
+      The sentence the whole flow exists for: what already happened, and what the press does.
+      Selectable like every other prose here, so a reader quoting it need not retype it.
+    -->
+    <SelectableTextBlock Classes="secondary"
+                         Text="{Binding Body}"
+                         TextWrapping="Wrap" />
+
+    <!-- Why this copy's files are somebody else's, absent where the app replaces them itself. -->
+    <SelectableTextBlock Classes="muted"
+                         Text="{Binding Held}"
+                         IsVisible="{Binding ShowsHeld}"
+                         TextWrapping="Wrap" />
+
+    <!--
+      The failing side's own words, drawn as they stand and wrapped:
+      trimming cuts away the characters the reader came for
+      (CLAUDE.md, "Every error message is selectable and copyable").
+    -->
+    <SelectableTextBlock Classes="muted"
+                         Classes.danger="{Binding IsFailure}"
+                         Text="{Binding Detail}"
+                         IsVisible="{Binding ShowsDetail}"
+                         TextWrapping="Wrap" />
+
+    <!--
+      Right-aligned, the way the wizard's footer reads: what the reader is likely to press last.
+      The release page stands beside the restart rather than in place of it,
+      an install this app cannot replace having nothing else to offer.
+    -->
+    <StackPanel Orientation="Horizontal"
+                Spacing="{StaticResource GapControl}"
+                HorizontalAlignment="Right">
+
+      <Button Theme="{StaticResource FooterButton}"
+              Content="{x:Static copy:Updates.OpenPage}"
+              IsVisible="{Binding HasPage}"
+              Click="OpenPage" />
+
+      <Button Theme="{StaticResource FooterButton}"
+              Content="{x:Static copy:Updates.Later}"
+              IsVisible="{Binding CanInstall}"
+              Click="Close" />
+
+      <Button Theme="{StaticResource FooterButton}"
+              Content="{x:Static copy:Updates.Close}"
+              IsVisible="{Binding !CanInstall}"
+              Click="Close" />
+
+      <Button Theme="{StaticResource PrimaryButton}"
+              Height="{StaticResource FooterButtonHeight}"
+              Content="{x:Static copy:Updates.RestartNow}"
+              IsVisible="{Binding CanInstall}"
+              Command="{Binding Install}"
+              controls:Pending.IsActive="{Binding Install.IsRunning}" />
+    </StackPanel>
+  </StackPanel>
+</Window>

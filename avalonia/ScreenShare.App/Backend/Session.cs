@@ -175,6 +175,13 @@ public sealed class Session
     public string Version { get; private set; } = "";
 
     /// <summary>
+    /// What this install knows about the release published beside it.
+    /// Null until the first read lands, which the band draws as a version with nothing behind it.
+    /// Every step of a check and of a download replaces it whole, from whichever window asked.
+    /// </summary>
+    public UpdateState? Update { get; private set; }
+
+    /// <summary>
     /// Legs the relay serves a player page for, which are the ones a stream opens over in a browser.
     /// Off the catalog rather than a form field, no setting standing behind it: a menu offers all of them at once,
     /// and a stored preference would be a value nothing reads.
@@ -430,11 +437,13 @@ public sealed class Session
         var discord = await _backend.DiscordAsync(cancellation).ConfigureAwait(false);
         var testStreams = await _backend.TestStreamsAsync(cancellation).ConfigureAwait(false);
         var version = await _backend.VersionAsync(cancellation).ConfigureAwait(false);
+        var update = await _backend.UpdateAsync(cancellation).ConfigureAwait(false);
 
         Write(() =>
         {
             Unavailable = "";
             Version = version;
+            Update = update;
             Words = new Vocabulary(catalog);
             BrowserLegs = catalog.BrowserWatchTransports;
             PlayerLegs = catalog.WatchTransports;
@@ -628,6 +637,12 @@ public sealed class Session
             case Event.PayloadOneofCase.DiscordState:
                 // A whole state on every Discord pass, the members state's companion.
                 Discord = change.DiscordState;
+                break;
+
+            case Event.PayloadOneofCase.UpdateState:
+                // Every step of a check and every tenth of a download, from whichever window asked,
+                // so a second window shows a staged release without having asked for one.
+                Update = change.UpdateState;
                 break;
 
             case Event.PayloadOneofCase.TestStreamState:

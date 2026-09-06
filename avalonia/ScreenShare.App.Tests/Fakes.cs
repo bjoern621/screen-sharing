@@ -1,5 +1,6 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
 
@@ -247,6 +248,15 @@ internal sealed class DeferredBackend : IBackend
 
     public Task<string> SendReportAsync(CancellationToken cancellation = default)
         => _seed.SendReportAsync(cancellation);
+
+    public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+        => _seed.UpdateAsync(cancellation);
+
+    public Task CheckUpdateAsync(CancellationToken cancellation = default)
+        => _seed.CheckUpdateAsync(cancellation);
+
+    public Task InstallUpdateAsync(CancellationToken cancellation = default)
+        => _seed.InstallUpdateAsync(cancellation);
 
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
@@ -501,6 +511,15 @@ internal sealed class PublishingBackend : IBackend
     public Task<string> SendReportAsync(CancellationToken cancellation = default)
         => _seed.SendReportAsync(cancellation);
 
+    public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
+        => _seed.UpdateAsync(cancellation);
+
+    public Task CheckUpdateAsync(CancellationToken cancellation = default)
+        => _seed.CheckUpdateAsync(cancellation);
+
+    public Task InstallUpdateAsync(CancellationToken cancellation = default)
+        => _seed.InstallUpdateAsync(cancellation);
+
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
 
@@ -531,4 +550,20 @@ internal static class Flows
 
     public static ViewerViewModel Viewer(IBackend backend, Session session)
         => new(backend, new FormSession(backend, session, Inline), session, Inline);
+
+    /// <summary>
+    /// What the app says about the published release, over a session that has read once.
+    /// The read is what fills the state in: a session that never started answers nothing,
+    /// which is the band with no version behind it rather than the one under test.
+    /// </summary>
+    public static UpdateViewModel Updates(IBackend backend)
+    {
+        var session = new Session(backend, Inline);
+        session.Start();
+        session.Stop();
+        return new UpdateViewModel(backend, session, Inline);
+    }
+
+    public static UpdateViewModel Updates(IBackend backend, Session session)
+        => new(backend, session, Inline);
 }

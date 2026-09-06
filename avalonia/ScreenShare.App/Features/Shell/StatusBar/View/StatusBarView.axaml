@@ -29,11 +29,44 @@
           The build, in every destination.
           The app's own fact rather than one screen's, and the one band drawn on every platform:
           the title bar is the app's on Windows and macOS alone (avalonia/README.md).
+
+          A button rather than a label, the version being what asks for a release check.
+          It keeps the muted face either way, so a band of figures does not grow a control
+          that competes with the one on the far side.
+          Where this copy checks nothing the button is disabled and its tip says why,
+          which is the whole of what a reader can do about it.
         -->
-        <TextBlock Classes="muted"
-                   Text="{Binding Version}"
-                   IsVisible="{Binding ShowsVersion}"
-                   VerticalAlignment="Center" />
+        <Button Theme="{StaticResource LinkButton}"
+                Foreground="{DynamicResource MutedBrush}"
+                Margin="-7,0,-7,0"
+                Content="{Binding Version}"
+                IsVisible="{Binding ShowsVersion}"
+                Command="{Binding Updates.Check}"
+                ToolTip.Tip="{Binding Updates.CheckHint}"
+                controls:Pending.IsActive="{Binding Updates.Check.IsRunning}"
+                VerticalAlignment="Center" />
+
+        <!--
+          What the check found, beside the version that asked for it.
+          Two controls for two kinds of line: one a reader acts on, and one they copy.
+          A found release is a button opening the dialog,
+          and a failure is selectable text, that being the string a bug report carries
+          (CLAUDE.md, "Every error message is selectable and copyable").
+        -->
+        <Button Theme="{StaticResource LinkButton}"
+                Margin="-7,0,-7,0"
+                Content="{Binding Updates.Line}"
+                IsVisible="{Binding Updates.OpensDialog}"
+                Command="{Binding Updates.Open}"
+                VerticalAlignment="Center" />
+
+        <SelectableTextBlock Classes="muted"
+                             Classes.danger="{Binding Updates.IsFailure}"
+                             Text="{Binding Updates.Line}"
+                             IsVisible="{Binding Updates.ShowsPlainLine}"
+                             TextWrapping="Wrap"
+                             MaxWidth="420"
+                             VerticalAlignment="Center" />
 
         <!-- Tighter spacing inside than the panel's own: the figures read as one group. -->
         <ItemsControl ItemsSource="{Binding Load}">

@@ -154,6 +154,17 @@ Two backends capture the desktop properly:
   That capability is close to root and belongs on a dedicated ffmpeg copy rather than on `/usr/bin/ffmpeg`.
   The NixOS module builds that copy, and `docs/packaging.md` describes it for everyone else.
 
+## Updating
+
+The version at the bottom of the window checks for a newer release.
+Where the download and the installer are the app's own, on Windows and on the portable Linux archive, it downloads the release and offers a restart that installs it.
+
+Where a package manager put the app on disk, on Arch, Fedora, Flatpak and Nix, it names the newer release and leaves the files alone.
+Updating is `pacman -U`, `dnf install`, `flatpak update` or a flake update, as it is for everything else that manager installed.
+
+`MIRRORME_UPDATE_CHECK=0` switches the check off for a whole install.
+The Nix package sets it.
+
 ## The tray icon
 
 The window closes to a tray icon, whose menu starts and stops a stream and whose quit ends the app.
