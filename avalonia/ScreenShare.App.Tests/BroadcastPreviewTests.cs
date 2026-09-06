@@ -771,4 +771,49 @@ public sealed class BroadcastPreviewTests
         Assert.False(preview.HasPlaceholder);
         Assert.Equal(TileSourceKind.PublishPreview, preview.Tile?.Source.Kind);
     }
+
+    /// <summary>
+    /// A window closed to the tray draws no card, so the reader slot the end-to-end route holds is held for nobody.
+    /// The route stays stored, so the picture comes back with the window.
+    /// </summary>
+    [Fact]
+    public void HidingTheWindowClosesTheEndToEndDecodeAndShowingItAsksAgain()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, session) = Card(backend, PreviewRoute.EndToEnd);
+        Assert.Single(backend.Started);
+
+        preview.SetWindowShown(false);
+
+        Assert.Single(backend.Stopped);
+        Assert.Null(preview.Tile);
+        Assert.Equal(PreviewRoute.EndToEnd, preview.SelectedRoute.Value);
+
+        preview.SetWindowShown(true);
+        Settle(preview, session);
+
+        Assert.Equal(2, backend.Started.Count);
+        Assert.NotNull(preview.Tile);
+    }
+
+    /// <summary>
+    /// The local route opens no decode, so what a hidden window gives back is the frame subscription:
+    /// a tile in a window that draws nothing holds the pool's slots without returning them.
+    /// </summary>
+    [Fact]
+    public void HidingTheWindowTakesTheLocalTileDownAndShowingItBringsItBack()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend);
+        Assert.NotNull(preview.Tile);
+
+        preview.SetWindowShown(false);
+        Assert.Null(preview.Tile);
+        Assert.Empty(backend.Started);
+        Assert.Empty(backend.Stopped);
+
+        preview.SetWindowShown(true);
+        Assert.NotNull(preview.Tile);
+        Assert.Equal(TileSourceKind.PublishPreview, preview.Tile.Source.Kind);
+    }
 }

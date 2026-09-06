@@ -157,6 +157,12 @@ What crosses is the control calls one way and the frame events the other.
 A decode that ended stays in the host's set carrying its reason until the backend stops it.
 An entry dropped where it ended would take the reason with it, and the reason is what the tile shows.
 
+**A decode runs while a window draws it.**
+Which tiles exist is the shell's arrangement, and a window closed to the tray draws none:
+the tiles in its grid leave and their decodes close, while a stream in a window of its own keeps both.
+The grid comes back empty with the window, what to watch being the reader's to say again.
+The stream this machine publishes stays on the air behind a closed window (`avalonia/README.md`, "The tray").
+
 The child ends when its control connection does, taking every pipeline down first, and the backend waits for that: a host killed mid-teardown leaves a decoder on the device.
 
 ## Render chains
@@ -358,8 +364,9 @@ It shows what is being sent and nothing about what anybody receives, so a conges
 **One decode serves every window drawing it**, keyed by the stream and the leg, so a tile in the grid on the same pair is the same pipeline.
 The preview reads the grid's answer through before closing anything, and asks again for a decode it saw running and does not find, making a pipeline another window closed a blink rather than a card that stays dark.
 
-**The card opens drawing and follows no window.**
+**The card opens drawing and follows only whether the window is on screen.**
 A publisher's window stands behind the thing being shared for most of a session, so a card that stopped whenever nobody was looking would be dark at the moment a reader came back to check on it.
+A window closed to the tray draws nothing, so the card's decode closes and its tile goes, and the stored route brings both back with the window.
 
 ## What the screen picker draws
 

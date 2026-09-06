@@ -277,6 +277,19 @@ public sealed class ShellViewModel : Observable
     }
 
     /// <summary>
+    /// States whether the window is on screen.
+    /// A window closed to the tray draws nothing, so every picture in it goes and the relay decodes behind the grid
+    /// and the preview close, while the stream this machine sends stays on the air
+    /// (<c>docs/viewer-architecture.md</c>, "A decode runs while a window draws it").
+    /// Idempotent.
+    /// </summary>
+    public void SetWindowShown(bool shown)
+    {
+        Viewer.SetWindowShown(shown);
+        Broadcast.SetWindowShown(shown);
+    }
+
+    /// <summary>
     /// One render function.
     /// Safe to run twice: every child's apply is idempotent, so an unchanged pass writes no property and fires no
     /// binding.

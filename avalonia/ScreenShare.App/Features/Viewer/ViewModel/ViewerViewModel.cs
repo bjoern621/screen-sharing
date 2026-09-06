@@ -78,6 +78,12 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     private readonly HashSet<string> _poppedFullscreen = [];
 
+    /// <summary>
+    /// Whether the window is on screen (<see cref="SetWindowShown"/>).
+    /// True until a window says otherwise, so a viewer with no window around it draws.
+    /// </summary>
+    private bool _shown = true;
+
     /// <param name="dispatch">
     /// Hands work to the UI loop.
     /// An effect answers on whichever thread the transport completed on,
@@ -292,6 +298,26 @@ public sealed class ViewerViewModel : Observable
         Apply();
     }
 
+    /// <summary>
+    /// States whether the window is on screen.
+    /// A decode runs while a window draws its tile, and a window closed to the tray draws nothing:
+    /// every tile in its grid leaves and its decode stops, and a stream in a window of its own keeps both
+    /// (<c>docs/viewer-architecture.md</c>, "A decode runs while a window draws it").
+    /// The grid comes back empty with the window, what to watch being the reader's to say again.
+    /// Idempotent: the same answer twice moves nothing.
+    /// </summary>
+    public void SetWindowShown(bool shown)
+    {
+        if (_shown == shown)
+        {
+            return;
+        }
+
+        _shown = shown;
+        CloseUndrawn();
+        Apply();
+    }
+
     /// <summary>For a view that has to hand a tile to a window it is opening.</summary>
     public TileViewModel? TileOf(string stream) => _tiles.GetValueOrDefault(stream);
 
@@ -466,6 +492,7 @@ public sealed class ViewerViewModel : Observable
         Assert.That(Fullscreen.Length == 0 || _tiles.ContainsKey(Fullscreen), "a fullscreen stream is one of the tiles", Fullscreen);
         Assert.That(!_popped.Contains(Fullscreen), "the stream filling this window is one of its own grid's", Fullscreen);
         Assert.That(_tiles.Count == Tiles.Count, "one tile per stream in the grid", _tiles.Count, Tiles.Count);
+        Assert.That(_tiles.Keys.All(Drawn), "every tile has a window drawing it", _tiles.Count, _shown);
         Assert.That(HasStreams == (Notice.Length == 0), "a list and the sentence standing in for it are never both on screen", HasStreams);
         Assert.That(HasNotice == (Notice.Length > 0), "the notice and its text agree", HasNotice);
         Assert.That(!NoticeIsFailure || HasNotice, "a failure is marked on the sentence stating it", NoticeIsFailure, HasNotice);
@@ -609,8 +636,8 @@ public sealed class ViewerViewModel : Observable
     /// A decode is keyed by the stream and the leg together,
     /// so stopping on the current setting would leave one running whenever the leg had moved.
     ///
-    /// <b>Stored and not the draft.</b>
-    /// The leg is the only knob of the watch group this call names,
+    /// <b>The leg is the stored one.</b>
+    /// It is the only knob of the watch group this call names,
     /// the backend reading the render chain and the jitter buffers out of its own settings as it builds the decode.
     /// Opening on the draft would run an unkept leg against kept buffers
     /// (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
@@ -622,23 +649,11 @@ public sealed class ViewerViewModel : Observable
             // Read before the tile goes, the tile being where the answer is.
             var opened = _tiles.TryGetValue(stream, out var tile) ? tile.Transport : "";
             Drop(stream);
+            Apply();
 
-            if (opened.Length == 0)
+            if (opened.Length > 0)
             {
-                return;
-            }
-
-            try
-            {
-                await _backend.StopReceiveAsync(stream, opened).ConfigureAwait(false);
-                Refused("");
-            }
-            catch (BackendUnavailableException e)
-            {
-                Refused(e.Message);
-            }
-            catch (OperationCanceledException)
-            {
+                await CloseAsync(stream, opened).ConfigureAwait(false);
             }
 
             return;
@@ -664,6 +679,48 @@ public sealed class ViewerViewModel : Observable
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    /// <summary>Closes one decode and records what the backend said, an empty answer clearing the last refusal.</summary>
+    private async Task CloseAsync(string stream, string leg)
+    {
+        try
+        {
+            await _backend.StopReceiveAsync(stream, leg).ConfigureAwait(false);
+            Refused("");
+        }
+        catch (BackendUnavailableException e)
+        {
+            Refused(e.Message);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Whether a window draws one stream's tile: the main window while it is on screen, or a window of the stream's
+    /// own.
+    /// </summary>
+    private bool Drawn(string stream) => _shown || _popped.Contains(stream);
+
+    /// <summary>
+    /// Takes every tile no window draws off the grid and closes its decode.
+    /// Runs after each write that can leave one: the window hiding, and a pop-out closing into a hidden grid.
+    /// The tiles go before any stop is asked for, the order <see cref="TileAsync"/> states.
+    /// </summary>
+    private void CloseUndrawn()
+    {
+        var undrawn = _tiles.Values.Where(tile => !Drawn(tile.Name)).ToList();
+        foreach (var tile in undrawn)
+        {
+            Drop(tile.Name);
+        }
+
+        foreach (var tile in undrawn)
+        {
+            _ = CloseAsync(tile.Name, tile.Transport);
         }
     }
 
@@ -730,7 +787,8 @@ public sealed class ViewerViewModel : Observable
 
             case TileIntent.LeavePopOut:
                 // The state a closed window reports, so a stream already in the grid is left where it is.
-                // The decode is untouched: a window that closed is a picture that moved, not a stream that stopped.
+                // The slot it returns to is drawn while the main window is on screen, and the decode runs on.
+                // Into a hidden grid, the stream leaves instead, that slot being in a window nothing shows.
                 _popped.Remove(stream);
                 break;
 
@@ -741,7 +799,7 @@ public sealed class ViewerViewModel : Observable
                 break;
 
             case TileIntent.LeaveFullscreen:
-                // Names the state a window is to be in and never the transition,
+                // Names the state a window is to be in,
                 // so a stream filling nothing is left alone and the key is safe wherever it fires.
                 if (_popped.Contains(stream))
                 {
@@ -755,6 +813,7 @@ public sealed class ViewerViewModel : Observable
                 break;
         }
 
+        CloseUndrawn();
         Apply();
     }
 
@@ -762,6 +821,8 @@ public sealed class ViewerViewModel : Observable
     /// Adds one tile, on the UI loop, and re-renders.
     /// The leg is passed in rather than read again,
     /// so the tile is keyed by the pair the backend keyed the decode by even where the setting moved in between.
+    /// A window that hid while the start's answer was out has no grid for the tile,
+    /// so the decode closes again instead.
     /// </summary>
     private void Add(string stream, string leg)
     {
@@ -769,6 +830,12 @@ public sealed class ViewerViewModel : Observable
 
         if (_tiles.ContainsKey(stream))
         {
+            return;
+        }
+
+        if (!Drawn(stream))
+        {
+            _ = CloseAsync(stream, leg);
             return;
         }
 
@@ -785,10 +852,12 @@ public sealed class ViewerViewModel : Observable
     }
 
     /// <summary>
-    /// Takes one tile off the grid and re-renders.
+    /// Takes one tile off the grid.
     /// Removing it from the collection ends the frame subscription:
     /// the control drawing it detaches, cancelling the call and disposing every handle it imported
     /// (<c>Features/Viewer/Tile/View/StreamTile.cs</c>).
+    /// The caller renders: the pass drops the focus, the pop-out and the fullscreen of a stream that left
+    /// the grid, and a caller taking several off runs one pass for all of them.
     /// </summary>
     private void Drop(string stream)
     {
@@ -799,10 +868,6 @@ public sealed class ViewerViewModel : Observable
 
         tile.Changed -= Apply;
         Tiles.Remove(tile);
-
-        // The arrangement is not edited here.
-        // Apply drops the focus, the pop-out and the fullscreen of a stream that left the grid.
-        Apply();
     }
 
     /// <summary>

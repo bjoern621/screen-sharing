@@ -41,7 +41,7 @@ public sealed partial class App : Application
                     : WindowState.Maximized,
                 close: window.Close);
 
-            // Which of maximise and restore the middle caption button draws is the window's state, not the bar's,
+            // Which of maximise and restore the middle caption button draws is the window's state,
             // so it is written from here for the same reason the three actions are.
             // The first write as well as the subscription: a window can be maximised before it is ever shown,
             // by a restored session or a shell started snapped.
@@ -51,8 +51,17 @@ public sealed partial class App : Application
                 {
                     shell.TitleBar.ShowMaximised(window.WindowState == WindowState.Maximized);
                 }
+
+                // Whether the window is on screen is its state too, and every picture in it follows:
+                // a window closed to the tray draws nothing, so the decodes behind its grid and its preview close
+                // (ShellViewModel.SetWindowShown).
+                if (change.Property == Visual.IsVisibleProperty)
+                {
+                    shell.SetWindowShown(window.IsVisible);
+                }
             };
             shell.TitleBar.ShowMaximised(window.WindowState == WindowState.Maximized);
+            shell.SetWindowShown(window.IsVisible);
 
             desktop.MainWindow = window;
 

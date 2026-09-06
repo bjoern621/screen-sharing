@@ -214,6 +214,9 @@ public sealed class BroadcastViewModel : Observable
         OnPropertyChanged(nameof(ActionsInset));
     }
 
+    /// <summary>States whether the window is on screen, which the preview's picture follows. Idempotent.</summary>
+    public void SetWindowShown(bool shown) => Preview.SetWindowShown(shown);
+
     /// <summary>
     /// Synthetic publishers this machine runs, a row per slot.
     /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable

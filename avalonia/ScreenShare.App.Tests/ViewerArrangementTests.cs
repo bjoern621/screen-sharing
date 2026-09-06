@@ -40,6 +40,22 @@ public sealed class ViewerArrangementTests
 
         private string[] _paths = paths;
 
+        /// <summary>
+        /// Answer every start waits on, null while starts answer at once.
+        /// The decode is open the moment it is asked for; the answer is what is late.
+        /// </summary>
+        private TaskCompletionSource? _heldStart;
+
+        public void HoldStarts() => _heldStart = new TaskCompletionSource();
+
+        /// <summary>Lets every held start answer, off the test's own context (<see cref="Answers.Now"/>).</summary>
+        public void AnswerStarts()
+        {
+            var held = _heldStart;
+            _heldStart = null;
+            held?.SetResult();
+        }
+
         /// <summary>Replaces what the relay lists, read on the next load.</summary>
         public void Carry(params string[] paths) => _paths = paths;
 
@@ -87,7 +103,7 @@ public sealed class ViewerArrangementTests
                 _decoding.Add(streamRef);
             }
 
-            return Task.CompletedTask;
+            return _heldStart?.Task ?? Task.CompletedTask;
         }
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
@@ -590,5 +606,96 @@ public sealed class ViewerArrangementTests
 
         Assert.Equal("", viewer.Fullscreen);
         Assert.False(tile.IsFullscreen);
+    }
+
+    /// <summary>
+    /// A decode runs while a window draws its tile.
+    /// A window closed to the tray draws nothing, so what its grid held is a relay client and a decoder running
+    /// for nobody (<c>docs/viewer-architecture.md</c>, "A decode runs while a window draws it").
+    /// </summary>
+    [Fact]
+    public void HidingTheWindowStopsEveryDecodeItsGridDrew()
+    {
+        var (viewer, backend, _) = GridOn("one", "two");
+
+        viewer.SetWindowShown(false);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
+    }
+
+    /// <summary>A pop-out window stays on screen with the main window hidden, so the decode it draws runs on.</summary>
+    [Fact]
+    public void APoppedOutStreamKeepsItsDecodeWhileTheWindowIsHidden()
+    {
+        var (viewer, backend, _) = GridOn("one", "two");
+        Tile(viewer, "one").TogglePopOut.Execute(null);
+
+        viewer.SetWindowShown(false);
+
+        Assert.Single(viewer.Tiles, tile => tile.Name == "one");
+        Assert.Single(backend.Decoding, decode => decode.StreamName == "one");
+        Assert.Contains("one", viewer.PoppedOut);
+    }
+
+    /// <summary>The slot a closed pop-out returns to is in a window nothing shows.</summary>
+    [Fact]
+    public void APopOutClosedWhileTheWindowIsHiddenStopsItsDecode()
+    {
+        var (viewer, backend, _) = GridOn("one");
+        var tile = Tile(viewer, "one");
+        tile.TogglePopOut.Execute(null);
+        viewer.SetWindowShown(false);
+
+        tile.LeavePopOut.Execute(null);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
+    }
+
+    /// <summary>
+    /// The grid comes back empty, what to watch being the reader's to say again,
+    /// and stating the same visibility twice moves nothing.
+    /// </summary>
+    [Fact]
+    public void ShowingTheWindowAgainOpensNothing()
+    {
+        var (viewer, backend, _) = GridOn("one");
+        viewer.SetWindowShown(false);
+
+        viewer.SetWindowShown(true);
+        viewer.SetWindowShown(true);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
+
+        viewer.Streams.Single().Show.Execute(null);
+
+        Assert.Single(viewer.Tiles);
+        Assert.Single(backend.Decoding);
+    }
+
+    /// <summary>
+    /// A start is a round trip, and the window can hide while the answer is out.
+    /// A tile added then would sit in a window nothing shows, holding the decode the hide was meant to end.
+    /// </summary>
+    [Fact]
+    public void AStartAnsweringIntoAHiddenWindowClosesItsDecodeAgain()
+    {
+        var backend = new ViewerBackend("one");
+        var session = new Session(backend, static action => action());
+        session.Start();
+        var viewer = Flows.Viewer(backend, session);
+        viewer.Apply();
+
+        backend.HoldStarts();
+        viewer.Streams.Single().Show.Execute(null);
+        Assert.Single(backend.Decoding);
+
+        viewer.SetWindowShown(false);
+        Answers.Now(backend.AnswerStarts);
+
+        Assert.Empty(viewer.Tiles);
+        Assert.Empty(backend.Decoding);
     }
 }

@@ -29,11 +29,13 @@ namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 /// The route is a setting the toggle writes,
 /// and the card opens on the one it was left on (<see cref="PreviewRoutes.Of"/>).
 ///
-/// Off is a segment of that same toggle.
-/// It does not follow the window: a publisher's window stands behind what is being shared, so a card that went
-/// dark while nobody looked would be dark when a reader came back, and would pay a pool import and a reconnect
-/// to return.
-/// Off closes the end-to-end route's decode, which makes the segment worth more than a way to blank a tile.
+/// Off is a segment of that same toggle, and it closes the end-to-end route's decode,
+/// which makes the segment worth more than a way to blank a tile.
+///
+/// The picture follows one thing about the window: whether it is on screen (<see cref="SetWindowShown"/>).
+/// A publisher's window stands behind what is being shared, so a card that went dark whenever nobody looked
+/// would be dark when a reader came back, and would pay a pool import and a reconnect to return.
+/// A window closed to the tray draws nothing, so its card holds no decode and no subscription until it is back.
 ///
 /// Only the end-to-end route has an effect to call: <c>StartReceive</c> and <c>StopReceive</c>, as the viewer's
 /// grid calls them (<see cref="Receive"/>).
@@ -110,6 +112,12 @@ public sealed class PreviewViewModel : Observable
     /// (<see cref="SetGridLeg"/>).
     /// </summary>
     private Func<string, string> _gridLeg = static _ => "";
+
+    /// <summary>
+    /// Whether the window is on screen (<see cref="SetWindowShown"/>).
+    /// True until a window says otherwise, so a card with no window around it draws.
+    /// </summary>
+    private bool _shown = true;
 
     /// <param name="form">
     /// Settings, read for two values and written for one of them.
@@ -190,6 +198,19 @@ public sealed class PreviewViewModel : Observable
         Assert.NotNull(legOf, "a shared decode is read through the window that also draws it");
 
         _gridLeg = legOf;
+        Apply();
+    }
+
+    /// <summary>
+    /// States whether the window is on screen.
+    /// A window closed to the tray draws no card, so the converge wants no picture: the end-to-end route's decode
+    /// closes and either route's tile goes, giving the pool's slots back.
+    /// The route stays stored, so both come back with the window.
+    /// Idempotent: a pass over the same answer converges to the same world.
+    /// </summary>
+    public void SetWindowShown(bool shown)
+    {
+        _shown = shown;
         Apply();
     }
 
@@ -430,13 +451,15 @@ public sealed class PreviewViewModel : Observable
             Route == PreviewRoute.EndToEnd || _asked is null,
             "only the end-to-end route holds a relay decode open", (int)Route);
         Assert.That(Route != PreviewRoute.Off || _tile is null, "a preview that is off draws no tile");
+        Assert.That(_shown || _tile is null, "a card in a hidden window draws no tile");
+        Assert.That(_shown || _asked is null, "a card in a hidden window holds no relay decode open");
         Assert.That(Cost.Length > 0, "a preview states what it is showing and what it is not");
         Assert.That(SelectedRoute.Value == Route, "the toggle and the picture name one route", (int)Route);
     }
 
     /// <summary>
-    /// Relay decode the end-to-end route needs, null where it needs none: the local route, the off segment, and
-    /// nothing publishing.
+    /// Relay decode the end-to-end route needs, null where it needs none: the local route, the off segment,
+    /// nothing publishing, and a window that is not on screen.
     /// The stream and the leg are read through on every pass, the route being the card's own.
     /// The stream is the publish's own name, this route receiving this machine's stream rather than one a reader
     /// chose.
@@ -444,7 +467,7 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private StreamRef? Wanted()
     {
-        if (Route != PreviewRoute.EndToEnd)
+        if (!_shown || Route != PreviewRoute.EndToEnd)
         {
             return null;
         }
@@ -467,7 +490,7 @@ public sealed class PreviewViewModel : Observable
     private string Publishing() => _session.Publish?.Live?.StreamName ?? "";
 
     /// <summary>
-    /// Picture the chosen route has running behind it, null for nothing to draw.
+    /// Picture the chosen route has running behind it, null for nothing to draw and for a window that draws nothing.
     /// One fact is read through on either route: something is producing the picture.
     /// What produces it differs, the local route's pipeline being part of the publish and the end-to-end route's
     /// a decode in the receive state, and reading both into one shape lets one tile draw either
@@ -475,7 +498,7 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private TilePipeline? Running(StreamRef? wanted)
     {
-        if (Route == PreviewRoute.Off)
+        if (!_shown || Route == PreviewRoute.Off)
         {
             return null;
         }
