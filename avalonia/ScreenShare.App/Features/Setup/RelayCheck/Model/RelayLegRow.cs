@@ -33,7 +33,7 @@ public sealed record RelayLegRow
 /// <summary>
 /// The list, built from what the backend answered.
 /// Every word comes from <c>Copy/</c>: the leg names from the vocabulary the dropdowns use,
-/// and the reason a leg went undialled from the statement code beside it.
+/// and the reason nothing here uses a leg from the statement code beside it.
 /// What a listener said stays as it arrived, being another machine's words rather than this app's
 /// (api/proto/screenshare/v1/text.proto).
 /// </summary>
@@ -94,16 +94,21 @@ public static class RelayLegRows
     /// What the row says: the address and the listener's own words, or the reason nothing was dialled.
     /// The wait rides on the end of a leg that was dialled,
     /// which is what tells a port that refused from one that was never there.
+    /// A leg nothing here uses carries the reason after its answer, both being facts about the same row.
     /// </summary>
     private static string DetailOf(RelayLeg leg)
     {
         if (leg.Verdict == RelayLegVerdict.Unaddressed)
         {
-            return Statements.Of(leg.Unaddressed);
+            return Statements.Of(leg.Unused);
         }
 
         var detail = $"{leg.Address} · {leg.Detail}";
-        return leg.HasWaitedMs ? $"{detail} · {leg.WaitedMs} ms" : detail;
+        if (leg.HasWaitedMs)
+        {
+            detail = $"{detail} · {leg.WaitedMs} ms";
+        }
+        return leg.Unused is null ? detail : $"{detail} · {Statements.Of(leg.Unused)}";
     }
 
     /// <summary>
@@ -112,12 +117,15 @@ public static class RelayLegRows
     ///
     /// A leg nothing dialled is a note and never a fault: the relay binds what it is configured to bind,
     /// and a red mark against it would send a reader looking for a break that is not there.
+    /// A listener that answered where nothing here uses it is amber: the relay is whole,
+    /// and the row is the one place saying the settings point elsewhere.
     /// </summary>
     private static CheckState StateOf(RelayLegVerdict verdict) => verdict switch
     {
         RelayLegVerdict.Reachable => CheckState.Passed,
         RelayLegVerdict.Unreachable => CheckState.Blocking,
         RelayLegVerdict.Unaddressed => CheckState.Note,
+        RelayLegVerdict.Unused => CheckState.Warned,
         _ => Assert.Never<CheckState>("unexpected relay leg verdict", (int)verdict),
     };
 }

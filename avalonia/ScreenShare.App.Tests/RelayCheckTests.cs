@@ -63,8 +63,9 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// Three verdicts wear the three marks: a listener that answered, one that did not,
-    /// and one nothing dialled, which is a note and never a fault.
+    /// Four verdicts wear four marks: a listener that answered, one that did not,
+    /// one nothing dialled, and one whose answer nothing here needs.
+    /// Neither of the last two is a fault.
     /// </summary>
     [Fact]
     public async Task EachVerdictWearsItsOwnMark()
@@ -75,7 +76,7 @@ public sealed class RelayCheckTests
         flow.RelayCheck.CheckCommand.Execute(null);
 
         Assert.Equal(
-            [CheckState.Passed, CheckState.Blocking, CheckState.Note],
+            [CheckState.Passed, CheckState.Blocking, CheckState.Note, CheckState.Warned],
             flow.RelayCheck.Legs.Select(leg => leg.State));
     }
 
@@ -191,25 +192,51 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// The manager is a leg like the group service: named in words, and saying in words why
-    /// nothing was asked of it where Discord mode is off.
+    /// A manager answering with Discord mode off is the relay behaving and this machine pointing elsewhere,
+    /// which is amber: the row carries the answer and the reason beside it.
     /// </summary>
     [Fact]
-    public void TheDiscordManagerRowSaysWhyNothingWasAsked()
+    public void TheDiscordManagerRowCarriesItsAnswerAndWhyNothingUsesIt()
     {
         var legs = RelayLegRows.Of(
         [
             new RelayLeg
             {
                 Leg = "discord",
-                Verdict = RelayLegVerdict.Unaddressed,
-                Unaddressed = new Text { Code = TextCode.RelayLegDiscordOff },
+                Address = "https://relay.test/discord",
+                Verdict = RelayLegVerdict.Unused,
+                Detail = "200 OK",
+                Unused = new Text { Code = TextCode.RelayLegDiscordOff },
             },
         ]);
 
-        Assert.Equal(CheckState.Note, legs[0].State);
+        Assert.Equal(CheckState.Warned, legs[0].State);
         Assert.Contains(Words.RelayLeg("discord"), legs[0].Text);
+        Assert.Contains("https://relay.test/discord", legs[0].Text);
+        Assert.Contains("200 OK", legs[0].Text);
         Assert.Contains(Statements.Of(new Text { Code = TextCode.RelayLegDiscordOff }), legs[0].Text);
         Assert.DoesNotContain(nameof(TextCode.RelayLegDiscordOff), legs[0].Text);
+    }
+
+    /// <summary>
+    /// A manager that answered nothing is a fault whatever Discord mode says,
+    /// what the check asks being whether the relay is whole.
+    /// </summary>
+    [Fact]
+    public void AManagerThatAnsweredNothingIsAFault()
+    {
+        var legs = RelayLegRows.Of(
+        [
+            new RelayLeg
+            {
+                Leg = "discord",
+                Address = "https://relay.test/discord",
+                Verdict = RelayLegVerdict.Unreachable,
+                Detail = "connection refused",
+            },
+        ]);
+
+        Assert.Equal(CheckState.Blocking, legs[0].State);
+        Assert.Contains("connection refused", legs[0].Text);
     }
 }

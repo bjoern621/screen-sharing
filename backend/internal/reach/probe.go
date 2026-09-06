@@ -46,6 +46,8 @@ var probes = map[string]func(context.Context, target) (answer, error){
 // A route the relay serves answers 2xx where the request carries the credential the settings hold.
 // Any status counts as the listener answering: the question is whether the server is there, and
 // a reader holding no token is answered 401 over a listener that is up.
+// A route held to a success is the exception, its own service owning it and taking no credential
+// (target.wantOK).
 func probeHTTP(ctx context.Context, t target) (answer, error) {
 	assert.Assert(t.url != "", "an HTTP probe names what it fetches")
 	assert.Assert(t.method != "", "an HTTP probe names what it asks", t.url)
@@ -65,6 +67,9 @@ func probeHTTP(ctx context.Context, t target) (answer, error) {
 	}
 	defer response.Body.Close()
 
+	if t.wantOK && response.StatusCode/100 != 2 {
+		return answer{}, fmt.Errorf("answered %q, so the service is missing or older than this check", response.Status)
+	}
 	return answer{detail: response.Status, version: versionOf(response.Header.Get("Server"))}, nil
 }
 

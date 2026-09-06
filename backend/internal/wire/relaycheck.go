@@ -21,10 +21,11 @@ var relayLegVerdicts = map[reach.Verdict]screensharev1.RelayLegVerdict{
 	reach.Reachable:   screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_REACHABLE,
 	reach.Unreachable: screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNREACHABLE,
 	reach.Unaddressed: screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNADDRESSED,
+	reach.Unused:      screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNUSED,
 }
 
-// relayLegReasons is why a leg went undialled, as the statement a shell writes the sentence for.
-// ReasonNone is absent: a dialled leg, whose row carries what came back instead.
+// relayLegReasons is why nothing here uses a leg, as the statement a shell writes the sentence for.
+// ReasonNone is absent: a leg in use, whose row carries what came back instead.
 var relayLegReasons = map[reach.Reason]screensharev1.TextCode{
 	reach.ReasonNoRelay:    screensharev1.TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY,
 	reach.ReasonDiscordOff: screensharev1.TextCode_TEXT_CODE_RELAY_LEG_DISCORD_OFF,
@@ -46,8 +47,8 @@ func RelayLegs(results []reach.Result) []*screensharev1.RelayLeg {
 			// The listener's own words, or the dial's, raw:
 			// another machine's string is data rather than this app's vocabulary
 			// (api/proto/screenshare/v1/text.proto).
-			Detail:      r.Detail,
-			Unaddressed: relayLegUnaddressed(r.Unaddressed),
+			Detail: r.Detail,
+			Unused: relayLegUnused(r.Unused),
 		}
 		// Absent rather than nought where nothing was dialled:
 		// a wait of zero milliseconds is a figure, and no wait at all is not one.
@@ -60,12 +61,16 @@ func RelayLegs(results []reach.Result) []*screensharev1.RelayLeg {
 			leg.Version = proto.String(r.Version)
 		}
 
-		unaddressed := leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNADDRESSED
-		assert.Assert(unaddressed == (leg.GetUnaddressed() != nil),
-			"a leg says why it went undialled exactly where it did", leg.GetLeg(), leg.GetVerdict())
-		assert.Assert(unaddressed == (leg.GetAddress() == ""),
+		undialled := leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNADDRESSED
+		unused := undialled || leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNUSED
+		answered := leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_REACHABLE ||
+			leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNUSED
+
+		assert.Assert(unused == (leg.GetUnused() != nil),
+			"a leg says why nothing uses it exactly where nothing does", leg.GetLeg(), leg.GetVerdict())
+		assert.Assert(undialled == (leg.GetAddress() == ""),
 			"a leg names where it was dialled exactly where it was", leg.GetLeg(), leg.GetVerdict())
-		assert.Assert(leg.Version == nil || leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_REACHABLE,
+		assert.Assert(leg.Version == nil || answered,
 			"a version comes off a listener that answered", leg.GetLeg(), leg.GetVerdict())
 
 		out = append(out, leg)
@@ -73,13 +78,13 @@ func RelayLegs(results []reach.Result) []*screensharev1.RelayLeg {
 	return out
 }
 
-// relayLegUnaddressed is the statement behind an undialled leg, and nil for a leg that was dialled.
-func relayLegUnaddressed(reason reach.Reason) *screensharev1.Text {
+// relayLegUnused is the statement behind a leg nothing here uses, and nil for one in use.
+func relayLegUnused(reason reach.Reason) *screensharev1.Text {
 	if reason == reach.ReasonNone {
 		return nil
 	}
 
 	code, ok := relayLegReasons[reason]
-	assert.Assert(ok, "every reason a leg goes undialled for crosses as a statement", reason)
+	assert.Assert(ok, "every reason a leg goes unused for crosses as a statement", reason)
 	return text.Of(code)
 }

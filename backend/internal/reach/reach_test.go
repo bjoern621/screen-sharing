@@ -93,8 +93,8 @@ func TestNoRelayNamedDialsNothing(t *testing.T) {
 	s.Relay.Host = ""
 
 	for _, e := range Endpoints(s) {
-		if e.Unaddressed != ReasonNoRelay {
-			t.Errorf("%s reads %v with no relay named, want %v", e.Leg, e.Unaddressed, ReasonNoRelay)
+		if e.Unused != ReasonNoRelay {
+			t.Errorf("%s reads %v with no relay named, want %v", e.Leg, e.Unused, ReasonNoRelay)
 		}
 		if e.Address != "" {
 			t.Errorf("%s is dialled at %q with no relay named", e.Leg, e.Address)
@@ -115,8 +115,7 @@ func TestEveryTransportIsChecked(t *testing.T) {
 	}
 }
 
-// One row per leg, carrying either an address or the reason there is none,
-// exactly one of the two.
+// One row per leg, and a leg with no address carrying the reason there is none.
 func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
@@ -127,8 +126,8 @@ func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 			t.Errorf("leg %q is checked twice", e.Leg)
 		}
 		seen[e.Leg] = true
-		if (e.Address == "") == (e.Unaddressed == ReasonNone) {
-			t.Errorf("leg %q is dialled at %q and unaddressed for %v", e.Leg, e.Address, e.Unaddressed)
+		if e.Address == "" && e.Unused == ReasonNone {
+			t.Errorf("leg %q is dialled nowhere and says why nowhere", e.Leg)
 		}
 	}
 	if want := len(transport.Listeners(s)) + 2; len(seen) != want {
@@ -210,6 +209,45 @@ func TestAnHttpListenerRefusingTheRouteIsStillReachable(t *testing.T) {
 	}
 	if !strings.Contains(r.Detail, "404") {
 		t.Errorf("the row says %q, want the status the listener answered", r.Detail)
+	}
+}
+
+// A route one of the relay's own services owns takes no credential,
+// so a status outside 2xx is the service missing rather than a reader refused.
+func TestAServiceRouteAnsweringOutsideSuccessIsUnreachable(t *testing.T) {
+	address := serveTCP(t, func(c net.Conn) {
+		buf := make([]byte, 512)
+		if _, err := c.Read(buf); err != nil {
+			return
+		}
+		fmt.Fprint(c, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
+	})
+
+	r := run(t.Context(), resolved{
+		leg:     legDiscord,
+		address: "http://" + address,
+		target:  target{url: "http://" + address + "/health", method: http.MethodGet, wantOK: true},
+	})
+
+	if r.Verdict != Unreachable {
+		t.Fatalf("a 404 on the manager's own route reads %v: %s", r.Verdict, r.Detail)
+	}
+	if !strings.Contains(r.Detail, "404") {
+		t.Errorf("the row says %q, want the status it answered", r.Detail)
+	}
+}
+
+// The two services answer their own routes without a credential, so each is held to a success.
+// A transport is not: its listener answers 401 over a reader holding no token.
+func TestOnlyTheRelaysOwnServicesAreHeldToASuccess(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+
+	for _, row := range resolve(s) {
+		want := row.leg == legGroups || row.leg == legDiscord
+		if row.target.wantOK != want {
+			t.Errorf("leg %q is held to a success: %v, want %v", row.leg, row.target.wantOK, want)
+		}
 	}
 }
 
@@ -309,8 +347,8 @@ func TestCheckAnswersARowPerLeg(t *testing.T) {
 		if r.Verdict != Unaddressed {
 			t.Errorf("%s reads %v with no relay named, want %v", r.Leg, r.Verdict, Unaddressed)
 		}
-		if r.Unaddressed != ReasonNoRelay {
-			t.Errorf("%s is unaddressed for %v, want %v", r.Leg, r.Unaddressed, ReasonNoRelay)
+		if r.Unused != ReasonNoRelay {
+			t.Errorf("%s is unaddressed for %v, want %v", r.Leg, r.Unused, ReasonNoRelay)
 		}
 		if r.Took != 0 {
 			t.Errorf("%s waited %s on a leg nothing dialled", r.Leg, r.Took)
@@ -577,15 +615,16 @@ func TestTheDiscordManagerIsCheckedInDiscordMode(t *testing.T) {
 	if e.Address != "https://relay.example/discord" {
 		t.Errorf("the manager is checked at %q", e.Address)
 	}
-	if e.Unaddressed != ReasonNone {
-		t.Errorf("the manager reads %v with Discord mode on", e.Unaddressed)
+	if e.Unused != ReasonNone {
+		t.Errorf("the manager reads %v with Discord mode on", e.Unused)
 	}
 }
 
-// Discord mode off leaves the manager undialled, and says which case that is:
-// nothing this machine does reaches it, so a cross against it would send a reader after a break
-// that is not there.
-func TestTheDiscordManagerIsUndialledWithTheModeOff(t *testing.T) {
+// The mode off dials the manager all the same: what a check asks is whether the relay is whole,
+// and the mode is this machine's setting rather than the relay's.
+// The row carries the reason beside the address, which is what marks the answer as one nothing here
+// needs.
+func TestTheDiscordManagerIsCheckedWithTheModeOff(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
 
@@ -593,10 +632,59 @@ func TestTheDiscordManagerIsUndialledWithTheModeOff(t *testing.T) {
 	if !ok {
 		t.Fatalf("the manager has no row at all with the mode off")
 	}
-	if e.Unaddressed != ReasonDiscordOff {
-		t.Errorf("the manager reads %v with the mode off, want %v", e.Unaddressed, ReasonDiscordOff)
+	if e.Address != "https://relay.example/discord" {
+		t.Errorf("the manager is checked at %q with the mode off", e.Address)
 	}
-	if e.Address != "" {
-		t.Errorf("the manager is dialled at %q with the mode off", e.Address)
+	if e.Unused != ReasonDiscordOff {
+		t.Errorf("the manager reads %v with the mode off, want %v", e.Unused, ReasonDiscordOff)
+	}
+}
+
+// A listener answering on a leg nothing here uses is the relay behaving,
+// so the row carries the answer and the reason beside it rather than a cross.
+func TestAnAnsweringLegNothingUsesReadsUnused(t *testing.T) {
+	address := serveTCP(t, func(c net.Conn) {
+		buf := make([]byte, 256)
+		if _, err := c.Read(buf); err != nil {
+			return
+		}
+		fmt.Fprint(c, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+	})
+
+	r := run(t.Context(), resolved{
+		leg:     legDiscord,
+		address: "http://" + address,
+		target:  target{url: "http://" + address + "/health", method: http.MethodGet},
+		reason:  ReasonDiscordOff,
+	})
+
+	if r.Verdict != Unused {
+		t.Fatalf("a listener nothing here uses reads %v: %s", r.Verdict, r.Detail)
+	}
+	if r.Unused != ReasonDiscordOff {
+		t.Errorf("the row reads %v, want %v", r.Unused, ReasonDiscordOff)
+	}
+	if !strings.Contains(r.Detail, "200 OK") {
+		t.Errorf("the row says %q, want the listener's own status line", r.Detail)
+	}
+}
+
+// Silence on a leg nothing here uses is a cross all the same:
+// what a check asks is whether the relay answers, and the mode is a setting of this machine's.
+func TestASilentLegNothingUsesReadsUnreachable(t *testing.T) {
+	address := serveTCP(t, func(c net.Conn) { c.Close() })
+
+	r := run(t.Context(), resolved{
+		leg:     legDiscord,
+		address: "http://" + address,
+		target:  target{url: "http://" + address + "/health", method: http.MethodGet},
+		reason:  ReasonDiscordOff,
+	})
+
+	if r.Verdict != Unreachable {
+		t.Fatalf("a manager that answered nothing reads %v: %s", r.Verdict, r.Detail)
+	}
+	if r.Unused != ReasonNone {
+		t.Errorf("the row reads %v, want the silence alone", r.Unused)
 	}
 }

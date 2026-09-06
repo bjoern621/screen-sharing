@@ -13,17 +13,18 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	err := Report(&out, []Result{
 		{Leg: "rtsp", Address: "rtsps://relay:8322", Verdict: Reachable, Detail: "RTSP/1.0 200 OK", Took: 41 * time.Millisecond},
 		{Leg: "srt", Address: "srt://relay:8890", Verdict: Unreachable, Detail: "i/o timeout", Took: 5 * time.Second},
-		{Leg: legGroups, Verdict: Unaddressed, Unaddressed: ReasonNoRelay},
+		{Leg: legGroups, Verdict: Unaddressed, Unused: ReasonNoRelay},
+		{Leg: legDiscord, Address: "https://relay/discord", Verdict: Unused, Detail: "200 OK", Unused: ReasonDiscordOff, Took: time.Millisecond},
 	})
 	if err != nil {
 		t.Fatalf("Report: %v", err)
 	}
 
 	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
-	if len(lines) != 3 {
+	if len(lines) != 4 {
 		t.Fatalf("%d lines, want one per leg", len(lines))
 	}
-	for i, want := range []string{"✓", "✗", "–"} {
+	for i, want := range []string{"✓", "✗", "–", "!"} {
 		if !strings.HasPrefix(lines[i], want) {
 			t.Errorf("line %d is %q, want it marked %q", i, lines[i], want)
 		}
@@ -37,13 +38,28 @@ func TestAReportMarksEveryVerdictAndSaysWhy(t *testing.T) {
 	if !strings.Contains(lines[2], reasons[ReasonNoRelay]) {
 		t.Errorf("the unaddressed row is %q, want why nothing was dialled", lines[2])
 	}
+	if !strings.Contains(lines[3], "200 OK") || !strings.Contains(lines[3], reasons[ReasonDiscordOff]) {
+		t.Errorf("the unused row is %q, want the answer and why nothing here uses it", lines[3])
+	}
+}
+
+// A verdict with no mark of its own prints a blank where a reader looks first.
+func TestEveryVerdictPrintsUnderAMark(t *testing.T) {
+	for _, verdict := range Verdicts {
+		if marks[verdict] == "" {
+			t.Errorf("%v prints under no mark", verdict)
+		}
+	}
 }
 
 // Exit status is the answer for a caller that reads no table: a leg that did not answer
-// is a failure, a leg nothing dialled is not.
-func TestOnlyALegThatWasDialledCanFail(t *testing.T) {
-	if Failed([]Result{{Leg: legGroups, Verdict: Unaddressed, Unaddressed: ReasonNoRelay}}) {
+// is a failure, and a leg nothing here dials or uses is not.
+func TestOnlyALegThatDidNotAnswerFails(t *testing.T) {
+	if Failed([]Result{{Leg: legGroups, Verdict: Unaddressed, Unused: ReasonNoRelay}}) {
 		t.Error("a leg addressed nowhere reads as a failure")
+	}
+	if Failed([]Result{{Leg: legDiscord, Verdict: Unused, Detail: "200 OK", Unused: ReasonDiscordOff}}) {
+		t.Error("a leg that answered and is unused reads as a failure")
 	}
 	if !Failed([]Result{{Leg: "srt", Verdict: Unreachable}}) {
 		t.Error("a leg that did not answer reads as a success")

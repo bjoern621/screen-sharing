@@ -4,8 +4,9 @@
 // (transport.Listener), so what is measured is this deployment rather than a second list of ports.
 // The dial goes to a route that listener's own server owns where the transport names one
 // (transport.Probed), one name fronting several of them.
-// A leg this deployment addresses nowhere reads as Unaddressed, never as a cross: a relay binding
-// what it is configured to bind is a relay behaving.
+// A leg this deployment addresses nowhere reads as Unaddressed, and one whose answer nothing here
+// needs reads as Unused, never as a cross: a relay binding what it is configured to bind is a relay
+// behaving.
 //
 // Every answer here is another machine's, so nothing asserts on one.
 // A refused connection, a missing listener, a name that does not resolve and an answer in the wrong
@@ -44,26 +45,29 @@ const (
 	Unreachable
 	// Unaddressed: this deployment sends nothing here, so nothing was dialled.
 	Unaddressed
+	// Unused: the listener answered, and nothing this machine does uses it.
+	Unused
 )
 
-// Verdicts is every verdict a row can carry, and Reasons every reason a leg goes undialled for.
+// Verdicts is every verdict a row can carry, and Reasons every reason nothing here uses a leg.
 //
 // Walked by whatever answers for all of them: the marks a report prints, the sentences it writes,
 // and the contract's own enum (internal/wire).
 // A value added above and left out of one is a failing test rather than a row nobody can draw.
 var (
-	Verdicts = []Verdict{Reachable, Unreachable, Unaddressed}
+	Verdicts = []Verdict{Reachable, Unreachable, Unaddressed, Unused}
 	Reasons  = []Reason{ReasonNoRelay, ReasonDiscordOff}
 )
 
-// Reason is why a leg is dialled nowhere.
+// Reason is why nothing here uses a leg, whether it was dialled or not.
 type Reason int
 
 const (
 	ReasonNone Reason = iota
 	// ReasonNoRelay: settings name no relay, so no leg has an address.
 	ReasonNoRelay
-	// ReasonDiscordOff: Discord mode is off, so nothing this machine does reaches the manager.
+	// ReasonDiscordOff: Discord mode is off, so nothing this machine does reaches the manager,
+	// whatever it answers.
 	ReasonDiscordOff
 )
 
@@ -72,10 +76,11 @@ type Endpoint struct {
 	// Leg is the transport's registry name, or legGroups.
 	Leg string
 	// Address is where the leg answers, as a reader would type it: "rtsps://relay:8322".
-	// Empty exactly where Unaddressed names a reason.
+	// Empty where no address could be built.
 	Address string
-	// Unaddressed is why nothing is dialled, ReasonNone where something is.
-	Unaddressed Reason
+	// Unused is why nothing here uses the leg, ReasonNone where something does.
+	// An address beside one is a leg dialled anyway, the relay being what a check asks about.
+	Unused Reason
 }
 
 // Result is one leg's answer.
@@ -87,8 +92,8 @@ type Result struct {
 	// report as it stands.
 	// Empty where nothing was dialled.
 	Detail string
-	// Unaddressed is the reason where Verdict is Unaddressed, and ReasonNone otherwise.
-	Unaddressed Reason
+	// Unused is why nothing here uses the leg, under Unaddressed and Unused, ReasonNone otherwise.
+	Unused Reason
 	// Version is what the listener named for itself, empty where it named none.
 	// A relay's own services carry one and MediaMTX carries none, so a row is answered either way.
 	Version string
@@ -103,7 +108,9 @@ type resolved struct {
 	address string
 	// target is where the probe dials, a route inside that listener where the transport names one
 	// (transport.Probed).
+	// Empty exactly where a leg goes undialled.
 	target target
+	// reason is why nothing here uses the leg, ReasonNone where something does.
 	reason Reason
 }
 
@@ -117,6 +124,9 @@ type target struct {
 	// Without one the relay answers 401 over a listener that is up, which is an answer about
 	// the credential rather than about the route (transport.CredentialHeader).
 	credential header
+	// wantOK holds a route to a 2xx, for the two services that own their routes and answer them
+	// without a credential: anything else there is the service missing rather than a reader refused.
+	wantOK bool
 	// insecure follows the relay's certificate: a relay reached directly on this network holds
 	// the self-signed pair deploy/relay.sh draws, which nothing issued, so validating it opens
 	// nothing (transport/tls.go).
@@ -135,11 +145,11 @@ func Endpoints(s settings.Settings) []Endpoint {
 
 	out := make([]Endpoint, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, Endpoint{Leg: row.leg, Address: row.address, Unaddressed: row.reason})
+		out = append(out, Endpoint{Leg: row.leg, Address: row.address, Unused: row.reason})
 	}
 	for _, e := range out {
-		assert.Assert((e.Address == "") == (e.Unaddressed != ReasonNone),
-			"a leg is either dialled somewhere or unaddressed for a reason", e.Leg, e.Address, e.Unaddressed)
+		assert.Assert(e.Address != "" || e.Unused != ReasonNone,
+			"a leg with no address says why nothing here uses it", e.Leg, e.Unused)
 	}
 	return out
 }
@@ -158,8 +168,10 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 
 	var wg sync.WaitGroup
 	for i, row := range rows {
-		if row.reason != ReasonNone {
-			results[i] = Result{Leg: row.leg, Verdict: Unaddressed, Unaddressed: row.reason}
+		if row.target.url == "" {
+			assert.Assert(row.reason != ReasonNone, "an undialled leg says why", row.leg)
+
+			results[i] = Result{Leg: row.leg, Verdict: Unaddressed, Unused: row.reason}
 			continue
 		}
 		wg.Add(1)
@@ -231,7 +243,7 @@ func groupService(r settings.Relay) resolved {
 		address: base,
 		// No credential: the key set is what a token is verified against, so it is public
 		// by construction and is answered before anybody holds one.
-		target: target{url: base + "/jwks.json", method: http.MethodGet, insecure: r.OnTrustedNetwork()},
+		target: target{url: base + "/jwks.json", method: http.MethodGet, wantOK: true, insecure: r.OnTrustedNetwork()},
 	}
 }
 
@@ -240,21 +252,25 @@ func groupService(r settings.Relay) resolved {
 //
 // Dialled on the route it answers a check with, which takes no credential and starts no consent
 // flow (internal/discordapi).
-// Undialled with the mode off: the stored group key is what a token is traded for then, and
-// nothing this machine does reaches the manager.
+// Dialled with the mode off as well: what a check asks is whether the relay is whole, and the mode
+// is this machine's setting rather than the relay's.
+// The mode off leaves the answer standing and the leg unused,
+// the stored group key being what a token is traded for then.
 func discordService(r settings.Relay) resolved {
 	base, ok := r.DiscordService()
 	if !ok {
 		return resolved{leg: legDiscord, reason: ReasonNoRelay}
 	}
-	if !r.DiscordMode {
-		return resolved{leg: legDiscord, reason: ReasonDiscordOff}
-	}
-	return resolved{
+
+	row := resolved{
 		leg:     legDiscord,
 		address: base,
-		target:  target{url: base + "/health", method: http.MethodGet, insecure: r.OnTrustedNetwork()},
+		target:  target{url: base + "/health", method: http.MethodGet, wantOK: true, insecure: r.OnTrustedNetwork()},
 	}
+	if !r.DiscordMode {
+		row.reason = ReasonDiscordOff
+	}
+	return row
 }
 
 // relayCredential is the header the HTTP legs are dialled with, empty where the settings hold
@@ -285,16 +301,23 @@ func run(ctx context.Context, row resolved) Result {
 	began := time.Now()
 	a, err := probe(ctx, row.target)
 	took := time.Since(began)
+	// A leg that did not answer carries no reason: what the row is about is the silence, whether
+	// anything here would have used the answer or not.
 	if err != nil {
 		return Result{Leg: row.leg, Address: row.address, Verdict: Unreachable, Detail: err.Error(), Took: took}
 	}
 
 	assert.Assert(a.detail != "", "a listener that answered says what it answered", row.leg)
+	verdict := Reachable
+	if row.reason != ReasonNone {
+		verdict = Unused
+	}
 	return Result{
 		Leg:     row.leg,
 		Address: row.address,
-		Verdict: Reachable,
+		Verdict: verdict,
 		Detail:  a.detail,
+		Unused:  row.reason,
 		Version: a.version,
 		Took:    took,
 	}

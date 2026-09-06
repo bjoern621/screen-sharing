@@ -596,7 +596,16 @@ internal sealed class SeededBackend : IBackend
         {
             Leg = "groups",
             Verdict = RelayLegVerdict.Unaddressed,
-            Unaddressed = new Text { Code = TextCode.RelayLegNoRelay },
+            Unused = new Text { Code = TextCode.RelayLegNoRelay },
+        },
+        new()
+        {
+            Leg = "discord",
+            Address = "https://relay.test/discord",
+            Verdict = RelayLegVerdict.Unused,
+            Detail = "200 OK",
+            Unused = new Text { Code = TextCode.RelayLegDiscordOff },
+            WaitedMs = 12,
         },
     ];
 

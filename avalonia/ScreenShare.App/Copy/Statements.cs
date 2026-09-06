@@ -581,7 +581,7 @@ public static class Statements
                 ? $"The saved presets could not be read, so none are listed. The unreadable file was kept as {a.Path}."
                 : "The saved presets could not be read, so none are listed.",
 
-            // Legs of a relay check nothing was asked of.
+            // Legs of a relay check nothing here uses.
             // Each says what is so,
             // and a reader who never heard of these listeners gets a fact about their relay.
 
@@ -589,7 +589,7 @@ public static class Statements
                 "No relay is set, so there is no address to check.",
 
             TextCode.RelayLegDiscordOff =>
-                "Discord mode is off, so nothing here talks to the Discord manager.",
+                "Discord mode is off, so nothing here uses this manager.",
 
             // Updates.
             // The first three are why nothing is checked or installed here, and each names what does it instead.

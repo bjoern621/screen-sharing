@@ -32,8 +32,11 @@ const (
 	// This deployment sends nothing here, so nothing was dialled.
 	// Neither an answer nor a failure:
 	// a relay binding what it is configured to bind is a relay behaving,
-	// and `unaddressed` says which case it is.
+	// and `unused` says which case it is.
 	RelayLegVerdict_RELAY_LEG_VERDICT_UNADDRESSED RelayLegVerdict = 3
+	// The listener answered, and nothing this machine does uses it.
+	// The relay is whole and the settings point elsewhere, which `unused` says.
+	RelayLegVerdict_RELAY_LEG_VERDICT_UNUSED RelayLegVerdict = 4
 )
 
 // Enum value maps for RelayLegVerdict.
@@ -43,12 +46,14 @@ var (
 		1: "RELAY_LEG_VERDICT_REACHABLE",
 		2: "RELAY_LEG_VERDICT_UNREACHABLE",
 		3: "RELAY_LEG_VERDICT_UNADDRESSED",
+		4: "RELAY_LEG_VERDICT_UNUSED",
 	}
 	RelayLegVerdict_value = map[string]int32{
 		"RELAY_LEG_VERDICT_UNSPECIFIED": 0,
 		"RELAY_LEG_VERDICT_REACHABLE":   1,
 		"RELAY_LEG_VERDICT_UNREACHABLE": 2,
 		"RELAY_LEG_VERDICT_UNADDRESSED": 3,
+		"RELAY_LEG_VERDICT_UNUSED":      4,
 	}
 )
 
@@ -2740,8 +2745,9 @@ type RelayLeg struct {
 	// so nothing matches on it.
 	// Empty where nothing was dialled.
 	Detail string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
-	// Why nothing was dialled, present exactly under RELAY_LEG_VERDICT_UNADDRESSED.
-	Unaddressed *Text `protobuf:"bytes,5,opt,name=unaddressed,proto3" json:"unaddressed,omitempty"`
+	// Why nothing here uses this leg,
+	// present exactly under RELAY_LEG_VERDICT_UNADDRESSED and RELAY_LEG_VERDICT_UNUSED.
+	Unused *Text `protobuf:"bytes,5,opt,name=unused,proto3" json:"unused,omitempty"`
 	// How long the probe waited, absent where nothing was dialled.
 	WaitedMs *int64 `protobuf:"varint,6,opt,name=waited_ms,json=waitedMs,proto3,oneof" json:"waited_ms,omitempty"`
 	// The version the listener named for itself, absent where it named none.
@@ -2810,9 +2816,9 @@ func (x *RelayLeg) GetDetail() string {
 	return ""
 }
 
-func (x *RelayLeg) GetUnaddressed() *Text {
+func (x *RelayLeg) GetUnused() *Text {
 	if x != nil {
-		return x.Unaddressed
+		return x.Unused
 	}
 	return nil
 }
@@ -3655,13 +3661,13 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x11CheckRelayRequest\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\"B\n" +
 	"\x12CheckRelayResponse\x12,\n" +
-	"\x04legs\x18\x01 \x03(\v2\x18.screenshare.v1.RelayLegR\x04legs\"\x9c\x02\n" +
+	"\x04legs\x18\x01 \x03(\v2\x18.screenshare.v1.RelayLegR\x04legs\"\x92\x02\n" +
 	"\bRelayLeg\x12\x10\n" +
 	"\x03leg\x18\x01 \x01(\tR\x03leg\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x129\n" +
 	"\averdict\x18\x03 \x01(\x0e2\x1f.screenshare.v1.RelayLegVerdictR\averdict\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\x126\n" +
-	"\vunaddressed\x18\x05 \x01(\v2\x14.screenshare.v1.TextR\vunaddressed\x12 \n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\x12,\n" +
+	"\x06unused\x18\x05 \x01(\v2\x14.screenshare.v1.TextR\x06unused\x12 \n" +
 	"\twaited_ms\x18\x06 \x01(\x03H\x00R\bwaitedMs\x88\x01\x01\x12\x1d\n" +
 	"\aversion\x18\a \x01(\tH\x01R\aversion\x88\x01\x01B\f\n" +
 	"\n" +
@@ -3695,12 +3701,13 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x01x\x18\x05 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x06 \x01(\x02R\x01y\x123\n" +
 	"\x16captured_at_unix_nanos\x18\x03 \x01(\x03R\x13capturedAtUnixNanos\x12\x18\n" +
-	"\avisible\x18\x04 \x01(\bR\avisibleJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03*\x9b\x01\n" +
+	"\avisible\x18\x04 \x01(\bR\avisibleJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03*\xb9\x01\n" +
 	"\x0fRelayLegVerdict\x12!\n" +
 	"\x1dRELAY_LEG_VERDICT_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bRELAY_LEG_VERDICT_REACHABLE\x10\x01\x12!\n" +
 	"\x1dRELAY_LEG_VERDICT_UNREACHABLE\x10\x02\x12!\n" +
-	"\x1dRELAY_LEG_VERDICT_UNADDRESSED\x10\x032\xa8 \n" +
+	"\x1dRELAY_LEG_VERDICT_UNADDRESSED\x10\x03\x12\x1c\n" +
+	"\x18RELAY_LEG_VERDICT_UNUSED\x10\x042\xa8 \n" +
 	"\x0eControlService\x12D\n" +
 	"\x05Hello\x12\x1c.screenshare.v1.HelloRequest\x1a\x1d.screenshare.v1.HelloResponse\x12S\n" +
 	"\n" +
@@ -3894,7 +3901,7 @@ var file_screenshare_v1_control_proto_depIdxs = []int32{
 	82,  // 19: screenshare.v1.CheckRelayRequest.settings:type_name -> screenshare.v1.Settings
 	64,  // 20: screenshare.v1.CheckRelayResponse.legs:type_name -> screenshare.v1.RelayLeg
 	0,   // 21: screenshare.v1.RelayLeg.verdict:type_name -> screenshare.v1.RelayLegVerdict
-	83,  // 22: screenshare.v1.RelayLeg.unaddressed:type_name -> screenshare.v1.Text
+	83,  // 22: screenshare.v1.RelayLeg.unused:type_name -> screenshare.v1.Text
 	89,  // 23: screenshare.v1.LinkDiscordRequest.relay:type_name -> screenshare.v1.RelaySettings
 	89,  // 24: screenshare.v1.CreateGroupRequest.relay:type_name -> screenshare.v1.RelaySettings
 	90,  // 25: screenshare.v1.SubscribeRequest.kinds:type_name -> screenshare.v1.EventKind

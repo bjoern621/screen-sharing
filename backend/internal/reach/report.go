@@ -20,9 +20,10 @@ var marks = map[Verdict]string{
 	Reachable:   "✓",
 	Unreachable: "✗",
 	Unaddressed: "–",
+	Unused:      "!",
 }
 
-// Why a leg was dialled nowhere, in the words a reader gets.
+// Why nothing here uses a leg, in the words a reader gets.
 //
 // Words live here because the only reader is the terminal a check runs from.
 // Rows crossing to a shell carry the code and the shell writes the sentence (docs/ipc-api.md).
@@ -48,9 +49,9 @@ func Report(w io.Writer, results []Result) error {
 	return table.Flush()
 }
 
-// Failed reports whether a leg this deployment addresses did not answer, carried as an exit status
-// so a script reads the answer without parsing the table.
-// A leg addressed nowhere is no failure: nothing was asked of it.
+// Failed reports whether a leg did not answer,
+// carried as an exit status so a script reads the answer without parsing the table.
+// A leg nothing here dials or uses is no failure: what is asked is whether the relay answers.
 func Failed(results []Result) bool {
 	for _, r := range results {
 		if r.Verdict == Unreachable {
@@ -60,15 +61,19 @@ func Failed(results []Result) bool {
 	return false
 }
 
-// detailOf is what the row says: the listener's own words, or why it was never asked.
+// detailOf is what the row says: the listener's own words, and why nothing here uses the leg where
+// nothing does.
 func detailOf(r Result) string {
-	if r.Verdict != Unaddressed {
+	if r.Unused == ReasonNone {
 		return r.Detail
 	}
 
-	reason, ok := reasons[r.Unaddressed]
-	assert.Assert(ok, "every reason a leg goes undialled for is spelled out", r.Leg, r.Unaddressed)
-	return reason
+	reason, ok := reasons[r.Unused]
+	assert.Assert(ok, "every reason a leg goes unused for is spelled out", r.Leg, r.Unused)
+	if r.Detail == "" {
+		return reason
+	}
+	return fmt.Sprintf("%s (%s)", r.Detail, reason)
 }
 
 // waitOf is how long the probe waited, and nothing where nothing was dialled.

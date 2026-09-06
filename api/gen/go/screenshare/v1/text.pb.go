@@ -774,7 +774,8 @@ const (
 	// No relay is named in the settings, so no leg has an address at all.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY TextCode = 166
-	// Discord mode is off, so nothing this machine does reaches the manager beside the relay.
+	// Discord mode is off, so nothing this machine does reaches the manager beside the relay,
+	// whatever it answers.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_DISCORD_OFF TextCode = 189
 	// MIRRORME_UPDATE_CHECK is off in this environment.

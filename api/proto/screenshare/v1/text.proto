@@ -730,17 +730,19 @@ enum TextCode {
   // TEXT_ARG_NAME_PATH.
   TEXT_CODE_PRESET_STORE_UNREADABLE = 151;
 
-  // --- Why a leg of the relay was never dialled ----------------------------------
+  // --- Why nothing here uses a leg of the relay ----------------------------------
   //
-  // It sits on a RelayLeg under RELAY_LEG_VERDICT_UNADDRESSED,
-  // which is neither an answer nor a failure:
-  // nothing was asked of that listener (control.proto, CheckRelay).
+  // It sits on a RelayLeg under RELAY_LEG_VERDICT_UNADDRESSED and RELAY_LEG_VERDICT_UNUSED,
+  // neither an answer nor a failure:
+  // nothing was asked of that listener, or its answer is one nothing here needs
+  // (control.proto, CheckRelay).
 
   // No relay is named in the settings, so no leg has an address at all.
   // No arguments.
   TEXT_CODE_RELAY_LEG_NO_RELAY = 166;
 
-  // Discord mode is off, so nothing this machine does reaches the manager beside the relay.
+  // Discord mode is off, so nothing this machine does reaches the manager beside the relay,
+  // whatever it answers.
   // No arguments.
   TEXT_CODE_RELAY_LEG_DISCORD_OFF = 189;
 
