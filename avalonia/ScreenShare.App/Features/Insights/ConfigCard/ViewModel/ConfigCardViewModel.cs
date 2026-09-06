@@ -78,7 +78,7 @@ public sealed class ConfigCardViewModel : Observable
     /// <summary>
     /// What stands in for the rows.
     /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form
-    /// for the settings the running pipeline was built from, and every broadcast's first passes happen before
+    /// for the settings the running pipeline was built from, and every stream's first passes happen before
     /// that answer lands.
     /// With nothing publishing there is no pipeline to describe at all, and a card saying it is reading one would
     /// wait on an answer nothing has been asked for.

@@ -48,12 +48,13 @@ namespace ScreenShare.App.Features.Insights.ViewModel;
 public sealed class InsightsViewModel : Observable
 {
     /// <summary>
-    /// Why the three header actions are inert.
-    /// One sentence for all three, being one fact about the contract rather than three about the buttons.
+    /// Why the three header actions are inert, and what reaches a running stream instead.
+    /// One sentence for all three: the contract carries none of them, so three would say the same thing
+    /// (<c>docs/ipc-api.md</c>, "The rule").
     /// </summary>
     private const string UnbackedReason =
-        "The control contract has no pause, keyframe or reconnect effect: it carries the reads "
-        + "a screen draws from and the few effects a user asks for by name.";
+        "Pausing, forcing a keyframe and reconnecting are not available. "
+        + "Stopping the stream and starting it again is the only control over a running stream.";
 
     private readonly IBackend _backend;
 

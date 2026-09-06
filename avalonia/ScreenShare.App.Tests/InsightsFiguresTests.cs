@@ -315,7 +315,7 @@ public sealed class InsightsFiguresTests
 
     /// <summary>
     /// The card is empty for two different reasons, and the destination is reachable in both.
-    /// A resolve that has not answered is the ordinary first second of every broadcast,
+    /// A resolve that has not answered is the ordinary first second of every stream,
     /// and a card reading a pipeline with nothing publishing would wait on an answer nothing asked for.
     /// </summary>
     [Fact]

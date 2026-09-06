@@ -45,9 +45,13 @@
             <ti:TablerIcon Classes="button" Icon="{Binding CardsColumn.ToggleGlyph}" />
           </Button>
 
-          <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}" />
-          <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}" />
-          <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}" />
+          <!-- Each carries its reason. A grayed button with no tooltip is a dead end. -->
+          <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}"
+                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
+          <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}"
+                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
+          <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}"
+                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
           <Button Theme="{StaticResource DangerButton}"
                   Content="{x:Static vm:InsightsViewModel.StopLabel}"
                   Command="{Binding StopCommand}"
