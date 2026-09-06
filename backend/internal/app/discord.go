@@ -44,6 +44,9 @@ type discordSnapshot struct {
 	Prefix        string
 	SrtPassphrase string
 	DisplayName   string
+	// Application is the Discord application the manager links through,
+	// which an activity on this machine's own Discord client is drawn under (richpresence.go).
+	Application string
 	// Refused marks a manager that will not resolve the link the settings hold.
 	// Polling again cannot clear it; linking again is what does.
 	Refused bool
@@ -67,10 +70,14 @@ func (a *App) pollPass() {
 
 	if mode {
 		a.discordPass()
-		return
+	} else {
+		a.fetchRelay()
+		a.statePresence()
 	}
-	a.fetchRelay()
-	a.statePresence()
+
+	// Off what the pass above landed, so what Discord shows and what this app holds are one read
+	// apart (richpresence.go).
+	a.statePresenceOnDiscord()
 }
 
 // discordPass states presence at the manager and lands everything the answer carries:
@@ -106,7 +113,7 @@ func (a *App) discordPass() {
 
 	if answer.Group == nil {
 		// Standing in no voice channel: no group, and an index nothing can ask.
-		a.landDiscord(linked, discordSnapshot{}, membership{}, relay.Status{})
+		a.landDiscord(linked, discordSnapshot{Application: answer.Application}, membership{}, relay.Status{})
 		return
 	}
 
@@ -116,6 +123,7 @@ func (a *App) discordPass() {
 		Prefix:        answer.Group.Prefix,
 		SrtPassphrase: answer.Group.SrtPassphrase,
 		DisplayName:   answer.Group.DisplayName,
+		Application:   answer.Application,
 	}
 
 	held := a.discordState()

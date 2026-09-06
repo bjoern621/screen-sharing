@@ -44,6 +44,16 @@ type Identity struct {
 	Username string
 }
 
+// Application is the Discord application this manager speaks for.
+//
+// Public, being what every authorize URL carries,
+// and what an app's own Discord client is handed to draw an activity under
+// (internal/discordrpc).
+func (c Config) Application() string {
+	assert.Assert(c.ClientID != "", "a manager names the application it links through")
+	return c.ClientID
+}
+
 // AuthorizeURL is where a linking browser is sent,
 // state riding along and coming back on the callback untouched.
 func (c Config) AuthorizeURL(state string) string {

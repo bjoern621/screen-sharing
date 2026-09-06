@@ -50,6 +50,7 @@ type Links interface {
 type OAuth interface {
 	AuthorizeURL(state string) string
 	Identify(code string) (discordoauth.Identity, error)
+	Application() string
 }
 
 // Service serves the routes. Safe for concurrent use.
@@ -100,9 +101,16 @@ func (s *Service) Handler(version string) http.Handler {
 }
 
 // wireAnswer is a presence answer as it crosses to the app.
+//
+// Application is the Discord application this manager links through,
+// answered on every pass because the app's own Discord client asks for it by id
+// (internal/discordrpc).
+// One owner for it: the manager holds the credentials that application is,
+// and an app carrying a copy would draw an activity under whichever id it was built with.
 type wireAnswer struct {
-	Channel *wireChannel `json:"channel"`
-	Group   *wireGroup   `json:"group"`
+	Application string       `json:"application"`
+	Channel     *wireChannel `json:"channel"`
+	Group       *wireGroup   `json:"group"`
 }
 
 type wireChannel struct {
@@ -134,7 +142,7 @@ func (s *Service) statePresence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wire := wireAnswer{}
+	wire := wireAnswer{Application: s.oauth.Application()}
 	if answer.Channel != nil {
 		wire.Channel = &wireChannel{Guild: answer.Channel.Guild, Name: answer.Channel.Name}
 	}

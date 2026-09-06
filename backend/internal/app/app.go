@@ -77,6 +77,10 @@ type App struct {
 	// Written by the relay poll and read wherever a stopped stream has to say whether membership
 	// stopped it, so it is held whole, readable on a failure path with nothing to wait on.
 	members atomic.Pointer[membership]
+	// What this machine states on the Discord client beside it (richpresence.go).
+	// Outside every mutex here: the relay poll owns it, opens it and closes it,
+	// and no other goroutine reads it.
+	presence richPresence
 	// relayPollOnce starts the poll that keeps relayLast fresh, relayStopOnce ends it, and both guard
 	// relayStop, which the loop selects on.
 	// Owned by the process rather than by whichever shell is up: the snapshot is the backend's to keep,

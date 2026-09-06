@@ -106,6 +106,11 @@ type Relay struct {
 	// whoever reads it watches this account's channels.
 	// Empty is an install that has not linked.
 	DiscordLink string `json:"discordLink,omitempty"`
+	// DiscordRichPresence has a share state itself on the Discord client running beside this app
+	// (internal/discordrpc).
+	// Read only while DiscordMode is set, which is what answers the channel and the audience,
+	// so turning this on turns that on with it (internal/app, SaveSettings).
+	DiscordRichPresence bool `json:"discordRichPresence,omitempty"`
 	// brokered is the manager's answer standing in for the group key's derivations,
 	// runtime like Token: written per pass or command (WithBrokeredGroup), never stored.
 	// nil is Discord mode outside any voice channel, and every mode before injection.

@@ -49,6 +49,8 @@ func (fakeOAuth) AuthorizeURL(state string) string {
 	return "https://discord.example/authorize?state=" + url.QueryEscape(state)
 }
 
+func (fakeOAuth) Application() string { return "fixture-application" }
+
 func (f *fakeOAuth) Identify(code string) (discordoauth.Identity, error) {
 	f.identified = code
 	if code != "good-code" {

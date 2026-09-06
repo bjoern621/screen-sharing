@@ -73,6 +73,34 @@ A member outside any channel gets an empty answer and states nothing.
 Tokens ride the same trust: `POST /tokens` at `discordd` takes the link secret,
 checks the voice state, and brokers the trade `groupd` answers.
 
+## What a share states on Discord
+
+A share states itself on the Discord client running beside the app.
+The activity says that this machine is sharing, names the voice channel,
+and counts the channel's members watching against the members in it, which Discord draws as "1 of 4".
+Its timer runs from the start of the child carrying the stream.
+
+Every figure is the pass that landed it:
+the channel from the manager, the audience from the group's index and its members,
+and the timer from the publish in force.
+A machine sharing nothing states no activity.
+
+The connection is the app's own, on the socket a running Discord serves (`internal/discordrpc`).
+It belongs on the machine the app runs on, that socket granting the profile of whoever is signed in there.
+The application it is drawn under is the manager's own, answered beside the channel on every pass,
+so one deployment's id reaches every app following it.
+
+Discord closes a connection stating more than five activities in twenty seconds.
+An activity naming what the connection already carries sends nothing,
+so the passes between two changes spend none of the five.
+Type 3 is what Discord draws as "Watching".
+The purple streaming badge is type 1, which Discord grants a Twitch or YouTube address alone.
+
+The channel and the audience are this mode's answers,
+so the setting asking for the activity turns the mode on with it (`internal/app`, `SaveSettings`).
+Switching it off closes the connection, which is what takes the activity off the profile.
+The activity carries no address, so nothing on it opens a browser.
+
 ## Leaving
 
 ```mermaid
@@ -101,6 +129,7 @@ The next occupancy draws a fresh group, so a prefix outlives no session.
 | who is in which channel | the bot's voice state |
 | channel to group, keys, member secrets | `discordd`, in memory |
 | link secret to Discord user | `discordd`, on disk |
+| the Discord application every app draws an activity under | `discordd`, from the credentials it links through |
 | leases, tokens, enforcement | `groupd`, as ever |
 | mode toggle, link secret | the app's settings |
 

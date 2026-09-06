@@ -57,6 +57,8 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		DisplayName: r.DisplayName,
 		DiscordMode: r.DiscordMode,
 		DiscordLink: r.DiscordLink,
+
+		DiscordRichPresence: r.DiscordRichPresence,
 	}
 }
 
@@ -160,6 +162,8 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		DisplayName: m.GetDisplayName(),
 		DiscordMode: m.GetDiscordMode(),
 		DiscordLink: m.GetDiscordLink(),
+
+		DiscordRichPresence: m.GetDiscordRichPresence(),
 	}
 }
 

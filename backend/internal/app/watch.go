@@ -50,6 +50,10 @@ func (a *App) pollRelay() {
 	ticker := time.NewTicker(relayPollInterval)
 	defer ticker.Stop()
 
+	// The connection this loop opened goes down with it,
+	// which is what takes this app's activity off the Discord profile (richpresence.go).
+	defer a.dropRichPresence()
+
 	for {
 		a.pollPass()
 

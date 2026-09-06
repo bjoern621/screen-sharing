@@ -131,6 +131,13 @@ message RelaySettings {
   // Names this install as a Discord account at the manager, drawn by the link flow.
   // It carries the trust group_key does. Empty is an install that has not linked.
   string discord_link = 14;
+  // A share states itself on the Discord client running beside this app:
+  // what is shared, which voice channel, how many are watching of how many in it
+  // (docs/discord-mode.md).
+  // Set while discord_mode is off states nothing,
+  // the channel and the audience being that mode's answers,
+  // so turning it on turns the mode on with it (internal/app, SaveSettings).
+  bool discord_rich_presence = 15;
 
   // The SRT passphrase crosses the contract nowhere:
   // the backend derives it from the group key on both ends of the leg,

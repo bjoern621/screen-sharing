@@ -105,6 +105,11 @@ var availabilityRules = map[string]func(availability) state{
 	},
 	// The toggle stays live in both modes, being what moves between them.
 	KeyDiscordMode: func(availability) state { return availabilityLive() },
+	// Live in both modes as the toggle above it is,
+	// turning it on being what turns that one on (internal/app, SaveSettings).
+	// Greying it outside Discord mode would leave the one control that reaches the mode
+	// behind the mode itself.
+	KeyDiscordRichPresence: func(availability) state { return availabilityLive() },
 	// Both manual group controls grey while the group follows the voice channel:
 	// the key is unread there and the name comes off the Discord account,
 	// so either would be a control that changes nothing (docs/discord-mode.md).

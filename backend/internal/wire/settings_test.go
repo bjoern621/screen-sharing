@@ -32,6 +32,8 @@ func populatedSettings() settings.Settings {
 			DisplayName: "fixture-member",
 			DiscordMode: true,
 			DiscordLink: "fixture-discord-link",
+
+			DiscordRichPresence: true,
 		},
 		Publish: settings.Publish{
 			Transport:           "srt",

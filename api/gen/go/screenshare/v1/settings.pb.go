@@ -254,9 +254,16 @@ type RelaySettings struct {
 	DiscordMode bool `protobuf:"varint,13,opt,name=discord_mode,json=discordMode,proto3" json:"discord_mode,omitempty"`
 	// Names this install as a Discord account at the manager, drawn by the link flow.
 	// It carries the trust group_key does. Empty is an install that has not linked.
-	DiscordLink   string `protobuf:"bytes,14,opt,name=discord_link,json=discordLink,proto3" json:"discord_link,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DiscordLink string `protobuf:"bytes,14,opt,name=discord_link,json=discordLink,proto3" json:"discord_link,omitempty"`
+	// A share states itself on the Discord client running beside this app:
+	// what is shared, which voice channel, how many are watching of how many in it
+	// (docs/discord-mode.md).
+	// Set while discord_mode is off states nothing,
+	// the channel and the audience being that mode's answers,
+	// so turning it on turns the mode on with it (internal/app, SaveSettings).
+	DiscordRichPresence bool `protobuf:"varint,15,opt,name=discord_rich_presence,json=discordRichPresence,proto3" json:"discord_rich_presence,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *RelaySettings) Reset() {
@@ -371,6 +378,13 @@ func (x *RelaySettings) GetDiscordLink() string {
 		return x.DiscordLink
 	}
 	return ""
+}
+
+func (x *RelaySettings) GetDiscordRichPresence() bool {
+	if x != nil {
+		return x.DiscordRichPresence
+	}
+	return false
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded.
@@ -1002,7 +1016,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"p\n" +
 	"\vAppSettings\x12,\n" +
 	"\x12send_crash_reports\x18\x01 \x01(\bR\x10sendCrashReports\x123\n" +
-	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\"\x8d\x03\n" +
+	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\"\xc1\x03\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x1b\n" +
@@ -1017,7 +1031,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12!\n" +
 	"\fdiscord_mode\x18\r \x01(\bR\vdiscordMode\x12!\n" +
-	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLinkJ\x04\b\t\x10\n" +
+	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLink\x122\n" +
+	"\x15discord_rich_presence\x18\x0f \x01(\bR\x13discordRichPresenceJ\x04\b\t\x10\n" +
 	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\x9b\t\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +

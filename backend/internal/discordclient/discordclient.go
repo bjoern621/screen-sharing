@@ -46,9 +46,13 @@ type Group struct {
 
 // Answer is one pass's whole truth.
 // Channel and Group are nil together, for an account standing in no voice channel.
+//
+// Application is the Discord application the manager links through, answered on every pass.
+// An app states an activity on its own Discord client under that id (internal/discordrpc).
 type Answer struct {
-	Channel *Channel `json:"channel"`
-	Group   *Group   `json:"group"`
+	Application string   `json:"application"`
+	Channel     *Channel `json:"channel"`
+	Group       *Group   `json:"group"`
 }
 
 // Client calls the manager. Safe for concurrent use, holding nothing between calls:

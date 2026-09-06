@@ -24,11 +24,12 @@ import (
 // and the shell's own draft writer walks the same two
 // (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
 const (
-	KeyRelayHost   = "relay.host"
-	KeyRelayTls    = "relay.tls"
-	KeyDiscordMode = "relay.discord_mode"
-	KeyGroupKey    = "relay.group_key"
-	KeyDisplayName = "relay.display_name"
+	KeyRelayHost           = "relay.host"
+	KeyRelayTls            = "relay.tls"
+	KeyDiscordMode         = "relay.discord_mode"
+	KeyDiscordRichPresence = "relay.discord_rich_presence"
+	KeyGroupKey            = "relay.group_key"
+	KeyDisplayName         = "relay.display_name"
 	KeySrtPort     = "relay.srt_port"
 	KeyRtspPort    = "relay.rtsp_port"
 	KeyWebrtcPort  = "relay.webrtc_port"

@@ -23,7 +23,7 @@ import (
 // the test reading it checks that the availability table and keys.go cover each other,
 // which a list derived from either could not.
 var availabilityAllKeys = []string{
-	KeyRelayHost, KeyRelayTls, KeyDiscordMode, KeyGroupKey, KeyDisplayName,
+	KeyRelayHost, KeyRelayTls, KeyDiscordMode, KeyDiscordRichPresence, KeyGroupKey, KeyDisplayName,
 	KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,

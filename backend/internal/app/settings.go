@@ -35,6 +35,8 @@ func (a *App) GetSettings() settings.Settings {
 // the presence stated under the old key is released here,
 // and the next pass of the presence loop states presence under the new one (members.go).
 func (a *App) SaveSettings(s settings.Settings) error {
+	s.Relay = followsDiscord(s.Relay)
+
 	a.settingsMu.Lock()
 	before := a.settings.Relay
 	a.settings = s
@@ -58,6 +60,23 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	// so the mode going on or off moves it with nothing having polled.
 	a.emit(wire.DiscordStateEvent(a.discordWire()))
 	return settings.Save(s)
+}
+
+// followsDiscord is r with the mode a Discord activity is read through turned on beside it.
+//
+// The activity states a voice channel and the members in it, both of them Discord mode's answers,
+// so the toggle alone would store a setting that describes nothing (richpresence.go).
+// Turned on here rather than greyed on the form:
+// the reader asking for the activity is asking for what it is drawn from,
+// and a greyed control would put the mode between them and the one press.
+//
+// The write is what a shell reads back, the settings arriving on the next resolve,
+// so the mode's own toggle moves on screen with it (docs/ipc-api.md, "The rule").
+func followsDiscord(r settings.Relay) settings.Relay {
+	if r.DiscordRichPresence {
+		r.DiscordMode = true
+	}
+	return r
 }
 
 // SavePreset stores one way of publishing under name, overwriting a same-named preset.
