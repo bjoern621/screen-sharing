@@ -690,6 +690,11 @@ enum TextCode {
   // Joining one in Discord is what clears it, which no control here does.
   // No arguments.
   TEXT_CODE_DISCORD_NO_VOICE_CHANNEL = 174;
+  // The manager declines the link this install holds (DiscordState.link_refused),
+  // so no channel answers a group.
+  // Linking again is the action that clears it.
+  // No arguments.
+  TEXT_CODE_DISCORD_LINK_REFUSED = 190;
   // 138 warned that a keyless stream is published where anybody reaching the relay may watch it,
   // which stopped holding once every stream came to live in a group:
   // 171 refuses the settings that name none.

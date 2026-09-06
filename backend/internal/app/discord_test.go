@@ -130,7 +130,10 @@ func TestAnUnlinkedInstallAsksNothing(t *testing.T) {
 	}
 }
 
-func TestARefusedLinkLandsUnlinked(t *testing.T) {
+// Holding a link is what linked means, and the manager resolving it is a second fact.
+// Read as one, the mode decides the answer: the same install draws as linked with the toggle off
+// and as unlinked with it on.
+func TestARefusedLinkStandsLinkedInEitherMode(t *testing.T) {
 	fake := &fakeDiscord{err: &groupclient.Refusal{Status: http.StatusUnauthorized, Reason: "unknown"}}
 	a := discordApp(fake)
 
@@ -140,8 +143,14 @@ func TestARefusedLinkLandsUnlinked(t *testing.T) {
 	if !d.Refused || d.Stale {
 		t.Fatalf("a refusal is the answer rather than one left standing, got %+v", d)
 	}
-	if a.discordWire().Linked {
-		t.Fatal("a secret the manager will not resolve links this install to nothing")
+	on := a.discordWire()
+	if !on.Linked || !on.Refused {
+		t.Fatalf("a refused link is one this install holds and the manager declines, got %+v", on)
+	}
+
+	a.settings.Relay.DiscordMode = false
+	if off := a.discordWire(); off.Linked != on.Linked {
+		t.Fatalf("the mode decided whether this install holds a link, on %v off %v", on.Linked, off.Linked)
 	}
 }
 

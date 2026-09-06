@@ -59,6 +59,10 @@ type Deps struct {
 	// The zero value is a machine nothing asked, which greys nothing,
 	// as an unprobed engine does.
 	Portal portal.Capabilities
+	// DiscordRefused is whether the manager declines the link this install holds
+	// (DiscordState.link_refused).
+	// The zero value is a link nothing has refused, which is what a caller outside Discord mode reads.
+	DiscordRefused bool
 	// UpdateCheckOff is whether this install's update channel refuses every check
 	// (internal/update, MIRRORME_UPDATE_CHECK=0 or an unstamped build).
 	// The zero value is live, matching a caller that never asked the channel.

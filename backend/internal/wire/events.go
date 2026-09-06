@@ -189,6 +189,7 @@ func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 type DiscordSnapshot struct {
 	Linked      bool
 	AccountName string
+	Refused     bool
 	InChannel   bool
 	GuildName   string
 	ChannelName string
@@ -200,6 +201,7 @@ func DiscordState(d DiscordSnapshot) *screensharev1.DiscordState {
 	return &screensharev1.DiscordState{
 		Linked:      d.Linked,
 		AccountName: d.AccountName,
+		LinkRefused: d.Refused,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,
 		ChannelName: d.ChannelName,

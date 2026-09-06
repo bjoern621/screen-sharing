@@ -517,8 +517,9 @@ message MembersState {
 // The link is the settings' fact and the channel the last manager pass's;
 // a whole state like every payload here.
 message DiscordState {
-  // This install holds a link the manager has not refused.
-  // True before any pass, a link landing whether or not discord_mode is on.
+  // This install holds a link secret.
+  // The settings are the one owner of that fact, so it reads the same in either mode
+  // and a manager's refusal leaves it standing (link_refused).
   bool linked = 1;
   // The linked account stands in a voice channel, and the group follows it.
   bool in_channel = 2;
@@ -531,6 +532,10 @@ message DiscordState {
   // The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
   // Empty where the manager that drew the link named no account.
   string account_name = 6;
+  // The manager declines to resolve the link this install holds, so no group follows the channel.
+  // Linking again is what clears it, and polling never does.
+  // False outside discord_mode, where no pass asks the manager anything.
+  bool link_refused = 7;
 }
 
 // One member of the group.

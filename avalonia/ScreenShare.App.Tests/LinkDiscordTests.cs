@@ -110,6 +110,33 @@ public sealed class LinkDiscordTests
     }
 
     /// <summary>
+    /// A refused link is held by this install and declined by the manager, two facts,
+    /// so the notice states both rather than reading as an install that never linked.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedLinkReadsAsLinkedAndRefused()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern", LinkRefused = true },
+        };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.Contains("bjoern", DiscordMode(flow).ActionNotice);
+        Assert.Contains("does not recognize this link", DiscordMode(flow).ActionNotice);
+        Assert.DoesNotContain("Not linked yet", DiscordMode(flow).ActionNotice);
+        Assert.Equal("Link Discord again", DiscordMode(flow).Action!.Label);
+    }
+
+    /// <summary>
     /// The account labels the link the settings hold, so it reads with the mode off,
     /// where no pass answers anything else about Discord.
     /// </summary>

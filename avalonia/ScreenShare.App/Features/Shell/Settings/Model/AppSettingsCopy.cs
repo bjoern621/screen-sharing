@@ -45,8 +45,8 @@ public static class AppSettingsCopy
     /// <summary>
     /// Where this install stands with Discord, in one sentence.
     ///
-    /// Four answers, because the reader's next move differs in each: link an account, join a channel,
-    /// nothing, or wait for the manager to answer again (<c>docs/discord-mode.md</c>).
+    /// Five answers, because the reader's next move differs in each: link an account, link again,
+    /// join a channel, nothing, or wait for the manager to answer again (<c>docs/discord-mode.md</c>).
     /// </summary>
     public static string DiscordLine(DiscordState? state)
     {
@@ -61,6 +61,14 @@ public static class AppSettingsCopy
         }
 
         var linked = Copy.Links.Linked(state);
+        // A link the manager declines stands stored,
+        // so the account reads on and the sentence names the move that clears the refusal.
+        if (state.LinkRefused)
+        {
+            return $"{linked}. The Discord manager does not recognize this link. "
+                + "Press Link Discord in Setup to link again.";
+        }
+
         if (!state.InChannel)
         {
             return Stale(state, $"{linked}. The group follows a voice channel once the account joins one.");

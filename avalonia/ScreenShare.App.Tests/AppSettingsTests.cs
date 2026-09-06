@@ -173,6 +173,25 @@ public sealed class AppSettingsTests
         Assert.StartsWith("Linked.", panel.Settings.DiscordLine);
     }
 
+    /// <summary>
+    /// A link the manager declines is one this install holds all the same,
+    /// so the line names the account and the move that clears the refusal.
+    /// </summary>
+    [Fact]
+    public async Task TheDiscordLineNamesARefusedLink()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern", LinkRefused = true },
+        };
+
+        var panel = await PanelAsync(backend);
+
+        Assert.True(panel.Settings.IsDiscordLinked);
+        Assert.Contains("bjoern", panel.Settings.DiscordLine);
+        Assert.Contains("Link Discord", panel.Settings.DiscordLine);
+    }
+
     /// <summary>An install with no linked account says so, rather than drawing an empty channel.</summary>
     [Fact]
     public async Task TheDiscordLineSaysWhenNothingIsLinked()

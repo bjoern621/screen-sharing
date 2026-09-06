@@ -128,6 +128,7 @@ func (s *Server) formDeps() form.Deps {
 		Encoders:       s.backend.CachedEncoders(),
 		AudioDevices:   s.backend.AudioDevices(),
 		Portal:         s.backend.PortalCapabilities(),
+		DiscordRefused: s.backend.DiscordState().Refused,
 		UpdateCheckOff: s.backend.UpdateState().Unchecked != nil,
 	}
 }

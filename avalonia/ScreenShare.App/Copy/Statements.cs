@@ -519,6 +519,10 @@ public static class Statements
                 "Follow Discord is on, but this computer is not linked to a Discord account. "
                 + "Press Link Discord under Relay.",
 
+            TextCode.DiscordLinkRefused =>
+                "The Discord manager does not recognize this computer's link. "
+                + "Press Link Discord under Relay to link again.",
+
             TextCode.DiscordNoVoiceChannel =>
                 "Not in a voice channel. Join one in Discord to get a group.",
 

@@ -56,7 +56,7 @@ func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*sc
 	if _, reason := formCommand(s); reason != "" {
 		out = append(out, diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, "", say(publishRefused)))
 	}
-	out = append(out, diagnosticsAboutTheAudience(s)...)
+	out = append(out, diagnosticsAboutTheAudience(d, s)...)
 	out = append(out, diagnosticsAboutTheLine(d, s, est)...)
 	out = append(out, diagnosticsAboutTheCeiling(d, s)...)
 	out = append(out, diagnosticsAboutTheCapture(d, s)...)
@@ -107,18 +107,25 @@ var warningPeaks = map[string]string{
 // and the two branches under it name the control the reader fills in rather than restating the rule.
 //
 // Only on a relay somebody named, an unnamed one having no service to draw a group from.
-func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
+func diagnosticsAboutTheAudience(d Deps, s settings.Settings) []*screensharev1.Diagnostic {
 	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.InGroup() {
 		return nil
 	}
-	// Discord mode's two missing halves, both anchored on the toggle:
-	// the manual controls are greyed there, so neither can carry the refusal.
+	// Every way Discord mode reaches no group, anchored on the toggle:
+	// the manual controls are greyed there, so none of them can carry the refusal.
 	// InGroup above already read the brokered membership the resolve injected
 	// (internal/app, Brokered), so reaching here is really being outside.
 	if s.Relay.DiscordMode {
 		if s.Relay.DiscordLink == "" {
 			return []*screensharev1.Diagnostic{
 				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordNotLinked)),
+			}
+		}
+		// A refused link is held and declined, and joining a channel clears neither,
+		// so the move this names is linking again.
+		if d.DiscordRefused {
+			return []*screensharev1.Diagnostic{
+				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordLinkRefused)),
 			}
 		}
 		return []*screensharev1.Diagnostic{

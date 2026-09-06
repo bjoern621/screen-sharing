@@ -91,6 +91,7 @@ const (
 	groupFollowsDiscord         = screensharev1.TextCode_TEXT_CODE_GROUP_FOLLOWS_DISCORD
 	discordNotLinked            = screensharev1.TextCode_TEXT_CODE_DISCORD_NOT_LINKED
 	discordNoVoiceChannel       = screensharev1.TextCode_TEXT_CODE_DISCORD_NO_VOICE_CHANNEL
+	discordLinkRefused          = screensharev1.TextCode_TEXT_CODE_DISCORD_LINK_REFUSED
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
 

@@ -1877,8 +1877,9 @@ func (x *MembersState) GetPublishingUnread() bool {
 // a whole state like every payload here.
 type DiscordState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// This install holds a link the manager has not refused.
-	// True before any pass, a link landing whether or not discord_mode is on.
+	// This install holds a link secret.
+	// The settings are the one owner of that fact, so it reads the same in either mode
+	// and a manager's refusal leaves it standing (link_refused).
 	Linked bool `protobuf:"varint,1,opt,name=linked,proto3" json:"linked,omitempty"`
 	// The linked account stands in a voice channel, and the group follows it.
 	InChannel bool `protobuf:"varint,2,opt,name=in_channel,json=inChannel,proto3" json:"in_channel,omitempty"`
@@ -1890,7 +1891,11 @@ type DiscordState struct {
 	// The Discord account this install is linked as, for a reader.
 	// The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
 	// Empty where the manager that drew the link named no account.
-	AccountName   string `protobuf:"bytes,6,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	AccountName string `protobuf:"bytes,6,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// The manager declines to resolve the link this install holds, so no group follows the channel.
+	// Linking again is what clears it, and polling never does.
+	// False outside discord_mode, where no pass asks the manager anything.
+	LinkRefused   bool `protobuf:"varint,7,opt,name=link_refused,json=linkRefused,proto3" json:"link_refused,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1965,6 +1970,13 @@ func (x *DiscordState) GetAccountName() string {
 		return x.AccountName
 	}
 	return ""
+}
+
+func (x *DiscordState) GetLinkRefused() bool {
+	if x != nil {
+		return x.LinkRefused
+	}
+	return false
 }
 
 // One member of the group.
@@ -2589,7 +2601,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2\x16.screenshare.v1.MemberR\amembers\x12.\n" +
 	"\arefusal\x18\x02 \x01(\v2\x14.screenshare.v1.TextR\arefusal\x12\x16\n" +
 	"\x06joined\x18\x03 \x01(\bR\x06joined\x12+\n" +
-	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\xc0\x01\n" +
+	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\xe3\x01\n" +
 	"\fDiscordState\x12\x16\n" +
 	"\x06linked\x18\x01 \x01(\bR\x06linked\x12\x1d\n" +
 	"\n" +
@@ -2598,7 +2610,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"guild_name\x18\x03 \x01(\tR\tguildName\x12!\n" +
 	"\fchannel_name\x18\x04 \x01(\tR\vchannelName\x12\x14\n" +
 	"\x05stale\x18\x05 \x01(\bR\x05stale\x12!\n" +
-	"\faccount_name\x18\x06 \x01(\tR\vaccountName\"|\n" +
+	"\faccount_name\x18\x06 \x01(\tR\vaccountName\x12!\n" +
+	"\flink_refused\x18\a \x01(\bR\vlinkRefused\"|\n" +
 	"\x06Member\x12\x1b\n" +
 	"\tmember_id\x18\x01 \x01(\tR\bmemberId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1e\n" +

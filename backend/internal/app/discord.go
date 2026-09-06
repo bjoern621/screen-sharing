@@ -211,11 +211,17 @@ func (a *App) discordWire() wire.DiscordSnapshot {
 // held is the settings' half, the pass owning only whether the manager resolves the link.
 // A secret stored while Discord mode is off has no pass behind it and links this install all the same,
 // which is the state the link flow leaves (discordlink.go).
-// The account stands through a refusal: it names the link the manager will not resolve.
+//
+// Holding a link and having it resolved cross as two fields.
+// Folded into one, the mode decides the answer:
+// the refusal is a pass's and a pass runs in Discord mode alone,
+// so the same install reads linked with the toggle off and unlinked with it on.
+// The account stands through a refusal, naming the link the manager will not resolve.
 func (d discordSnapshot) wire(held storedLink) wire.DiscordSnapshot {
 	return wire.DiscordSnapshot{
-		Linked:      held.Linked && !d.Refused,
+		Linked:      held.Linked,
 		AccountName: held.Account,
+		Refused:     d.Refused,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,
 		ChannelName: d.ChannelName,
@@ -263,6 +269,10 @@ var errDiscordUnlinked = errors.New("Discord mode is on but this computer is not
 // errNoVoiceChannel refuses a command while the linked account stands in no voice channel.
 var errNoVoiceChannel = errors.New("not in a voice channel: join one in Discord to get a group")
 
+// errLinkRefused refuses a command while the manager declines the link the settings hold.
+// A channel clears nothing here, so the refusal names the link instead.
+var errLinkRefused = errors.New("the Discord manager does not recognize this computer's link: link Discord again under Relay")
+
 // discordSettingsForCommand is settingsForCommand's Discord half:
 // the token is brokered by the manager, and the brokered facts ride the same copy.
 //
@@ -279,6 +289,9 @@ func (a *App) discordSettingsForCommand(s settings.Settings) (settings.Settings,
 		return s, errDiscordUnlinked
 	}
 	d := a.discordState()
+	if d.Refused {
+		return s, errLinkRefused
+	}
 	if !d.InChannel {
 		return s, errNoVoiceChannel
 	}
@@ -301,6 +314,9 @@ func (a *App) discordSettingsForCommand(s settings.Settings) (settings.Settings,
 func (a *App) discordRefusal(s settings.Settings) error {
 	if s.Relay.DiscordLink == "" {
 		return errDiscordUnlinked
+	}
+	if a.discordState().Refused {
+		return errLinkRefused
 	}
 	return errNoVoiceChannel
 }

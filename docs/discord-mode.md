@@ -50,6 +50,11 @@ The pass that would answer it runs in Discord mode alone, and a link stands in e
 so the label is what names the account on screen.
 A rename on Discord reaches the app on the next link.
 What a shell learns is `DiscordState.linked` and `DiscordState.account_name`.
+
+Holding a link and the manager resolving it are two facts, and `DiscordState.link_refused` carries the second.
+A refused link stays stored and stays linked, so the mode moves neither field:
+folded into one, the toggle would decide whether this install is linked at all.
+Linking again is what clears a refusal, and no number of passes does.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
 

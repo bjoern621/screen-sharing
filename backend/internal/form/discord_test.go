@@ -94,6 +94,29 @@ func TestALinkedDraftOutsideAnyChannelIsRefused(t *testing.T) {
 	}
 }
 
+// A link the manager declines is cleared by linking again, and joining a channel does nothing for it,
+// so the refusal names the move that works.
+func TestARefusedDiscordLinkIsRefusedByName(t *testing.T) {
+	d := diagnosticTestDeps()
+	d.DiscordRefused = true
+	s := diagnosticTestStream()
+	s.Relay.DiscordMode = true
+	s.Relay.DiscordLink = "link-secret"
+
+	diags := diagnostics(d, s, estimate(d, s))
+	if publishable(diags) {
+		t.Error("a link the manager declines draws no group, and this draft was publishable")
+	}
+
+	refusal := diagnosticTestNaming(diags, discordLinkRefused)
+	if refusal == nil {
+		t.Fatalf("no statement names the refused link: %v", diags)
+	}
+	if refusal.GetFieldKey() != KeyDiscordMode {
+		t.Errorf("the refusal anchors on %q, want the Discord toggle", refusal.GetFieldKey())
+	}
+}
+
 func TestABrokeredDraftInsideAChannelPublishes(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()

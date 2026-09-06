@@ -751,19 +751,38 @@ public sealed class SetupViewModel : Observable
     /// <summary>Whether the backend answers this install as linked, unknown counting as unlinked.</summary>
     private bool IsLinked => _session.Discord?.Linked == true;
 
+    /// <summary>Whether the manager declines the link this install holds, unknown counting as accepted.</summary>
+    private bool IsLinkRefused => _session.Discord?.LinkRefused == true;
+
     /// <summary>
     /// What the link button says.
     /// A linked install presses it to put another account where the linked one stands,
+    /// and a refused link is pressed to draw a fresh secret for the account already named,
     /// so the offer a press carries differs by state (<c>docs/discord-mode.md</c>, "Linking, once per install").
     /// </summary>
-    private string LinkLabel() => IsLinked ? "Link a different account" : "Link Discord";
+    private string LinkLabel()
+    {
+        if (IsLinkRefused)
+        {
+            return "Link Discord again";
+        }
+        return IsLinked ? "Link a different account" : "Link Discord";
+    }
 
     /// <summary>What the press does, on the state <see cref="LinkLabel"/> follows.</summary>
-    private string LinkTip() => IsLinked
-        ? "Opens Discord's consent screen in the browser and links this computer to another Discord account. "
-          + "The account linked now is replaced."
-        : "Opens the browser on Discord's consent screen and ties this computer to a Discord account. "
-          + "One time per computer. The link is what tells the relay which voice channel this computer follows.";
+    private string LinkTip()
+    {
+        if (IsLinkRefused)
+        {
+            return "Opens Discord's consent screen in the browser and links this computer again. "
+                + "The fresh link is one the Discord manager accepts.";
+        }
+        return IsLinked
+            ? "Opens Discord's consent screen in the browser and links this computer to another Discord account. "
+              + "The account linked now is replaced."
+            : "Opens the browser on Discord's consent screen and ties this computer to a Discord account. "
+              + "One time per computer. The link is what tells the relay which voice channel this computer follows.";
+    }
 
     /// <summary>
     /// What the link button carries beside it: the failure of the last attempt,
@@ -786,6 +805,12 @@ public sealed class SetupViewModel : Observable
             return "Not linked yet.";
         }
         var linked = Copy.Links.Linked(discord);
+        // A refused link is stored here and declined there,
+        // so the account reads on and the notice names the refusal.
+        if (discord.LinkRefused)
+        {
+            return $"{linked}. The Discord manager does not recognize this link. Press the button to link again.";
+        }
         // With the mode off the backend follows no channel, so the toggle beside this is the next move.
         if (_form.Draft?.Relay?.DiscordMode != true)
         {
