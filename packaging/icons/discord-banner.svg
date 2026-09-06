@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="240" viewBox="0 0 680 240">
+  <!-- One screen into the relay, out to every viewer. -->
+  <!-- The arrows carry the payload: a video chip plus an audio chip on each leg. -->
+  <!-- The rays burst from the hub, where the stream fans out. -->
+  <!-- No text, so no font and no localisation. -->
+  <!-- Discord lays the avatar over the lower left, under the sending screen. -->
+  <defs>
+    <g id="body">
+      <rect x="170" y="230" width="650" height="440" rx="80"/>
+      <rect x="452" y="656" width="86" height="58"/>
+      <rect x="372" y="700" width="246" height="56" rx="28"/>
+    </g>
+    <g id="ink" fill="#141414" stroke="#141414" stroke-width="68" stroke-linejoin="round">
+      <g transform="translate(34,36)"><use href="#body"/></g>
+      <use href="#body"/>
+    </g>
+    <g id="glass" fill="#FFFFFF"><use href="#body"/></g>
+    <g id="code" fill="#141414">
+      <rect x="255" y="300" width="290" height="42" rx="21"/>
+      <rect x="255" y="366" width="180" height="42" rx="21"/>
+      <rect x="315" y="432" width="250" height="42" rx="21"/>
+      <rect x="315" y="498" width="150" height="42" rx="21"/>
+    </g>
+    <g id="screenCode"><use href="#ink"/><use href="#glass"/><use href="#code"/></g>
+    <g id="arrow">
+      <path d="M-52,-16 H8 V-40 L60,0 L8,40 V16 H-52 Z" transform="translate(7,8)" fill="#141414"/>
+      <path d="M-52,-16 H8 V-40 L60,0 L8,40 V16 H-52 Z" fill="#12B886" stroke="#141414" stroke-width="10" stroke-linejoin="round"/>
+    </g>
+    <g id="hub">
+      <circle r="34" transform="translate(5,6)" fill="#141414"/>
+      <circle r="34" fill="#12B886" stroke="#141414" stroke-width="8"/>
+      <circle r="13" fill="#FFFFFF" stroke="#141414" stroke-width="5"/>
+    </g>
+    <g id="chipVideo">
+      <rect x="-28" y="-20" width="56" height="40" rx="12" transform="translate(4,5)" fill="#141414"/>
+      <rect x="-28" y="-20" width="56" height="40" rx="12" fill="#FFFFFF" stroke="#141414" stroke-width="6"/>
+      <path d="M-7,-10 L-7,10 L12,0 Z" fill="#12B886"/>
+    </g>
+    <g id="chipAudio">
+      <rect x="-28" y="-20" width="56" height="40" rx="12" transform="translate(4,5)" fill="#141414"/>
+      <rect x="-28" y="-20" width="56" height="40" rx="12" fill="#FFFFFF" stroke="#141414" stroke-width="6"/>
+      <rect x="-15" y="-6" width="8" height="12" rx="4" fill="#12B886"/>
+      <rect x="-3" y="-11" width="8" height="22" rx="4" fill="#12B886"/>
+      <rect x="9" y="-8" width="8" height="16" rx="4" fill="#12B886"/>
+    </g>
+    <g id="payload">
+      <g transform="translate(-46,0)"><use href="#chipVideo"/></g>
+      <g fill="#FFFFFF" stroke="#141414" stroke-width="5" stroke-linejoin="round">
+        <path d="M-4,-13 h8 v9 h9 v8 h-9 v9 h-8 v-9 h-9 v-8 h9 z"/>
+      </g>
+      <g transform="translate(46,0)"><use href="#chipAudio"/></g>
+    </g>
+  </defs>
+
+  <rect width="680" height="240" fill="#141414"/>
+  <g transform="translate(350,132)">
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(8)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(53)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(98)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(143)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(188)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(233)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(278)" fill="#FFFFFF" opacity="0.035"/>
+    <path d="M0,0 L980,-72 L980,72 Z" transform="rotate(323)" fill="#FFFFFF" opacity="0.035"/>
+  </g>
+
+  <g transform="translate(145,90) rotate(-6) scale(0.20) translate(-512,-511)"><use href="#screenCode"/></g>
+  <g transform="translate(258,108) rotate(16) scale(0.65)"><use href="#arrow"/></g>
+  <g transform="translate(350,132)"><use href="#hub"/></g>
+  <g transform="translate(448,78) rotate(-22) scale(0.65)"><use href="#arrow"/></g>
+  <g transform="translate(458,132) scale(0.65)"><use href="#arrow"/></g>
+  <g transform="translate(445,186) rotate(22) scale(0.65)"><use href="#arrow"/></g>
+  <g transform="translate(560,50) rotate(4) scale(0.135) translate(-512,-511)"><use href="#screenCode"/></g>
+  <g transform="translate(600,130) rotate(-3) scale(0.145) translate(-512,-511)"><use href="#screenCode"/></g>
+  <g transform="translate(550,205) rotate(4) scale(0.125) translate(-512,-511)"><use href="#screenCode"/></g>
+
+  <g transform="translate(252,48) rotate(-6) scale(0.8)"><use href="#payload"/></g>
+  <g transform="translate(468,98) scale(0.55)"><use href="#payload"/></g>
+</svg>
