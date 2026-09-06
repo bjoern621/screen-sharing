@@ -27,7 +27,6 @@ public sealed class StatusBarVersionTests
     /// <summary>
     /// The build is a fact about the app rather than a figure of one destination,
     /// so the band states it wherever the reader is standing.
-    /// The figures beside it speak for the viewer alone and stay that way.
     /// </summary>
     [Fact]
     public void TheBandStatesTheBuildInEveryDestination()

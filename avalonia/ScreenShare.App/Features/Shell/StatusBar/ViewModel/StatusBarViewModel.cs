@@ -10,12 +10,13 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 
 /// <summary>
-/// Bottom band: what the window is carrying, the sentence saying what the view in front of it affords,
-/// and the send-logs button.
+/// Bottom band: what this computer's connection is carrying, the sentence saying what the view in front of it
+/// affords, and the send-logs button.
 ///
-/// The design states figures for the viewer alone.
-/// Setup receives nothing and insights decodes nothing, so a figure there would be invented.
-/// The band holds its height in every destination and says nothing where the design says nothing.
+/// The figures are the app's own fact and hold in every destination, a stream being published from one screen and
+/// watched from another (<c>Features/Shell/StatusBar/Model/NetworkLoad.cs</c>).
+/// The sentence beside them speaks for the view it belongs to.
+/// The band holds its height in every destination and says nothing where there is nothing to state.
 ///
 /// The button lives here because a report is about the app rather than one screen,
 /// as the build beside it is.
@@ -64,11 +65,11 @@ public sealed class StatusBarViewModel : Observable
 
     /// <summary>
     /// Band's whole input beside the send outcome, which the band's own effect writes.
-    /// The figures arrive rather than being held here: the destination in front of the band derives them, and
+    /// The figures arrive rather than being held here: the shell derives them off the running state, and
     /// a band holding its own copy would go on printing the throughput of a torn-down decoder.
     ///
-    /// The load figures arrive as a list rather than as named slots, what a destination reports being
-    /// that destination's business.
+    /// They arrive as a list rather than as named slots, so a direction with nothing to state is absent
+    /// instead of reading zero.
     /// A field per figure is a band edited whenever one of them splits in two.
     ///
     /// <paramref name="build"/> is the backend's own, off the handshake, and is empty until it settles.
@@ -77,7 +78,7 @@ public sealed class StatusBarViewModel : Observable
     /// </summary>
     public void Show(Destination current, IReadOnlyList<string> load, string hint, string build)
     {
-        Assert.NotNull(load, "a status band is told what the link and the units are carrying");
+        Assert.NotNull(load, "a status band is told what this computer's connection is carrying");
         Assert.NotNull(hint, "a status band is told what the view in front of it affords");
         Assert.NotNull(build, "a status band is told which build is running");
 
@@ -170,15 +171,13 @@ public sealed class StatusBarViewModel : Observable
     /// </summary>
     public void Apply()
     {
-        var speaks = SpeaksFor(_current);
+        ShowsMetrics = _figuresLoad.Count > 0;
 
-        ShowsMetrics = speaks && _figuresLoad.Count > 0;
-
-        // Emptied where the destination reports nothing, rather than left standing
+        // Emptied where nothing is carried, rather than left standing
         // (docs/development-principles.md, "One render function").
-        Reconcile.Onto(Load, ShowsMetrics ? _figuresLoad : []);
+        Reconcile.Onto(Load, _figuresLoad);
 
-        Hint = speaks ? _figuresHint : "";
+        Hint = HintedIn(_current) ? _figuresHint : "";
         ShowsHint = Hint.Length > 0;
 
         // Every destination, the build being the app's rather than one screen's.
@@ -200,11 +199,10 @@ public sealed class StatusBarViewModel : Observable
     }
 
     /// <summary>
-    /// Whether the band says anything in this destination.
-    /// Exhaustive, so a destination added without an answer fails here rather than printing the last one's
-    /// throughput.
+    /// Whether the band carries a sentence for this destination.
+    /// Exhaustive, so a destination added without an answer fails here rather than printing the last one's.
     /// </summary>
-    private static bool SpeaksFor(Destination destination) => destination switch
+    private static bool HintedIn(Destination destination) => destination switch
     {
         Destination.Setup => false,
         Destination.Insights => false,

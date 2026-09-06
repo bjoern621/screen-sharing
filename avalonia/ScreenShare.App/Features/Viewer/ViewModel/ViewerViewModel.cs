@@ -357,12 +357,6 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public event Action? WindowsChanged;
 
-    /// <summary>
-    /// Relay's cost, as the status band prints it.
-    /// A list rather than named slots, so what a destination reports stays that destination's business.
-    /// </summary>
-    public IReadOnlyList<string> Figures { get; private set; } = [];
-
     /// <summary>Stands in for the list while it is empty, and tells an unread relay from an idle one.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
@@ -487,8 +481,6 @@ public sealed class ViewerViewModel : Observable
         // and for no other.
         IsDialling = NoticeIsFailure;
 
-        Figures = FiguresFor(rows);
-
         HasRefusal = Refusal.Length > 0;
 
         FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
@@ -589,22 +581,6 @@ public sealed class ViewerViewModel : Observable
         }
 
         return "The relay is up and carrying nothing.";
-    }
-
-    /// <summary>
-    /// What the band prints: the relay's total ingest.
-    /// The relay's own figure, this machine's decode being reported per tile in the stats panel.
-    /// </summary>
-    private static IReadOnlyList<string> FiguresFor(IReadOnlyList<StreamRow> rows)
-    {
-        if (rows.Count == 0)
-        {
-            return [];
-        }
-
-        var ingest = rows.Where(row => row.IsReady).Sum(row => row.InMbps);
-
-        return [$"relay in {ingest:0.0} Mb/s"];
     }
 
     private StreamRowViewModel Of(string name)
