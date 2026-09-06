@@ -77,11 +77,36 @@ public sealed class LinkDiscordTests
             await Task.Delay(1);
         }
         await flow.Settled;
+        // The channel is what the mode follows, so the draft holds it on for the notice to name one.
+        DiscordMode(flow).Flag = true;
+        await flow.Settled;
         flow.Apply();
 
         Assert.True(DiscordMode(flow).HasActionNotice);
         Assert.Contains("General", DiscordMode(flow).ActionNotice);
         Assert.Contains("Guild", DiscordMode(flow).ActionNotice);
+    }
+
+    /// <summary>
+    /// With the mode off no pass runs, so the notice names the toggle beside it
+    /// rather than a channel nothing is following.
+    /// </summary>
+    [Fact]
+    public async Task WithTheModeOffTheNoticeNamesTheToggle()
+    {
+        var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.Contains("Follow Discord", DiscordMode(flow).ActionNotice);
+        Assert.DoesNotContain("Join a voice channel", DiscordMode(flow).ActionNotice);
     }
 
     [Fact]

@@ -1850,12 +1850,13 @@ func (x *MembersState) GetPublishingUnread() bool {
 	return false
 }
 
-// Discord mode as the backend's last manager pass read it (docs/discord-mode.md).
-// Meaningful while the settings hold discord_mode; a whole state like every payload here.
+// Discord mode as this install stands in it (docs/discord-mode.md).
+// The link is the settings' fact and the channel the last manager pass's;
+// a whole state like every payload here.
 type DiscordState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The manager knows this install's link secret.
-	// False both unlinked and while no pass has answered.
+	// This install holds a link the manager has not refused.
+	// True before any pass, a link landing whether or not discord_mode is on.
 	Linked bool `protobuf:"varint,1,opt,name=linked,proto3" json:"linked,omitempty"`
 	// The linked account stands in a voice channel, and the group follows it.
 	InChannel bool `protobuf:"varint,2,opt,name=in_channel,json=inChannel,proto3" json:"in_channel,omitempty"`

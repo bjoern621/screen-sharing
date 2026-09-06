@@ -63,7 +63,7 @@ Which copies may replace themselves is the backend's answer, on `UpdateState` be
 
 Discord mode holds the same shape.
 `SaveSettings` turns it on, `LinkDiscord` is the one effect that stores the link secret,
-and `GetDiscordState` reads what the backend's manager pass last landed (`discord-mode.md`).
+and `GetDiscordState` reads the link off the settings and the channel off the last manager pass (`discord-mode.md`).
 
 ## Why
 

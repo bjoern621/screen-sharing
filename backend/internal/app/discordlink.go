@@ -79,6 +79,9 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 
 // storeDiscordLink writes the one field the flow changes and announces the move,
 // so a shell holding a draft re-reads rather than overwriting it on its next save.
+//
+// The Discord state goes out with it: a pass runs only in Discord mode (discord.go),
+// so nothing else tells a shell that an install with the toggle still off is linked.
 func (a *App) storeDiscordLink(secret string) {
 	assert.Assert(secret != "", "a landed link carries its secret")
 
@@ -87,10 +90,16 @@ func (a *App) storeDiscordLink(secret string) {
 	s := a.settings
 	a.settingsMu.Unlock()
 
+	// A fresh secret has no pass behind it, and the answer standing was about the one it replaces:
+	// a refusal recorded against that one says nothing about this.
+	// The next pass lands the channel within one poll interval (watch.go).
+	a.discordLast.Store(&discordSnapshot{})
+
 	if err := settings.Save(s); err != nil {
 		logger.Warnf("the link secret is not persisted, so this install unlinks on the next start: %v", err)
 	}
 	a.emit(wire.SettingsChangedEvent())
+	a.emit(wire.DiscordStateEvent(a.discordWire()))
 }
 
 // linkPage answers the person's browser tab, plain text being what every browser renders.

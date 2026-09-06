@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/discordclient"
 	"bjoernblessin.de/screenshare/internal/events"
@@ -90,7 +93,7 @@ func TestADiscordPassLandsEverything(t *testing.T) {
 	}
 
 	d := a.discordState()
-	if !d.Linked || !d.InChannel || d.Prefix != aPrefix || d.ChannelName != "General" {
+	if !d.InChannel || d.Prefix != aPrefix || d.ChannelName != "General" {
 		t.Fatalf("the pass lands the brokered facts, got %+v", d)
 	}
 }
@@ -103,9 +106,11 @@ func TestOutsideAnyChannelTheGroupIsEmpty(t *testing.T) {
 	if a.membership().Joined {
 		t.Fatal("outside any channel there is no membership")
 	}
-	d := a.discordState()
-	if !d.Linked || d.InChannel {
-		t.Fatalf("the state is linked and adrift, got %+v", d)
+	if a.discordState().InChannel {
+		t.Fatal("outside any channel the state is adrift")
+	}
+	if !a.discordWire().Linked {
+		t.Fatal("standing in no channel is a linked install all the same")
 	}
 }
 
@@ -119,7 +124,7 @@ func TestAnUnlinkedInstallAsksNothing(t *testing.T) {
 	if fake.presences != 0 {
 		t.Fatalf("no link secret means no call, made %d", fake.presences)
 	}
-	if a.discordState().Linked {
+	if a.discordWire().Linked {
 		t.Fatal("an install without a secret is unlinked")
 	}
 }
@@ -131,8 +136,74 @@ func TestARefusedLinkLandsUnlinked(t *testing.T) {
 	a.discordPass()
 
 	d := a.discordState()
-	if d.Linked || d.Stale {
-		t.Fatalf("a refused link is a clean unlinked state, got %+v", d)
+	if !d.Refused || d.Stale {
+		t.Fatalf("a refusal is the answer rather than one left standing, got %+v", d)
+	}
+	if a.discordWire().Linked {
+		t.Fatal("a secret the manager will not resolve links this install to nothing")
+	}
+}
+
+// A link is stored the moment the browser leg lands, and a pass runs only in Discord mode,
+// so a state read off the pass alone draws a linked install as unlinked until the toggle goes on.
+func TestALinkedInstallDrawsAsLinkedBeforeAnyPass(t *testing.T) {
+	a := discordApp(&fakeDiscord{answer: inChannel()})
+	a.settings.Relay.DiscordMode = false
+
+	if !a.discordWire().Linked {
+		t.Fatal("a stored link is a linked install with no pass behind it")
+	}
+}
+
+// With the mode off nothing follows a voice channel,
+// so the channel a pass landed before it went off is not a state to draw.
+func TestWithTheModeOffTheLinkIsTheWholeState(t *testing.T) {
+	a := discordApp(&fakeDiscord{answer: inChannel()})
+	a.discordPass()
+
+	a.settings.Relay.DiscordMode = false
+
+	d := a.discordWire()
+	if !d.Linked || d.InChannel || d.ChannelName != "" {
+		t.Fatalf("with the mode off the link is the whole state, got %+v", d)
+	}
+}
+
+// The link lands where no pass is running, so the announcement is the whole of what moves a shell.
+func TestStoringALinkAnnouncesIt(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	a := discordApp(&fakeDiscord{})
+	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.DiscordLink = ""
+
+	stream, cancel, err := a.events.Subscribe(nil)
+	if err != nil {
+		t.Fatalf("subscribing to the broker: %v", err)
+	}
+	defer cancel()
+
+	a.storeDiscordLink("fresh-secret")
+
+	if !a.discordWire().Linked {
+		t.Fatal("a stored link draws as linked")
+	}
+	if !linkedAnnounced(stream) {
+		t.Fatal("no Discord state announced the link")
+	}
+}
+
+// linkedAnnounced is whether a linked Discord state reaches the stream before the wait runs out.
+func linkedAnnounced(stream <-chan *screensharev1.Event) bool {
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case event := <-stream:
+			if d := event.GetDiscordState(); d != nil && d.GetLinked() {
+				return true
+			}
+		case <-deadline:
+			return false
+		}
 	}
 }
 

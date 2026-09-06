@@ -54,6 +54,9 @@ func (a *App) SaveSettings(s settings.Settings) error {
 
 	a.emitPublishState()
 	a.emit(wire.SettingsChangedEvent())
+	// The Discord state is read off these settings as well as off the last pass (discord.go),
+	// so the mode going on or off moves it with nothing having polled.
+	a.emit(wire.DiscordStateEvent(a.discordWire()))
 	return settings.Save(s)
 }
 

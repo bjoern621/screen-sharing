@@ -227,8 +227,9 @@ public sealed class Session
     public MembersState? Members { get; private set; }
 
     /// <summary>
-    /// Discord mode as the backend's last manager pass read it: link, channel and freshness.
-    /// Null until the first read lands, and the zero state while the mode has never run a pass.
+    /// Discord mode as this install stands in it: link, channel and freshness.
+    /// The link is the settings' fact and the channel the last manager pass's.
+    /// Null until the first read lands.
     /// </summary>
     public DiscordState? Discord { get; private set; }
 
@@ -635,7 +636,7 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.DiscordState:
-                // A whole state on every Discord pass, the members state's companion.
+                // A whole state whenever the link or the channel moves, the members state's companion.
                 Discord = change.DiscordState;
                 break;
 

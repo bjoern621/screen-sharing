@@ -495,11 +495,12 @@ message MembersState {
   bool publishing_unread = 4;
 }
 
-// Discord mode as the backend's last manager pass read it (docs/discord-mode.md).
-// Meaningful while the settings hold discord_mode; a whole state like every payload here.
+// Discord mode as this install stands in it (docs/discord-mode.md).
+// The link is the settings' fact and the channel the last manager pass's;
+// a whole state like every payload here.
 message DiscordState {
-  // The manager knows this install's link secret.
-  // False both unlinked and while no pass has answered.
+  // This install holds a link the manager has not refused.
+  // True before any pass, a link landing whether or not discord_mode is on.
   bool linked = 1;
   // The linked account stands in a voice channel, and the group follows it.
   bool in_channel = 2;

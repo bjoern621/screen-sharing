@@ -103,9 +103,9 @@ func (b controlBackend) Brokered(s settings.Settings) settings.Settings {
 	return b.app.withBrokered(s)
 }
 
-// DiscordState reads what the last manager pass landed, stating nothing of its own (discord.go).
+// DiscordState reads the link the settings hold and the channel the last pass landed (discord.go).
 func (b controlBackend) DiscordState() wire.DiscordSnapshot {
-	return b.app.discordState().wire()
+	return b.app.discordWire()
 }
 
 // MaxTestStreams is the bound StartTestStreams enforces,
