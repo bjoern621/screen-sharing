@@ -82,3 +82,23 @@ func TestBrokeredGroupRefusesABadStreamName(t *testing.T) {
 		t.Fatalf("a name deeper than a stream reaches no brokered path, got %q", path)
 	}
 }
+
+func TestAFreshInstallationStatesItsShare(t *testing.T) {
+	if !Defaults().Relay.DiscordRichPresence {
+		t.Error("a fresh installation states its share on the Discord client beside it")
+	}
+}
+
+func TestTheStatedShareStaysOffOnceTurnedOff(t *testing.T) {
+	isolateConfig(t)
+	s := Defaults()
+	s.Relay.DiscordRichPresence = false
+
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if mustLoad(t).Relay.DiscordRichPresence {
+		t.Error("a stored refusal outlives a default the decode starts from")
+	}
+}

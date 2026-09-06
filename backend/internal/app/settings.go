@@ -35,11 +35,11 @@ func (a *App) GetSettings() settings.Settings {
 // the presence stated under the old key is released here,
 // and the next pass of the presence loop states presence under the new one (members.go).
 func (a *App) SaveSettings(s settings.Settings) error {
-	s.Relay = followsDiscord(s.Relay)
 	s = a.withStoredLink(s)
 
 	a.settingsMu.Lock()
 	before := a.settings.Relay
+	s.Relay = followsDiscord(before, s.Relay)
 	a.settings = s
 	a.settingsMu.Unlock()
 
@@ -63,7 +63,8 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	return settings.Save(s)
 }
 
-// followsDiscord is r with the mode a Discord activity is read through turned on beside it.
+// followsDiscord is r with the mode a Discord activity is read through turned on beside it,
+// where this write is what asked for the activity. before is the stored relay the write moves from.
 //
 // The activity states a voice channel and the members in it, both of them Discord mode's answers,
 // so the toggle alone would store a setting that describes nothing (richpresence.go).
@@ -71,10 +72,14 @@ func (a *App) SaveSettings(s settings.Settings) error {
 // the reader asking for the activity is asking for what it is drawn from,
 // and a greyed control would put the mode between them and the one press.
 //
+// The press moves the mode, and the value on its own leaves it alone:
+// a fresh installation carries the activity on (internal/settings, Defaults),
+// so a machine whose first write carries it would land in Discord mode nobody asked for.
+//
 // The write is what a shell reads back, the settings arriving on the next resolve,
 // so the mode's own toggle moves on screen with it (docs/ipc-api.md, "The rule").
-func followsDiscord(r settings.Relay) settings.Relay {
-	if r.DiscordRichPresence {
+func followsDiscord(before, r settings.Relay) settings.Relay {
+	if r.DiscordRichPresence && !before.DiscordRichPresence {
 		r.DiscordMode = true
 	}
 	return r
