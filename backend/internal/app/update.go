@@ -14,8 +14,9 @@ import (
 //
 // The app owns one manager and announces what it learns,
 // so a check one shell asked for reaches the ones that did not, like every other state here.
-// Nothing is read on a schedule: a reader asks, and an install that asks nothing at all says so
-// before any button is drawn.
+// One read happens unasked, the start's own where the settings ask for it (CheckUpdateOnStart),
+// and every later one is a reader's press.
+// An install that asks nothing at all says so before any button is drawn.
 
 // newUpdates builds the manager for this install.
 //
@@ -55,6 +56,23 @@ func (a *App) CheckUpdate() error {
 	assert.IsNotNil(a.updates, "an app holds one answer about the published release")
 
 	return a.updates.Check()
+}
+
+// CheckUpdateOnStart reads the published release once, where the stored settings ask for it
+// (settings.App.CheckUpdatesOnStart).
+//
+// Off the startup path, beside the crash report, so a forge that does not answer holds nothing up.
+// A refusal is this install replacing no files of its own, which the update state already carries,
+// so it is logged here and the run goes on.
+func (a *App) CheckUpdateOnStart() {
+	assert.IsNotNil(a.updates, "an app holds one answer about the published release")
+
+	if !a.GetSettings().App.CheckUpdatesOnStart {
+		return
+	}
+	if err := a.updates.Check(); err != nil {
+		logger.Warnf("the published release was not read on start: %v", err)
+	}
 }
 
 // InstallUpdate starts the staged release and leaves the running app to close.

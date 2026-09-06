@@ -77,6 +77,10 @@ func main() {
 	// a crashed earlier run is looked for and reported while the app comes up.
 	go a.ReportLastCrash(ownLogTag)
 
+	// The other unasked read, on the same terms and refusable by the same settings:
+	// what is published is read once so a shell draws the answer without a press.
+	go a.CheckUpdateOnStart()
+
 	// Which build this is, beside the one that is published.
 	// A tester runs whatever they downloaded once, so a report about a bug already fixed
 	// carries the build it came from and the log says whether that build predates the fix.

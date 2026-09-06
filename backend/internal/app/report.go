@@ -43,6 +43,11 @@ func (a *App) sendReport(kind string, include ...string) (string, error) {
 // ReportLastCrash sends a report about the newest unreported crash
 // among tag's earlier run logs, and nothing where every earlier run ended clean.
 //
+// Refused by the stored settings, which is the whole of the consent behind an automatic send
+// (settings.App.SendCrashReports).
+// The crash keeps its marker unwritten there,
+// so turning the setting on and starting again sends what the refused run held back.
+//
 // Called once per start, off the startup path (cmd/backend).
 // The marker keeps a crash to one report,
 // and a send the network refused is tried again on the next start.
@@ -50,6 +55,10 @@ func (a *App) sendReport(kind string, include ...string) (string, error) {
 // and a machine that cannot send one still publishes.
 func (a *App) ReportLastCrash(tag string) {
 	assert.Assert(tag != "", "a crash is looked for under the run log tag")
+
+	if !a.GetSettings().App.SendCrashReports {
+		return
+	}
 
 	dir, err := ffmpeg.LogDir()
 	if err != nil {

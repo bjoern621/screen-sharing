@@ -502,6 +502,21 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Relay.MoqPort) },
 		bounds:  fieldPortBounds,
 	},
+
+	{
+		key:     KeySendCrashReports,
+		group:   GroupApp,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.App.SendCrashReports) },
+	},
+	{
+		key:     KeyCheckUpdatesOnStart,
+		group:   GroupApp,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value: func(s settings.Settings) *screensharev1.FieldValue {
+			return flag(s.App.CheckUpdatesOnStart)
+		},
+	},
 }
 
 // The range builders.

@@ -46,6 +46,7 @@ type Settings struct {
 	Relay   Relay   `json:"relay"`
 	Publish Publish `json:"publish"`
 	Viewer  Viewer  `json:"viewer"`
+	App     App     `json:"app"`
 
 	// streamName overrides what StreamName derives, for a stream this machine did not capture:
 	// a synthetic test pattern (internal/publish/teststream.go), which no fact about Publish could
@@ -666,6 +667,14 @@ func Defaults() Settings {
 			// The picture that costs nothing beyond one decode here:
 			// no uplink, no reader slot, and viewer figures that describe viewers.
 			PreviewRoute: PreviewLocal,
+		},
+		App: App{
+			// Both on, which is what the app did before either was answerable:
+			// a crash from the last run goes out as this one starts,
+			// and the published release is read beside it.
+			// A stored file written before the group keeps them, Load decoding over these.
+			SendCrashReports:    true,
+			CheckUpdatesOnStart: true,
 		},
 	}
 

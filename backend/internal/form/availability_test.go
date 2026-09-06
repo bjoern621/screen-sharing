@@ -35,6 +35,7 @@ var availabilityAllKeys = []string{
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps, KeyOutputResolution,
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
+	KeySendCrashReports, KeyCheckUpdatesOnStart,
 }
 
 // The value spaces the option tests walk, stated here rather than read off an option builder:

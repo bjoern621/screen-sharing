@@ -33,9 +33,15 @@ package form
 // The two legs are two groups for the reason settings.proto keeps two fields:
 // the publish leg is chosen once for the stream this machine sends and the watch leg per viewer.
 //
+// The app group trails all of them and is part of no walk.
+// Nothing under it describes a stream, so it is answerable with none of the questions above settled
+// and it is drawn where a surface asks about the app rather than about what this machine sends
+// (docs/settings-editing.md).
+//
 // A group the backend reads without being handed it is applied rather than staged,
 // which form.proto states in full.
-// The relay poll dials the address for as long as the process runs.
+// The relay poll dials the address for as long as the process runs,
+// and the app group is read by the start after the one that wrote it.
 // Every other group here is read by an effect carrying its own settings,
 // a publish on what StartPublish is given and a viewer on what was saved before it.
 // Such a group is written as it is edited, or a corrected address reaches the backend
@@ -47,4 +53,5 @@ var groups = []group{
 	{key: GroupTransport},
 	{key: GroupWatch},
 	{key: GroupRelay, applied: true},
+	{key: GroupApp, applied: true},
 }

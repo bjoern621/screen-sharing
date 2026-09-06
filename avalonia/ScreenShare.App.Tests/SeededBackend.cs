@@ -380,6 +380,11 @@ internal sealed class SeededBackend : IBackend
             RenderChain = "gl",
             PreviewRoute = "local",
         },
+        App = new AppSettings
+        {
+            SendCrashReports = true,
+            CheckUpdatesOnStart = true,
+        },
     };
 
     /// <summary>
@@ -811,7 +816,14 @@ internal sealed class SeededBackend : IBackend
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default) => Task.CompletedTask;
 
-    public Task OpenLogsFolderAsync(CancellationToken cancellation = default) => Task.CompletedTask;
+    /// <summary>Counts the presses that reached the backend, the files being its own.</summary>
+    public int LogsFolderOpened { get; private set; }
+
+    public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
+    {
+        LogsFolderOpened++;
+        return Task.CompletedTask;
+    }
 
     public Task<string> SendReportAsync(CancellationToken cancellation = default)
         => Task.FromResult("report-1");
@@ -1646,6 +1658,19 @@ internal sealed class SeededBackend : IBackend
                 new() { Key = "relay.webrtc_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtmp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.hls_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+            ],
+        },
+        // What the app does for itself, applied for a reason of its own:
+        // no effect is handed these, the next start reading them off the stored file
+        // (backend/internal/form/groups.go).
+        new()
+        {
+            Key = "app",
+            Applied = true,
+            Fields =
+            [
+                new() { Key = "app.send_crash_reports", Control = ControlKind.Toggle },
+                new() { Key = "app.check_updates_on_start", Control = ControlKind.Toggle },
             ],
         },
     ];

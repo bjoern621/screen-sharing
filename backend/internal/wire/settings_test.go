@@ -71,6 +71,10 @@ func populatedSettings() settings.Settings {
 			RenderChain:        "d3d11",
 			PreviewRoute:       settings.PreviewEndToEnd,
 		},
+		App: settings.App{
+			SendCrashReports:    true,
+			CheckUpdatesOnStart: true,
+		},
 	}
 }
 
@@ -176,6 +180,9 @@ func TestEveryFieldIsGivenAValueInTheFixture(t *testing.T) {
 
 // The fixture catches a swapped twin only while no two fields share a value,
 // and it is a hand-written table an edit can collide with nothing said.
+//
+// Flags stand outside it, holding one of two values and colliding as soon as there are three.
+// TestEveryFlagRoundTripsOnItsOwn carries their half of the question.
 func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
 	// Keyed by the value's rendering rather than by the value,
 	// a settings field being able to be a list and a list not being a map key.
@@ -183,6 +190,9 @@ func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
 	// and two that print alike are.
 	seen := map[string]string{}
 	eachField(populatedSettings(), func(name string, v reflect.Value) {
+		if v.Kind() == reflect.Bool {
+			return
+		}
 		value := fmt.Sprintf("%v", v.Interface())
 		if first, ok := seen[value]; ok {
 			t.Errorf("%s and %s both hold %v, so a conversion mapping one to the other's wire field would round trip unnoticed", first, name, value)
@@ -190,6 +200,63 @@ func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
 		}
 		seen[value] = name
 	})
+}
+
+// Every flag, set on its own against a fixture holding none of the others.
+//
+// The fixture's own uniqueness cannot reach them: a flag holds one of two values,
+// so two of them are indistinguishable there and a conversion writing one into the other's
+// wire field round trips unnoticed.
+// Set alone, that swap comes back with the wrong field standing.
+func TestEveryFlagRoundTripsOnItsOwn(t *testing.T) {
+	for _, name := range flagFields() {
+		t.Run(name, func(t *testing.T) {
+			want := withOnlyFlag(name)
+			got := ToSettings(Settings(want))
+
+			if !reflect.DeepEqual(got, want) {
+				eachField(want, func(field string, wantValue reflect.Value) {
+					gotValue := fieldByName(got, field)
+					if !reflect.DeepEqual(gotValue.Interface(), wantValue.Interface()) {
+						t.Errorf("%s = %v with %s set alone, want %v",
+							field, gotValue, name, wantValue)
+					}
+				})
+			}
+		})
+	}
+}
+
+// flagFields is every bool leaf of the settings, named the way eachField names one.
+func flagFields() []string {
+	var names []string
+	eachField(populatedSettings(), func(name string, v reflect.Value) {
+		if v.Kind() == reflect.Bool {
+			names = append(names, name)
+		}
+	})
+	return names
+}
+
+// withOnlyFlag is the fixture with on standing and every other flag down.
+func withOnlyFlag(on string) settings.Settings {
+	s := populatedSettings()
+
+	v := reflect.ValueOf(&s).Elem()
+	for i := range v.NumField() {
+		if v.Type().Field(i).PkgPath != "" {
+			continue
+		}
+		group := v.Type().Field(i).Name
+		g := v.Field(i)
+		for j := range g.NumField() {
+			if g.Type().Field(j).PkgPath != "" || g.Field(j).Kind() != reflect.Bool {
+				continue
+			}
+			g.Field(j).SetBool(group+"."+g.Type().Field(j).Name == on)
+		}
+	}
+	return s
 }
 
 // A request arriving with no settings set was written by another process,

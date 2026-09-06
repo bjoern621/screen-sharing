@@ -104,4 +104,12 @@
   -->
   <BoxShadows x:Key="MenuShadow">0 10 28 0 #8C000000</BoxShadows>
 
+  <!--
+    Behind a dialog drawn over the window, dimming what it covers without hiding it:
+    the reader keeps the window they came from in view, and every press lands on the dialog.
+    Black at 60 percent rather than a grey of the palette, a scrim darkening whatever is under it
+    rather than painting a surface of its own.
+  -->
+  <SolidColorBrush x:Key="ScrimBrush" Color="#99000000" />
+
 </ResourceDictionary>

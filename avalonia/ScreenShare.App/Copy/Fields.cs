@@ -70,8 +70,8 @@ public static class Fields
         ["relay.discord_mode"] = new(
             "Follow Discord",
             "Ties the group to the voice channel this computer's linked Discord account is in. "
-            + "Joining a channel joins its group, and whoever leaves the channel can no longer watch. "
-            + "The group key and the name come from the channel while this is on."),
+            + "Whoever sits in the channel can watch, and leaving it cuts them off within seconds. "
+            + "The channel sets the group and the name while this is on, so both boxes below gray out."),
 
         ["relay.group_key"] = new(
             "Group key",
@@ -156,7 +156,7 @@ public static class Fields
 
         ["publish.bitrate_mbps"] = new(
             "Bitrate",
-            "How much bandwidth the stream aims at. Set it below what the connection reliably uploads, not at it. A stream that fills the line has no room for motion."),
+            "How much bandwidth the stream aims at. Set it below what the connection reliably uploads. A stream that fills the line has no room for motion."),
 
         ["publish.maxrate_mbps"] = new(
             "Burst ceiling",
@@ -213,7 +213,7 @@ public static class Fields
 
         ["publish.uplink_mbps"] = new(
             "Upload speed",
-            "What the connection actually uploads, not what the plan says. The prediction is weighed against it, and the Balanced preset prices its bitrate from a measured figure. The first start measures it once in the background, uploading 20 MB to a public test endpoint (speed.cloudflare.com). Measure again after switching networks."),
+            "What the connection uploads in practice, which is usually below the advertised figure. The prediction is weighed against it, and the Balanced preset prices its bitrate from a measured figure. The first start measures it once in the background, uploading 20 MB to a public test endpoint (speed.cloudflare.com). Measure again after switching networks."),
 
         ["viewer.srt_watch_latency_ms"] = new(
             "Retransmit window, watching",
@@ -244,6 +244,13 @@ public static class Fields
         ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. On an encrypted relay the stream rides inside TLS, so the default is 1936 rather than the cleartext port."),
         ["relay.hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. A watching port only."),
         ["relay.moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, TCP and UDP on the same number. The default is 8892. A watching port only, and only a browser reaches it. It stays part of the address on an encrypted relay, because this leg cannot pass the proxy and the relay answers it directly."),
+
+        ["app.send_crash_reports"] = new(
+            "Send crash reports",
+            "Sends the log of a run that crashed to the relay operator, on the next start. It carries the build, this computer's hardware, the settings with secrets removed, and that log. Off keeps the log here, where Open logs folder reaches it."),
+        ["app.check_updates_on_start"] = new(
+            "Check for updates on start",
+            "Reads the published release when the app starts, so the status bar says whether a newer build exists. Off leaves the reading to the check in this dialog."),
     };
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()
@@ -271,6 +278,10 @@ public static class Fields
         ["relay"] = new(
             "Relay",
             "Which computer carries the stream, and which port each of its listeners uses. The ports default to the relay's own, so they only matter for a relay set up differently."),
+
+        ["app"] = new(
+            "App",
+            "What the app does on its own, apart from any stream. Each one takes effect the next time the app starts, and is kept as soon as it is set."),
     };
 
     /// <summary>

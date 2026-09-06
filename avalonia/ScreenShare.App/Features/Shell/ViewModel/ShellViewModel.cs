@@ -7,6 +7,7 @@ using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
+using ScreenShare.App.Features.Shell.Settings.ViewModel;
 using ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 using ScreenShare.App.Features.Shell.TitleBar.ViewModel;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
@@ -105,6 +106,11 @@ public sealed class ShellViewModel : Observable
         Update = new UpdateViewModel(backend, _session, dispatch);
         StatusBar = new StatusBarViewModel(backend.SendReportAsync, Update, dispatch);
 
+        // Over the window rather than in a destination: none of what it holds is about a stream
+        // (Features/Fields/Model/GroupPlacement.cs).
+        // It reads the same draft and the same release answer the rest of the window does.
+        AppSettings = new AppSettingsViewModel(backend, _form, _session, Update, dispatch);
+
         Setup = new SetupViewModel(backend, _form, _session, dispatch);
         Insights = new InsightsViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
@@ -117,7 +123,7 @@ public sealed class ShellViewModel : Observable
         // The strip's commit presses the destinations' own commands the way the tray does,
         // so it is built beside them and handed to the strip as its right-hand control.
         _go = new GoViewModel(_session, _form, Setup, Insights, () => Show(Destination.Setup));
-        Nav = new NavStripViewModel(Show, _go);
+        Nav = new NavStripViewModel(Show, _go, AppSettings.OpenCommand);
 
         // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so
         // the preview's end-to-end route and a grid tile can be the same decode.
@@ -188,6 +194,13 @@ public sealed class ShellViewModel : Observable
     /// and the window is what opens the dialog and closes for the restart.
     /// </summary>
     public UpdateViewModel Update { get; }
+
+    /// <summary>
+    /// Settings about the app, drawn over whichever destination is showing.
+    /// Held here because the dialog belongs to the window rather than to a screen,
+    /// as the update dialog does.
+    /// </summary>
+    public AppSettingsViewModel AppSettings { get; }
 
     // --- The destinations ----------------------------------------------------------
 
@@ -327,6 +340,10 @@ public sealed class ShellViewModel : Observable
         // After the destinations, so the menu and the strip commit read the gate and the rows this pass derived.
         Tray.Apply();
         _go.Apply();
+
+        // Reads the draft and the session like a destination does, and draws whether or not it is open:
+        // a dialog rendered only while open comes back holding what it last drew.
+        AppSettings.Apply();
 
         // After the bodies, so the strip's pill and the band's figures are what the destinations derived
         // on this pass rather than what they held before it.

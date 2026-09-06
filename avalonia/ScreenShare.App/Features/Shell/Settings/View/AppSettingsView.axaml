@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.View"
+             xmlns:model="using:ScreenShare.App.Features.Shell.Settings.Model"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.Settings.ViewModel"
+             x:Class="ScreenShare.App.Features.Shell.Settings.View.AppSettingsView"
+             x:DataType="vm:AppSettingsViewModel"
+             Focusable="True">
+
+  <!--
+    The settings about the app, over the window rather than in a destination of it
+    (Features/Fields/Model/GroupPlacement.cs).
+
+    A window of its own would leave what it is about undimmed and would need a caption drawn to match
+    three desktops, so this is one control over the window's own grid.
+    Nothing here commits: the group is applied, so a control is the write
+    (docs/settings-editing.md, "Staged and applied").
+  -->
+
+  <UserControl.KeyBindings>
+    <!--
+      The dialog takes Escape before the window does, the event starting at the focus inside it
+      and the code-behind putting the focus here as it opens.
+    -->
+    <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}" />
+  </UserControl.KeyBindings>
+
+  <!-- Dimmed rather than covered: the window stays readable behind what is being decided over it. -->
+  <Border Background="{StaticResource ScrimBrush}"
+          IsVisible="{Binding IsOpen}"
+          PointerPressed="ScrimPressed">
+
+    <Border Classes="panel"
+            MaxWidth="580"
+            MaxHeight="680"
+            Margin="{StaticResource InsetSection}"
+            BoxShadow="{StaticResource MenuShadow}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+
+      <Grid RowDefinitions="Auto,*" Margin="{StaticResource InsetSection}">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+          <TextBlock Grid.Column="0"
+                     Classes="heading"
+                     VerticalAlignment="Center"
+                     Text="{x:Static model:AppSettingsCopy.Title}" />
+
+          <Button Grid.Column="1"
+                  Theme="{StaticResource IconButton}"
+                  Command="{Binding CloseCommand}"
+                  ToolTip.Tip="{x:Static model:AppSettingsCopy.CloseTip}">
+            <ti:TablerIcon Classes="button" Icon="IconX" />
+          </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="{StaticResource GapSection}">
+
+            <!--
+              The backend's own group, drawn by the renderer the wizard and the watch panel share.
+              Which controls it holds and in what order is the form's answer.
+            -->
+            <fields:FieldGroupView DataContext="{Binding Group}" />
+
+            <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.LogsHeading}" />
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         Text="{x:Static model:AppSettingsCopy.LogsBody}" />
+              <Button HorizontalAlignment="Left"
+                      Content="{x:Static model:AppSettingsCopy.OpenLogsFolder}"
+                      Command="{Binding OpenLogsFolder}"
+                      controls:Pending.IsActive="{Binding OpenLogsFolder.IsRunning}"
+                      ToolTip.Tip="{x:Static model:AppSettingsCopy.OpenLogsFolderTip}" />
+            </StackPanel>
+
+            <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.UpdatesHeading}" />
+
+              <!--
+                The band's own answer, the same view model behind both
+                (Features/Shell/Update/ViewModel/UpdateViewModel.cs).
+                Selectable and wrapping, a failing check being what a reader carries into a message.
+              -->
+              <SelectableTextBlock Classes="hint"
+                                   Classes.danger="{Binding Updates.IsFailure}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="None"
+                                   IsVisible="{Binding Updates.ShowsLine}"
+                                   Text="{Binding Updates.Line}" />
+
+              <Button HorizontalAlignment="Left"
+                      Content="{x:Static model:AppSettingsCopy.CheckNow}"
+                      Command="{Binding Updates.Check}"
+                      IsEnabled="{Binding Updates.CanCheck}"
+                      controls:Pending.IsActive="{Binding Updates.Check.IsRunning}"
+                      ToolTip.Tip="{Binding Updates.CheckHint}" />
+            </StackPanel>
+
+            <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DiscordHeading}" />
+              <SelectableTextBlock Classes="hint"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="None"
+                                   Text="{Binding DiscordLine}" />
+            </StackPanel>
+
+            <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.AboutHeading}" />
+              <!-- Selectable: the build is what a bug report names. -->
+              <SelectableTextBlock Classes="hint" Text="{Binding Version}" />
+            </StackPanel>
+
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+  </Border>
+</UserControl>

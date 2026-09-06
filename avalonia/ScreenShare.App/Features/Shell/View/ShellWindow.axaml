@@ -4,6 +4,7 @@
         xmlns:titlebar="using:ScreenShare.App.Features.Shell.TitleBar.View"
         xmlns:navstrip="using:ScreenShare.App.Features.Shell.NavStrip.View"
         xmlns:statusbar="using:ScreenShare.App.Features.Shell.StatusBar.View"
+        xmlns:settings="using:ScreenShare.App.Features.Shell.Settings.View"
         xmlns:setup="using:ScreenShare.App.Features.Setup.View"
         xmlns:setupVm="using:ScreenShare.App.Features.Setup.ViewModel"
         xmlns:insights="using:ScreenShare.App.Features.Insights.View"
@@ -119,5 +120,16 @@
     <statusbar:StatusBarView Grid.Row="3"
                              IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasChrome}"
                              DataContext="{Binding StatusBar}" />
+
+    <!--
+      Over every band and the body alike, which is what a dialog about the app rather than about one screen
+      covers.
+      Last child and spanning every row: a settings dialog under the strip that opened it would leave
+      the strip pressable while it stood.
+      Whether it is drawn is its own state, so nothing here reads it (Settings/ViewModel/AppSettingsViewModel.cs).
+    -->
+    <settings:AppSettingsView Grid.Row="0"
+                              Grid.RowSpan="4"
+                              DataContext="{Binding AppSettings}" />
   </Grid>
 </Window>

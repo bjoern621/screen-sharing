@@ -36,6 +36,29 @@ message Settings {
   //
   // The backend's alone: a shell reads it and writes nothing back that changes anything.
   string stream_name = 4;
+
+  AppSettings app = 5;
+}
+
+// AppSettings is what the app does for itself, apart from any stream.
+//
+// A group of its own because none of it describes a stream.
+// A preset is a PublishSettings, so a saved way of publishing moves nothing here,
+// and every field survives a machine that changes what it captures, encodes or watches.
+//
+// The backend reads these on a schedule of its own rather than through an effect
+// it is handed settings with, which is what makes the group applied
+// (form.proto, FieldGroup.applied).
+message AppSettings {
+  // A crash in an earlier run goes to the relay operator on the next start.
+  // What rides along is the bundle SendReport builds:
+  // the build, the machine, the settings with their secrets blanked,
+  // and the run log holding the traceback (control.proto, SendReport).
+  // Off leaves that log on this machine, where OpenLogsFolder reaches it.
+  bool send_crash_reports = 1;
+  // The published release is read once per start, filling the update state a shell draws.
+  // Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
+  bool check_updates_on_start = 2;
 }
 
 // A field key is the field name this file spells, under the name Settings gives its group:

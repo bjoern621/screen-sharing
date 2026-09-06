@@ -89,6 +89,10 @@ const (
 	KeyRtspWatchLatencyMs = "viewer.rtsp_watch_latency_ms"
 
 	KeyRenderChain = "viewer.render_chain"
+
+	// What the app does for itself, which is about no stream.
+	KeySendCrashReports    = "app.send_crash_reports"
+	KeyCheckUpdatesOnStart = "app.check_updates_on_start"
 )
 
 // The group keys.
@@ -104,6 +108,7 @@ const (
 	GroupTransport = "transport"
 	GroupWatch     = "watch"
 	GroupRelay     = "relay"
+	GroupApp       = "app"
 )
 
 // keySeparator stands between a key's group and its field.

@@ -84,8 +84,12 @@ A key press is not a sweep, being a settled value the moment it happens.
 A group is staged unless the form marks it `applied`.
 
 Staged is the default: the draft carries the change and a commit is what stores it.
-Applied is for settings the backend reads on a schedule of its own, the relay's address among them.
+Applied is for settings no effect is handed: the relay's address, which its poll dials for the life of the process,
+and the app group, which the next start reads off the stored file.
 The form says which, and the shell reads the mark (`ipc-api.md`).
+
+The app group is therefore a dialog with no commit on it.
+A control is the write, and what a reader closes the dialog on is what the app holds.
 
 A control the form draws no field for is applied by construction.
 The insights preview's route toggle has no commit beside it, so the press is the write (`viewer-architecture.md`).

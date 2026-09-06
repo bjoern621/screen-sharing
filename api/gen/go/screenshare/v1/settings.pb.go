@@ -52,7 +52,8 @@ type Settings struct {
 	// which a preset does not carry and PublishSettings alone cannot answer for.
 	//
 	// The backend's alone: a shell reads it and writes nothing back that changes anything.
-	StreamName    string `protobuf:"bytes,4,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
+	StreamName    string       `protobuf:"bytes,4,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
+	App           *AppSettings `protobuf:"bytes,5,opt,name=app,proto3" json:"app,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -113,6 +114,81 @@ func (x *Settings) GetStreamName() string {
 		return x.StreamName
 	}
 	return ""
+}
+
+func (x *Settings) GetApp() *AppSettings {
+	if x != nil {
+		return x.App
+	}
+	return nil
+}
+
+// AppSettings is what the app does for itself, apart from any stream.
+//
+// A group of its own because none of it describes a stream.
+// A preset is a PublishSettings, so a saved way of publishing moves nothing here,
+// and every field survives a machine that changes what it captures, encodes or watches.
+//
+// The backend reads these on a schedule of its own rather than through an effect
+// it is handed settings with, which is what makes the group applied
+// (form.proto, FieldGroup.applied).
+type AppSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A crash in an earlier run goes to the relay operator on the next start.
+	// What rides along is the bundle SendReport builds:
+	// the build, the machine, the settings with their secrets blanked,
+	// and the run log holding the traceback (control.proto, SendReport).
+	// Off leaves that log on this machine, where OpenLogsFolder reaches it.
+	SendCrashReports bool `protobuf:"varint,1,opt,name=send_crash_reports,json=sendCrashReports,proto3" json:"send_crash_reports,omitempty"`
+	// The published release is read once per start, filling the update state a shell draws.
+	// Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
+	CheckUpdatesOnStart bool `protobuf:"varint,2,opt,name=check_updates_on_start,json=checkUpdatesOnStart,proto3" json:"check_updates_on_start,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AppSettings) Reset() {
+	*x = AppSettings{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AppSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AppSettings) ProtoMessage() {}
+
+func (x *AppSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AppSettings.ProtoReflect.Descriptor instead.
+func (*AppSettings) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AppSettings) GetSendCrashReports() bool {
+	if x != nil {
+		return x.SendCrashReports
+	}
+	return false
+}
+
+func (x *AppSettings) GetCheckUpdatesOnStart() bool {
+	if x != nil {
+		return x.CheckUpdatesOnStart
+	}
+	return false
 }
 
 // RelaySettings is where the relay is and which of its listeners are on which port.
@@ -185,7 +261,7 @@ type RelaySettings struct {
 
 func (x *RelaySettings) Reset() {
 	*x = RelaySettings{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -197,7 +273,7 @@ func (x *RelaySettings) String() string {
 func (*RelaySettings) ProtoMessage() {}
 
 func (x *RelaySettings) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -210,7 +286,7 @@ func (x *RelaySettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelaySettings.ProtoReflect.Descriptor instead.
 func (*RelaySettings) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{1}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RelaySettings) GetHost() string {
@@ -422,7 +498,7 @@ type PublishSettings struct {
 
 func (x *PublishSettings) Reset() {
 	*x = PublishSettings{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -434,7 +510,7 @@ func (x *PublishSettings) String() string {
 func (*PublishSettings) ProtoMessage() {}
 
 func (x *PublishSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -447,7 +523,7 @@ func (x *PublishSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishSettings.ProtoReflect.Descriptor instead.
 func (*PublishSettings) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{2}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PublishSettings) GetPublishTransport() string {
@@ -695,7 +771,7 @@ type ViewerSettings struct {
 
 func (x *ViewerSettings) Reset() {
 	*x = ViewerSettings{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -707,7 +783,7 @@ func (x *ViewerSettings) String() string {
 func (*ViewerSettings) ProtoMessage() {}
 
 func (x *ViewerSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -720,7 +796,7 @@ func (x *ViewerSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ViewerSettings.ProtoReflect.Descriptor instead.
 func (*ViewerSettings) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{3}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ViewerSettings) GetTileWatchTransport() string {
@@ -801,7 +877,7 @@ type AudioSource struct {
 
 func (x *AudioSource) Reset() {
 	*x = AudioSource{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +889,7 @@ func (x *AudioSource) String() string {
 func (*AudioSource) ProtoMessage() {}
 
 func (x *AudioSource) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,7 +902,7 @@ func (x *AudioSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioSource.ProtoReflect.Descriptor instead.
 func (*AudioSource) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{4}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AudioSource) GetSource() string {
@@ -870,7 +946,7 @@ type Preset struct {
 
 func (x *Preset) Reset() {
 	*x = Preset{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +958,7 @@ func (x *Preset) String() string {
 func (*Preset) ProtoMessage() {}
 
 func (x *Preset) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +971,7 @@ func (x *Preset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Preset.ProtoReflect.Descriptor instead.
 func (*Preset) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{5}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Preset) GetName() string {
@@ -916,13 +992,17 @@ var File_screenshare_v1_settings_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\n" +
-	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\xd3\x01\n" +
+	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\x82\x02\n" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
 	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\x12\x1f\n" +
 	"\vstream_name\x18\x04 \x01(\tR\n" +
-	"streamName\"\x8d\x03\n" +
+	"streamName\x12-\n" +
+	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"p\n" +
+	"\vAppSettings\x12,\n" +
+	"\x12send_crash_reports\x18\x01 \x01(\bR\x10sendCrashReports\x123\n" +
+	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\"\x8d\x03\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x1b\n" +
@@ -1005,26 +1085,28 @@ func file_screenshare_v1_settings_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_settings_proto_rawDescData
 }
 
-var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_screenshare_v1_settings_proto_goTypes = []any{
 	(*Settings)(nil),        // 0: screenshare.v1.Settings
-	(*RelaySettings)(nil),   // 1: screenshare.v1.RelaySettings
-	(*PublishSettings)(nil), // 2: screenshare.v1.PublishSettings
-	(*ViewerSettings)(nil),  // 3: screenshare.v1.ViewerSettings
-	(*AudioSource)(nil),     // 4: screenshare.v1.AudioSource
-	(*Preset)(nil),          // 5: screenshare.v1.Preset
+	(*AppSettings)(nil),     // 1: screenshare.v1.AppSettings
+	(*RelaySettings)(nil),   // 2: screenshare.v1.RelaySettings
+	(*PublishSettings)(nil), // 3: screenshare.v1.PublishSettings
+	(*ViewerSettings)(nil),  // 4: screenshare.v1.ViewerSettings
+	(*AudioSource)(nil),     // 5: screenshare.v1.AudioSource
+	(*Preset)(nil),          // 6: screenshare.v1.Preset
 }
 var file_screenshare_v1_settings_proto_depIdxs = []int32{
-	1, // 0: screenshare.v1.Settings.relay:type_name -> screenshare.v1.RelaySettings
-	2, // 1: screenshare.v1.Settings.publish:type_name -> screenshare.v1.PublishSettings
-	3, // 2: screenshare.v1.Settings.viewer:type_name -> screenshare.v1.ViewerSettings
-	4, // 3: screenshare.v1.PublishSettings.audio_sources:type_name -> screenshare.v1.AudioSource
-	2, // 4: screenshare.v1.Preset.settings:type_name -> screenshare.v1.PublishSettings
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 0: screenshare.v1.Settings.relay:type_name -> screenshare.v1.RelaySettings
+	3, // 1: screenshare.v1.Settings.publish:type_name -> screenshare.v1.PublishSettings
+	4, // 2: screenshare.v1.Settings.viewer:type_name -> screenshare.v1.ViewerSettings
+	1, // 3: screenshare.v1.Settings.app:type_name -> screenshare.v1.AppSettings
+	5, // 4: screenshare.v1.PublishSettings.audio_sources:type_name -> screenshare.v1.AudioSource
+	3, // 5: screenshare.v1.Preset.settings:type_name -> screenshare.v1.PublishSettings
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_settings_proto_init() }
@@ -1032,14 +1114,14 @@ func file_screenshare_v1_settings_proto_init() {
 	if File_screenshare_v1_settings_proto != nil {
 		return
 	}
-	file_screenshare_v1_settings_proto_msgTypes[4].OneofWrappers = []any{}
+	file_screenshare_v1_settings_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_settings_proto_rawDesc), len(file_screenshare_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

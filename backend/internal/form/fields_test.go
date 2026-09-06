@@ -38,12 +38,13 @@ var fieldDeclaredKeys = []string{
 	KeyUplinkMbps,
 	KeyOutputResolution,
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
+	KeySendCrashReports, KeyCheckUpdatesOnStart,
 }
 
 // fieldDeclaredGroups is every group key, written out for the same reason.
 var fieldDeclaredGroups = []string{
 	GroupSource, GroupQuality, GroupAudio,
-	GroupTransport, GroupWatch, GroupRelay,
+	GroupTransport, GroupWatch, GroupRelay, GroupApp,
 }
 
 // fieldTestDeps is a machine with two monitors, the reason Deps exists:
@@ -237,7 +238,7 @@ func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	declared := []string{
 		GroupSource, GroupQuality, GroupAudio,
-		GroupTransport, GroupWatch, GroupRelay,
+		GroupTransport, GroupWatch, GroupRelay, GroupApp,
 	}
 	seen := make(map[string]bool, len(groups))
 	for _, g := range groups {
@@ -263,9 +264,12 @@ func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 // Staged where it should be applied is the deadlock form.proto describes:
 // the relay's address then reaches the backend only through a publish,
 // and that publish is refused because the relay it would replace cannot be reached.
+// The app group is applied on its own grounds: no effect is handed it,
+// the next start reading it off the stored file, so a staged write would reach nothing.
 func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 	applied := map[string]bool{
 		GroupRelay: true,
+		GroupApp:   true,
 	}
 
 	for _, g := range groups {

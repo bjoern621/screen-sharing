@@ -2,6 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:go="using:ScreenShare.App.Features.Shell.Go.View"
+             xmlns:model="using:ScreenShare.App.Features.Shell.Settings.Model"
+             xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Shell.NavStrip.ViewModel"
              xmlns:shell="using:ScreenShare.App.Features.Shell.ViewModel"
              x:Class="ScreenShare.App.Features.Shell.NavStrip.View.NavStripView"
@@ -45,6 +47,18 @@
         <controls:StatusPill Label="{Binding SharingLabel}"
                              Detail="{Binding SharingTimer}"
                              IsVisible="{Binding ShowsSharing}" />
+
+        <!--
+          The settings about the app, which belong to no destination and so to no segment
+          (Features/Shell/Settings/View/AppSettingsView.axaml).
+          Drawn only where the shell gave the strip the command, as the commit beside it is.
+        -->
+        <Button Theme="{StaticResource IconButton}"
+                Command="{Binding OpenSettings}"
+                IsVisible="{Binding OpenSettings, Converter={x:Static ObjectConverters.IsNotNull}}"
+                ToolTip.Tip="{x:Static model:AppSettingsCopy.OpenTip}">
+          <ti:TablerIcon Classes="button" Icon="IconSettings" />
+        </Button>
 
         <!-- Drawn only where the shell gave the strip a commit; a test strip carries none. -->
         <go:GoView DataContext="{Binding Go}"

@@ -31,6 +31,15 @@ func Settings(s settings.Settings) *screensharev1.Settings {
 		Publish:    PublishSettings(s.Publish),
 		Viewer:     ViewerSettings(s.Viewer),
 		StreamName: s.StreamName(),
+		App:        AppSettings(s.App),
+	}
+}
+
+// AppSettings carries what the app does for itself out, which is about no stream.
+func AppSettings(a settings.App) *screensharev1.AppSettings {
+	return &screensharev1.AppSettings{
+		SendCrashReports:    a.SendCrashReports,
+		CheckUpdatesOnStart: a.CheckUpdatesOnStart,
 	}
 }
 
@@ -119,6 +128,15 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 		Relay:   ToRelay(m.GetRelay()),
 		Publish: ToPublish(m.GetPublish()),
 		Viewer:  ToViewer(m.GetViewer()),
+		App:     ToApp(m.GetApp()),
+	}
+}
+
+// ToApp reads what the app does for itself back off the contract.
+func ToApp(m *screensharev1.AppSettings) settings.App {
+	return settings.App{
+		SendCrashReports:    m.GetSendCrashReports(),
+		CheckUpdatesOnStart: m.GetCheckUpdatesOnStart(),
 	}
 }
 

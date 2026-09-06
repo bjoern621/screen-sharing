@@ -881,3 +881,23 @@ func TestADetachedDraftStaysDetachedAcrossAReload(t *testing.T) {
 		t.Errorf("a detached draft reloaded following %q", got)
 	}
 }
+
+// A file written before the app group names neither flag.
+// Load decodes over the defaults, so an install keeps reporting a crash
+// and reading the published release the way it did before either was answerable.
+func TestAFileFromBeforeTheAppGroupKeepsBothFlags(t *testing.T) {
+	isolateConfig(t)
+
+	path := mustSettingsPath(t)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"relay":{"host":"stored.example"}}`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	got := mustLoad(t)
+	if !got.App.SendCrashReports || !got.App.CheckUpdatesOnStart {
+		t.Errorf("app settings = %+v, want what a fresh installation holds", got.App)
+	}
+}

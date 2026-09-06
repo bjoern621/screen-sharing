@@ -19,7 +19,7 @@ Without exception:
 - Every piece of state is read from the backend or received on its event stream. A shell caches nothing across a change notification.
 - **Every word on screen is the shell's.** Labels, help text, option names, the paragraph behind a choice, the sentence in place of a greyed entry, how a unit is spelled and where it sits. Written where the layout is, keyed by the identifiers the backend sends (`text.proto`).
 - Beyond words, a shell contributes layout, typography, colour, motion, input handling and accessibility. Its whole job.
-- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer and the rest in its publish wizard, invisible from the backend. A shell may never decide that a group exists, what is in it, or which entries are reachable.
+- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer, the app group in a dialog over the window, and the rest in its publish wizard, invisible from the backend. A shell may never decide that a group exists, what is in it, or which entries are reachable.
 
 **The two halves meet on identifiers and nowhere else.**
 `hevc_nvenc`, `gstreamer`, `yuv420p`, `srt`: what the encoder, the element registry and the relay call these things.

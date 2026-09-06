@@ -31,12 +31,18 @@ public sealed class NavStripViewModel : Observable
     /// Optional so a test of the segments or the pill builds no publish graph behind it;
     /// the view draws the control only where one is given.
     /// </param>
-    public NavStripViewModel(Action<Destination> select, GoViewModel? go = null)
+    /// <param name="openSettings">
+    /// Opens the settings about the app, the shell owning whether the dialog stands.
+    /// Optional on the same terms as the commit beside it.
+    /// </param>
+    public NavStripViewModel(
+        Action<Destination> select, GoViewModel? go = null, DelegateCommand? openSettings = null)
     {
         Assert.NotNull(select, "a strip needs somewhere to send the destination it was asked for");
 
         _select = select;
         Go = go;
+        OpenSettings = openSettings;
         Tabs = [.. Destinations.All.Select(destination => new DestinationTab(destination))];
 
         Assert.That(Tabs.Count == Destinations.All.Count, "a segment per destination", Tabs.Count, Destinations.All.Count);
@@ -44,6 +50,9 @@ public sealed class NavStripViewModel : Observable
 
     /// <summary>Strip commit and its menu. Null in a strip built without one.</summary>
     public GoViewModel? Go { get; }
+
+    /// <summary>Opens the app settings. Null in a strip built without them.</summary>
+    public DelegateCommand? OpenSettings { get; }
 
     /// <summary>A segment per destination, in the table's order. Fixed for the strip's life.</summary>
     public IReadOnlyList<DestinationTab> Tabs { get; }
