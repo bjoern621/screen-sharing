@@ -31,6 +31,7 @@ public sealed class AppSettingsTests
     }
 
     private const string CrashKey = "app.send_crash_reports";
+    private const string TestStreamsKey = "app.test_streams";
 
     private sealed record Panel(AppSettingsViewModel Settings, FormSession Form, SeededBackend Backend);
 
@@ -171,6 +172,27 @@ public sealed class AppSettingsTests
 
         panel.Settings.OpenLogsFolder.Execute(null);
         await Eventually(() => panel.Backend.LogsFolderOpened == 1);
+    }
+
+    /// <summary>
+    /// The synthetic set is a testing aid rather than a reading off a stream,
+    /// so its one control stands here and the insights screen carries nothing about it.
+    /// The backend converges the set on the write, which is what makes the toggle the whole of starting it
+    /// (<c>backend/internal/app/teststreams.go</c>).
+    /// </summary>
+    [Fact]
+    public async Task TheTestStreamToggleIsPlacedInTheDialog()
+    {
+        var panel = await PanelAsync();
+
+        Assert.NotNull(panel.Settings.TestStreams);
+        Assert.Equal(TestStreamsKey, panel.Settings.TestStreams!.Key);
+
+        Field(panel, TestStreamsKey).Flag = true;
+        await panel.Form.Settled;
+
+        var saved = Assert.Single(panel.Backend.Saved);
+        Assert.True(saved.App.TestStreams);
     }
 
     private static Features.Fields.ViewModel.FieldViewModel Field(Panel panel, string key)

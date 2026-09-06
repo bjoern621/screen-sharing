@@ -674,7 +674,9 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.TestStreamExit:
-                Ended("test stream", change.TestStreamExit);
+                // Recorded nowhere: the synthetic set is a development aid and no screen reports it,
+                // so a slot that died reads off the backend's run log
+                // (backend/internal/app/teststreams.go).
                 break;
 
             case Event.PayloadOneofCase.ViewerExit:

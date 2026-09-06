@@ -6,7 +6,6 @@
              xmlns:log="using:ScreenShare.App.Features.Insights.SessionLog.View"
              xmlns:plots="using:ScreenShare.App.Features.Insights.Plots.View"
              xmlns:preview="using:ScreenShare.App.Features.Insights.Preview.View"
-             xmlns:tests="using:ScreenShare.App.Features.Insights.TestStreams.View"
              xmlns:ti="using:TablerIcons"
              xmlns:viewers="using:ScreenShare.App.Features.Insights.ViewerTable.View"
              xmlns:vm="using:ScreenShare.App.Features.Insights.ViewModel"
@@ -98,14 +97,9 @@
         -->
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <Grid RowDefinitions="Auto,Auto,Auto">
+          <Grid RowDefinitions="Auto,Auto">
             <preview:PreviewView Grid.Row="0" DataContext="{Binding Preview}" Margin="0,0,0,10" />
             <config:ConfigCardView Grid.Row="1" DataContext="{Binding Config}" />
-            <!--
-              Under the configuration, being about publishers this machine runs beside the one above,
-              rather than about the one above.
-            -->
-            <tests:TestStreamsView Grid.Row="2" DataContext="{Binding TestStreams}" Margin="0,10,0,0" />
           </Grid>
         </ScrollViewer>
       </Border>

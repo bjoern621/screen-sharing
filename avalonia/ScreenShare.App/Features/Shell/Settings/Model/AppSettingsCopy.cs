@@ -36,6 +36,8 @@ public static class AppSettingsCopy
 
     public const string DiscordHeading = "Discord";
 
+    public const string DevelopmentHeading = "Development";
+
     public const string AboutHeading = "About";
 
     public const string VersionLabel = "Version";

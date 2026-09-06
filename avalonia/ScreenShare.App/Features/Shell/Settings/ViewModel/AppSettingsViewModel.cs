@@ -11,7 +11,7 @@ namespace ScreenShare.App.Features.Shell.Settings.ViewModel;
 
 /// <summary>
 /// What the app does for itself: what it reports, what it reads on start, where its logs are,
-/// which account it follows and which build it is.
+/// which account it follows, which build it is, and whether the synthetic set runs beside it.
 ///
 /// <b>Drawn over the window rather than in a destination.</b> None of it is about a stream, so no surface
 /// configuring one owns it, and a reader who only watches reaches it all the same
@@ -31,11 +31,12 @@ namespace ScreenShare.App.Features.Shell.Settings.ViewModel;
 public sealed class AppSettingsViewModel : Observable
 {
     /// <summary>
-    /// The two keys this dialog places by name, under the heading each belongs to rather than in the
-    /// group's own order (<see cref="Apply"/>).
+    /// The keys this dialog places by name,
+    /// under the heading each belongs to rather than in the group's own order (<see cref="Apply"/>).
     /// </summary>
     private const string CrashReportsKey = "app.send_crash_reports";
     private const string CheckUpdatesOnStartKey = "app.check_updates_on_start";
+    private const string TestStreamsKey = "app.test_streams";
 
     private readonly FormSession _form;
     private readonly Session _session;
@@ -94,11 +95,12 @@ public sealed class AppSettingsViewModel : Observable
 
     public PendingCommand OpenLogsFolder { get; }
 
-    /// <summary>The app group of the resolved form, holding the two fields below and their write path.</summary>
+    /// <summary>The app group of the resolved form, holding the fields below and their write path.</summary>
     public FieldGroupViewModel Group { get; }
 
     private FieldViewModel? _crashReports;
     private FieldViewModel? _checkUpdatesOnStart;
+    private FieldViewModel? _testStreams;
 
     /// <summary>Placed under the Logs heading, beside <see cref="OpenLogsFolder"/>.</summary>
     public FieldViewModel? CrashReports { get => _crashReports; private set => Set(ref _crashReports, value); }
@@ -109,6 +111,14 @@ public sealed class AppSettingsViewModel : Observable
         get => _checkUpdatesOnStart;
         private set => Set(ref _checkUpdatesOnStart, value);
     }
+
+    /// <summary>
+    /// Placed under the Development heading, the synthetic set being a testing aid rather than something
+    /// a stream is configured with.
+    /// The backend converges the set on this write, so the streams come and go with the toggle
+    /// (<c>backend/internal/app/teststreams.go</c>).
+    /// </summary>
+    public FieldViewModel? TestStreams { get => _testStreams; private set => Set(ref _testStreams, value); }
 
     /// <summary>Published release, the band's answer and this one being the same object.</summary>
     public UpdateViewModel Updates => _updates;
@@ -137,6 +147,7 @@ public sealed class AppSettingsViewModel : Observable
         Group.Apply(GroupOf(form), _session.Words, form?.Settings, _form.IsAnswered);
         CrashReports = Group.Visible(CrashReportsKey);
         CheckUpdatesOnStart = Group.Visible(CheckUpdatesOnStartKey);
+        TestStreams = Group.Visible(TestStreamsKey);
 
         Version = _session.Version;
 
@@ -153,6 +164,9 @@ public sealed class AppSettingsViewModel : Observable
         Assert.That(
             !Group.IsResolved || CheckUpdatesOnStart is not null,
             "a resolved app group always carries the update-on-start toggle");
+        Assert.That(
+            !Group.IsResolved || TestStreams is not null,
+            "a resolved app group always carries the test-stream toggle");
     }
 
     /// <summary>

@@ -10,7 +10,6 @@ using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Insights.Plots.ViewModel;
 using ScreenShare.App.Features.Insights.Preview.ViewModel;
 using ScreenShare.App.Features.Insights.SessionLog.ViewModel;
-using ScreenShare.App.Features.Insights.TestStreams.ViewModel;
 using ScreenShare.App.Features.Insights.ViewerTable.ViewModel;
 using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Features.Shell.Model;
@@ -115,18 +114,14 @@ public sealed class InsightsViewModel : Observable
         Viewers = new ViewerTableViewModel();
         Plots = new PlotsViewModel();
 
-        // Synthetic publishers belong on this screen because they are what this machine is putting on the relay,
-        // which is what this screen is about.
-        // The one publish above them is the real one.
-        TestStreams = new TestStreamsViewModel();
         Log = new SessionLogViewModel(OpenLogAsync, dispatch);
 
         // Beside the figures where the window carries both, over them where it does not
         // (Shell/Model/SideColumns.cs).
         CardsColumn = new SideColumnViewModel(
             SideColumns.InsightsCards,
-            "Show the preview, the configuration and the test streams",
-            "Hide the preview, the configuration and the test streams");
+            "Show the preview and the configuration",
+            "Hide the preview and the configuration");
 
         // Ending a stream crosses to the backend and the encoder it brings down, so it waits
         // on the answer and refuses a second press while the first is out.
@@ -168,7 +163,7 @@ public sealed class InsightsViewModel : Observable
     public PlotsViewModel Plots { get; }
 
     /// <summary>
-    /// Where the preview, the configuration and the test streams stand: beside the live figures,
+    /// Where the preview and the configuration stand: beside the live figures,
     /// or over them on a window with the width for one column (<c>docs/design-language.md</c>, "Narrow windows").
     /// The figures keep the body, a stream's readings being what this screen is opened for.
     /// </summary>
@@ -203,13 +198,6 @@ public sealed class InsightsViewModel : Observable
 
     /// <summary>Hides ahead of a quit, answering once the preview's decode is closed.</summary>
     public Task PartAsync() => Preview.PartAsync();
-
-    /// <summary>
-    /// Synthetic publishers this machine runs, a row per slot.
-    /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable
-    /// from its own row alone.
-    /// </summary>
-    public TestStreamsViewModel TestStreams { get; }
 
     public SessionLogViewModel Log { get; }
 
@@ -267,11 +255,9 @@ public sealed class InsightsViewModel : Observable
         Viewers.Readers = reading.Viewers;
         Viewers.IsLive = reading.IsLive;
         Log.Recorded = Recorded(_session.Exits, Audience.Of(_session.RelaySamples, reading.Stream));
-        TestStreams.Reported = _session.TestStreams;
 
         Config.Apply();
         Viewers.Apply();
-        TestStreams.Apply();
         Log.Apply();
 
         // Rendered as well as told its reading, unlike the cards above: the preview also reads what is decoding,

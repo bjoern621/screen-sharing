@@ -124,6 +124,16 @@
             </StackPanel>
 
             <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DevelopmentHeading}" />
+
+              <!-- Same cancelling margin as the two rows above. -->
+              <ContentControl Content="{Binding TestStreams}"
+                              ContentTemplate="{StaticResource FieldRow}"
+                              Margin="0,0,0,-18"
+                              IsVisible="{Binding TestStreams, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+
+            <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.AboutHeading}" />
               <!-- Selectable: the build is what a bug report names. -->
               <SelectableTextBlock Classes="hint" Text="{Binding Version}" />

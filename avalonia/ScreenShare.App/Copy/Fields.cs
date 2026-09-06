@@ -257,6 +257,9 @@ public static class Fields
         ["app.check_updates_on_start"] = new(
             "Check for updates on start",
             "Reads the published release when the app starts, so the status bar says whether a newer build exists. Off leaves the reading to the check in this dialog."),
+        ["app.test_streams"] = new(
+            "Run test streams",
+            "Publishes synthetic streams from this computer to the relay, so the group has something to watch with no screen shared. Each stream runs its own encoder, so turn it on for testing only. They start as soon as this computer is in a group."),
     };
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()
@@ -287,7 +290,7 @@ public static class Fields
 
         ["app"] = new(
             "App",
-            "What the app does on its own, apart from any stream. Each one takes effect the next time the app starts, and is kept as soon as it is set."),
+            "What the app does on its own, apart from any stream. Each setting is kept as soon as it is set."),
     };
 
     /// <summary>

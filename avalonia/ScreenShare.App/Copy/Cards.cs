@@ -188,39 +188,6 @@ public static class Cards
 
     public const string GridUnwatched = "Nothing is picked to watch. Click a stream on the left to open its picture.";
 
-    // --- The synthetic publishers ---------------------------------------------------
-
-    /// <summary>Heading over the test-stream slots.</summary>
-    public const string TestStreamsTitle = "Test streams";
-
-    /// <summary>
-    /// What the card describes, said once over the rows.
-    /// A slot is the identity and the child is not, so a relaunch comes back as the row that was already there.
-    /// </summary>
-    public const string TestStreamsCovers =
-        "Synthetic streams this computer publishes to the relay, one slot each, on paths of their own.";
-
-    /// <summary>How much of the set is live, beside the heading.</summary>
-    public static string TestStreamsRunning(int running, int slots) => $"{running} of {slots} sending";
-
-    /// <summary>One slot, by its position in the set and the path it publishes to.</summary>
-    public static string TestStreamSlotLabel(int slot, string name)
-        => name.Length > 0 ? $"slot {slot} · {name}" : $"slot {slot}";
-
-    /// <summary>Which relaunch the slot is on, counting from one.</summary>
-    public static string TestStreamAttempt(int attempt) => $"attempt {attempt}";
-
-    public const string TestStreamSending = "sending";
-
-    /// <summary>
-    /// A slot the set still holds with nothing publishing into it, what a relaunch waiting out its backoff reads as.
-    /// </summary>
-    public const string TestStreamStopped = "not sending";
-
-    public const string TestStreamsUnread = "Reading the test streams.";
-
-    public const string TestStreamsNone = "No synthetic streams are running on this computer.";
-
     /// <summary>
     /// What the preflight list says when the form found nothing to say.
     /// A line rather than an empty panel: a card that vanishes with the last warning reads as a card that broke.

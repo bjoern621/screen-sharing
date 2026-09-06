@@ -15,7 +15,7 @@ public static class SideColumns
     public static readonly SideColumn SetupRail = new(330, 470, ColumnEdge.Right, DrawnUnasked: true);
 
     /// <summary>
-    /// Preview, the configuration read-back and the test streams, on the left of the live figures
+    /// Preview and the configuration read-back, on the left of the live figures
     /// (<c>Features/Insights</c>).
     /// The body is the plots, the viewer table and the session log, each of which is a row of figures.
     /// </summary>

@@ -1700,7 +1700,7 @@ internal sealed class SeededBackend : IBackend
             ],
         },
         // What the app does for itself, applied for a reason of its own:
-        // no effect is handed these, the next start reading them off the stored file
+        // no effect is handed these, the backend reading them off the stored file
         // (backend/internal/form/groups.go).
         new()
         {
@@ -1710,6 +1710,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new() { Key = "app.send_crash_reports", Control = ControlKind.Toggle },
                 new() { Key = "app.check_updates_on_start", Control = ControlKind.Toggle },
+                new() { Key = "app.test_streams", Control = ControlKind.Toggle },
             ],
         },
     ];
