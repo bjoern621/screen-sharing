@@ -17,9 +17,7 @@
     DataTemplate, so the application's is the only scope above them all.
 
     Nothing is skinned here.
-    The option row is the design's OptionCard and the picked treatment travels with it (Design/Buttons.axaml).
-    The text roles inside the card sit in Design/Text.axaml, reaching into a button's content needing a
-    descendant selector a ControlTheme may not carry.
+    A widget's look is its theme's (Design/), and one entry of a choice control is OptionEntry.axaml.
   -->
 
   <DataTemplate x:Key="FieldRow" x:DataType="vm:FieldViewModel">
@@ -165,42 +163,13 @@
       <!--
         One list for both option kinds: the two differ in whether an entry carries a paragraph,
         and an entry with none renders without one.
-
-        A refused entry states its reason on the card, so nothing opens over it
-        (docs/tooltips.md, "An availability note is a line").
+        Two lists with the disclosure between them, so the refused entries arrive under the control
+        that asked for them and it keeps its place (OptionEntry.axaml).
       -->
       <StackPanel IsVisible="{Binding IsChoice}">
-        <ItemsControl ItemsSource="{Binding Shown}" IsEnabled="{Binding IsEnabled}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:OptionViewModel">
-              <Button Theme="{StaticResource OptionCard}"
-                      Classes.picked="{Binding IsSelected}"
-                      Margin="0,0,0,4"
-                      IsEnabled="{Binding IsEnabled}"
-                      Command="{Binding Choose}">
-                <StackPanel Spacing="4">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <!-- Beside the title, for the reason a dropdown row carries it there (SelectEntry.axaml). -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                      <TextBlock Classes="optiontitle" Text="{Binding Label}" />
-                      <TextBlock Classes="mark"
-                                 Text="Recommended"
-                                 IsVisible="{Binding IsRecommended}"
-                                 VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
-                  </Grid>
-                  <SelectableTextBlock Classes="reason"
-                                       IsVisible="{Binding HasReason}"
-                                       Text="{Binding Reason}" />
-                  <TextBlock Classes="cardbody"
-                             IsVisible="{Binding HasDetail}"
-                             Text="{Binding Detail}" />
-                </StackPanel>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <ItemsControl ItemsSource="{Binding Offered}"
+                      ItemTemplate="{StaticResource OptionEntry}"
+                      IsEnabled="{Binding IsEnabled}" />
 
         <!--
           Outside the list's greying: an inert control is still one a reader arrives at looking for what is
@@ -219,6 +188,12 @@
             <TextBlock Classes="hint" Text="{Binding RefusedCount}" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
+
+        <ItemsControl ItemsSource="{Binding Refused}"
+                      ItemTemplate="{StaticResource OptionEntry}"
+                      IsEnabled="{Binding IsEnabled}"
+                      IsVisible="{Binding RefusedShown}"
+                      Margin="0,6,0,0" />
       </StackPanel>
 
       <!--

@@ -98,7 +98,8 @@ public sealed class FieldViewModel : Observable
         _write = write;
         _sweep = sweep ?? (_ => { });
         Options = [];
-        Shown = [];
+        Offered = [];
+        Refused = [];
         MenuRows = [];
         RevealCommand = new DelegateCommand(ToggleRefused);
     }
@@ -284,19 +285,24 @@ public sealed class FieldViewModel : Observable
     /// Entries of a select, a radio or a number carrying a ladder.
     /// Empty on every other kind.
     /// Every one of them, refused included, in the order the form gave them;
-    /// what a surface draws is <see cref="Shown"/> or <see cref="MenuRows"/>.
+    /// what a surface draws is <see cref="Offered"/>, <see cref="Refused"/> or <see cref="MenuRows"/>.
     /// </summary>
     public ObservableCollection<OptionViewModel> Options { get; }
 
-    /// <summary>
-    /// What a list of cards draws: the allowed entries, and the refused ones once asked for.
-    /// The disclosure sits under the list, so what it reveals arrives above the control that revealed it.
-    /// </summary>
-    public ObservableCollection<OptionViewModel> Shown { get; }
+    /// <summary>Entries this combination allows, drawn over the disclosure.</summary>
+    public ObservableCollection<OptionViewModel> Offered { get; }
 
     /// <summary>
-    /// What an opened dropdown lists: <see cref="Shown"/> with the disclosure last.
-    /// One collection because a flyout takes one item source, with nowhere beside the rows for a control to sit.
+    /// Entries the combination rules out, drawn under the disclosure while <see cref="RefusedShown"/> holds.
+    /// Held apart from <see cref="Offered"/> so opening them adds a list under the disclosure
+    /// and leaves the disclosure where the press that opened it landed.
+    /// </summary>
+    public ObservableCollection<OptionViewModel> Refused { get; }
+
+    /// <summary>
+    /// What an opened dropdown lists: the offered entries, the disclosure, and the refused ones it is showing.
+    /// One collection because a flyout takes one item source, with nowhere beside the rows for a control to sit,
+    /// and the disclosure sits mid-list for the reason the card list keeps it there.
     /// </summary>
     public ObservableCollection<OptionViewModel> MenuRows { get; }
 
@@ -580,13 +586,14 @@ public sealed class FieldViewModel : Observable
 
         Reconcile.Onto(Options, OptionRows(field));
 
+        Reconcile.Onto(Offered, Options.Where(option => option.IsEnabled).ToList());
+        Reconcile.Onto(Refused, Options.Where(option => !option.IsEnabled).ToList());
+
         // Written on every pass,
         // so a control whose last refused entry became reachable stops drawing a disclosure over nothing.
-        var refused = Options.Count(option => !option.IsEnabled);
-        HasRefused = refused > 0;
-        RefusedCount = refused > 0 ? Copy.Fields.OptionCount(refused) : "";
+        HasRefused = Refused.Count > 0;
+        RefusedCount = HasRefused ? Copy.Fields.OptionCount(Refused.Count) : "";
         RefusedGlyph = RefusedShown ? Icons.IconChevronDown : Icons.IconChevronRight;
-        Reconcile.Onto(Shown, ShownRows());
         Reconcile.Onto(MenuRows, MenuRowsOf());
 
         // The closed dropdown's face, written on every pass including the branch where nothing is picked,
@@ -612,11 +619,11 @@ public sealed class FieldViewModel : Observable
 
         Assert.That(HasRefused == (RefusedCount.Length > 0), "a disclosure counts what it covers", Key, RefusedCount);
         Assert.That(
-            Shown.Count == (RefusedShown ? Options.Count : Options.Count - refused),
-            "a list draws every entry it is not hiding", Key, Shown.Count, Options.Count, refused);
+            Offered.Count + Refused.Count == Options.Count,
+            "the two halves of a list are every entry once", Key, Offered.Count, Refused.Count, Options.Count);
         Assert.That(
-            MenuRows.Count == Shown.Count + (HasRefused ? 1 : 0),
-            "a dropdown adds the disclosure to what a list draws", Key, MenuRows.Count, Shown.Count);
+            MenuRows.Count == Offered.Count + (HasRefused ? 1 : 0) + (RefusedShown ? Refused.Count : 0),
+            "a dropdown lists the disclosure and whatever it is showing", Key, MenuRows.Count, Offered.Count);
     }
 
     /// <summary>
@@ -725,29 +732,19 @@ public sealed class FieldViewModel : Observable
         }).ToList();
     }
 
-    /// <summary>Entries a list draws: the reachable ones, and the rest below them once the reader has asked.</summary>
-    private IReadOnlyList<OptionViewModel> ShownRows()
-    {
-        var offered = Options.Where(option => option.IsEnabled).ToList();
-        if (!RefusedShown)
-        {
-            return offered;
-        }
-
-        offered.AddRange(Options.Where(option => !option.IsEnabled));
-        return offered;
-    }
-
-    /// <summary><see cref="Shown"/> with the disclosure last, for the surfaces whose list is a popup.</summary>
+    /// <summary>
+    /// The card list's three parts in one collection, for the surfaces whose list is a popup:
+    /// the offered entries, the disclosure, and the refused ones it is showing.
+    /// </summary>
     private IReadOnlyList<OptionViewModel> MenuRowsOf()
     {
         if (!HasRefused)
         {
-            return Shown;
+            return Offered;
         }
 
-        var rows = new List<OptionViewModel>(Shown.Count + 1);
-        rows.AddRange(Shown);
+        var rows = new List<OptionViewModel>(Options.Count + 1);
+        rows.AddRange(Offered);
         rows.Add(new OptionViewModel
         {
             Value = "",
@@ -761,6 +758,11 @@ public sealed class FieldViewModel : Observable
             IsReveal = true,
             Choose = RevealCommand,
         });
+
+        if (RefusedShown)
+        {
+            rows.AddRange(Refused);
+        }
 
         return rows;
     }

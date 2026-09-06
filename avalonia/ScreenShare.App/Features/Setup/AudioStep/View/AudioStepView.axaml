@@ -296,27 +296,11 @@
 
               <TextBlock Classes="figure" IsVisible="{Binding IsReadonly}" Text="{Binding Readback}" />
 
+              <!-- Disclosure between the two lists, where every choice control keeps it (OptionEntry.axaml). -->
               <StackPanel IsVisible="{Binding IsChoice}">
-                <ItemsControl ItemsSource="{Binding Shown}" IsEnabled="{Binding IsEnabled}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="fields:OptionViewModel">
-                      <Button Theme="{StaticResource OptionCard}"
-                              Classes.picked="{Binding IsSelected}"
-                              Margin="0,0,0,4"
-                              IsEnabled="{Binding IsEnabled}"
-                              Command="{Binding Choose}">
-                        <StackPanel Spacing="4">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
-                            <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
-                          </Grid>
-                          <SelectableTextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
-                          <TextBlock Classes="cardbody" IsVisible="{Binding HasDetail}" Text="{Binding Detail}" />
-                        </StackPanel>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding Offered}"
+                              ItemTemplate="{StaticResource OptionEntry}"
+                              IsEnabled="{Binding IsEnabled}" />
 
                 <Button Theme="{StaticResource LinkButton}"
                         HorizontalAlignment="Left"
@@ -331,6 +315,12 @@
                     <TextBlock Classes="hint" Text="{Binding RefusedCount}" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
+
+                <ItemsControl ItemsSource="{Binding Refused}"
+                              ItemTemplate="{StaticResource OptionEntry}"
+                              IsEnabled="{Binding IsEnabled}"
+                              IsVisible="{Binding RefusedShown}"
+                              Margin="0,6,0,0" />
               </StackPanel>
 
               <SelectableTextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />

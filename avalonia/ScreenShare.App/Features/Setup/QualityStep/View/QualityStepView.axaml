@@ -12,6 +12,7 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="/Features/Setup/QualityStep/View/QuantizerSlider.axaml" />
+        <ResourceInclude Source="/Features/Setup/QualityStep/View/ModeCard.axaml" />
       </ResourceDictionary.MergedDictionaries>
 
     </ResourceDictionary>
@@ -76,54 +77,21 @@
 
       <StackPanel IsVisible="{Binding Fold.Shown}" Margin="0,12,0,0">
 
+      <!--
+        The modes that can be picked, and the refused ones in a second grid under the disclosure:
+        one grid growing on the reveal would carry the disclosure down the card with it (ModeCard.axaml).
+        Both take the same column count, so a revealed card is a card's width like the ones above it.
+      -->
       <ItemsControl IsVisible="{Binding HasMode}"
                     IsEnabled="{Binding Mode.IsEnabled}"
-                    ItemsSource="{Binding Mode.Shown}"
+                    ItemsSource="{Binding Mode.Offered}"
+                    ItemTemplate="{StaticResource ModeCard}"
                     Margin="-5,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <UniformGrid Columns="{Binding ModeColumns}" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="fields:OptionViewModel">
-            <!--
-              A refused card states its reason under the title, so nothing opens over it
-              (docs/tooltips.md, "An availability note is a line").
-            -->
-            <Button Theme="{StaticResource OptionCard}"
-                    Classes.picked="{Binding IsSelected}"
-                    Margin="5,0,5,10"
-                    IsEnabled="{Binding IsEnabled}"
-                    Command="{Binding Choose}">
-              <StackPanel>
-                <!--
-                  A grid and not a horizontal stack: a stack measures its children against infinite width,
-                  so the title neither wraps nor trims and runs past the card's edge.
-                  The starred column is the width it wraps into.
-                -->
-                <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
-                  <Ellipse Grid.Column="0" Classes="radiodot" />
-                  <TextBlock Grid.Column="1"
-                             Classes="cardtitle"
-                             Text="{Binding Label}"
-                             Margin="7,0,0,0"
-                             TextWrapping="Wrap"
-                             TextTrimming="None"
-                             VerticalAlignment="Center" />
-                </Grid>
-                <!-- Gap rides on the refusal, so a card carrying only the description carries none. -->
-                <SelectableTextBlock Classes="reason"
-                                     Margin="0,0,0,6"
-                                     IsVisible="{Binding HasReason}"
-                                     Text="{Binding Reason}" />
-                <TextBlock Classes="cardbody"
-                           IsVisible="{Binding HasDetail}"
-                           Text="{Binding Detail}" />
-              </StackPanel>
-            </Button>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
       </ItemsControl>
 
       <Button Theme="{StaticResource LinkButton}"
@@ -138,6 +106,18 @@
           <TextBlock Classes="hint" Text="{Binding Mode.RefusedCount}" VerticalAlignment="Center" />
         </StackPanel>
       </Button>
+
+      <ItemsControl IsVisible="{Binding Mode.RefusedShown}"
+                    IsEnabled="{Binding Mode.IsEnabled}"
+                    ItemsSource="{Binding Mode.Refused}"
+                    ItemTemplate="{StaticResource ModeCard}"
+                    Margin="-5,10,-5,0">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="{Binding ModeColumns}" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
 
       <StackPanel IsVisible="{Binding HasQuantizer}">
         <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,16,0,0">

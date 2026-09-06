@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel">
+
+  <!--
+    One entry of a choice control the screen draws as a list of cards, written against the form's option type.
+
+    One template rather than one per list: a control draws two lists of these, the entries over the disclosure
+    and the refused ones under it, and both are the same card.
+
+    Merged into the application's resources (App.axaml) rather than included per caller: a template resolves
+    against the scope above the control it is instantiated on, and every caller reaches it from inside a
+    DataTemplate, so the application's is the only scope above them all.
+
+    Nothing is skinned here.
+    The card is the design's OptionCard and the picked treatment travels with it (Design/Buttons.axaml).
+    The text roles inside it sit in Design/Text.axaml, reaching into a button's content needing a
+    descendant selector a ControlTheme may not carry.
+
+    A refused entry states its reason on the card, so nothing opens over it
+    (docs/tooltips.md, "An availability note is a line").
+  -->
+
+  <DataTemplate x:Key="OptionEntry" x:DataType="fields:OptionViewModel">
+    <Button Theme="{StaticResource OptionCard}"
+            Classes.picked="{Binding IsSelected}"
+            Margin="0,0,0,4"
+            IsEnabled="{Binding IsEnabled}"
+            Command="{Binding Choose}">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,Auto">
+          <!-- Beside the title, for the reason a dropdown row carries it there (SelectEntry.axaml). -->
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="optiontitle" Text="{Binding Label}" />
+            <TextBlock Classes="mark"
+                       Text="Recommended"
+                       IsVisible="{Binding IsRecommended}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+        </Grid>
+        <SelectableTextBlock Classes="reason"
+                             IsVisible="{Binding HasReason}"
+                             Text="{Binding Reason}" />
+        <TextBlock Classes="cardbody"
+                   IsVisible="{Binding HasDetail}"
+                   Text="{Binding Detail}" />
+      </StackPanel>
+    </Button>
+  </DataTemplate>
+
+</ResourceDictionary>

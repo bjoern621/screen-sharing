@@ -36,6 +36,8 @@
           instantiates it, and this is the one scope above all three views that list options.
         -->
         <ResourceInclude Source="/Features/Fields/View/SelectEntry.axaml" />
+        <!-- One entry of a choice control drawn as a card, listed over the disclosure and under it. -->
+        <ResourceInclude Source="/Features/Fields/View/OptionEntry.axaml" />
         <!-- One control of the form, drawn by the whole group and by the advanced part of the quality group. -->
         <ResourceInclude Source="/Features/Fields/View/FieldRow.axaml" />
         <!-- One row of the audio source list draws it twice, and a row is itself a DataTemplate. -->

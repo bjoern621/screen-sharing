@@ -37,7 +37,7 @@ public sealed class QualityStepViewModel : Observable
     private readonly FieldGroupViewModel _group;
 
     /// <summary>
-    /// Mode control whose drawn list this step is following, null while the group carries none.
+    /// Mode control whose offered entries this step is following, null while the group carries none.
     /// Held so a later form handing back another control under the same key moves the subscription,
     /// instead of adding a second one.
     /// </summary>
@@ -123,10 +123,11 @@ public sealed class QualityStepViewModel : Observable
     /// How many rate-control cards sit across the step, for the entries the grid is about to draw.
     /// A shape rather than a control: the panel divides the same entries into rows from it
     /// (<see cref="QualityLayout.CardColumns"/>).
-    /// Counted off <see cref="FieldViewModel.Shown"/> and not <see cref="FieldViewModel.Options"/>,
+    /// Counted off <see cref="FieldViewModel.Offered"/> and not <see cref="FieldViewModel.Options"/>,
     /// the two parting company as soon as the availability pass refuses an entry:
-    /// a count including the hidden ones opens a column the last row has no card for,
+    /// a count including the refused ones opens a column the last row has no card for,
     /// the empty row <c>CardColumns</c> asserts against.
+    /// The refused cards take the same shape under the disclosure, so a grid over it is a grid the reveal leaves put.
     /// </summary>
     public int ModeColumns { get => _modeColumns; private set => Set(ref _modeColumns, value); }
 
@@ -147,7 +148,7 @@ public sealed class QualityStepViewModel : Observable
         HasMode = Mode is not null;
         HasQuantizer = Quantizer is not null;
         Listen(Mode);
-        ModeColumns = QualityLayout.CardColumns(Mode?.Shown.Count ?? 0);
+        ModeColumns = QualityLayout.CardColumns(Mode?.Offered.Count ?? 0);
         ApplyQuantizerLabels();
 
         Reconcile.Onto(Selects, Placed());
@@ -160,14 +161,11 @@ public sealed class QualityStepViewModel : Observable
     }
 
     /// <summary>
-    /// Follows the mode control's drawn list.
+    /// Follows the mode control's offered entries.
     /// The two subscriptions the constructor takes do not cover this one path:
-    /// pressing the control's own reveal writes <see cref="FieldViewModel.RefusedShown"/>,
-    /// which rebuilds <see cref="FieldViewModel.Shown"/> without the group's properties
+    /// a pass refusing a mode rebuilds <see cref="FieldViewModel.Offered"/> without the group's properties
     /// or its field list moving, so nothing would call the render function
-    /// and the column count would be left over from the list before the press.
-    /// The collection is listened to rather than the flag beside it,
-    /// the flag being announced before the list it rebuilds.
+    /// and the column count would be left over from the list before the refusal.
     /// </summary>
     private void Listen(FieldViewModel? field)
     {
@@ -178,18 +176,18 @@ public sealed class QualityStepViewModel : Observable
 
         if (_listening is not null)
         {
-            ((INotifyCollectionChanged)_listening.Shown).CollectionChanged -= OnShownChanged;
+            ((INotifyCollectionChanged)_listening.Offered).CollectionChanged -= OnOfferedChanged;
         }
 
         _listening = field;
 
         if (field is not null)
         {
-            ((INotifyCollectionChanged)field.Shown).CollectionChanged += OnShownChanged;
+            ((INotifyCollectionChanged)field.Offered).CollectionChanged += OnOfferedChanged;
         }
     }
 
-    private void OnShownChanged(object? sender, NotifyCollectionChangedEventArgs e) => Apply();
+    private void OnOfferedChanged(object? sender, NotifyCollectionChangedEventArgs e) => Apply();
 
     /// <summary>
     /// Labels under the track, off the range the control was offered on.

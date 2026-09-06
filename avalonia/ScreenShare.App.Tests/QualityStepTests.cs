@@ -38,7 +38,7 @@ public sealed class QualityStepTests
     /// <summary>
     /// Step over a mode control offering the entries named, a leading dash marking a refused one.
     /// Stated here rather than seeded, the fixture's backend refusing no mode.
-    /// A refusal shows in the layout only where <see cref="FieldViewModel.Shown"/>
+    /// A refusal shows in the layout only where <see cref="FieldViewModel.Offered"/>
     /// and <see cref="FieldViewModel.Options"/> part company (RefusedEntriesTests seeds a select the same way).
     /// </summary>
     private static QualityStepViewModel StepOver(params string[] modes)
@@ -193,7 +193,7 @@ public sealed class QualityStepTests
     public async Task TheRateControlCardsFillEveryRowTheyOpen()
     {
         var flow = await FlowAsync();
-        var modes = flow.Quality.Mode!.Shown.Count;
+        var modes = flow.Quality.Mode!.Offered.Count;
         var columns = flow.Quality.ModeColumns;
         var rows = (modes + columns - 1) / columns;
 
@@ -211,23 +211,24 @@ public sealed class QualityStepTests
     {
         var step = StepOver("crf", "vbr", "cbr", "abr", "-lossless");
 
-        Assert.Equal(4, step.Mode!.Shown.Count);
+        Assert.Equal(4, step.Mode!.Offered.Count);
         Assert.Equal(2, step.ModeColumns);
     }
 
     /// <summary>
-    /// Revealing the refused entries is the one input a field carries that no group notices,
-    /// so a step reading its shape off the group alone draws the narrower grid over the longer list.
+    /// The cards over the disclosure are the ones that can be picked, whatever it is showing,
+    /// so opening it moves neither them nor the disclosure under them.
     /// </summary>
     [Fact]
-    public void RevealingARefusedModeReshapesTheGridAroundIt()
+    public void RevealingARefusedModeLeavesTheGridOverItWhereItWas()
     {
         var step = StepOver("crf", "vbr", "cbr", "abr", "-lossless");
 
         step.Mode!.RevealCommand.Execute(null);
 
-        Assert.Equal(5, step.Mode.Shown.Count);
-        Assert.Equal(3, step.ModeColumns);
+        Assert.Equal(4, step.Mode.Offered.Count);
+        Assert.Equal(["lossless"], step.Mode.Refused.Select(option => option.Value));
+        Assert.Equal(2, step.ModeColumns);
     }
 
     /// <summary>

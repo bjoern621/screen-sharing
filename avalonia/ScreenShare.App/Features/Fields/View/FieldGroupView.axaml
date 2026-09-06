@@ -15,11 +15,15 @@
 
   <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
     <StackPanel>
+      <!--
+        Both top-aligned. The action is taller than the title,
+        so a centred row starts the title lower than every other step's card does.
+      -->
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0" Classes="heading" VerticalAlignment="Center" Text="{Binding Title}" />
+        <TextBlock Grid.Column="0" Classes="heading" VerticalAlignment="Top" Text="{Binding Title}" />
         <Button Grid.Column="1"
                 Theme="{StaticResource OutlineButton}"
-                VerticalAlignment="Center"
+                VerticalAlignment="Top"
                 IsVisible="{Binding HasAction}"
                 Content="{Binding Action.Label}"
                 Command="{Binding Action.Command}"

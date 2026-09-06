@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel">
+
+  <!--
+    One rate-control mode, as the step draws it: a radio card carrying the paragraph behind the choice.
+
+    One template for the two grids the step lays out, the modes that can be picked and the refused ones
+    under the disclosure (QualityStepView.axaml).
+    The radio dot's treatment is a style of that view, a ControlTheme carrying no descendant selector.
+
+    A refused card states its reason under the title, so nothing opens over it
+    (docs/tooltips.md, "An availability note is a line").
+  -->
+
+  <DataTemplate x:Key="ModeCard" x:DataType="fields:OptionViewModel">
+    <Button Theme="{StaticResource OptionCard}"
+            Classes.picked="{Binding IsSelected}"
+            Margin="5,0,5,10"
+            IsEnabled="{Binding IsEnabled}"
+            Command="{Binding Choose}">
+      <StackPanel>
+        <!--
+          A grid and not a horizontal stack: a stack measures its children against infinite width,
+          so the title neither wraps nor trims and runs past the card's edge.
+          The starred column is the width it wraps into.
+        -->
+        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
+          <Ellipse Grid.Column="0" Classes="radiodot" />
+          <TextBlock Grid.Column="1"
+                     Classes="cardtitle"
+                     Text="{Binding Label}"
+                     Margin="7,0,0,0"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     VerticalAlignment="Center" />
+        </Grid>
+        <!-- Gap rides on the refusal, so a card carrying only the description carries none. -->
+        <SelectableTextBlock Classes="reason"
+                             Margin="0,0,0,6"
+                             IsVisible="{Binding HasReason}"
+                             Text="{Binding Reason}" />
+        <TextBlock Classes="cardbody"
+                   IsVisible="{Binding HasDetail}"
+                   Text="{Binding Detail}" />
+      </StackPanel>
+    </Button>
+  </DataTemplate>
+
+</ResourceDictionary>

@@ -173,6 +173,7 @@ A choice control lists the entries this combination allows and closes with a dis
 so a reader picking something reads only what can be picked, and a reader hunting for why something is missing opens one control and finds it beside its reason.
 A folded entry is one press away, in the order Go partitioned them, still carrying the sentence that names the thing to change,
 and the disclosure states how many are behind it rather than leaving the reader to guess whether anything is.
+The entries arrive under the disclosure and it holds its place, so the press that opened them is where the press closing them is.
 What a shell decides is whether a refused entry is on screen at this moment.
 
 It is decided in Go with everything else, because the enabled flag is decided there.

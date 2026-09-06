@@ -45,19 +45,28 @@ public sealed class RefusedEntriesTests
     {
         var capture = Select("portal", "portal", "-kmsgrab", "-ximage");
 
-        Assert.Equal(["portal"], capture.Shown.Select(option => option.Value));
+        Assert.Equal(["portal"], capture.Offered.Select(option => option.Value));
+        Assert.Equal(["kmsgrab", "ximage"], capture.Refused.Select(option => option.Value));
         Assert.True(capture.HasRefused);
         Assert.Equal("2 options", capture.RefusedCount);
+        Assert.False(capture.RefusedShown);
     }
 
+    /// <summary>
+    /// The disclosure sits over what it covers, so the press that opens the list is where the press closing it is.
+    /// A list that grew above it would walk out from under the pointer.
+    /// </summary>
     [Fact]
-    public void RevealingListsTheRefusedEntriesUnderTheOnesThatCanBePicked()
+    public void RevealingLeavesTheEntriesAboveTheDisclosureWhereTheyWere()
     {
         var capture = Select("portal", "portal", "-kmsgrab", "-ximage");
+        var above = capture.Offered.ToList();
+        var below = capture.Refused.ToList();
 
         capture.RevealCommand.Execute(null);
 
-        Assert.Equal(["portal", "kmsgrab", "ximage"], capture.Shown.Select(option => option.Value));
+        Assert.Equal(above, capture.Offered);
+        Assert.Equal(below, capture.Refused);
         Assert.True(capture.RefusedShown);
     }
 
@@ -66,12 +75,14 @@ public sealed class RefusedEntriesTests
     public void HidingThemAgainLeavesTheListAsItWas()
     {
         var capture = Select("portal", "portal", "-kmsgrab");
-        var before = capture.Shown.ToList();
+        var offered = capture.Offered.ToList();
+        var refused = capture.Refused.ToList();
 
         capture.RevealCommand.Execute(null);
         capture.RevealCommand.Execute(null);
 
-        Assert.Equal(before, capture.Shown);
+        Assert.Equal(offered, capture.Offered);
+        Assert.Equal(refused, capture.Refused);
         Assert.False(capture.RefusedShown);
     }
 
@@ -80,29 +91,29 @@ public sealed class RefusedEntriesTests
     /// the reason it stays on the list rather than going from it.
     /// </summary>
     [Fact]
-    public void ARevealedEntryStillStatesWhyItCannotBePicked()
+    public void ARefusedEntryStatesWhyItCannotBePicked()
     {
         var capture = Select("portal", "portal", "-kmsgrab");
 
-        capture.RevealCommand.Execute(null);
+        var refused = capture.Refused.Single(option => option.Value == "kmsgrab");
 
-        var refused = capture.Shown.Single(option => option.Value == "kmsgrab");
         Assert.False(refused.IsEnabled);
         Assert.True(refused.HasReason);
     }
 
     /// <summary>
-    /// A flyout holds nothing but its items, so the disclosure is the last of them and reads as a state:
+    /// A flyout holds nothing but its items, so the disclosure is a row among them and reads as a state:
     /// the tick says whether the entries are listed (<c>docs/design-language.md</c>, "Menus").
+    /// It sits under the entries that can be picked, where the card list draws it.
     /// </summary>
     [Fact]
-    public void ADropdownCarriesTheDisclosureAsItsLastRow()
+    public void ADropdownCarriesTheDisclosureUnderTheEntriesThatCanBePicked()
     {
         var capture = Select("portal", "portal", "-kmsgrab");
 
-        var reveal = capture.MenuRows.Last();
+        var reveal = capture.MenuRows.Single(row => row.IsReveal);
 
-        Assert.True(reveal.IsReveal);
+        Assert.Equal(capture.Offered.Count, capture.MenuRows.IndexOf(reveal));
         Assert.True(reveal.IsEnabled);
         Assert.False(reveal.IsSelected);
         Assert.Equal(Fields.RefusedTitle, reveal.Label);
@@ -110,14 +121,16 @@ public sealed class RefusedEntriesTests
         Assert.Equal(["portal"], capture.MenuRows.Where(row => !row.IsReveal).Select(row => row.Value));
     }
 
+    /// <summary>Opened, the entries arrive under the row that opened them and the row keeps its place.</summary>
     [Fact]
-    public void TheDisclosureReadsWhetherTheEntriesAreListed()
+    public void TheDisclosureKeepsItsRowWhenTheEntriesAreListed()
     {
         var capture = Select("portal", "portal", "-kmsgrab");
 
-        capture.MenuRows.Last().Choose.Execute(null);
+        capture.MenuRows[1].Choose.Execute(null);
 
-        Assert.True(capture.MenuRows.Last().IsSelected);
+        Assert.True(capture.MenuRows[1].IsReveal);
+        Assert.True(capture.MenuRows[1].IsSelected);
         Assert.Equal(["portal", "kmsgrab"], capture.MenuRows.Where(row => !row.IsReveal).Select(row => row.Value));
     }
 
@@ -128,8 +141,9 @@ public sealed class RefusedEntriesTests
 
         Assert.False(capture.HasRefused);
         Assert.Equal("", capture.RefusedCount);
-        Assert.Equal(["portal", "kmsgrab"], capture.Shown.Select(option => option.Value));
-        Assert.Equal(capture.Shown, capture.MenuRows);
+        Assert.Equal(["portal", "kmsgrab"], capture.Offered.Select(option => option.Value));
+        Assert.Empty(capture.Refused);
+        Assert.Equal(capture.Offered, capture.MenuRows);
     }
 
     /// <summary>
@@ -156,11 +170,11 @@ public sealed class RefusedEntriesTests
         var capture = new FieldViewModel(field.Key, (_, _) => { });
         capture.Apply(field, Vocabulary.Empty);
         capture.RevealCommand.Execute(null);
-        var before = capture.Shown.ToList();
+        var rows = capture.MenuRows.ToList();
 
         capture.Apply(field, Vocabulary.Empty);
 
         Assert.True(capture.RefusedShown);
-        Assert.Equal(before, capture.Shown);
+        Assert.Equal(rows, capture.MenuRows);
     }
 }
