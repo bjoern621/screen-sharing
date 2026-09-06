@@ -1,0 +1,58 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The idle thumb, a line drawn inside the lane: Fluent's scale against its own 16px bar,
+    restated for the 10px one in Design/Metrics.axaml so the line stays 2px.
+    The translation holds it 2px off the outer edge, which is Fluent's inset.
+  -->
+  <TransformOperations x:Key="VerticalSmallScrollThumbScaleTransform">scaleX(0.2) translateX(-2px)</TransformOperations>
+  <TransformOperations x:Key="HorizontalSmallScrollThumbScaleTransform">scaleY(0.2) translateY(-2px)</TransformOperations>
+
+  <!--
+    A scroll bar gets a lane of its own, taken out of the content beside it.
+    Fluent spans the presenter across both grid columns while a bar can auto-hide,
+    so the bar floats over whatever a view scrolls: a card edge, a button, a wrapped line.
+    That span comes from a style whose selector carries a property condition,
+    which outranks a plain setter, so the override here carries the same condition.
+    A view whose content fits keeps the full width, the bar being invisible and its column Auto.
+  -->
+  <ControlTheme x:Key="{x:Type ScrollViewer}" TargetType="ScrollViewer"
+                BasedOn="{StaticResource {x:Type ScrollViewer}}">
+
+    <Style Selector="^[AllowAutoHide=True] /template/ ScrollContentPresenter#PART_ContentPresenter">
+      <Setter Property="Grid.ColumnSpan" Value="1" />
+      <Setter Property="Grid.RowSpan" Value="1" />
+    </Style>
+
+    <Style Selector="^ /template/ ScrollBar#PART_VerticalScrollBar">
+      <Setter Property="Margin" Value="{StaticResource ScrollBarGapVertical}" />
+    </Style>
+
+    <Style Selector="^ /template/ ScrollBar#PART_HorizontalScrollBar">
+      <Setter Property="Margin" Value="{StaticResource ScrollBarGapHorizontal}" />
+    </Style>
+
+  </ControlTheme>
+
+  <!--
+    No step buttons at either end.
+    Fluent fades them in with the track when a pointer arrives, which is most of the weight a
+    hovered bar carries, and a 10px arrow is a target nothing lands on.
+    Hidden rather than templated away: the Auto rows they sit in collapse, so the track runs the
+    full length of the bar.
+  -->
+  <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar"
+                BasedOn="{StaticResource {x:Type ScrollBar}}">
+
+    <Style Selector="^ /template/ RepeatButton#PART_LineUpButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="^ /template/ RepeatButton#PART_LineDownButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+  </ControlTheme>
+
+</ResourceDictionary>

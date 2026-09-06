@@ -103,6 +103,10 @@ A selected segment is flat, and a card is separated by its border.
 Cards stack in a column with one gap between them, and the gap falls between the cards that drew something (`Controls/CardColumn`).
 Two columns beside each other therefore start on one line, whatever either of them drew.
 
+A scroll bar keeps a lane of its own beside the content, so nothing a view scrolls is drawn under it (`Design/Scrolling.axaml`).
+The lane arrives with the bar, and a view whose content fits keeps the full width.
+The bar is a thin line with no step buttons at its ends, and a pointer over it thickens the thumb inside the lane it already holds.
+
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
 Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the sharing pill beside the strip commit.
 The strip commit is the review's own start-sharing press, glued to a chevron whose menu holds the commit with its settings summary, the presets, a stop row while live, and a row into the wizard.

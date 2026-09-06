@@ -83,6 +83,16 @@
   -->
   <Thickness x:Key="InsetMenu">5</Thickness>
 
+  <!--
+    The scroll bar's lane: the bar itself, and the air between it and the content it sits beside
+    (Design/Scrolling.axaml).
+    ScrollBarSize is Fluent's key, read by its bar template for the track, the thumb and the buttons.
+    10 against the 16 Fluent ships: a bar marks where the view sits, and the wheel does the scrolling.
+  -->
+  <sys:Double x:Key="ScrollBarSize">10</sys:Double>
+  <Thickness x:Key="ScrollBarGapVertical">4,0,0,0</Thickness>
+  <Thickness x:Key="ScrollBarGapHorizontal">0,4,0,0</Thickness>
+
   <!-- Small, because it is state and not decoration (docs/design-language.md). -->
   <sys:Double x:Key="DotSize">7</sys:Double>
 
