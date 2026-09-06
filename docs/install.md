@@ -187,11 +187,10 @@ A bug report takes the backend's log and the run's.
 
 ## Sending logs
 
-`Send logs` in the status bar delivers the newest run logs and the machine's facts,
+A run that crashed sends its log and the machine's facts,
 OS, display server, GPU and toolkit versions among them,
-to the operator of the configured relay.
+to the operator of the configured relay, on the next start.
 The group key, the Discord link and the member secrets stay on the machine.
-The answer names the stored bundle, which is the id to quote in a bug report.
 
-A run that crashed is reported the same way on the next start, once per crash.
+`Send crash reports` in Settings turns this off, keeping the log on this machine (`Open logs folder` reaches it).
 The bundles land where the relay's groupd stores them (`deploy/README.md`, "Reports").

@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
-using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
@@ -10,45 +8,28 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 
 /// <summary>
-/// Bottom band: what this computer's connection is carrying, the sentence saying what the view in front of it
-/// affords, and the send-logs button.
+/// Bottom band: what this computer's connection is carrying and the sentence saying what the view in front of it
+/// affords.
 ///
 /// The figures are the app's own fact and hold in every destination, a stream being published from one screen and
 /// watched from another (<c>Features/Shell/StatusBar/Model/NetworkLoad.cs</c>).
 /// The sentence beside them speaks for the view it belongs to.
 /// The band holds its height in every destination and says nothing where there is nothing to state.
-///
-/// The button lives here because a report is about the app rather than one screen,
-/// as the build beside it is.
 /// </summary>
 public sealed class StatusBarViewModel : Observable
 {
-    private readonly Action<Action> _dispatch;
-
-    /// <param name="sendReport">Backend effect behind the send-logs button.</param>
     /// <param name="updates">
     /// What the app says about the release published beside this build, owned once for the window.
     /// The band draws its line and its version presses the check;
     /// the dialog behind that line reads the same view model
     /// (<c>Features/Shell/Update/ViewModel/UpdateViewModel.cs</c>).
     /// </param>
-    /// <param name="dispatch">Hands a completion back to the UI loop.</param>
-    public StatusBarViewModel(
-        Func<CancellationToken, Task<string>> sendReport,
-        UpdateViewModel updates,
-        Action<Action> dispatch)
+    public StatusBarViewModel(UpdateViewModel updates)
     {
-        Assert.NotNull(sendReport, "a status band sends its report through the backend");
         Assert.NotNull(updates, "a status band states what it knows about the published release");
-        Assert.NotNull(dispatch, "a status band marshals completions back to the UI loop");
 
-        _dispatch = dispatch;
         Updates = updates;
-        SendLogs = new PendingCommand(() => SendAsync(sendReport), dispatch);
     }
-
-    /// <summary>Sends the report, holding the wait on the button.</summary>
-    public PendingCommand SendLogs { get; }
 
     /// <summary>
     /// The published release, as the band states it: the version's own control and the line beside it.
@@ -64,7 +45,7 @@ public sealed class StatusBarViewModel : Observable
     private string _build = "";
 
     /// <summary>
-    /// Band's whole input beside the send outcome, which the band's own effect writes.
+    /// Band's whole input.
     /// The figures arrive rather than being held here: the shell derives them off the running state, and
     /// a band holding its own copy would go on printing the throughput of a torn-down decoder.
     ///
@@ -89,43 +70,6 @@ public sealed class StatusBarViewModel : Observable
         Apply();
     }
 
-    // --- What the send landed ------------------------------------------------------
-
-    private string _sentOutcome = "";
-    private bool _sentFailed;
-
-    /// <summary>
-    /// Asks the backend for the report and keeps what came back.
-    /// The answer belongs to the band that asked, the measurements' exception
-    /// (<c>docs/ipc-api.md</c>): the id names a stored bundle, and no state reads it back.
-    /// A refusal is the backend's sentence about the attempt and shows as it stands.
-    /// </summary>
-    private async Task SendAsync(Func<CancellationToken, Task<string>> sendReport)
-    {
-        try
-        {
-            var id = await sendReport(default).ConfigureAwait(false);
-            Landed(Reports.Sent(id), failed: false);
-        }
-        catch (BackendUnavailableException e)
-        {
-            Landed(e.Message, failed: true);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private void Landed(string outcome, bool failed)
-    {
-        _dispatch(() =>
-        {
-            _sentOutcome = outcome;
-            _sentFailed = failed;
-            Apply();
-        });
-    }
-
     // --- Outputs -------------------------------------------------------------------
 
     private bool _showsMetrics;
@@ -133,9 +77,6 @@ public sealed class StatusBarViewModel : Observable
     private bool _showsHint;
     private string _version = "";
     private bool _showsVersion;
-    private string _sendOutcome = "";
-    private bool _showsSendOutcome;
-    private bool _sendFailed;
 
     /// <summary>Whether this destination has figures worth stating.</summary>
     public bool ShowsMetrics { get => _showsMetrics; private set => Set(ref _showsMetrics, value); }
@@ -156,18 +97,9 @@ public sealed class StatusBarViewModel : Observable
     /// <summary>Whether a build has been answered yet.</summary>
     public bool ShowsVersion { get => _showsVersion; private set => Set(ref _showsVersion, value); }
 
-    /// <summary>What the last send landed: the stored name, or the backend's refusal.</summary>
-    public string SendOutcome { get => _sendOutcome; private set => Set(ref _sendOutcome, value); }
-
-    public bool ShowsSendOutcome { get => _showsSendOutcome; private set => Set(ref _showsSendOutcome, value); }
-
-    /// <summary>Whether the outcome is a refusal, drawn in the failure face and selectable either way.</summary>
-    public bool SendFailed { get => _sendFailed; private set => Set(ref _sendFailed, value); }
-
     /// <summary>
     /// One render function.
     /// Every output on every pass, so a viewer figure cannot outlive a step back into setup.
-    /// The send outcome survives every pass: it answers the band's own effect rather than a destination.
     /// </summary>
     public void Apply()
     {
@@ -187,15 +119,9 @@ public sealed class StatusBarViewModel : Observable
         // The version's own control and the line beside it, rendered on this pass so the two agree.
         Updates.Apply();
 
-        SendOutcome = _sentOutcome;
-        ShowsSendOutcome = SendOutcome.Length > 0;
-        SendFailed = _sentFailed && ShowsSendOutcome;
-
         Assert.That(ShowsMetrics == (Load.Count > 0), "the figures and the flag drawing them agree", ShowsMetrics, Load.Count);
         Assert.That(ShowsHint == (Hint.Length > 0), "the trailing hint and its text agree", ShowsHint, Hint);
         Assert.That(ShowsVersion == (Version.Length > 0), "the version and its text agree", ShowsVersion, Version);
-        Assert.That(ShowsSendOutcome == (SendOutcome.Length > 0), "the send outcome and its text agree", ShowsSendOutcome, SendOutcome);
-        Assert.That(!SendFailed || ShowsSendOutcome, "a failure mark rides on a shown outcome", SendFailed, ShowsSendOutcome);
     }
 
     /// <summary>

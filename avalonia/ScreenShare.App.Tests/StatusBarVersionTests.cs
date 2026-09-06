@@ -19,7 +19,7 @@ public sealed class StatusBarVersionTests
 
     private static StatusBarViewModel Band(Destination destination, string version = Build)
     {
-        var band = new StatusBarViewModel(_ => Task.FromResult("report-1"), Flows.Updates(new SeededBackend("linux")), action => action());
+        var band = new StatusBarViewModel(Flows.Updates(new SeededBackend("linux")));
         band.Show(destination, [], "", version);
         return band;
     }

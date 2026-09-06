@@ -51,9 +51,8 @@ message Settings {
 // (form.proto, FieldGroup.applied).
 message AppSettings {
   // A crash in an earlier run goes to the relay operator on the next start.
-  // What rides along is the bundle SendReport builds:
-  // the build, the machine, the settings with their secrets blanked,
-  // and the run log holding the traceback (control.proto, SendReport).
+  // What rides along: the build, the machine, the settings with their secrets blanked,
+  // and the run log holding the traceback (internal/report).
   // Off leaves that log on this machine, where OpenLogsFolder reaches it.
   bool send_crash_reports = 1;
   // The published release is read once per start, filling the update state a shell draws.

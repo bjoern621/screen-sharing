@@ -135,9 +135,8 @@ func (x *Settings) GetApp() *AppSettings {
 type AppSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// A crash in an earlier run goes to the relay operator on the next start.
-	// What rides along is the bundle SendReport builds:
-	// the build, the machine, the settings with their secrets blanked,
-	// and the run log holding the traceback (control.proto, SendReport).
+	// What rides along: the build, the machine, the settings with their secrets blanked,
+	// and the run log holding the traceback (internal/report).
 	// Off leaves that log on this machine, where OpenLogsFolder reaches it.
 	SendCrashReports bool `protobuf:"varint,1,opt,name=send_crash_reports,json=sendCrashReports,proto3" json:"send_crash_reports,omitempty"`
 	// The published release is read once per start, filling the update state a shell draws.

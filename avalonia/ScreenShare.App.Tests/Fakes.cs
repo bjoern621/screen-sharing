@@ -184,9 +184,7 @@ internal sealed class DeferredBackend : IBackend
     public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.DiscordAsync(cancellation);
 
-
     public Task<string> ResolveLinkAsync(string url, CancellationToken cancellation = default)
-
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.ResolveLinkAsync(url, cancellation);
 
     public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
@@ -250,9 +248,6 @@ internal sealed class DeferredBackend : IBackend
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
         => _seed.OpenLogsFolderAsync(cancellation);
-
-    public Task<string> SendReportAsync(CancellationToken cancellation = default)
-        => _seed.SendReportAsync(cancellation);
 
     public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
         => _seed.UpdateAsync(cancellation);
@@ -551,9 +546,6 @@ internal sealed class PublishingBackend : IBackend
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
         => _seed.OpenLogsFolderAsync(cancellation);
-
-    public Task<string> SendReportAsync(CancellationToken cancellation = default)
-        => _seed.SendReportAsync(cancellation);
 
     public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
         => _seed.UpdateAsync(cancellation);

@@ -117,7 +117,7 @@ public sealed class ShellViewModel : Observable
         // The band draws it and the dialog behind the band's line reads the same view model,
         // so the two cannot disagree (Features/Shell/Update/ViewModel/UpdateViewModel.cs).
         Update = new UpdateViewModel(backend, _session, dispatch);
-        StatusBar = new StatusBarViewModel(backend.SendReportAsync, Update, dispatch);
+        StatusBar = new StatusBarViewModel(Update);
 
         // Over the window rather than in a destination: none of what it holds is about a stream
         // (Features/Fields/Model/GroupPlacement.cs).

@@ -233,9 +233,6 @@ public sealed class InsightsPreviewTests
         public Task OpenLogsFolderAsync(CancellationToken cancellation = default)
             => _seed.OpenLogsFolderAsync(cancellation);
 
-        public Task<string> SendReportAsync(CancellationToken cancellation = default)
-            => _seed.SendReportAsync(cancellation);
-
         public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
             => _seed.UpdateAsync(cancellation);
 

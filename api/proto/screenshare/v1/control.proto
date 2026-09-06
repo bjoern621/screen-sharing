@@ -343,22 +343,6 @@ service ControlService {
   rpc OpenLog(OpenLogRequest) returns (OpenLogResponse);
   rpc OpenLogsFolder(OpenLogsFolderRequest) returns (OpenLogsFolderResponse);
 
-  // Bundles this machine's facts and run logs and delivers them
-  // to the group service beside the stored relay, where the operator reads them.
-  // What rides along: the build, the OS and display server, the GPU,
-  // the toolkit versions, the settings with their secrets blanked,
-  // and the newest run logs, each tail-capped (internal/report).
-  //
-  // The stored settings name the relay.
-  // CheckRelay and CreateGroup read a draft because they are asked from the form;
-  // this is asked from the chrome, where no draft exists.
-  //
-  // Repeating the call stores a second report,
-  // the departure OpenInBrowser documents:
-  // the effect lands on another machine,
-  // and no state reads back to tell a second call it already happened.
-  rpc SendReport(SendReportRequest) returns (SendReportResponse);
-
   // --- Stream ------------------------------------------------------------------
 
   // Delivers what changed, for as long as the shell holds the call.
@@ -525,9 +509,8 @@ message InstallUpdateResponse {}
 // --- Effect requests and responses ------------------------------------------------
 //
 // Every effect answers with an empty message rather than with the new state,
-// except the two measurements and SendReport,
-// whose answer belongs to the caller that paid the seconds for it:
-// a measured figure, or the name the report was stored under.
+// except the two measurements,
+// whose answer belongs to the caller that paid the seconds for it: a measured figure.
 // What the state became arrives on the event stream, which is the one path into the display:
 // a shell that read the answer here, and a shell that only listened,
 // would otherwise be two ways of learning one fact.
@@ -821,14 +804,6 @@ message OpenLogResponse {}
 message OpenLogsFolderRequest {}
 
 message OpenLogsFolderResponse {}
-
-message SendReportRequest {}
-
-message SendReportResponse {
-  // Name the group service stored the report under,
-  // for the reader to quote to the operator.
-  string report_id = 1;
-}
 
 // --- Stream requests --------------------------------------------------------------
 

@@ -12,16 +12,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/report"
 )
 
-// SendReport bundles this machine's facts and run logs
-// and delivers them to the group service beside the stored relay (internal/report).
-// The manual half of the pair, asked for from a shell; ReportLastCrash sends the other.
-func (a *App) SendReport() (string, error) {
-	return a.sendReport(report.KindManual)
-}
-
-// sendReport builds one bundle and delivers it.
-// The stored settings name the relay: a report is about the deployment in use,
-// and no draft exists where the ask comes from (control.proto, SendReport).
+// sendReport builds one bundle and delivers it to the group service beside the stored relay
+// (internal/report). ReportLastCrash is the one caller.
+// The stored settings name the relay: a report is about the deployment in use.
 func (a *App) sendReport(kind string, include ...string) (string, error) {
 	s := a.GetSettings()
 	base, ok := s.Relay.GroupService()

@@ -436,13 +436,6 @@ public sealed class ControlBackend : IBackend
         => ReadAsync(c => c.OpenLogsFolderAsync(new OpenLogsFolderRequest(), cancellationToken: cancellation), cancellation);
 
     /// <inheritdoc />
-    public Task<string> SendReportAsync(CancellationToken cancellation = default)
-        => ReadAsync(
-            c => c.SendReportAsync(new SendReportRequest(), cancellationToken: cancellation),
-            r => r.ReportId,
-            cancellation);
-
-    /// <inheritdoc />
     public Task<UpdateState> UpdateAsync(CancellationToken cancellation = default)
         => ReadAsync(c => c.GetUpdateStateAsync(new GetUpdateStateRequest(), cancellationToken: cancellation), cancellation);
 

@@ -37,7 +37,7 @@ so the file itself stays the one a deployment reads.
 
 ## Reports
 
-The app's send-logs button and its crash reporter deliver bundles to `POST /reports`,
+The app's crash reporter delivers bundles to `POST /reports`,
 which groupd stores as files in the directory its `-reports` flag names.
 The flag left empty refuses the route,
 so a deployment that wants them mounts a volume and names it there.

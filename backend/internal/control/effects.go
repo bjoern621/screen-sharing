@@ -556,20 +556,6 @@ func (s *Server) OpenLogsFolder(ctx context.Context, req *screensharev1.OpenLogs
 	return &screensharev1.OpenLogsFolderResponse{}, nil
 }
 
-// SendReport bundles this machine's facts and run logs and delivers them
-// to the group service beside the stored relay.
-// The name it landed under answers to the caller, the measurements' exception (control.proto).
-// A second call stores a second report, the departure OpenInBrowser documents.
-func (s *Server) SendReport(ctx context.Context, req *screensharev1.SendReportRequest) (*screensharev1.SendReportResponse, error) {
-	id, err := s.backend.SendReport()
-	if err != nil {
-		return nil, fromBackend("cannot send the report", err)
-	}
-
-	assert.Assert(id != "", "a delivered report carries the name it was stored under")
-	return &screensharev1.SendReportResponse{ReportId: id}, nil
-}
-
 // CheckUpdate reads the published release, and fetches it where this install replaces its own files.
 //
 // Returns as soon as the work is under way, the download outliving the call.

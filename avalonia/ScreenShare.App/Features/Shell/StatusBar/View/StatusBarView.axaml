@@ -18,7 +18,7 @@
           MinHeight="{StaticResource StatusBarHeight}"
           Padding="12,0">
 
-    <Grid ColumnDefinitions="Auto,*,Auto">
+    <Grid ColumnDefinitions="Auto,*">
 
       <StackPanel Grid.Column="0"
                   Orientation="Horizontal"
@@ -101,32 +101,6 @@
                  HorizontalAlignment="Right"
                  Margin="16,0,0,0"
                  VerticalAlignment="Center" />
-
-      <!--
-        The send-logs corner: the outcome beside the button that produced it.
-        Selectable, because a refusal is what a reader carries into a message to the operator,
-        and it wraps rather than trimming for the same reason.
-        The width bound keeps a long refusal from pushing the figures off the band.
-      -->
-      <StackPanel Grid.Column="2"
-                  Orientation="Horizontal"
-                  Spacing="{StaticResource GapPanel}"
-                  Margin="16,0,0,0"
-                  VerticalAlignment="Center">
-        <SelectableTextBlock Classes="muted"
-                             Classes.danger="{Binding SendFailed}"
-                             Text="{Binding SendOutcome}"
-                             IsVisible="{Binding ShowsSendOutcome}"
-                             TextWrapping="Wrap"
-                             MaxWidth="420"
-                             VerticalAlignment="Center" />
-        <Button Content="Send logs"
-                Padding="8,2"
-                VerticalAlignment="Center"
-                Command="{Binding SendLogs}"
-                ToolTip.Tip="Sends the newest run logs and this machine's facts to the relay operator. The group key stays on this machine."
-                controls:Pending.IsActive="{Binding SendLogs.IsRunning}" />
-      </StackPanel>
     </Grid>
   </Border>
 </UserControl>

@@ -138,7 +138,6 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 
 func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
-func (f *fakeBackend) SendReport() (string, error)        { return "report-1", f.err }
 
 func (f *fakeBackend) UpdateState() update.State { return update.State{} }
 func (f *fakeBackend) CheckUpdate() error        { return f.err }

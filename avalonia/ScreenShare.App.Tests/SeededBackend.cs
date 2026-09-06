@@ -853,9 +853,6 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
-    public Task<string> SendReportAsync(CancellationToken cancellation = default)
-        => Task.FromResult("report-1");
-
     /// <summary>
     /// What the fixture says about the published release, settable per test.
     /// The unchecked stage by default: a fixture that reached a forge would be a test with a network in it.
