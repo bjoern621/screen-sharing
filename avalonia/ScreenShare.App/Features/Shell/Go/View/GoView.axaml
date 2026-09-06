@@ -13,25 +13,41 @@
   <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
 
     <!--
-      The dot takes the button's own Foreground, which the disabled treatment moves:
+      The command and the word are the model's answer for the state the stream is in, so the press ends
+      a stream running the draft and commits otherwise, off one reading (ViewModel/GoViewModel.cs).
+      The class carries the hue of that effect, and both halves take it: a green chevron beside a red
+      commit would read as two controls.
+
+      The stop glyph takes the mark stroke, the ladder's own line reading thin beside a solid dot
+      (Design/Icons.axaml).
+
+      Both marks take the button's own Foreground, which the disabled treatment moves:
       content naming a brush of its own would stay bright on a locked button.
     -->
     <Button Theme="{StaticResource GoButton}"
+            Classes.stop="{Binding ShowsStop}"
             CornerRadius="{StaticResource RadiusButtonLeading}"
-            Command="{Binding CommitCommand}"
-            controls:Pending.IsActive="{Binding CommitCommand.IsRunning}"
+            Command="{Binding Press}"
+            controls:Pending.IsActive="{Binding Press.IsRunning}"
             ToolTip.Tip="{Binding BlockedTip}">
       <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
         <Ellipse Width="{StaticResource DotSize}"
                  Height="{StaticResource DotSize}"
                  Fill="{Binding $parent[Button].Foreground}"
+                 IsVisible="{Binding !ShowsStop}"
                  VerticalAlignment="Center" />
-        <TextBlock Text="{Binding CommitLabel}" />
+        <ti:TablerIcon Classes="button mark"
+                       Icon="IconPlayerStop"
+                       Brush="{Binding $parent[Button].Foreground}"
+                       IsVisible="{Binding ShowsStop}"
+                       VerticalAlignment="Center" />
+        <TextBlock Text="{Binding PressLabel}" />
       </StackPanel>
     </Button>
 
     <Button x:Name="MenuButton"
             Theme="{StaticResource GoButton}"
+            Classes.stop="{Binding ShowsStop}"
             CornerRadius="{StaticResource RadiusButtonTrailing}"
             Padding="7,0"
             Click="OnMenuPressed">

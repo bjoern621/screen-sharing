@@ -105,12 +105,20 @@
   <sys:Double x:Key="SpinnerStroke">1.5</sys:Double>
 
   <!--
-    Three sizes off the design's 12-22px range, named by where a glyph sits, and one stroke under all of them.
-    The stroke is a width rather than a weight in the artwork,
-    so a 12px badge glyph and a 14px control glyph are the same line (docs/design-language.md).
+    Three sizes off the design's 12-22px range, named by where a glyph sits, and one stroke under all of them,
+    a heavier one standing beside it for the glyphs drawn as marks.
     The window controls are not on this ladder.
+
+    A stroke is in the glyph's own 24-unit artwork rather than in pixels,
+    so what lands on the screen is the number times the size the glyph is drawn at, over 24:
+    1.2 is about 0.7px on a 14px control glyph.
   -->
   <sys:Single x:Key="IconStroke">1.2</sys:Single>
+  <!--
+    A glyph standing in for a mark, drawn beside filled shapes of its own size:
+    the line above reads thin against a solid dot, and 3 is about 2px at the 16px a button glyph takes.
+  -->
+  <sys:Single x:Key="IconStrokeMark">3</sys:Single>
   <!-- Inside a badge or a pill, where the surrounding shape is already 15-16px. -->
   <sys:Double x:Key="IconSizeBadge">12</sys:Double>
   <sys:Double x:Key="IconSizeControl">14</sys:Double>

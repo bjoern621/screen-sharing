@@ -31,6 +31,7 @@ Green marks the way in: `Start sharing` is green, and the machine that is sharin
 On and selected both take inversion ("Selection"), so each hue keeps to the question its row names.
 None of the three carries a fact alone: what is coloured also says itself in words, a glyph or weight, so a reader who separates none of them loses nothing.
 A hue as a fill takes the label its contrast affords, white on red and green, near-black on amber.
+A hue that cannot be pressed drops the fill for a grey outline, so colour on a control says a press is there and the greyed controls read as one family.
 
 **Why a control is inert is read before anything else on it.**
 The reason takes the amber and the emphasis weight, so it stands above the paragraph teaching what the control would have done, and above the copy of a card that has greyed around it (`field-availability.md`).
@@ -97,8 +98,12 @@ Radius follows what a thing is: a segment, a control, a button, a strip, a panel
 
 Two things cast a shadow and nothing else is elevated.
 The window's is the platform's, so the app states nothing for it.
-The other belongs to a surface floating over the window: a menu, and the tooltip skinned like one.
+The other belongs to a surface floating over the window: a menu, the tooltip skinned like one, and the settings dialog.
 A selected segment is flat, and a card is separated by its border.
+
+A dialog about the app stands on a dimmed ground rather than in a window of its own.
+The ground keeps what it covers readable and takes every press, and closing is Escape, the corner button, or a press on that ground.
+It is a control over the window's own grid, a second window having no way to dim the one it came from and needing a caption drawn to match three desktops.
 
 Cards stack in a column with one gap between them, and the gap falls between the cards that drew something (`Controls/CardColumn`).
 Two columns beside each other therefore start on one line, whatever either of them drew.
@@ -108,8 +113,11 @@ The lane arrives with the bar, and a view whose content fits keeps the full widt
 The bar is a thin line with no step buttons at its ends, and a pointer over it thickens the thumb inside the lane it already holds.
 
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
-Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the sharing pill beside the strip commit.
-The strip commit is the review's own start-sharing press, glued to a chevron whose menu holds the commit with its settings summary, the presets, a stop row while live, and a row into the wizard.
+Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the sharing pill, the settings gear and the strip commit.
+The gear sits in the strip because what it opens belongs to no destination.
+The strip commit is the terminal step's own start-sharing press, glued to a chevron whose menu holds the commit with the settings it applies, the presets, a stop row while live, and a row into the wizard.
+A stream running the settings the draft builds hands that press to `Stop sharing`, both halves taking the way-out hue, and a value moved hands it back to the commit: restarting a pipeline into itself costs every viewer the picture for nothing, and stopping is what the strip is reached for from any destination.
+The commit's dot gives way to the stop glyph, which the menu's stop row carries in red as its only mark, so the way out is found without reading the rows.
 A preset picked there is applied and committed in one press, so going live is one click from any destination.
 On Linux the frame is the desktop's and no title bar is drawn.
 Which buttons a window carries, which edge they sit on and whether it carries any are that desktop's answer, and a tiling session answers "none".
@@ -140,7 +148,7 @@ A tiling session hands one a quarter of the screen and offers no frame to drag, 
 
 **A window too narrow for two columns draws one, and the side column becomes a panel over the body.**
 The body keeps the whole width, and the panel opens from a control on the surface it belongs to.
-Three columns work this way: setup's rail, broadcast's cards, the viewer's watch settings.
+Three columns work this way: setup's rail, the insights cards, the viewer's watch settings.
 Each states its own width and the body it needs beside it, and the threshold is those two added (`Features/Shell/Model/SideColumns.cs`).
 
 A column that draws unasked carries its control only while it is a panel, a press that changes nothing reading as broken.
@@ -286,7 +294,8 @@ The machine the app runs on is `this computer` wherever a surface names it.
 
 `Sharing` is the state's name on every surface that has one: the pill in the nav strip, the pill on the insights header, the badge over the preview.
 The controls that enter and leave it are `Start sharing` and `Stop sharing`, so button and state say one word rather than one saying `Go live` and the other answering `On air`.
-The wizard's terminal step is `Share`.
+The wizard's terminal step is `Summary`, after the settings it lists.
+`Insights` names the destination reporting a stream: the preview, the figures, the log and the live-safe actions.
 
 A tooltip is prose: opens with a capital, closes with a full stop, and explains the control or figure instead of naming it again.
 An icon button whose tooltip repeats its glyph teaches nothing, so the tooltip says what pressing it does and what it leaves alone.
@@ -315,7 +324,9 @@ They sit with the tiles because a reader who only watches never opens setup, and
 
 ## Icons
 
-Outline glyphs, vector paths at a 1.2px stroke with round caps.
+Outline glyphs, vector paths at a 1.2 stroke with round caps.
+A stroke is in the glyph's own 24-unit artwork, so the line on screen scales with the size the glyph is drawn at, and 1.2 lands at about 0.7px on a 14px glyph.
+A glyph standing in for a mark takes 3 instead, about 2px at the size a button glyph is drawn at, that hairline reading thin beside a filled dot.
 Sizes range 12 to 22px by surface.
 Emoji are never used: the platform emoji font paints them in colour and ignores the foreground brush, so a button's states become inexpressible.
 Window controls are geometry rather than text, for the same reason a font's box-drawing metrics cannot be relied on.

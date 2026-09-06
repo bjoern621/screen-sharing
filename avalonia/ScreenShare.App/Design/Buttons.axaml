@@ -77,10 +77,10 @@
   <!--
     The two controls that change the world wear a hue: green on the way in, red on the way out
     (docs/design-language.md, "Palette").
-    Hover and press move opacity and keep the hue, so neither adds a value to the palette.
+    Both draw from one shape, each stating its fill: hover and press move opacity over that fill,
+    so neither adds a value to the palette and neither variant restates the treatment.
   -->
-  <ControlTheme x:Key="GoButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-    <Setter Property="Background" Value="{StaticResource GoBrush}" />
+  <ControlTheme x:Key="HueButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{StaticResource RadiusButton}" />
     <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
@@ -88,33 +88,46 @@
     <Setter Property="Height" Value="{StaticResource ActionHeight}" />
     <Setter Property="Padding" Value="15,0" />
 
-    <Style Selector="^:pointerover /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource GoBrush}" />
+    <Style Selector="^:pointerover:not(:disabled) /template/ Border#Root">
+      <Setter Property="Background" Value="{TemplateBinding Background}" />
       <Setter Property="Opacity" Value="0.92" />
     </Style>
-    <Style Selector="^:pressed /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource GoBrush}" />
+    <Style Selector="^:pressed:not(:disabled) /template/ Border#Root">
+      <Setter Property="Background" Value="{TemplateBinding Background}" />
       <Setter Property="Opacity" Value="0.82" />
+    </Style>
+
+    <!--
+      Unpressable, the fill goes and an outline stands in: a hue on screen says a press is there,
+      and one carrying no press competes with the controls that do.
+      Stated here rather than left to the shared skin, whose greyed fill reads as a button that is filled.
+      Excluded from hover and press above, a disabled control keeping the pointer's pseudo-class.
+    -->
+    <Style Selector="^:disabled">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
     </Style>
   </ControlTheme>
 
-  <ControlTheme x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-    <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{StaticResource RadiusButton}" />
-    <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Height" Value="{StaticResource ActionHeight}" />
-    <Setter Property="Padding" Value="15,0" />
+  <!--
+    The way in, and the strip's pair where its press is the way out (Features/Shell/Go/View/GoView.axaml).
+    One theme for both halves of that pair, a class moving the fill,
+    so the commit and its menu button cannot wear two hues.
+  -->
+  <ControlTheme x:Key="GoButton" TargetType="Button" BasedOn="{StaticResource HueButton}">
+    <Setter Property="Background" Value="{StaticResource GoBrush}" />
 
-    <Style Selector="^:pointerover /template/ Border#Root">
+    <Style Selector="^.stop">
       <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
-      <Setter Property="Opacity" Value="0.92" />
     </Style>
-    <Style Selector="^:pressed /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
-      <Setter Property="Opacity" Value="0.82" />
-    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource HueButton}">
+    <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
   </ControlTheme>
 
   <ControlTheme x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">

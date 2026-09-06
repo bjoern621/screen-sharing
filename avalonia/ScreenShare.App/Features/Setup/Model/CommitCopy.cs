@@ -1,9 +1,10 @@
 using ScreenShare.App.Contracts;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// What the commit calls itself and what it promises, per effect pressing it can have.
+/// What the commit calls itself, in a word and a mark, and what it promises, per effect pressing it can have.
 ///
 /// <b>One row per <see cref="PublishCommit"/>, read whole by the view model.</b>
 /// A conditional at each binding site would let the label and the sentence under it answer differently
@@ -30,6 +31,13 @@ public static class CommitCopy
     {
         public required string Label { get; init; }
 
+        /// <summary>
+        /// Mark drawn beside that word where a row has an icon column, the strip's menu being the one that does.
+        /// A restart is the effect a reader has to spot without reading the row,
+        /// so the two effects take marks that differ at a glance.
+        /// </summary>
+        public required Icons Glyph { get; init; }
+
         /// <summary>Half in front of the stream name.</summary>
         public required string Lead { get; init; }
 
@@ -48,16 +56,18 @@ public static class CommitCopy
         [PublishCommit.Start] = new Entry
         {
             Label = "Start sharing",
-            Lead = "Sharing starts on these settings. Viewers on ",
-            Tail = " can watch the stream afterwards.",
+            Glyph = Icons.IconPlayerPlay,
+            Lead = "Sharing starts on these settings. Everyone in the group can watch ",
+            Tail = ".",
             InForce = "",
         },
 
         [PublishCommit.Apply] = new Entry
         {
             Label = "Apply and restart",
-            Lead = "Applying restarts the stream on these settings. Viewers on ",
-            Tail = " lose the picture for a moment and reconnect.",
+            Glyph = Icons.IconRefresh,
+            Lead = "Applying restarts the stream on these settings. Everyone watching ",
+            Tail = " loses the picture for a moment and reconnects.",
             InForce = "Sharing already runs on these settings. Change one to apply it.",
         },
     };

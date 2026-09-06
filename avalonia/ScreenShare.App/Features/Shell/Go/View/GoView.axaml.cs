@@ -1,11 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Styling;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Shell.Go.View;
 
@@ -30,14 +31,19 @@ public sealed partial class GoView : UserControl
     }
 
     /// <summary>
-    /// The menu as the model stands at the press: commit with its summary, presets, stop while live,
-    /// and the way into the wizard.
+    /// The menu as the model stands at the press: commit with its summary, presets, stop while live.
     /// </summary>
     private MenuFlyout MenuOf(GoViewModel model)
     {
         var flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
 
-        flyout.Items.Add(new MenuItem { Header = model.CommitLabel, Command = model.CommitCommand });
+        flyout.Items.Add(new MenuItem
+        {
+            Header = model.CommitLabel,
+            Icon = Mark(model.CommitGlyph),
+            Command = model.CommitCommand,
+        });
+
         if (model.Summary.Length > 0)
         {
             flyout.Items.Add(new MenuItem { Theme = Note(), Header = model.Summary });
@@ -63,11 +69,13 @@ public sealed partial class GoView : UserControl
         if (model.IsLive)
         {
             flyout.Items.Add(new Separator());
-            flyout.Items.Add(new MenuItem { Header = InsightsViewModel.StopLabel, Command = model.StopCommand });
+            flyout.Items.Add(new MenuItem
+            {
+                Header = InsightsViewModel.StopLabel,
+                Icon = StopMark(),
+                Command = model.StopCommand,
+            });
         }
-
-        flyout.Items.Add(new Separator());
-        flyout.Items.Add(new MenuItem { Header = Strip.OpenSetup, Command = new DelegateCommand(model.OpenSetup) });
 
         return flyout;
     }
@@ -87,13 +95,45 @@ public sealed partial class GoView : UserControl
         };
 
     /// <summary>
+    /// Mark on a row that carries one, at the mark stroke, the icon set's own line reading thin against
+    /// the rows' words (<c>Design/Icons.axaml</c>).
+    /// The rows worth marking are the two effects: the commit, whose restart a reader has to spot,
+    /// and the way out.
+    /// </summary>
+    private static TablerIcon Mark(Icons glyph)
+    {
+        var mark = new TablerIcon { Icon = glyph };
+        mark.Classes.Add("mark");
+
+        return mark;
+    }
+
+    /// <summary>
+    /// The stop's mark, in the hue the way out wears everywhere (<c>docs/design-language.md</c>, "Palette").
+    /// </summary>
+    private static TablerIcon StopMark()
+    {
+        var mark = Mark(Icons.IconPlayerStop);
+        mark.Brush = Brush("AttentionBrush");
+
+        return mark;
+    }
+
+    /// <summary>
     /// Off the application, where <c>Design/Menus.axaml</c> merges it:
     /// the view is asked before it is rooted, and an unrooted lookup walks no further than the control.
     /// </summary>
     private static ControlTheme Note()
+        => Assert.NotNull(Resource("MenuNote") as ControlTheme,
+            "the application's resources carry the inert menu row theme");
+
+    /// <summary>Role off the palette, resolved the same way and for the same reason.</summary>
+    private static IBrush Brush(string key)
+        => Assert.NotNull(Resource(key) as IBrush, $"the application's resources carry the role {key} a menu row asks for");
+
+    private static object? Resource(string key)
     {
         var application = Assert.NotNull(Avalonia.Application.Current, "a view is rendered by a running application");
-        return Assert.NotNull(application.FindResource("MenuNote") as ControlTheme,
-            "the application's resources carry the inert menu row theme");
+        return application.FindResource(key);
     }
 }

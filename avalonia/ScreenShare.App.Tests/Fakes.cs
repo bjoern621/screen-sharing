@@ -329,6 +329,26 @@ internal sealed class PublishingBackend : IBackend
     /// <summary>What is publishing. Nothing until a test writes one, which the absent <c>Live</c> says.</summary>
     public PublishState Publish { get; set; } = new();
 
+    /// <summary>
+    /// Stream built from the settings this backend holds, which is the draft a fresh flow opens on.
+    /// Written into <see cref="Publish"/> by a test that wants the running pipeline to be the drafted one,
+    /// so the resolve answers <c>Form.in_force</c>.
+    /// </summary>
+    public PublishState Running()
+    {
+        var settings = SettingsAsync().Result;
+
+        return new PublishState
+        {
+            Live = new PublishState.Types.Live
+            {
+                Publish = settings.Publish,
+                Relay = settings.Relay,
+                StreamName = settings.StreamName,
+            },
+        };
+    }
+
     /// <summary>Refusal every commit meets, empty while commits go through.</summary>
     public string Refusal { get; set; } = "";
 

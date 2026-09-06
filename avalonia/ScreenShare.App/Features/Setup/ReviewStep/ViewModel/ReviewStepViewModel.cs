@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 
@@ -61,6 +62,7 @@ public sealed class ReviewStepViewModel : Observable
 
     private bool _canStartSharing;
     private string _commitLabel = "";
+    private Icons _commitGlyph;
     private string _promiseLead = "";
     private string _promiseTail = "";
     private string _blocked = "";
@@ -96,6 +98,9 @@ public sealed class ReviewStepViewModel : Observable
     /// rather than two answers that happen to agree.
     /// </summary>
     public string CommitLabel { get => _commitLabel; private set => Set(ref _commitLabel, value); }
+
+    /// <summary>Mark for that same effect, off the same row, for a surface with an icon column to draw.</summary>
+    public Icons CommitGlyph { get => _commitGlyph; private set => Set(ref _commitGlyph, value); }
 
     /// <summary>
     /// Promise under the button, up to the stream name.
@@ -168,6 +173,7 @@ public sealed class ReviewStepViewModel : Observable
         // and a property written only in the apply branch is one that sticks.
         var words = CommitCopy.Of(gate.Commit);
         CommitLabel = words.Label;
+        CommitGlyph = words.Glyph;
         PromiseLead = words.Lead;
         PromiseTail = words.Tail;
 

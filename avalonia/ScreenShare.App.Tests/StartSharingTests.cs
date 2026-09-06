@@ -57,22 +57,6 @@ public sealed class StartSharingTests
         Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = name },
     };
 
-    /// <summary>Stream built from the settings the seed holds, which is the draft a fresh flow opens on.</summary>
-    private static PublishState Running(PublishingBackend backend)
-    {
-        var settings = backend.SettingsAsync().Result;
-
-        return new PublishState
-        {
-            Live = new PublishState.Types.Live
-            {
-                Publish = settings.Publish,
-                Relay = settings.Relay,
-                StreamName = settings.StreamName,
-            },
-        };
-    }
-
     [Fact]
     public void AResolvedFormAndAReachableRelayLetTheCommitBePressed()
     {
@@ -244,7 +228,7 @@ public sealed class StartSharingTests
     public void ADraftTheStreamWasBuiltFromGreysTheCommit()
     {
         var backend = new PublishingBackend();
-        backend.Publish = Running(backend);
+        backend.Publish = backend.Running();
         var flow = Flow(backend, out _);
 
         Assert.False(flow.Review.CanStartSharing);
@@ -264,7 +248,7 @@ public sealed class StartSharingTests
     public void AValueMovedLightsTheCommitAndPutBackGreysItAgain()
     {
         var backend = new PublishingBackend();
-        backend.Publish = Running(backend);
+        backend.Publish = backend.Running();
         var flow = Flow(backend, out _, out var form);
         var fps = form.Draft!.Publish.Fps;
 
@@ -297,7 +281,7 @@ public sealed class StartSharingTests
 
         Assert.True(flow.Review.CanStartSharing);
 
-        backend.Publish = Running(backend);
+        backend.Publish = backend.Running();
         Reload(session, flow);
 
         Assert.False(flow.Review.CanStartSharing);
