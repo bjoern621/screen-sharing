@@ -109,6 +109,27 @@ public sealed class LinkDiscordTests
         Assert.DoesNotContain("Join a voice channel", DiscordMode(flow).ActionNotice);
     }
 
+    /// <summary>
+    /// A linked install can press again, the press putting another account where the linked one stands,
+    /// so the label says which of the two presses this is rather than offering a link already made.
+    /// </summary>
+    [Fact]
+    public async Task ALinkedInstallIsOfferedAnotherAccount()
+    {
+        var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.Equal("Link a different account", DiscordMode(flow).Action!.Label);
+    }
+
     [Fact]
     public async Task AMachineWithNoRelayCannotLink()
     {

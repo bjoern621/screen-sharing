@@ -213,13 +213,28 @@ func (d discordSnapshot) wire(linked bool) wire.DiscordSnapshot {
 	}
 }
 
-// withBrokered is s carrying the last pass's brokered facts,
-// and s unchanged outside Discord mode or outside any channel.
+// withStoredLink is s carrying the link secret the settings hold.
+//
+// The link flow is the one writer of it (discordlink.go), so a copy that came from a shell says nothing
+// about a link that landed after the shell read it.
+// Taking such a copy would unlink this install, and every path holding or resolving one reads through here.
+func (a *App) withStoredLink(s settings.Settings) settings.Settings {
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+
+	s.Relay.DiscordLink = a.settings.Relay.DiscordLink
+	return s
+}
+
+// withBrokered is s carrying the stored link and the last pass's brokered facts,
+// the brokered half staying off outside Discord mode or outside any channel.
 //
 // What lets every reader of InGroup, Path and SrtPassphrase answer in Discord mode
 // without holding a group key.
 // The one owner of the facts is the pass snapshot, and this reads through it per call.
 func (a *App) withBrokered(s settings.Settings) settings.Settings {
+	s = a.withStoredLink(s)
+
 	if !s.Relay.DiscordMode {
 		return s
 	}

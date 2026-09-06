@@ -66,6 +66,8 @@ func (a *App) PublishCommand(s settings.Settings) (string, error) {
 // Persisting is best effort:
 // a store that cannot be written is an Umgebungsfehler and does not cost the stream.
 func (a *App) StartPublish(s settings.Settings) error {
+	s = a.withStoredLink(s)
+
 	a.settingsMu.Lock()
 	a.settings = s
 	a.settingsMu.Unlock()
@@ -196,6 +198,8 @@ func (a *App) releaseSourcesLocked() {
 // A launch that fails after the teardown leaves nothing publishing:
 // the pipeline carrying the stream is gone and there is no earlier one to return to.
 func (a *App) Republish(s settings.Settings) error {
+	s = a.withStoredLink(s)
+
 	a.settingsMu.Lock()
 	a.settings = s
 	a.settingsMu.Unlock()

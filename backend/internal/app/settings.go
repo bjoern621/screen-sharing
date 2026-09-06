@@ -36,6 +36,7 @@ func (a *App) GetSettings() settings.Settings {
 // and the next pass of the presence loop states presence under the new one (members.go).
 func (a *App) SaveSettings(s settings.Settings) error {
 	s.Relay = followsDiscord(s.Relay)
+	s = a.withStoredLink(s)
 
 	a.settingsMu.Lock()
 	before := a.settings.Relay

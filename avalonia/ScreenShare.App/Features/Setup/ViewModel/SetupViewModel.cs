@@ -748,6 +748,23 @@ public sealed class SetupViewModel : Observable
         Apply();
     }
 
+    /// <summary>Whether the backend answers this install as linked, unknown counting as unlinked.</summary>
+    private bool IsLinked => _session.Discord?.Linked == true;
+
+    /// <summary>
+    /// What the link button says.
+    /// A linked install presses it to put another account where the linked one stands,
+    /// so the offer a press carries differs by state (<c>docs/discord-mode.md</c>, "Linking, once per install").
+    /// </summary>
+    private string LinkLabel() => IsLinked ? "Link a different account" : "Link Discord";
+
+    /// <summary>What the press does, on the state <see cref="LinkLabel"/> follows.</summary>
+    private string LinkTip() => IsLinked
+        ? "Opens Discord's consent screen in the browser and links this computer to another Discord account. "
+          + "The account linked now is replaced."
+        : "Opens the browser on Discord's consent screen and ties this computer to a Discord account. "
+          + "One time per computer. The link is what tells the relay which voice channel this computer follows.";
+
     /// <summary>
     /// What the link button carries beside it: the failure of the last attempt,
     /// or the Discord state as the backend's last pass read it.
@@ -1050,8 +1067,8 @@ public sealed class SetupViewModel : Observable
             GroupNotice(),
             _createGroup),
         RelayLayout.DiscordModeKey => new FieldAction(
-            "Link Discord",
-            "Opens the browser on Discord's consent screen and ties this computer to a Discord account. One time per computer. The link is what tells the relay which voice channel this computer follows.",
+            LinkLabel(),
+            LinkTip(),
             LinkNotice(),
             _linkDiscord),
         _ => null,
