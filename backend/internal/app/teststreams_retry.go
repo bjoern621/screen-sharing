@@ -124,7 +124,14 @@ func (a *App) armTestStreamLocked(i int, spent int, cause *screensharev1.Text, m
 	a.testStreams[i] = slot
 	slot.timer = time.AfterFunc(wait, func() { a.fireTestStreamRetry(i, slot) })
 
-	logger.Infof("relaunch %d of test stream %s in %s", slot.attempts, testStreamName(i), wait)
+	// One line per outage, the rule the exit takes:
+	// the ladder never gives up, so a machine in no group would otherwise write a line per slot
+	// at the last delay for the rest of the run.
+	line := logger.Debugf
+	if slot.attempts == 1 {
+		line = logger.Infof
+	}
+	line("relaunch %d of test stream %s in %s", slot.attempts, testStreamName(i), wait)
 }
 
 // fireTestStreamRetry relaunches the slot the relaunch holds, unless the set has moved off it:
@@ -150,7 +157,13 @@ func (a *App) fireTestStreamRetry(i int, slot *testStream) {
 		err = a.launchTestStreamLocked(i, slot.attempts, s, exe, env)
 	}
 	if err != nil {
-		logger.Warnf("relaunch %d of test stream %s did not start: %v", slot.attempts, testStreamName(i), err)
+		// One line per outage, as the arming above takes:
+		// a launch refused for want of a group is refused the same way at every delay.
+		line := logger.Debugf
+		if slot.attempts == 1 {
+			line = logger.Warnf
+		}
+		line("relaunch %d of test stream %s did not start: %v", slot.attempts, testStreamName(i), err)
 		// The child never started, so its own words are the launch failure and no run log carries them.
 		a.armTestStreamLocked(i, slot.attempts, slot.cause, err.Error(), "")
 	}
