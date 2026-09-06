@@ -90,7 +90,7 @@ Membership is therefore enforced by closing connections, against the presence le
 | `POST /tokens` | group key, and the member secret naming who asks | no, the request has no path field at all |
 | `GET /streams` | group key | no, a prefix is not a group key |
 | `PUT /members`, `DELETE /members`, `GET /members` | group key, and the member secret on the two that state and release | no |
-| `POST /reconcile` | nothing, on loopback only | a path names a group and buys a run against the leases that group's own members stated |
+| `POST /reconcile` | nothing, on loopback only | a path names a group and buys a run against the leases that group's own members stated, answered with no content |
 | publish | JWT | no, the grant is `~^prefix` and the relay matches it |
 | read | JWT | no, the grant is `~^prefix` and the relay matches it |
 

@@ -139,13 +139,16 @@ apiAddress: 127.0.0.1:9997
 # What the relay counts: bytes and connections per path and per listener,
 # the half of a deployment's readings the group service cannot answer.
 #
-# Not loopback, where the API above is.
-# A collector scrapes from somewhere else, so this binds every address the relay has,
-# and the deployment is what keeps it private:
-# the pod publishes no host port for it,
-# and its NetworkPolicy names the one namespace that may reach it.
+# A scrape names every group's prefix, the streams under it and how many are reading each,
+# and it asks for no credential, so the address it binds is the whole of what gates it.
+# Loopback, which is what a relay on a development machine wants:
+# a wider bind there puts the group listing on the LAN.
+# A deployment whose collector scrapes from another host widens it through
+# MTX_METRICSADDRESS, and says in the same place who may reach it
+# (argocd/applications/screenshare in the hh-cluster-infra repository:
+# no host port, and a NetworkPolicy naming the one namespace that scrapes).
 metrics: yes
-metricsAddress: :9998
+metricsAddress: 127.0.0.1:9998
 
 # --- Media over QUIC, which no proxy can front either --------------------------------
 #

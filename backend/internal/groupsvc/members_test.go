@@ -1,6 +1,7 @@
 package groupsvc
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"slices"
@@ -358,12 +359,33 @@ func TestReconcileTakesTheRelaysOwnPath(t *testing.T) {
 	// The reconnect is read off the next one.
 	time.Sleep(membership.SweepWindow)
 
-	status, body := call(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`)
-	if status != 200 {
+	if status, body := callRaw(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`); status != http.StatusNoContent {
 		t.Fatalf("a reconcile answered %d: %v", status, body)
 	}
 	if !slices.Equal(relayed.kicked, []string{"back-again"}) {
 		t.Errorf("a reconnect by a non-member was left alone: closed %v", relayed.kicked)
+	}
+}
+
+// The hook carries a relay path and no credential, and a path is public.
+// So the answer states nothing a reader of one would otherwise not hold:
+// a member's name, how many are live, and which connections went.
+func TestAReconcileAnswersNothingAboutTheGroup(t *testing.T) {
+	key, secret := mustKey(t), mustSecret(t)
+	service, _ := enforcing(t,
+		relay.Session{Segment: "srtconns", ID: "stranger", Path: mustKey(t).Prefix() + "desk", User: "whoever", State: "read"},
+	)
+
+	if status, body := call(t, service, "PUT", "/members", presence(key, secret, "Björn")); status != 200 {
+		t.Fatalf("stating presence answered %d: %v", status, body)
+	}
+
+	status, body := callRaw(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`)
+	if status != http.StatusNoContent {
+		t.Errorf("a run answered %d, and a body with it", status)
+	}
+	if strings.TrimSpace(body) != "" {
+		t.Errorf("a run answered %q, which a path alone bought", body)
 	}
 }
 
@@ -385,12 +407,8 @@ func TestReconcileOnAGroupWithNoLiveMembersClosesNothing(t *testing.T) {
 		relay.Session{Segment: "srtconns", ID: "stranger", Path: key.Prefix() + "desk", User: "whoever", State: "read"},
 	)
 
-	status, body := call(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`)
-	if status != 200 {
+	if status, body := callRaw(t, service, "POST", "/reconcile", `{"path":"`+key.Prefix()+`desk"}`); status != http.StatusNoContent {
 		t.Fatalf("a reconcile answered %d: %v", status, body)
-	}
-	if body["enforced"] != false {
-		t.Errorf("a group with no live members answered enforced=%v", body["enforced"])
 	}
 	if len(relayed.kicked) != 0 {
 		t.Errorf("a group with no live members closed %v", relayed.kicked)

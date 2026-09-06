@@ -52,6 +52,17 @@ func service(t *testing.T, streams ...string) *Service {
 	return New(signer, paths(streams), membership.New(&carrying{}), &keyed{}, nil)
 }
 
+// callRaw makes one request and returns its status and body as it stands,
+// for a route whose answer is not JSON.
+func callRaw(t *testing.T, s *Service, method, target, body string) (int, string) {
+	t.Helper()
+	r := httptest.NewRequest(method, target, strings.NewReader(body))
+	r.RemoteAddr = "192.0.2.1:1234"
+	w := httptest.NewRecorder()
+	s.Handler("test").ServeHTTP(w, r)
+	return w.Code, w.Body.String()
+}
+
 // call makes one request and returns its status and decoded body.
 func call(t *testing.T, s *Service, method, target, body string) (int, map[string]any) {
 	t.Helper()

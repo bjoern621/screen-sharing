@@ -447,6 +447,12 @@ func (s *Service) viewMembers(w http.ResponseWriter, r *http.Request) {
 // which closes a member whose lease lapsed and who came back on an unexpired token.
 // A path belonging to no group is refused rather than treated as one,
 // a bare stream name naming no group.
+//
+// The run's own account stays here.
+// This is the one route taking no credential, and a path is public,
+// so anything answered is answered to whoever holds one:
+// the members' names, how many are live, and which connections went.
+// What an operator reads instead is the scrape, which the deployment gates (cmd/groupd, -metrics).
 func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
@@ -461,7 +467,8 @@ func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 			"a run is named by the relay path a connection is on, and this one belongs to no group")
 		return
 	}
-	answer(w, s.members.Reconcile(prefix))
+	s.members.Reconcile(prefix)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // keySrt writes this group's SRT keys through to the relay.
