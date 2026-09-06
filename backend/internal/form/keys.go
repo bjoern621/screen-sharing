@@ -30,12 +30,12 @@ const (
 	KeyDiscordRichPresence = "relay.discord_rich_presence"
 	KeyGroupKey            = "relay.group_key"
 	KeyDisplayName         = "relay.display_name"
-	KeySrtPort     = "relay.srt_port"
-	KeyRtspPort    = "relay.rtsp_port"
-	KeyWebrtcPort  = "relay.webrtc_port"
-	KeyRtmpPort    = "relay.rtmp_port"
-	KeyHlsPort     = "relay.hls_port"
-	KeyMoqPort     = "relay.moq_port"
+	KeySrtPort             = "relay.srt_port"
+	KeyRtspPort            = "relay.rtsp_port"
+	KeyWebrtcPort          = "relay.webrtc_port"
+	KeyRtmpPort            = "relay.rtmp_port"
+	KeyHlsPort             = "relay.hls_port"
+	KeyMoqPort             = "relay.moq_port"
 
 	KeyTransport = "publish.publish_transport"
 	// The encode, as the two controls it is: which bitstream, and what produces it.

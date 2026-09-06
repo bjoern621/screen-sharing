@@ -452,7 +452,7 @@ type Publish struct {
 	// The watch leg names its own,
 	// the two crossing different networks and the network deciding whether that pair survives.
 	RtspPublishProtocol string `json:"rtspPublishProtocol"`
-	UplinkMbps int `json:"uplinkMbps"` // Mbps of upload the user states, read for warnings
+	UplinkMbps          int    `json:"uplinkMbps"` // Mbps of upload the user states, read for warnings
 	// UplinkMeasuredUnix is when UplinkMbps was measured, unix seconds,
 	// and zero while the figure is the stated guess.
 	// Written beside a successful measurement (app.recordUplink);
@@ -638,7 +638,7 @@ func Defaults() Settings {
 			Transport: "srt", Format: "h264", Encoder: "x264",
 			Mode: capabilities.ModeCbr, Chroma: "yuv420p",
 			ColorRange: capabilities.ColorRangeLimited,
-			Fps: 60, Cq: 19, BitrateM: 8, MaxrateM: 12, VbvMs: 0,
+			Fps:        60, Cq: 19, BitrateM: 8, MaxrateM: 12, VbvMs: 0,
 			Gop: 0, Bframes: 0,
 			Capture: capture, DrmMap: "auto", Monitor: 0,
 			// No source: a fresh installation publishes the picture alone,
