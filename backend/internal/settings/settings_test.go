@@ -608,6 +608,32 @@ func TestPublishPathCarriesTheStreamNameThroughThePrefix(t *testing.T) {
 	}
 }
 
+// A member goes by the name they claimed, and a relay path carries a narrow alphabet,
+// so a path is built from the name spelled for one (internal/group, SpellName).
+// The relay refuses a path outside that alphabet at the handshake,
+// which takes the publish of anybody whose name holds a space, an umlaut or an emoji.
+func TestAPathSpellsANameTheRelayWouldRefuse(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := Settings{Relay: Relay{Host: "relay.example", GroupKey: groupKey.String(), DisplayName: "Björn Ö"}}
+
+	path := s.PublishPath()
+	if got, want := path, s.Relay.Prefix()+"Bj_c3_b6rn_20_c3_96/monitor-0"; got != want {
+		t.Errorf("a member called %q publishes to %q, want %q", s.Relay.DisplayName, got, want)
+	}
+
+	// A viewer's list reads the name back off the path, and asks for that path again.
+	name, ok := group.NameOf(strings.TrimPrefix(path, s.Relay.Prefix()))
+	if !ok || name != s.StreamName() {
+		t.Errorf("the path reads back as (%q, %v), want %q", name, ok, s.StreamName())
+	}
+	if got := s.WatchPath(name); got != path {
+		t.Errorf("watching that name opens %q, and it publishes to %q", got, path)
+	}
+}
+
 // A stream a viewer named reaches the relay under the prefix this machine publishes under.
 // The name comes off a viewer's list, inside that prefix (internal/app, insidePrefix),
 // so one derivation puts it back on rather than each transport builder.

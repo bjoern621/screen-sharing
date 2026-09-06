@@ -5,6 +5,10 @@ Path is public and rides in every URL.
 
 Path is `<group-id>/<name>`, and the group id is a digest of the group key.
 
+A path carries alphanumerics, dot and minus, and a member goes by whatever name they claimed.
+The name is therefore spelled into that alphabet, every other byte as an underscore and two hex digits, so `Björn` publishes under `Bj_c3_b6rn`.
+A viewer's list reads the spelling back, and asks the relay for the path it came from.
+
 ## Make a group, then publish
 
 ```mermaid

@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"strings"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/group"
@@ -75,11 +74,17 @@ func TestDiscordServiceFollowsTheDeployment(t *testing.T) {
 	}
 }
 
-func TestBrokeredGroupRefusesABadStreamName(t *testing.T) {
-	r := relayInDiscordMode(t).WithBrokeredGroup("PFX/", "passphrase", "Bob")
+// Discord hands over the name a person picked for themselves,
+// so a brokered path is spelled like every other (internal/group, SpellName):
+// a separator lands inside the member's own segment, and a byte outside the alphabet is spelled.
+func TestABrokeredPathSpellsTheNameDiscordHandedOver(t *testing.T) {
+	r := relayInDiscordMode(t).WithBrokeredGroup("PFX/", "passphrase", "DJ/Rex")
 
-	if path := r.Path("a/b/c"); strings.HasPrefix(path, "PFX/") {
-		t.Fatalf("a name deeper than a stream reaches no brokered path, got %q", path)
+	if path := r.Path("a/b/c"); path != "PFX/a_2fb/c" {
+		t.Fatalf("a name carrying a separator reaches %q", path)
+	}
+	if path := r.Path("Björn/monitor-0"); path != "PFX/Bj_c3_b6rn/monitor-0" {
+		t.Fatalf("a name outside the alphabet reaches %q", path)
 	}
 }
 

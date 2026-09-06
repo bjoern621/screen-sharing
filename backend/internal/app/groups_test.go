@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/group"
+	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -32,6 +33,27 @@ func TestWithNoPrefixEveryNameIsAlreadyItsOwn(t *testing.T) {
 
 	if got := status.Paths[0].Name; got != "desk" {
 		t.Errorf("a bare path is listed as %q, want its own name", got)
+	}
+}
+
+// A name the relay's alphabet cannot carry is spelled into the path it publishes under
+// (internal/group, SpellName), and a viewer's list shows the name its owner claimed.
+// The one place the index's rows become names, so both the manual fetch and the Discord pass read
+// the same way.
+// A path this app did not spell belongs to something else publishing there, and is listed unchanged.
+func TestTheIndexRowsReadASpelledNameBack(t *testing.T) {
+	rows := []groupclient.Stream{
+		{Name: "Bj_c3_b6rn/monitor-0"},
+		{Name: "alice/monitor-0"},
+		{Name: "half_"},
+	}
+
+	paths := indexPaths(rows)
+
+	for i, want := range []string{"Björn/monitor-0", "alice/monitor-0", "half_"} {
+		if got := paths[i].Name; got != want {
+			t.Errorf("row %d is listed as %q, want %q", i, got, want)
+		}
 	}
 }
 

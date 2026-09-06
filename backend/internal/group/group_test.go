@@ -109,15 +109,21 @@ func TestAStreamWithNoGroupIsRefused(t *testing.T) {
 // A name is the stream's own, or the publishing member's own name and the stream's own together.
 // Both stay inside the group's permission, which is written against the group's prefix and covers
 // everything under it however deep, so two segments build a path the same grant reaches.
-// A third lands nowhere a viewer's list peels back to (app.insidePrefix trims one prefix and no more),
-// and an empty segment at either end names nothing.
+// A third would land nowhere a viewer's list peels back to,
+// app.insidePrefix trimming one prefix and no more,
+// so a separator a member's own name carries is spelled into their segment (spelling.go).
+// An empty segment at either end names nothing.
 func TestANameIsOneOrTwoSegments(t *testing.T) {
 	key := mustKey(t)
 	if _, err := key.Path("bjoern/monitor-0"); err != nil {
 		t.Errorf("a two-segment name was refused: %v", err)
 	}
-	if _, err := key.Path("bjoern/desk/monitor-0"); err == nil {
-		t.Error("a three-segment name was accepted")
+	path, err := key.Path("bjoern/desk/monitor-0")
+	if err != nil {
+		t.Errorf("a name carrying a separator was refused: %v", err)
+	}
+	if _, name, ok := Split(path); !ok || strings.Count(name, "/") > 1 {
+		t.Errorf("path %q is more than a prefix and two segments", path)
 	}
 	if _, err := key.Path(""); err == nil {
 		t.Error("a stream with no name of its own was accepted")

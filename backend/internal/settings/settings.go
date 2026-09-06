@@ -277,10 +277,14 @@ func (r Relay) Path(name string) string {
 	// In Discord mode the brokered prefix is the group's, held to the same name rule,
 	// and the stored key stays unread: paths must follow the voice channel alone.
 	if r.DiscordMode {
-		if r.brokered == nil || !group.NameHolds(name) {
+		if r.brokered == nil {
 			return name
 		}
-		return r.brokered.Prefix + name
+		path, err := group.PathUnder(r.brokered.Prefix, name)
+		if err != nil {
+			return name
+		}
+		return path
 	}
 	if r.GroupKey == "" {
 		return name

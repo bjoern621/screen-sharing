@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -103,12 +104,20 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 
 // indexPaths is the index's rows in the snapshot's shape,
 // shared by the manual fetch and the Discord pass, whose answers carry the same rows.
+//
+// The one place a path's spelling is read back (internal/group, NameOf),
+// so a name reaches the shell once decoded however it was fetched,
+// and what a viewer picks spells back to the path it was published under.
 func indexPaths(streams []groupclient.Stream) []relay.Path {
 	paths := make([]relay.Path, 0, len(streams))
 	for _, stream := range streams {
+		name := stream.Name
+		if read, ok := group.NameOf(name); ok {
+			name = read
+		}
 		paths = append(paths, relay.Path{
 			// The index answers the name inside the group, which is the name a snapshot carries.
-			Name:    stream.Name,
+			Name:    name,
 			Ready:   stream.Ready,
 			Tracks:  stream.Tracks,
 			Format:  stream.Format,
