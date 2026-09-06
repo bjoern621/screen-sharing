@@ -16,17 +16,17 @@ public static class SideColumns
 
     /// <summary>
     /// Preview, the configuration read-back and the test streams, on the left of the live figures
-    /// (<c>Features/Broadcast</c>).
+    /// (<c>Features/Insights</c>).
     /// The body is the plots, the viewer table and the session log, each of which is a row of figures.
     /// </summary>
-    public static readonly SideColumn BroadcastCards = new(396, 444, ColumnEdge.Left, DrawnUnasked: true);
+    public static readonly SideColumn InsightsCards = new(396, 444, ColumnEdge.Left, DrawnUnasked: true);
 
     /// <summary>
-    /// Live actions in the broadcast header, beside the figures they act on.
+    /// Live actions in the insights header, beside the figures they act on.
     /// Under them on a narrower window: a band whose actions take the row leaves the figures a column one figure
     /// wide, and the header then runs deeper than the screen it heads.
     /// </summary>
-    public static readonly SideColumn BroadcastActions = new(440, 300, ColumnEdge.Right, DrawnUnasked: true);
+    public static readonly SideColumn InsightsActions = new(440, 300, ColumnEdge.Right, DrawnUnasked: true);
 
     /// <summary>
     /// Watch settings, opened from the viewer's rail.

@@ -1,5 +1,5 @@
 using ScreenShare.Api.V1;
-using ScreenShare.App.Features.Broadcast.TestStreams.ViewModel;
+using ScreenShare.App.Features.Insights.TestStreams.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;

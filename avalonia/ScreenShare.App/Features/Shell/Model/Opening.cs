@@ -12,5 +12,5 @@ namespace ScreenShare.App.Features.Shell.Model;
 public static class Opening
 {
     public static Destination For(PublishState? publish)
-        => publish?.Live is not null ? Destination.Broadcast : Destination.Viewer;
+        => publish?.Live is not null ? Destination.Insights : Destination.Viewer;
 }

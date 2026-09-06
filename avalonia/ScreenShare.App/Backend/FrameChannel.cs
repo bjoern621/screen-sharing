@@ -73,7 +73,7 @@ public sealed class FrameChannel : IAsyncDisposable
     /// Subscribes to the running publish's local preview.
     /// No stream and no leg, and neither is an omission: the backend runs at most one publish, so "the preview"
     /// is a complete identity, and what it draws never crossed the relay, so no protocol names it
-    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+    /// (<c>docs/viewer-architecture.md</c>, "What the insights preview draws").
     /// Opens no pipeline, as <see cref="OpenAsync"/> opens no decode.
     /// The publish brings the preview up, so a call made while nothing is publishing is refused, and a caller
     /// reads the publish state to know whether to ask at all.

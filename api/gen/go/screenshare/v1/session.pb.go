@@ -1117,7 +1117,7 @@ func (x *PublishState_Retry) GetMessage() string {
 //
 // The publish child copies its already-encoded video to a loopback port,
 // and the backend decodes what arrives there, which stays on this machine
-// (docs/viewer-architecture.md, "What the broadcast preview draws").
+// (docs/viewer-architecture.md, "What the insights preview draws").
 // Nested under Live because the pipeline goes up with the publish child and down with it.
 //
 // Everything below port is reported rather than asked for:

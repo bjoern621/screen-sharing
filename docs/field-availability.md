@@ -193,7 +193,7 @@ So the rule is that presence decides (`design-language.md`, "Wording").
 **The row stays.**
 A figure a reader is looking for reads as unmeasured.
 A row that is gone reads as nothing to measure, and those are different facts about the app.
-The congestion band, the round trip and the loss stayed on the broadcast screen through the whole time nothing filled them.
+The congestion band, the round trip and the loss stayed on the insights screen through the whole time nothing filled them.
 
 **Where the measurement is per-something, the label names the something.**
 The relay measures round trip and loss per reader, so there is no such figure for a stream.

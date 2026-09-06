@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Mvvm;
@@ -36,7 +36,7 @@ public sealed class GoViewModel : Observable
     private readonly Session _session;
     private readonly FormSession _form;
     private readonly SetupViewModel _setup;
-    private readonly BroadcastViewModel _broadcast;
+    private readonly InsightsViewModel _insights;
     private readonly Action _openSetup;
 
     /// <param name="openSetup">Moves the window to the wizard. The strip owns no destination.</param>
@@ -44,19 +44,19 @@ public sealed class GoViewModel : Observable
         Session session,
         FormSession form,
         SetupViewModel setup,
-        BroadcastViewModel broadcast,
+        InsightsViewModel insights,
         Action openSetup)
     {
         Assert.NotNull(session, "the strip reads what is publishing off the session");
         Assert.NotNull(form, "the strip's summary reads the resolved form");
         Assert.NotNull(setup, "the strip presses the setup flow's own commit");
-        Assert.NotNull(broadcast, "the strip's menu presses the broadcast screen's own stop");
+        Assert.NotNull(insights, "the strip's menu presses the insights screen's own stop");
         Assert.NotNull(openSetup, "the strip hands navigation to whoever owns the destination");
 
         _session = session;
         _form = form;
         _setup = setup;
-        _broadcast = broadcast;
+        _insights = insights;
         _openSetup = openSetup;
 
         // The review re-renders on every form move and announces it, so the label and the gate follow
@@ -74,8 +74,8 @@ public sealed class GoViewModel : Observable
     /// </summary>
     public PendingCommand CommitCommand => _setup.Review.StartSharingCommand;
 
-    /// <summary>The broadcast screen's own stop, for the menu's row while a stream is live.</summary>
-    public PendingCommand StopCommand => _broadcast.StopCommand;
+    /// <summary>The insights screen's own stop, for the menu's row while a stream is live.</summary>
+    public PendingCommand StopCommand => _insights.StopCommand;
 
     /// <summary>The rail card's rows, read through. The menu lists what the card lists.</summary>
     public ObservableCollection<BuiltinPresetRow> Builtin => _setup.Rail.Presets.Builtin;

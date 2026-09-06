@@ -16,7 +16,7 @@ public static class Cards
 {
     /// <summary>
     /// Names where the picture is taken, the whole difference between the two routes:
-    /// both carry the same encode (<see cref="Features.Broadcast.Preview.Model.PreviewRoute"/>).
+    /// both carry the same encode (<see cref="Features.Insights.Preview.Model.PreviewRoute"/>).
     /// The off segment takes none, and the question still reads over it.
     /// </summary>
     public const string PreviewRouteChoice = "Where this picture is taken:";
@@ -41,7 +41,7 @@ public static class Cards
     /// Local route's cost, and its warning.
     /// The picture is taken before the relay,
     /// so a congested uplink, a dropping relay and a bad viewer link all leave this card looking perfect
-    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+    /// (<c>docs/viewer-architecture.md</c>, "What the insights preview draws").
     /// Opposite claim to <see cref="PreviewEndToEndCost"/>, so neither stands in for the other.
     /// </summary>
     public const string PreviewLocalCost =
@@ -63,8 +63,8 @@ public static class Cards
     public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing to show.";
 
     /// <summary>
-    /// Leads with the stream being untouched: a dark card is what a reader could take for a stopped broadcast.
-    /// Names the picture and not the stream, the header's red control being what stops the broadcast.
+    /// Leads with the stream being untouched: a dark card is what a reader could take for a stopped stream.
+    /// Names the picture and not the stream, the header's red control being what stops the stream.
     /// </summary>
     public const string PreviewOff = "The preview is off. The stream is unaffected.";
 
@@ -324,7 +324,7 @@ public static class Cards
     /// Written once, so the latency plot and the header stat bar cannot say different things about one roster.
     /// </summary>
     /// <param name="legs">
-    /// <see cref="Features.Broadcast.Model.BroadcastSnapshot.Legs"/>, empty where the roster names no leg.
+    /// <see cref="Features.Insights.Model.InsightsSnapshot.Legs"/>, empty where the roster names no leg.
     /// </param>
     public static string Untimed(string legs)
         => legs.Length == 0

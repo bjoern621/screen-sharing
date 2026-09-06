@@ -123,7 +123,7 @@ func sampleTree(root int) treeSample {
 		readEngines(pid, seen, engines)
 		for name, ns := range engines {
 			s.EngineNs[name] += ns
-			// The backend decodes the broadcast preview in its own process,
+			// The backend decodes the insights preview in its own process,
 			// and that decode reaches the same silicon an encode does.
 			// Only what runs below it is the pipeline's own work.
 			if pid != root {

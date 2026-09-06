@@ -11,7 +11,7 @@ public enum Destination
     Setup,
 
     /// <summary>What this machine is sending, and what the stream that has ended did.</summary>
-    Broadcast,
+    Insights,
 
     /// <summary>What everyone else is sending.</summary>
     Viewer,

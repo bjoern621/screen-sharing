@@ -174,7 +174,7 @@ public sealed class SideColumnTests
     public void TheOpeningWindowCarriesEveryColumnBesideItsBody()
     {
         Assert.True(SideColumns.SetupRail.FitsBeside(WindowSize.Opening));
-        Assert.True(SideColumns.BroadcastCards.FitsBeside(WindowSize.Opening));
+        Assert.True(SideColumns.InsightsCards.FitsBeside(WindowSize.Opening));
         Assert.True(SideColumns.ViewerWatch.FitsBeside(WindowSize.Opening));
         Assert.True(SideColumns.ViewerRail.FitsBeside(WindowSize.Opening));
     }
@@ -184,7 +184,7 @@ public sealed class SideColumnTests
     public void TheFloorIsNarrowerThanEveryRowsThreshold()
     {
         Assert.False(SideColumns.SetupRail.FitsBeside(WindowSize.Floor));
-        Assert.False(SideColumns.BroadcastCards.FitsBeside(WindowSize.Floor));
+        Assert.False(SideColumns.InsightsCards.FitsBeside(WindowSize.Floor));
         Assert.False(SideColumns.ViewerWatch.FitsBeside(WindowSize.Floor));
     }
 }

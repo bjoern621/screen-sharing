@@ -12,7 +12,7 @@ namespace ScreenShare.App.Tests;
 /// Where the settings about receiving live, and what they do.
 ///
 /// The watch group is drawn beside the tiles and kept by a save of its own, so watching without publishing
-/// needs neither the broadcast setup nor a <c>StartPublish</c> to keep a change.
+/// needs neither setup nor a <c>StartPublish</c> to keep a change.
 /// </summary>
 public sealed class WatchSettingsTests
 {

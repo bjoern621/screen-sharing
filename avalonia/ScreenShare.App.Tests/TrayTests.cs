@@ -1,6 +1,6 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Tray.Model;
@@ -28,7 +28,7 @@ public sealed class TrayTests
         Session Session,
         FormSession Form,
         SetupViewModel Setup,
-        BroadcastViewModel Broadcast,
+        InsightsViewModel Insights,
         TrayViewModel Tray)
     {
         /// <summary>Re-reads the running state and renders every reader, as the shell's pass would.</summary>
@@ -37,7 +37,7 @@ public sealed class TrayTests
             Session.Start();
             Session.Stop();
             Setup.Apply();
-            Broadcast.Apply();
+            Insights.Apply();
             Tray.Apply();
         }
     }
@@ -48,12 +48,12 @@ public sealed class TrayTests
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
-        var broadcast = new BroadcastViewModel(backend, form, session, Inline);
+        var insights = new InsightsViewModel(backend, form, session, Inline);
         var tray = new TrayViewModel(
-            backend, session, setup, broadcast,
+            backend, session, setup, insights,
             owns ?? (static () => true), part ?? (static _ => Task.CompletedTask), Inline);
 
-        var opened = new Fixture(backend, session, form, setup, broadcast, tray);
+        var opened = new Fixture(backend, session, form, setup, insights, tray);
         opened.Reload();
         return opened;
     }
@@ -96,7 +96,7 @@ public sealed class TrayTests
         var opened = Open(new PublishingBackend { Publish = Live("lab04") });
 
         Assert.True(opened.Tray.Menu.IsLive);
-        Assert.Equal(BroadcastViewModel.StopLabel, opened.Tray.Menu.CommitLabel);
+        Assert.Equal(InsightsViewModel.StopLabel, opened.Tray.Menu.CommitLabel);
         Assert.True(opened.Tray.Menu.CanCommit);
     }
 

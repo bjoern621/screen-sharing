@@ -20,7 +20,7 @@ Four modes:
 
 The GPU reading is per process, out of `/proc/<pid>/fdinfo` `drm-engine-*`, deduplicated by DRM client.
 A second job loading the same GPU moves no figure.
-Encode engine time is counted for the pipeline children alone, the backend decoding the broadcast preview in its own process.
+Encode engine time is counted for the pipeline children alone, the backend decoding the insights preview in its own process.
 
 A memory reading is the backend process alone.
 A tree figure moves by hundreds of megabytes and a hundred threads depending on whether a pipeline happened to be up at that tick, and a leak is what the parent does not give back once every child is gone.
@@ -29,7 +29,7 @@ A tree figure moves by hundreds of megabytes and a hundred threads depending on 
 
 ### The encode delay is a figure one engine measures
 
-The broadcast header promotes four figures off an encoder sample.
+The insights header promotes four figures off an encoder sample.
 Three of them arrive on both engines.
 `transit_ms`, drawn as "ms encode", arrives on the GStreamer engine alone:
 

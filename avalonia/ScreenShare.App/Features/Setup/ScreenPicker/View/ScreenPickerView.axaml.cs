@@ -10,7 +10,7 @@ namespace ScreenShare.App.Features.Setup.ScreenPicker.View;
 ///
 /// The answer decides more than a subscription here.
 /// These pictures come off screen captures the backend opened because this grid asked, one per monitor,
-/// where the broadcast preview's come off a pipeline the publish already runs.
+/// where the insights preview's come off a pipeline the publish already runs.
 /// So a grid nobody is looking at stops reading the screens rather than merely stopping drawing them
 /// (<see cref="ScreenPickerViewModel"/>).
 ///

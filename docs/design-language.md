@@ -117,7 +117,7 @@ The nav strip is the first row of the window there, and it is the same strip.
 No breadcrumb: the lit segment already says where the reader is, and saying it twice is noise in the one row that must stay scannable.
 The destinations never move, so the strip becomes muscle memory.
 The window opens on the viewer, and on the live surface while a stream is already on the air (`Features/Shell/Model/Opening.cs`).
-Every one is **reachable at all times**, broadcast included.
+Every one is **reachable at all times**, insights included.
 That screen reports the stream that has ended as well as the one running, which is what a publisher goes looking for after a stream drops and what a live-only tab would take away.
 An expert tool teaches its own shape, and a tab that comes and goes reads as a bug.
 
@@ -150,7 +150,7 @@ The foot is the row a panel never covers: the wizard's Back and Continue, and th
 
 A rail carrying names drops the names rather than the window dropping the rail.
 
-Every band wraps where the window is narrower than its row: the status band's sentence, and the broadcast header's figures and actions.
+Every band wraps where the window is narrower than its row: the status band's sentence, and the insights header's figures and actions.
 The floor the window asks the desktop for is the narrowest one column is drawn for (`Features/Shell/Model/WindowSize.cs`).
 
 ## Video surfaces
@@ -284,7 +284,7 @@ Broadcast television has a term of art for most of these and every one loses to 
 The test is whether a reader would have to be taught it: `program`, `on air`, `bug`, `lower third` and `take` all fail, and not one names something this product cannot already say.
 The machine the app runs on is `this computer` wherever a surface names it.
 
-`Sharing` is the state's name on every surface that has one: the pill in the nav strip, the pill on the broadcast header, the badge over the preview.
+`Sharing` is the state's name on every surface that has one: the pill in the nav strip, the pill on the insights header, the badge over the preview.
 The controls that enter and leave it are `Start sharing` and `Stop sharing`, so button and state say one word rather than one saying `Go live` and the other answering `On air`.
 The wizard's terminal step is `Share`.
 
@@ -309,7 +309,7 @@ Any other showing the same value shows it read-only, with one link back to the o
 A second editor for one setting is the defect this prevents.
 
 Setup owns the configuration of what this machine sends.
-Broadcast owns the live-safe actions, the ones that change the stream without tearing it down, and shows configuration read-only with one `Edit in setup` link.
+Insights owns the live-safe actions, the ones that change the stream without tearing it down, and shows configuration read-only with one `Edit in setup` link.
 Viewer owns how this machine receives: the watch settings, saved from a panel beside the grid, and the per-tile controls over a running decode.
 They sit with the tiles because a reader who only watches never opens setup, and a draft setup holds is persisted by going live (`viewer-architecture.md`, "Two legs, two protocols").
 

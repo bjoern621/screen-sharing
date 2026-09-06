@@ -5,7 +5,7 @@
     The marker drawn where a publishing machine's pointer is, over a picture that carries none
     (docs/capture-architecture.md, "The pointer").
 
-    One rule for both surfaces that draw it, the broadcast preview and the viewer tile.
+    One rule for both surfaces that draw it, the insights preview and the viewer tile.
     Two shapes would be two things a reader has to learn mean the same.
 
     An arrow and not a dot, so it reads as somebody's pointer rather than as a highlight over the picture.

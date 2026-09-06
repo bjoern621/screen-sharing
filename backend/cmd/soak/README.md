@@ -81,7 +81,7 @@ A corner nothing reached is a gap in the run rather than a defect in the product
 
 ### What the screen shows of a running stream
 
-The broadcast screen draws four figures off an encoder sample: the frame rate, the rate over the last interval, the transit and the clock.
+The insights screen draws four figures off an encoder sample: the frame rate, the rate over the last interval, the transit and the clock.
 An absent figure prints as an ellipsis and holds its last measurement, so a figure no sample of a whole run carries reads empty for the session.
 Each is checked for presence, for being finite, and for landing inside what a reader could act on.
 A rate and a clock have to arrive on one sample or the egress plot draws nothing.
@@ -95,7 +95,7 @@ An operation is therefore sampled while it runs rather than bracketed.
 CPU time has the mirror trap, a reaped child's landing in the parent's `cutime`.
 
 Engine time is counted for the pipeline children alone.
-The backend decodes the broadcast preview inside its own process, and that decode reaches the same silicon an encode does.
+The backend decodes the insights preview inside its own process, and that decode reaches the same silicon an encode does.
 
 The rendered command is read beside that reading: a hardware family whose pipeline names a CPU encoder is coding on cores while the settings, the greying and the estimate all say hardware.
 The CPU encoders it matches are the catalog's own rows, through `publish.GstEncoderElement`, so a codec joining the domain joins this check with it.

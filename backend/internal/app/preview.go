@@ -14,7 +14,7 @@ import (
 )
 
 // The local preview: this machine decoding the stream it sends, the relay no party to it
-// (docs/viewer-architecture.md, "What the broadcast preview draws").
+// (docs/viewer-architecture.md, "What the insights preview draws").
 //
 // It belongs to the publish and to nothing else.
 // The publish child produces the copy,
@@ -58,7 +58,7 @@ type previewRun struct {
 // a format with no local carriage, a port the kernel would not hand out,
 // a pipeline that would not start.
 // The publish goes ahead with no second sink and the state reports no preview,
-// which the broadcast screen says rather than drawing a picture that would never arrive.
+// which the insights screen says rather than drawing a picture that would never arrive.
 func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 	if a.preview != nil {
 		return publish.PreviewLeg{Port: a.preview.port}

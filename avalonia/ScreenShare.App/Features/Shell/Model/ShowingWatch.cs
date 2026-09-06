@@ -13,9 +13,9 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// a reader who never opened the screen, and one drawing for as long as the screen is open charges a reader
 /// whose window has been behind a terminal for an hour.
 ///
-/// <b>Not the rule for every picture.</b> The broadcast preview draws what the reader asked it to and follows no
+/// <b>Not the rule for every picture.</b> The insights preview draws what the reader asked it to and follows no
 /// window, a publisher's window standing behind the thing being shared for most of a session
-/// (<c>Features/Broadcast/Preview/ViewModel/PreviewViewModel.cs</c>).
+/// (<c>Features/Insights/Preview/ViewModel/PreviewViewModel.cs</c>).
 /// The test is whether a window going behind means the reader stopped wanting the picture.
 ///
 /// <b>Neither half is a fact a view model can read.</b> Standing in a visual tree is the control's own, and

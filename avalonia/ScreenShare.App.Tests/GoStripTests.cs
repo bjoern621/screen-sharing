@@ -1,6 +1,6 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
@@ -32,7 +32,7 @@ public sealed class GoStripTests
         Session Session,
         FormSession Form,
         SetupViewModel Setup,
-        BroadcastViewModel Broadcast,
+        InsightsViewModel Insights,
         GoViewModel Go,
         Count Opens)
     {
@@ -42,7 +42,7 @@ public sealed class GoStripTests
             Session.Start();
             Session.Stop();
             Setup.Apply();
-            Broadcast.Apply();
+            Insights.Apply();
             Go.Apply();
         }
     }
@@ -52,11 +52,11 @@ public sealed class GoStripTests
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
-        var broadcast = new BroadcastViewModel(backend, form, session, Inline);
+        var insights = new InsightsViewModel(backend, form, session, Inline);
         var opens = new Count();
-        var go = new GoViewModel(session, form, setup, broadcast, () => opens.Value++);
+        var go = new GoViewModel(session, form, setup, insights, () => opens.Value++);
 
-        var opened = new Fixture(backend, session, form, setup, broadcast, go, opens);
+        var opened = new Fixture(backend, session, form, setup, insights, go, opens);
         opened.Reload();
         return opened;
     }

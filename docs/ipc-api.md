@@ -208,7 +208,7 @@ The monitor message carries one index for the mirror-image reason.
 The index is what the catalog enumerates screens under and what `PublishSettings.monitor` holds, so a size or name would be the consumer sending the catalog back.
 
 Separate arms rather than legs in the transport table, two of the three crossing no protocol at all.
-The publish child copies encoded video to a loopback port and the backend decodes it there (`viewer-architecture.md`, "What the broadcast preview draws").
+The publish child copies encoded video to a loopback port and the backend decodes it there (`viewer-architecture.md`, "What the insights preview draws").
 A monitor preview is read off the screen and crosses no encoder.
 A synthetic transport entry would tell every consumer of that table that some protocol carries them.
 

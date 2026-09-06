@@ -189,7 +189,7 @@ public interface IBackend
     /// so applying tears the pipeline down and launches another,
     /// and a second call is a second restart rather than a state that already holds.
     /// One of two departures in <c>docs/development-principles.md</c>, "Effects across a process boundary".
-    /// Nothing on this contract is live-safe, so the broadcast screen's quality track is inert
+    /// Nothing on this contract is live-safe, so the insights screen's quality track is inert
     /// and carries the reason rather than being wired to this.
     ///
     /// With nothing publishing there is no pipeline to apply to, and the backend refuses rather than quietly
@@ -388,7 +388,7 @@ public interface IBackend
     /// <summary>
     /// Subscribes to the frames of the running publish's local preview: the stream this machine is sending,
     /// decoded from a copy the publish child writes to a loopback port rather than read back off the relay
-    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+    /// (<c>docs/viewer-architecture.md</c>, "What the insights preview draws").
     ///
     /// Names nothing, and both halves of that are the point.
     /// There is at most one publish, so the preview needs no identity of its own.

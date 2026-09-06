@@ -11,13 +11,13 @@ public static class Destinations
 {
     /// <summary>
     /// Left to right, never reordered.
-    /// The order is the destinations' own: nothing broadcasts before it is set up and watching holds throughout,
+    /// The order is the destinations' own: nothing is shared before it is set up, and watching holds throughout,
     /// so it is a fact about the app rather than a preference a screen restates.
     /// </summary>
     public static readonly IReadOnlyList<Destination> All =
     [
         Destination.Setup,
-        Destination.Broadcast,
+        Destination.Insights,
         Destination.Viewer,
     ];
 
@@ -39,7 +39,7 @@ public static class Destinations
     public static string LabelOf(Destination destination) => destination switch
     {
         Destination.Setup => "Setup",
-        Destination.Broadcast => "Broadcast",
+        Destination.Insights => "Insights",
         Destination.Viewer => "Viewer",
         _ => Assert.Never<string>("unexpected destination", (int)destination),
     };

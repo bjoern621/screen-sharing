@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
-using ScreenShare.App.Features.Broadcast.Model;
+using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Mvvm;
@@ -14,7 +14,7 @@ namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 /// and the send-logs button.
 ///
 /// The design states figures for the viewer alone.
-/// Setup receives nothing and broadcast decodes nothing, so a figure there would be invented.
+/// Setup receives nothing and insights decodes nothing, so a figure there would be invented.
 /// The band holds its height in every destination and says nothing where the design says nothing.
 ///
 /// The button lives here because a report is about the app rather than one screen,
@@ -207,7 +207,7 @@ public sealed class StatusBarViewModel : Observable
     private static bool SpeaksFor(Destination destination) => destination switch
     {
         Destination.Setup => false,
-        Destination.Broadcast => false,
+        Destination.Insights => false,
         Destination.Viewer => true,
         _ => Assert.Never<bool>("unexpected destination", (int)destination),
     };

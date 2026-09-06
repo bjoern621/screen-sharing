@@ -100,7 +100,7 @@ public sealed partial class TileViewModel
     /// Follows this stream's pointer for as long as the frame subscription runs.
     ///
     /// Relay tiles alone.
-    /// The publish's own preview draws a position read off this machine's capture, which the broadcast screen
+    /// The publish's own preview draws a position read off this machine's capture, which the insights screen
     /// subscribes to once for the whole screen, and a monitor preview is a picture nothing published.
     /// </summary>
     private void FollowPointer(CancellationToken cancellation)

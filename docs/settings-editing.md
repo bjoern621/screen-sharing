@@ -24,7 +24,7 @@ The window opens on the stored settings, read once, and edits that copy.
 | Presses a group's save | `SaveSettings` | Per press |
 | Presses publish | `StartPublish` | Per press |
 | Edits a group the form marks `applied` | `SaveSettings` | Per change, one write in flight at a time |
-| Picks a route on the broadcast preview | `SaveSettings` | Per press, on the same queue |
+| Picks a route on the insights preview | `SaveSettings` | Per press, on the same queue |
 
 `ResolveForm` is a read: no file is written, no pipeline is touched, and asking twice for one draft answers twice the same (`ipc-api.md`).
 
@@ -88,7 +88,7 @@ Applied is for settings the backend reads on a schedule of its own, the relay's 
 The form says which, and the shell reads the mark (`ipc-api.md`).
 
 A control the form draws no field for is applied by construction.
-The broadcast preview's route toggle has no commit beside it, so the press is the write (`viewer-architecture.md`).
+The insights preview's route toggle has no commit beside it, so the press is the write (`viewer-architecture.md`).
 
 ## Who can be put back
 

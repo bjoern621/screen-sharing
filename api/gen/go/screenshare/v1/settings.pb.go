@@ -675,9 +675,9 @@ type ViewerSettings struct {
 	// and that is a property of the machine
 	// (docs/viewer-architecture.md, "The receive package").
 	RenderChain string `protobuf:"bytes,6,opt,name=render_chain,json=renderChain,proto3" json:"render_chain,omitempty"`
-	// Which picture of this machine's own stream the broadcast preview draws:
+	// Which picture of this machine's own stream the insights preview draws:
 	// "off", "local" or "end-to-end"
-	// (docs/viewer-architecture.md, "What the broadcast preview draws").
+	// (docs/viewer-architecture.md, "What the insights preview draws").
 	//
 	// Here rather than with the publish because the end-to-end route is a relay client:
 	// it opens a decode of this machine's own stream over the leg above,

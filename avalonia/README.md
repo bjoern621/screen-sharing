@@ -83,7 +83,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
 | `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets |
-| `Features/Broadcast/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
+| `Features/Insights/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and its rail: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding how this machine receives |
 
 ### The two rules the tree encodes
@@ -230,26 +230,26 @@ The backend polls for as long as it is up, records each snapshot and answers `Ge
 The side the contract names as owner has to do the owning, and the honest opening value is what makes a gap visible rather than plausible.
 
 Where the window goes afterwards is the window's.
-The flow raises `WentLive` and the shell moves to the broadcast screen at once.
+The flow raises `WentLive` and the shell moves to the insights screen at once.
 That screen is reachable whether or not anything is publishing, so the move claims no state the backend has not reported: it draws its idle reading and fills in as the live state lands.
 Every start earns the move, so the destination a commit leads to is not a setting the review asks about.
 
 ## What each screen draws
 
-**Every figure on the broadcast screen has a source, and one with none prints an ellipsis rather than a zero.**
-Composed in `Features/Broadcast/Model/BroadcastSnapshot.cs` out of three whole states: the publish state, the newest encoder sample, the relay snapshot.
+**Every figure on the insights screen has a source, and one with none prints an ellipsis rather than a zero.**
+Composed in `Features/Insights/Model/InsightsSnapshot.cs` out of three whole states: the publish state, the newest encoder sample, the relay snapshot.
 
 **The viewer table is a row per viewer, and the relay measures them one leg at a time.**
 The backend reads the relay's reader array per path and joins each entry to the per-protocol connection list its type names, so a row is an address, a join time, and whatever that leg is instrumented for (`backend/internal/relay/readers.go`).
 SRT is the one the relay times a round trip and states a loss rate on.
 The rest report what was sent to them and what the relay's own queue discarded.
 A cell with no measurement is an ellipsis, so a viewer over RTMP reads as untimed.
-The severity rule in `Features/Broadcast/Model/ViewerRow.cs` reads presence rather than value, and the header promotes the *worst* viewer's round trip and loss under a label that says so.
+The severity rule in `Features/Insights/Model/ViewerRow.cs` reads presence rather than value, and the header promotes the *worst* viewer's round trip and loss under a label that says so.
 Buffer fill and the decoder in use are figures nobody reports to a publisher, so those columns carry what the relay does measure: what was dropped, and the leg it went out over.
 
 **The session log names who arrived and who left, and nothing announced either.**
 There is no arrival or departure event: the relay reports who is connected at each poll and says nothing about who stopped being.
-So the audience lines are the difference between two consecutive rosters in the snapshot series the session holds (`Features/Broadcast/Model/Audience.cs`), derived on every render pass rather than accumulated.
+So the audience lines are the difference between two consecutive rosters in the snapshot series the session holds (`Features/Insights/Model/Audience.cs`), derived on every render pass rather than accumulated.
 An arrival carries the relay's own join time, a departure the arrival time of the poll that first did not name the reader.
 A poll naming no path for this stream contributes nothing at all: reading an unreachable relay as an empty roster would log every viewer leaving each time it hiccupped.
 
@@ -261,7 +261,7 @@ A run younger than that span fills the right of the card instead of being stretc
 The `vbv ceiling` rule is placed against the run's own peak or not drawn at all, the curve being scaled to that peak.
 
 **The preview tile draws a frame, by one of two routes the reader picks between.**
-`docs/viewer-architecture.md`, "What the broadcast preview draws", states the two, the off segment beside them and what each costs.
+`docs/viewer-architecture.md`, "What the insights preview draws", states the two, the off segment beside them and what each costs.
 What is this module's is the card around them.
 
 Both reuse the same `Features/Viewer/Tile` view model and control the viewer's grid uses rather than growing a second frame consumer.
@@ -363,14 +363,14 @@ A press asks the command whether it can run first, so a key is refused wherever 
 The window closes to the tray, and the tray's quit is the one full shutdown, which a close runs where there is no tray.
 
 The menu decides nothing.
-Its commit row presses the review's commit and the broadcast screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
+Its commit row presses the review's commit and the insights screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
 The preset rows are the rail card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
 The icon says whether this machine is sharing, as a second baked asset (`task icons`).
 
 The lifetime is the host's (`App.axaml.cs`), and shutdown is explicit.
 With an icon registered, closing the window hides it.
 A hidden window draws nothing, so closing it takes down every picture it alone was drawing:
-the grid's tiles and the broadcast preview go and the relay decodes behind them close,
+the grid's tiles and the insights preview go and the relay decodes behind them close,
 while a pop-out window stays on screen with its decode,
 and the streams the grid watched come back with the window (`docs/viewer-architecture.md`, "A decode runs while a window draws it").
 Quit is one sequence whichever control runs it: the window's decodes close and a stream running on a backend this shell started ends, side by side and bounded, then the process shuts down and the exit hooks take that backend with it (`Backend/BackendProcess.cs`).

@@ -9,7 +9,7 @@ Three ways to watch, each with its own decoder.
 | the shell's tile grid | a receiving pipeline in the backend, its decoded frames reaching the window over the frame channel | the frame channel |
 | the relay's own player page | the page fetches the stream itself, this side decoding and serving nothing | a browser |
 
-Two more surfaces consume the frame channel without being a way to watch, neither picture reaching the relay: the broadcast screen's preview and the wizard's screen picker.
+Two more surfaces consume the frame channel without being a way to watch, neither picture reaching the relay: the insights screen's preview and the wizard's screen picker.
 
 The tile grid runs where the frame channel's handle type is built, which is Windows and Linux.
 On macOS a tile says so rather than falling back to a copy through system memory, and the native player covers that machine.
@@ -323,9 +323,9 @@ It is quantised and debounced, both about this channel's cost.
 A shell whose grid rearranges moves every tile's exact size, so it rounds each ask onto a ladder and sends it only once the size has held still.
 What is paid is a tile between two rungs drawing frames slightly larger than it needs, a resample the GPU was doing anyway.
 
-## What the broadcast preview draws
+## What the insights preview draws
 
-The broadcast screen's preview draws the stream this machine is publishing, by one of two routes, and the card's toggle is which, or off.
+The insights screen's preview draws the stream this machine is publishing, by one of two routes, and the card's toggle is which, or off.
 
 The **local** route is a copy that never leaves the machine.
 The **end-to-end** route reads this machine's own stream back off the relay like any other tile, so it crosses the uplink, the relay and the way back.

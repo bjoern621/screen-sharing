@@ -9,20 +9,20 @@ import (
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// What the broadcast screen shows while a stream runs, held to what the samples behind it carry.
+// What the insights screen shows while a stream runs, held to what the samples behind it carry.
 //
 // A figure carries presence because no measurement is not a measured zero,
 // and the screen prints an absent one as an ellipsis and holds the last value that was measured
-// (avalonia/.../Broadcast/Model/HeldFigures.cs).
+// (avalonia/.../Insights/Model/HeldFigures.cs).
 // So a figure no sample of a whole run states is not a gap:
 // it is a row that reads empty for the session, on a screen whose neighbouring rows carry numbers.
 
-// The figures the broadcast screen draws out of an encoder sample,
+// The figures the insights screen draws out of an encoder sample,
 // and the bounds outside which one prints as something a reader would report rather than read.
 //
 // Exactly these four: the header promotes the first three and the pill counts on the fourth,
 // and the egress plot needs a rate and a clock on one sample to place a point
-// (avalonia/.../Broadcast/Plots/Model/PlotSeries.cs).
+// (avalonia/.../Insights/Plots/Model/PlotSeries.cs).
 var overlayFigures = []struct {
 	name  string
 	shown string
@@ -166,7 +166,7 @@ func lastTimed(stats []*v1.PublishStats) *v1.PublishStats {
 // The viewer count, the worst round trip and the worst loss
 // are all looked up by the path the stream publishes to,
 // so a relay naming no such path leaves three figures absent at once and a panel with nothing in it
-// (avalonia/.../Broadcast/Model/BroadcastSnapshot.cs, PathOf).
+// (avalonia/.../Insights/Model/InsightsSnapshot.cs, PathOf).
 func (s *session) checkRelayView(ctx context.Context, stream string, fields map[string]string, settings *v1.Settings) {
 	var status *v1.RelayStatus
 	err := withTimeout(ctx, 15*time.Second, func(call context.Context) error {

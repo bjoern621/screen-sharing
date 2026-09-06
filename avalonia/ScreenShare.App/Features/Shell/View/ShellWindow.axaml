@@ -6,8 +6,8 @@
         xmlns:statusbar="using:ScreenShare.App.Features.Shell.StatusBar.View"
         xmlns:setup="using:ScreenShare.App.Features.Setup.View"
         xmlns:setupVm="using:ScreenShare.App.Features.Setup.ViewModel"
-        xmlns:broadcast="using:ScreenShare.App.Features.Broadcast.View"
-        xmlns:broadcastVm="using:ScreenShare.App.Features.Broadcast.ViewModel"
+        xmlns:insights="using:ScreenShare.App.Features.Insights.View"
+        xmlns:insightsVm="using:ScreenShare.App.Features.Insights.ViewModel"
         xmlns:viewer="using:ScreenShare.App.Features.Viewer.View"
         xmlns:viewerVm="using:ScreenShare.App.Features.Viewer.ViewModel"
         xmlns:chrome="using:Avalonia.Controls.Chrome"
@@ -75,8 +75,8 @@
     <DataTemplate DataType="setupVm:SetupViewModel" x:DataType="setupVm:SetupViewModel">
       <setup:SetupView />
     </DataTemplate>
-    <DataTemplate DataType="broadcastVm:BroadcastViewModel" x:DataType="broadcastVm:BroadcastViewModel">
-      <broadcast:BroadcastView />
+    <DataTemplate DataType="insightsVm:InsightsViewModel" x:DataType="insightsVm:InsightsViewModel">
+      <insights:InsightsView />
     </DataTemplate>
     <DataTemplate DataType="viewerVm:ViewerViewModel" x:DataType="viewerVm:ViewerViewModel">
       <viewer:ViewerView />

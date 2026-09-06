@@ -1,7 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
-using ScreenShare.App.Features.Broadcast.Model;
+using ScreenShare.App.Features.Insights.HeaderStats.ViewModel;
+using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 using Xunit;
@@ -87,7 +87,7 @@ public sealed class FailureTextTests
             Message = "srt: connection was rejected by peer",
         };
 
-        var stats = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(new PublishState { Live = live }, null, null) };
+        var stats = new HeaderStatsViewModel { Snapshot = InsightsSnapshot.Of(new PublishState { Live = live }, null, null) };
 
         Assert.True(stats.IsRetrying);
         Assert.Contains("2", stats.Retry);
@@ -103,7 +103,7 @@ public sealed class FailureTextTests
     {
         var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
 
-        var stats = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(new PublishState { Live = live }, null, null) };
+        var stats = new HeaderStatsViewModel { Snapshot = InsightsSnapshot.Of(new PublishState { Live = live }, null, null) };
 
         Assert.False(stats.IsRetrying);
         Assert.False(stats.HasRetryCause);
@@ -122,7 +122,7 @@ public sealed class FailureTextTests
         var live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "desk" };
         live.Retry = new PublishState.Types.Retry { Attempt = 1, Budget = 3 };
 
-        var stats = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(new PublishState { Live = live }, null, null) };
+        var stats = new HeaderStatsViewModel { Snapshot = InsightsSnapshot.Of(new PublishState { Live = live }, null, null) };
 
         Assert.True(stats.IsRetrying);
         Assert.NotEqual("", stats.Retry);

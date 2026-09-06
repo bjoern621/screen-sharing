@@ -83,7 +83,7 @@ func (w *engineWatcher) read() {
 // stop ends the watch and answers what the pipelines below the root spent, per engine.
 //
 // The root's own clients are left out:
-// the backend decodes the broadcast preview in its own process,
+// the backend decodes the insights preview in its own process,
 // and that decode reaches the same silicon an encode does.
 func (w *engineWatcher) stop() map[string]int64 {
 	close(w.stopped)

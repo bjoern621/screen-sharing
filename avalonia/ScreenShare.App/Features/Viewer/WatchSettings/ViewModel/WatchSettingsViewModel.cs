@@ -11,7 +11,7 @@ namespace ScreenShare.App.Features.Viewer.WatchSettings.ViewModel;
 /// and the chain a tile converts decoded frames with.
 ///
 /// <b>Drawn beside the tiles it governs.</b> The wizard configures what this machine <i>sends</i>, so a group
-/// placed there sends a reader who only watches into the broadcast flow,
+/// placed there sends a reader who only watches into the sharing flow,
 /// and leaves these settings unkept until a publish, the wizard's draft reaching the backend
 /// through <c>StartPublish</c> (<see cref="GroupPlacement"/>).
 ///

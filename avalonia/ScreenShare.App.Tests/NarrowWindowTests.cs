@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using Xunit;
 
@@ -20,10 +20,10 @@ public sealed class NarrowWindowTests
     /// <summary>Quarter of a laptop screen, where no surface fits two columns.</summary>
     private const double Quarter = 640;
 
-    private static BroadcastViewModel Broadcast(IBackend backend)
+    private static InsightsViewModel Insights(IBackend backend)
     {
         var session = new Session(backend, Inline);
-        return new BroadcastViewModel(backend, new FormSession(backend, session, Inline), session, Inline);
+        return new InsightsViewModel(backend, new FormSession(backend, session, Inline), session, Inline);
     }
 
     [Fact]
@@ -50,14 +50,14 @@ public sealed class NarrowWindowTests
     }
 
     [Fact]
-    public void ANarrowWindowTakesTheBroadcastCardsOffTheFigures()
+    public void ANarrowWindowTakesTheInsightsCardsOffTheFigures()
     {
-        var broadcast = Broadcast(new SeededBackend("linux"));
+        var insights = Insights(new SeededBackend("linux"));
 
-        broadcast.SetWindowWidth(Quarter);
+        insights.SetWindowWidth(Quarter);
 
-        Assert.False(broadcast.CardsColumn.IsBeside);
-        Assert.True(broadcast.CardsColumn.ShowsToggle);
+        Assert.False(insights.CardsColumn.IsBeside);
+        Assert.True(insights.CardsColumn.ShowsToggle);
     }
 
     /// <summary>
@@ -67,13 +67,13 @@ public sealed class NarrowWindowTests
     [Fact]
     public void ANarrowWindowPutsTheLiveActionsUnderTheFigures()
     {
-        var broadcast = Broadcast(new SeededBackend("linux"));
+        var insights = Insights(new SeededBackend("linux"));
 
-        broadcast.SetWindowWidth(WindowSize.Opening);
-        Assert.Equal(Dock.Right, broadcast.ActionsDock);
+        insights.SetWindowWidth(WindowSize.Opening);
+        Assert.Equal(Dock.Right, insights.ActionsDock);
 
-        broadcast.SetWindowWidth(Quarter);
-        Assert.Equal(Dock.Bottom, broadcast.ActionsDock);
+        insights.SetWindowWidth(Quarter);
+        Assert.Equal(Dock.Bottom, insights.ActionsDock);
     }
 
     [Fact]

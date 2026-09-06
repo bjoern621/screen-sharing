@@ -2,10 +2,10 @@ using System.Collections.Specialized;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
-using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
-using ScreenShare.App.Features.Broadcast.Model;
-using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
-using ScreenShare.App.Features.Broadcast.ViewerTable.ViewModel;
+using ScreenShare.App.Features.Insights.HeaderStats.ViewModel;
+using ScreenShare.App.Features.Insights.Model;
+using ScreenShare.App.Features.Insights.Plots.ViewModel;
+using ScreenShare.App.Features.Insights.ViewerTable.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
@@ -69,7 +69,7 @@ public sealed class ViewerRosterTests
 
     private static ViewerTableViewModel Table(RelayStatus? relay)
     {
-        var path = BroadcastSnapshot.PathOf(relay, "desk");
+        var path = InsightsSnapshot.PathOf(relay, "desk");
         var table = new ViewerTableViewModel
         {
             Reported = path is null ? [] : path.ReaderRoster.Select(ViewerRow.Of).ToList(),
@@ -191,7 +191,7 @@ public sealed class ViewerRosterTests
         ((INotifyCollectionChanged)table.Rows).CollectionChanged += (_, _) => changes++;
 
         // Same roster again, through the path the render pass reads it by.
-        table.Reported = BroadcastSnapshot.PathOf(relay, "desk")!.ReaderRoster.Select(ViewerRow.Of).ToList();
+        table.Reported = InsightsSnapshot.PathOf(relay, "desk")!.ReaderRoster.Select(ViewerRow.Of).ToList();
         table.Apply();
         table.Apply();
 
@@ -228,7 +228,7 @@ public sealed class ViewerRosterTests
             Srt("10.0.0.2:2", rttMs: 240, lossPercent: 4.5),
             Rtmp("10.0.0.3:3"));
 
-        var reading = BroadcastSnapshot.Of(Live(), null, relay);
+        var reading = InsightsSnapshot.Of(Live(), null, relay);
 
         Assert.Equal(240, reading.RttMs);
         Assert.Equal(4.5, reading.LossPercent);
@@ -248,7 +248,7 @@ public sealed class ViewerRosterTests
     [Fact]
     public void ViewersOnAnUntimedLegLeaveTheLatencyFiguresAbsent()
     {
-        var reading = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"), Rtmp("10.0.0.4:4")));
+        var reading = InsightsSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"), Rtmp("10.0.0.4:4")));
 
         Assert.Equal(2, reading.Viewers);
         Assert.Null(reading.RttMs);
@@ -262,16 +262,16 @@ public sealed class ViewerRosterTests
     [Fact]
     public void TheLegsAreTheDistinctTransportsOnTheRoster()
     {
-        Assert.Equal("", BroadcastSnapshot.Of(Live(), null, Serving()).Legs);
+        Assert.Equal("", InsightsSnapshot.Of(Live(), null, Serving()).Legs);
 
-        var oneLeg = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"), Rtmp("10.0.0.4:4")));
+        var oneLeg = InsightsSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"), Rtmp("10.0.0.4:4")));
         Assert.Equal("RTMP", oneLeg.Legs);
 
-        var two = BroadcastSnapshot.Of(Live(), null, Serving(Srt("10.0.0.1:1", 20, 0), Rtmp("10.0.0.3:3")));
+        var two = InsightsSnapshot.Of(Live(), null, Serving(Srt("10.0.0.1:1", 20, 0), Rtmp("10.0.0.3:3")));
         Assert.Equal("SRT, RTMP", two.Legs);
 
         var unnamed = new RelayReader { Type = "somethingNew", Id = "id-1" };
-        Assert.Equal("", BroadcastSnapshot.Of(Live(), null, Serving(unnamed)).Legs);
+        Assert.Equal("", InsightsSnapshot.Of(Live(), null, Serving(unnamed)).Legs);
     }
 
     /// <summary>
@@ -285,7 +285,7 @@ public sealed class ViewerRosterTests
     {
         var untimed = new HeaderStatsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
+            Snapshot = InsightsSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
         };
 
         Assert.Equal(Figure.NoValue, untimed.Figures[3].Value);
@@ -299,13 +299,13 @@ public sealed class ViewerRosterTests
 
         var timed = new HeaderStatsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0))),
+            Snapshot = InsightsSnapshot.Of(Live(), null, Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0))),
         };
 
         Assert.Null(timed.Figures[3].Note);
         Assert.Null(timed.Figures[4].Note);
 
-        var unwatched = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(Live(), null, Serving()) };
+        var unwatched = new HeaderStatsViewModel { Snapshot = InsightsSnapshot.Of(Live(), null, Serving()) };
         Assert.Null(unwatched.Figures[3].Note);
         Assert.Null(unwatched.Figures[4].Note);
     }
@@ -323,7 +323,7 @@ public sealed class ViewerRosterTests
 
         var plots = new PlotsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, samples[^1]),
+            Snapshot = InsightsSnapshot.Of(Live(), null, samples[^1]),
             RelaySamples = samples.Select((sample, second) => Reading(sample, second)).ToList(),
         };
 
@@ -340,13 +340,13 @@ public sealed class ViewerRosterTests
     [Fact]
     public void ALatencyPlotWithNothingToDrawSaysWhichAbsenceItIs()
     {
-        var idle = new PlotsViewModel { Snapshot = BroadcastSnapshot.Of(null, null, null) };
+        var idle = new PlotsViewModel { Snapshot = InsightsSnapshot.Of(null, null, null) };
         Assert.False(idle.HasLatency);
         Assert.Equal("nothing is publishing", idle.LatencyNotice);
 
         var unwatched = new PlotsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, Serving()),
+            Snapshot = InsightsSnapshot.Of(Live(), null, Serving()),
             RelaySamples = [Reading(Serving())],
         };
         Assert.False(unwatched.HasLatency);
@@ -356,7 +356,7 @@ public sealed class ViewerRosterTests
         // Notice names the legs they are on, the half a publisher can act on.
         var untimed = new PlotsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
+            Snapshot = InsightsSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
             RelaySamples = [Reading(Serving(Rtmp("10.0.0.3:3")))],
         };
         Assert.False(untimed.HasLatency);
@@ -368,7 +368,7 @@ public sealed class ViewerRosterTests
         var once = Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0));
         var starting = new PlotsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, once),
+            Snapshot = InsightsSnapshot.Of(Live(), null, once),
             RelaySamples = [Reading(once)],
         };
         Assert.False(starting.HasLatency);
@@ -388,7 +388,7 @@ public sealed class ViewerRosterTests
 
         var plots = new PlotsViewModel
         {
-            Snapshot = BroadcastSnapshot.Of(Live(), null, since),
+            Snapshot = InsightsSnapshot.Of(Live(), null, since),
             RelaySamples =
             [
                 Reading(timed, second: 1),

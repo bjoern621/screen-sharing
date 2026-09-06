@@ -1,8 +1,8 @@
 using Avalonia.Threading;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Broadcast.Model;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.Model;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
@@ -22,7 +22,7 @@ namespace ScreenShare.App.Features.Shell.ViewModel;
 /// A band holds no destination of its own and is told one on every render pass, so a lit segment cannot disagree
 /// with the body.
 ///
-/// Every destination is reachable at all times, broadcast included: what it reports about the stream that has
+/// Every destination is reachable at all times, insights included: what it reports about the stream that has
 /// just ended is what a publisher goes looking for once it has (<c>docs/design-language.md</c>, "Surfaces and shape").
 ///
 /// <see cref="Show"/> is the named write.
@@ -89,7 +89,7 @@ public sealed class ShellViewModel : Observable
         var dispatch = (Action<Action>)(action => Dispatcher.UIThread.Post(action));
 
         // One session for the window, and the one owner of the running state.
-        // Broadcast and the viewer describe that session from two angles, so a session each would be two
+        // Insights and the viewer describe that session from two angles, so a session each would be two
         // windows' worth of reads and two answers to what is publishing.
         _session = new Session(backend, dispatch);
 
@@ -106,17 +106,17 @@ public sealed class ShellViewModel : Observable
         StatusBar = new StatusBarViewModel(backend.SendReportAsync, Update, dispatch);
 
         Setup = new SetupViewModel(backend, _form, _session, dispatch);
-        Broadcast = new BroadcastViewModel(backend, _form, _session, dispatch);
+        Insights = new InsightsViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 
         // The tray presses the destinations' own commands rather than carrying a gate of its own,
         // so it is built beside them.
         // Whether this shell owns a backend is read at the press, the spawn being lazy.
-        Tray = new TrayViewModel(backend, _session, Setup, Broadcast, () => BackendProcess.Owns, PartAsync, dispatch);
+        Tray = new TrayViewModel(backend, _session, Setup, Insights, () => BackendProcess.Owns, PartAsync, dispatch);
 
         // The strip's commit presses the destinations' own commands the way the tray does,
         // so it is built beside them and handed to the strip as its right-hand control.
-        _go = new GoViewModel(_session, _form, Setup, Broadcast, () => Show(Destination.Setup));
+        _go = new GoViewModel(_session, _form, Setup, Insights, () => Show(Destination.Setup));
         Nav = new NavStripViewModel(Show, _go);
 
         // A decode is keyed by stream and leg, and this machine's own stream is one the grid may tile, so
@@ -124,8 +124,8 @@ public sealed class ShellViewModel : Observable
         // A stop from either would take the picture out of the other, so the card reads the grid's answer
         // through before closing anything (Preview/ViewModel/PreviewViewModel.cs).
         // Wired here because the shell holds both screens, and the viewer does not exist yet when
-        // the broadcast screen is built.
-        Broadcast.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
+        // the insights screen is built.
+        Insights.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
 
         // Every destination re-renders on any change, the chrome reading them all: the strip's pill says whether
         // this machine is sharing, and the band prints the viewer's figures from any destination.
@@ -140,7 +140,7 @@ public sealed class ShellViewModel : Observable
         // The pointer rides that notification and reaches the preview alone.
         // The position leaves the capture rather than being drawn into it, so the preview is the only place
         // it is drawn at all.
-        _session.Metered += () => Broadcast.Preview.Point(_session.Pointer);
+        _session.Metered += () => Insights.Preview.Point(_session.Pointer);
 
         _body = BodyFor(_current);
 
@@ -156,14 +156,14 @@ public sealed class ShellViewModel : Observable
         // The live screen names the navigation and the shell performs it, so a value stays editable in one window
         // (docs/design-language.md, "Ownership").
         // Every other action that screen raises it performs itself against the backend.
-        Broadcast.ActionRequested += OnBroadcastRequested;
+        Insights.ActionRequested += OnInsightsRequested;
 
         // Setup owns the commit and performs it.
         // Where the window goes afterwards is the window's.
         // Moved on the accepted reply rather than on the live state landing: the destination is reachable either
         // way, so the screen the start leads to comes up at once and fills in as the event stream reports what
         // the stream became.
-        Setup.WentLive += () => Show(Destination.Broadcast);
+        Setup.WentLive += () => Show(Destination.Insights);
 
         // Rendered before anything is read, so the window paints a complete view model whether or not
         // the backend is reachable, and the first state lands on a later pass.
@@ -193,7 +193,7 @@ public sealed class ShellViewModel : Observable
 
     public SetupViewModel Setup { get; }
 
-    public BroadcastViewModel Broadcast { get; }
+    public InsightsViewModel Insights { get; }
 
     public ViewerViewModel Viewer { get; }
 
@@ -272,7 +272,7 @@ public sealed class ShellViewModel : Observable
         // Pushed into the destinations rather than into their next render pass: each one renders what the width
         // decides, and the chrome around them stands at every width.
         Setup.SetWindowWidth(_width);
-        Broadcast.SetWindowWidth(_width);
+        Insights.SetWindowWidth(_width);
         Viewer.SetWindowWidth(_width);
     }
 
@@ -286,7 +286,7 @@ public sealed class ShellViewModel : Observable
     public void SetWindowShown(bool shown)
     {
         Viewer.SetWindowShown(shown);
-        Broadcast.SetWindowShown(shown);
+        Insights.SetWindowShown(shown);
     }
 
     /// <summary>
@@ -296,7 +296,7 @@ public sealed class ShellViewModel : Observable
     /// The stream this machine sends is the quit's own business (<c>Features/Tray/ViewModel/TrayViewModel.cs</c>).
     /// </summary>
     public Task PartAsync(CancellationToken cancellation)
-        => Task.WhenAll(Viewer.PartAsync(), Broadcast.PartAsync()).WaitAsync(cancellation);
+        => Task.WhenAll(Viewer.PartAsync(), Insights.PartAsync()).WaitAsync(cancellation);
 
     /// <summary>
     /// One render function.
@@ -314,14 +314,14 @@ public sealed class ShellViewModel : Observable
         // The window's width, pushed before the pass that arranges against it.
         // Every destination and not the showing one alone, for the reason their renders run on every pass.
         Setup.SetWindowWidth(_width);
-        Broadcast.SetWindowWidth(_width);
+        Insights.SetWindowWidth(_width);
         Viewer.SetWindowWidth(_width);
 
         // Every destination, not the showing one alone.
         // A destination rendered only while on screen comes back stale, and the body swap draws the state it last
         // held rather than the one the model is in.
         Setup.Apply();
-        Broadcast.Apply();
+        Insights.Apply();
         Viewer.Apply();
 
         // After the destinations, so the menu and the strip commit read the gate and the rows this pass derived.
@@ -331,9 +331,9 @@ public sealed class ShellViewModel : Observable
         // After the bodies, so the strip's pill and the band's figures are what the destinations derived
         // on this pass rather than what they held before it.
         //
-        // Both facts are read back off the broadcast screen's reading instead of being composed again, so
+        // Both facts are read back off the insights screen's reading instead of being composed again, so
         // the pill in the chrome and the pill in the header cannot disagree.
-        Nav.Show(_current, Broadcast.Snapshot.IsLive, Broadcast.Snapshot.Elapsed);
+        Nav.Show(_current, Insights.Snapshot.IsLive, Insights.Snapshot.Elapsed);
         RenderStatusBar();
         RenderChrome();
 
@@ -378,9 +378,9 @@ public sealed class ShellViewModel : Observable
     /// The rest are the publisher's, and answering one here would be the shell inventing behaviour it does not
     /// own.
     /// </summary>
-    private void OnBroadcastRequested(BroadcastAction action)
+    private void OnInsightsRequested(InsightsAction action)
     {
-        if (action == BroadcastAction.EditInSetup)
+        if (action == InsightsAction.EditInSetup)
         {
             Show(Destination.Setup);
         }
@@ -414,7 +414,7 @@ public sealed class ShellViewModel : Observable
     private object BodyFor(Destination destination) => destination switch
     {
         Destination.Setup => Setup,
-        Destination.Broadcast => Broadcast,
+        Destination.Insights => Insights,
         Destination.Viewer => Viewer,
         _ => Assert.Never<object>("unexpected destination", (int)destination),
     };

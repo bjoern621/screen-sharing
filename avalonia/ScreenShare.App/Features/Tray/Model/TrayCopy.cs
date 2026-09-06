@@ -5,7 +5,7 @@ namespace ScreenShare.App.Features.Tray.Model;
 /// Keyed on nothing the backend sends, so it sits with the feature rather than in <c>Copy/</c>,
 /// the layering <c>Features/Setup/Model/CommitCopy.cs</c> states.
 /// The commit row's words are elsewhere on purpose: the start label is <c>CommitCopy</c>'s and the stop
-/// label the broadcast screen's, one place per word.
+/// label the insights screen's, one place per word.
 /// </summary>
 public static class TrayCopy
 {

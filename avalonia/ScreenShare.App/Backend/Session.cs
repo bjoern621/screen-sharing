@@ -45,7 +45,7 @@ public sealed record RelayReading(RelayStatus Status, DateTimeOffset At);
 /// A relay snapshot describes every path the relay carries and a plot wants one of them.
 /// The path is picked at draw time and not at store time, the publish state answering which path is ours and
 /// being able to move under a recorded series
-/// (<c>Features/Broadcast/Model/BroadcastSnapshot.cs</c>, <c>PathOf</c>).
+/// (<c>Features/Insights/Model/InsightsSnapshot.cs</c>, <c>PathOf</c>).
 ///
 /// <see cref="Start"/> and the subscription loops are the writers,
 /// and both land on the UI loop through the injected dispatcher, so a screen never reads a half-written pass.
@@ -60,7 +60,7 @@ public sealed class Session
     /// Readings rather than seconds because it bounds what this class holds rather than what anything draws:
     /// the relay poll period is not on the contract, so a span stated here would be one this side made up.
     /// What a plot covers is its own and shorter,
-    /// taken against the clock each reading carries (<c>Features/Broadcast/Plots/Model/PlotSeries.cs</c>).
+    /// taken against the clock each reading carries (<c>Features/Insights/Plots/Model/PlotSeries.cs</c>).
     /// The history outlives the plot, so a card is never why a reading was dropped.
     /// </summary>
     private const int SampleWindow = 240;
@@ -153,7 +153,7 @@ public sealed class Session
     ///
     /// Two cards ask the series different questions: the latency plot draws the shape the figures went through,
     /// and the session log derives who arrived and who left from where consecutive rosters differ
-    /// (<c>Features/Broadcast/Model/Audience.cs</c>).
+    /// (<c>Features/Insights/Model/Audience.cs</c>).
     /// Neither answer is accumulated here. Both are functions of whole states in order.
     /// </summary>
     public IReadOnlyList<RelayReading> RelaySamples => _relaySamples;
@@ -423,7 +423,7 @@ public sealed class Session
 
     /// <summary>
     /// Reads every state once.
-    /// Together rather than one per screen: the broadcast screen and the viewer describe one session,
+    /// Together rather than one per screen: the insights screen and the viewer describe one session,
     /// and a window whose halves were read seconds apart would show that.
     /// </summary>
     private async Task LoadAsync(CancellationToken cancellation)

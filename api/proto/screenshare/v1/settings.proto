@@ -332,9 +332,9 @@ message ViewerSettings {
   // (docs/viewer-architecture.md, "The receive package").
   string render_chain = 6;
 
-  // Which picture of this machine's own stream the broadcast preview draws:
+  // Which picture of this machine's own stream the insights preview draws:
   // "off", "local" or "end-to-end"
-  // (docs/viewer-architecture.md, "What the broadcast preview draws").
+  // (docs/viewer-architecture.md, "What the insights preview draws").
   //
   // Here rather than with the publish because the end-to-end route is a relay client:
   // it opens a decode of this machine's own stream over the leg above,

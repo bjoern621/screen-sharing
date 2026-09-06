@@ -10,14 +10,14 @@ namespace ScreenShare.App.Tests;
 public sealed class OpeningTests
 {
     [Fact]
-    public void ALiveStreamOpensOnBroadcast()
+    public void ALiveStreamOpensOnInsights()
     {
         var live = new PublishState
         {
             Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = "lab04" },
         };
 
-        Assert.Equal(Destination.Broadcast, Opening.For(live));
+        Assert.Equal(Destination.Insights, Opening.For(live));
     }
 
     [Fact]

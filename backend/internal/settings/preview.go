@@ -1,7 +1,7 @@
 package settings
 
-// Where the broadcast preview's picture is taken, as a stored value spells each route
-// (docs/viewer-architecture.md, "What the broadcast preview draws").
+// Where the insights preview's picture is taken, as a stored value spells each route
+// (docs/viewer-architecture.md, "What the insights preview draws").
 //
 // Off stands beside the two rather than under a control of its own:
 // it closes the relay decode the end-to-end route holds and gives that reader slot back,

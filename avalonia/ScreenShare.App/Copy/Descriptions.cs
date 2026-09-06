@@ -44,7 +44,7 @@ public static class Descriptions
     private static readonly Dictionary<string, string> Formats = new()
     {
         ["h264"] = "Plays everywhere: every browser, every phone, every player. The least efficient of the modern formats, so it needs the most bits for the same picture.",
-        ["hevc"] = "About 40% smaller than H.264 at the same quality. Browser playback is limited to Safari or an OS extension, so it is the better choice when the viewers' players are known.",
+        ["hevc"] = "About 40% smaller than H.264 at the same quality. Browser playback needs Safari or an OS extension, so pick it where the viewers' players are known.",
         ["av1"] = "The most efficient per bit. Hardware encoding needs NVIDIA RTX 40, Intel Arc, or AMD RDNA3 and up.",
         ["vp9"] = "Royalty-free and plays in every browser except Safari. Efficiency sits between H.264 and HEVC.",
         ["vp8"] = "Royalty-free and carried everywhere WebRTC is. Roughly as efficient as H.264.",
@@ -159,7 +159,7 @@ public static class Descriptions
         ["displayremoting"] = "Tells the encoder the content is a desktop watched somewhere else. The right choice for a screen share.",
         ["videoconference"] = "For faces over a static background, where the picture holds still and one region moves.",
         ["archive"] = "For an encode nobody waits on. Trades delay for the smallest file.",
-        ["livestreaming"] = "For a broadcast to many viewers. Holds a steady rate over a long run.",
+        ["livestreaming"] = "For a stream to many viewers. Holds a steady rate over a long run.",
         ["cameracapture"] = "For a camera feed, where the picture carries sensor noise and constant small motion.",
         ["videosurveillance"] = "For a fixed camera watching a scene that rarely changes.",
         ["gamestreaming"] = "For rendered motion, where whole scenes change at once and delay matters.",
@@ -179,7 +179,7 @@ public static class Descriptions
     private static readonly Dictionary<string, string> RtspProtocols = new()
     {
         ["tcp"] = "Everything rides the connection the session opened. Nothing is lost, and no extra port has to cross a router or firewall. One late packet holds up everything behind it.",
-        ["udp"] = "Each track gets its own port pair, which drops the delay of in-order delivery. Lost packets are not resent, so loss shows as artifacts rather than a stall. A network that blocks outgoing UDP breaks it silently: the session sets up and no picture follows.",
+        ["udp"] = "Each track gets its own port pair, which drops the delay of in-order delivery. Lost packets are not resent, so loss shows as artifacts rather than a stall. A network that blocks outgoing UDP breaks it silently. The session sets up and no picture follows.",
     };
 
     /// <summary>

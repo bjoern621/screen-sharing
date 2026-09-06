@@ -1,6 +1,6 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
+using ScreenShare.App.Features.Insights.Preview.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;

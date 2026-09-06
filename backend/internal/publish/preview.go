@@ -13,7 +13,7 @@ import (
 
 // The local preview leg: how a publish child hands a copy of the stream it is already encoding
 // to a decoder in this process, without the relay ever seeing it (docs/viewer-architecture.md,
-// "What the broadcast preview draws").
+// "What the insights preview draws").
 //
 // The encoder is an external child.
 // Both engines run one, a gst-launch-1.0 pipeline or an ffmpeg command, keeping a dying pipeline
@@ -57,7 +57,7 @@ const previewClockRate = 90000
 //
 // A format with no row is a format with no local preview.
 // Nothing else about the publish changes for it: the child is launched without the second sink and
-// the state reports no preview, what the broadcast screen says rather than drawing a picture
+// the state reports no preview, what the insights screen says rather than drawing a picture
 // that would never arrive.
 type previewCarriage struct {
 	// payloader is the GStreamer payloader element and its properties, one argument per token the way

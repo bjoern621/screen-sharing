@@ -9,10 +9,10 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// Read at one site rather than derived per caller: every tile of the viewer's grid names a leg when it calls
 /// <see cref="IBackend.StartReceiveAsync"/>, and deriving one per caller would be this module deciding something
 /// it may not decide.
-/// The broadcast preview's end-to-end route reads the same field, opening a decode of this machine's own stream
+/// The insights preview's end-to-end route reads the same field, opening a decode of this machine's own stream
 /// off the relay as a viewer tile does.
 /// Its local route crossed no protocol and names no leg
-/// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+/// (<c>docs/viewer-architecture.md</c>, "What the insights preview draws").
 ///
 /// What it reads is a value and not a choice.
 /// <c>viewer.tile_watch_transport</c> is a setting, resolved and repaired by the backend against the transport

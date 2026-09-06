@@ -3,7 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Mvvm;
 
@@ -63,7 +63,7 @@ public sealed partial class GoView : UserControl
         if (model.IsLive)
         {
             flyout.Items.Add(new Separator());
-            flyout.Items.Add(new MenuItem { Header = BroadcastViewModel.StopLabel, Command = model.StopCommand });
+            flyout.Items.Add(new MenuItem { Header = InsightsViewModel.StopLabel, Command = model.StopCommand });
         }
 
         flyout.Items.Add(new Separator());

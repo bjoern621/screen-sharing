@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:model="using:ScreenShare.App.Features.Insights.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Insights.ViewerTable.ViewModel"
+             x:Class="ScreenShare.App.Features.Insights.ViewerTable.View.ViewerTableView"
+             x:DataType="vm:ViewerTableViewModel">
+
+  <UserControl.Styles>
+    <!--
+      The escalation ladder, in the order a selector has to win in:
+      normal, the row's identity and context, attention, alarm.
+      A later style wins, so alarm is last and nothing quieter takes the red back.
+    -->
+    <Style Selector="TextBlock.cell">
+      <Setter Property="Margin" Value="13,7" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.name">
+      <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.colhead">
+      <Setter Property="FontSize" Value="{StaticResource FontSizeMinor}" />
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+    <Style Selector="TextBlock.hot">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.strong">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- Amber and not red: the viewer this row is about is still watching (docs/design-language.md, "Palette"). -->
+    <Style Selector="TextBlock.alarm">
+      <Setter Property="Foreground" Value="{StaticResource CautionBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- Fill is what makes a row findable without a status glyph column. -->
+    <Style Selector="Border.struggling">
+      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" ClipToBounds="True">
+    <DockPanel>
+
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="13,11">
+        <TextBlock Grid.Column="0" Classes="caption" Text="Viewers on this stream" VerticalAlignment="Center" />
+        <!--
+          No interval in the sentence: the backend announces each snapshot it polls, and how
+          often it polls is not on the contract, so a period named here would be made up.
+        -->
+        <TextBlock Grid.Column="1" Classes="hint" Text="as of the last read from the relay" VerticalAlignment="Center" />
+      </Grid>
+
+      <!--
+        What stands in for the rows, drawn instead of the column heads rather than under them:
+        a header rank over nothing names figures that are not there.
+      -->
+      <TextBlock DockPanel.Dock="Top"
+                 Classes="hint"
+                 Text="{Binding Notice}"
+                 IsVisible="{Binding !HasRows}"
+                 TextWrapping="Wrap"
+                 Margin="13,4,13,15" />
+
+      <Border DockPanel.Dock="Top"
+              Background="{StaticResource PanelBrush}"
+              BorderBrush="{StaticResource DividerBrush}"
+              BorderThickness="0,1"
+              IsVisible="{Binding HasRows}">
+        <!--
+          Two of the design's headers name figures nothing carries back to a publisher,
+          buffer fill and the decoder in use, so those columns carry what the relay does measure
+          at that width: what was discarded on the way out, and the leg it went out over.
+          A column printing an ellipsis in every row forever is a hole where a measurement exists
+          (docs/field-availability.md, "A figure with no measurement").
+        -->
+        <Grid ColumnDefinitions="196,64,74,74,84,*">
+          <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="viewer" />
+          <TextBlock Grid.Column="1" Classes="ident cell colhead" Text="joined" />
+          <TextBlock Grid.Column="2" Classes="ident cell colhead" Text="rtt" TextAlignment="Right" />
+          <TextBlock Grid.Column="3" Classes="ident cell colhead" Text="loss" TextAlignment="Right" />
+          <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="dropped" TextAlignment="Right" />
+          <TextBlock Grid.Column="5" Classes="ident cell colhead" Text="via" MinWidth="70" />
+        </Grid>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding Rows}" VerticalAlignment="Top">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="model:ViewerRow">
+            <StackPanel>
+              <Border Classes.struggling="{Binding IsStruggling}">
+                <Grid ColumnDefinitions="196,64,74,74,84,*">
+                  <TextBlock Grid.Column="0" Classes="ident cell name" Text="{Binding Name}"
+                             Classes.hot="{Binding IsStruggling}" Classes.strong="{Binding IsStruggling}" />
+                  <!-- Never escalated: when a viewer joined is not a fault. -->
+                  <TextBlock Grid.Column="1" Classes="ident cell" Text="{Binding Joined}" />
+                  <TextBlock Grid.Column="2" Classes="ident cell" Text="{Binding Rtt}" TextAlignment="Right"
+                             Classes.hot="{Binding IsStruggling}" />
+                  <TextBlock Grid.Column="3" Classes="ident cell" Text="{Binding Loss}" TextAlignment="Right"
+                             Classes.alarm="{Binding IsStruggling}" />
+                  <TextBlock Grid.Column="4" Classes="ident cell" Text="{Binding Dropped}" TextAlignment="Right"
+                             Classes.hot="{Binding IsStruggling}" />
+                  <TextBlock Grid.Column="5" Classes="ident cell dim" Text="{Binding Via}" MinWidth="70"
+                             Classes.hot="{Binding IsStruggling}" />
+                </Grid>
+              </Border>
+              <Border Classes="rowrule" IsVisible="{Binding !IsLast}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </DockPanel>
+  </Border>
+</UserControl>

@@ -495,7 +495,7 @@ type Viewer struct {
 	// One value for every tile rather than one per stream:
 	// a chain falls back where a driver cannot run it, which is a property of the machine.
 	RenderChain string `json:"renderChain"`
-	// PreviewRoute is the picture the broadcast preview draws, one of PreviewRoutes.
+	// PreviewRoute is the picture the insights preview draws, one of PreviewRoutes.
 	//
 	// With the viewer because the end-to-end route is a relay client:
 	// it decodes this machine's own stream off the relay over TileWatchTransport

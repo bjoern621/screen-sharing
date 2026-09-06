@@ -1,6 +1,6 @@
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Broadcast.ViewModel;
+using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
@@ -12,7 +12,7 @@ namespace ScreenShare.App.Features.Tray.ViewModel;
 /// <summary>
 /// The tray's state: one menu, derived from the window's own controls rather than from a second gate.
 ///
-/// The commit row presses the review's commit and the broadcast screen's stop, so the wait, the guard and
+/// The commit row presses the review's commit and the insights screen's stop, so the wait, the guard and
 /// the refusal surface stay one each, and a refusal lands where the window already shows it.
 /// The preset rows are the rail card's, applied through the card's own commands.
 /// Nothing here decides anything: which effect a press is comes off the running state at the press,
@@ -31,7 +31,7 @@ public sealed class TrayViewModel : Observable
     private readonly IBackend _backend;
     private readonly Session _session;
     private readonly SetupViewModel _setup;
-    private readonly BroadcastViewModel _broadcast;
+    private readonly InsightsViewModel _insights;
     private readonly Func<bool> _ownsBackend;
     private readonly Func<CancellationToken, Task> _part;
     private readonly Action<Action> _dispatch;
@@ -52,7 +52,7 @@ public sealed class TrayViewModel : Observable
         IBackend backend,
         Session session,
         SetupViewModel setup,
-        BroadcastViewModel broadcast,
+        InsightsViewModel insights,
         Func<bool> ownsBackend,
         Func<CancellationToken, Task> part,
         Action<Action> dispatch)
@@ -60,7 +60,7 @@ public sealed class TrayViewModel : Observable
         Assert.NotNull(backend, "a tray asks the backend to stop the stream a quit ends");
         Assert.NotNull(session, "a tray reads what is publishing off the session");
         Assert.NotNull(setup, "a tray presses the setup flow's own commit");
-        Assert.NotNull(broadcast, "a tray presses the broadcast screen's own stop");
+        Assert.NotNull(insights, "a tray presses the insights screen's own stop");
         Assert.NotNull(ownsBackend, "a tray asks whether this shell has a backend of its own to stop");
         Assert.NotNull(part, "a tray closes the window's decodes before a quit");
         Assert.NotNull(dispatch, "a tray needs a UI loop to marshal an answer back to");
@@ -68,7 +68,7 @@ public sealed class TrayViewModel : Observable
         _backend = backend;
         _session = session;
         _setup = setup;
-        _broadcast = broadcast;
+        _insights = insights;
         _ownsBackend = ownsBackend;
         _part = part;
         _dispatch = dispatch;
@@ -79,7 +79,7 @@ public sealed class TrayViewModel : Observable
         // the review's gate and label, the stop's liveness, and the card's preset rows.
         // Each announces its own moves, so the menu follows them while the window is hidden.
         setup.Review.PropertyChanged += (_, _) => Apply();
-        broadcast.StopCommand.Changed += Apply;
+        insights.StopCommand.Changed += Apply;
         setup.Rail.Presets.Rows.CollectionChanged += (_, _) => Apply();
         setup.Rail.Presets.Builtin.CollectionChanged += (_, _) => Apply();
 
@@ -112,7 +112,7 @@ public sealed class TrayViewModel : Observable
     {
         if (_session.Publish?.Live is not null)
         {
-            _broadcast.StopCommand.Execute(null);
+            _insights.StopCommand.Execute(null);
             return;
         }
 
@@ -156,11 +156,11 @@ public sealed class TrayViewModel : Observable
         Menu = new TrayMenu
         {
             IsLive = live,
-            CommitLabel = live ? BroadcastViewModel.StopLabel : CommitCopy.Of(PublishCommit.Start).Label,
+            CommitLabel = live ? InsightsViewModel.StopLabel : CommitCopy.Of(PublishCommit.Start).Label,
 
             // The command asked rather than a gate composed here, so the row and the press cannot disagree.
             CanCommit = live
-                ? _broadcast.StopCommand.CanExecute(null)
+                ? _insights.StopCommand.CanExecute(null)
                 : _setup.Review.StartSharingCommand.CanExecute(null),
 
             Presets = EntriesOf(card),
