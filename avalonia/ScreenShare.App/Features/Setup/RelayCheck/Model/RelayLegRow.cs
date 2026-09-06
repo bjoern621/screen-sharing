@@ -21,6 +21,13 @@ public sealed record RelayLegRow
     public required string Text { get; init; }
 
     public required CheckState State { get; init; }
+
+    /// <summary>
+    /// The version the listener named for itself, empty where it named none.
+    /// Beside the row rather than inside its text: it belongs to the relay and is drawn once,
+    /// where the summary speaks for the whole list.
+    /// </summary>
+    public required string Version { get; init; }
 }
 
 /// <summary>
@@ -41,12 +48,13 @@ public static class RelayLegRows
             {
                 Text = $"{Words.RelayLeg(leg.Leg)} · {DetailOf(leg)}",
                 State = StateOf(leg.Verdict),
+                Version = leg.HasVersion ? leg.Version : "",
             })
             .ToList();
     }
 
     /// <summary>
-    /// One line about the whole list: "everything answered", "1 did not answer".
+    /// One line about the whole list: "everything answered", "1 did not answer, relay version 0.6.1".
     /// Derived rather than stored, so the summary cannot claim a relay is well while the rows show otherwise.
     /// A leg nothing dialled is counted nowhere: nothing was asked of it, so it is neither well nor unwell.
     /// </summary>
@@ -54,12 +62,32 @@ public static class RelayLegRows
     {
         Assert.NotNull(legs, "summarising the list needs the list");
 
-        var silent = legs.Count(leg => leg.State == CheckState.Blocking);
-        if (silent > 0)
+        if (legs.Count == 0)
         {
-            return silent == 1 ? "1 did not answer" : $"{silent} did not answer";
+            return "";
         }
-        return legs.Count == 0 ? "" : "everything answered";
+
+        var silent = legs.Count(leg => leg.State == CheckState.Blocking);
+        var counted = silent == 0 ? "everything answered" : $"{silent} did not answer";
+
+        var version = VersionOf(legs);
+        return version.Length == 0 ? counted : $"{counted}, relay version {version}";
+    }
+
+    /// <summary>
+    /// The version the relay answered with, empty where its listeners named none or named several.
+    /// A deployment answering two versions is running two, and naming one of them would name
+    /// whichever leg answered first.
+    /// </summary>
+    private static string VersionOf(IReadOnlyList<RelayLegRow> legs)
+    {
+        var named = legs
+            .Select(leg => leg.Version)
+            .Where(version => version.Length > 0)
+            .Distinct()
+            .ToList();
+
+        return named.Count == 1 ? named[0] : "";
     }
 
     /// <summary>

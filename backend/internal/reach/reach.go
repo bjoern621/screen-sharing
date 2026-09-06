@@ -2,6 +2,8 @@
 //
 // One row per listener, each dialled where the transport using it says it answers
 // (transport.Listener), so what is measured is this deployment rather than a second list of ports.
+// The dial goes to a route that listener's own server owns where the transport names one
+// (transport.Probed), one name fronting several of them.
 // A leg this deployment addresses nowhere reads as Unaddressed, never as a cross: a relay binding
 // what it is configured to bind is a relay behaving.
 //
@@ -81,13 +83,20 @@ type Result struct {
 	Detail string
 	// Unaddressed is the reason where Verdict is Unaddressed, and ReasonNone otherwise.
 	Unaddressed Reason
+	// Version is what the listener named for itself, empty where it named none.
+	// A relay's own services carry one and MediaMTX carries none, so a row is answered either way.
+	Version string
 	// Took is how long the probe waited, zero where nothing was dialled.
 	Took time.Duration
 }
 
 // resolved is one row before it is probed.
 type resolved struct {
-	leg    string
+	leg string
+	// address is the listener the row is about, which is the field a wrong answer is corrected in.
+	address string
+	// target is where the probe dials, a route inside that listener where the transport names one
+	// (transport.Probed).
 	target target
 	reason Reason
 }
@@ -108,7 +117,7 @@ func Endpoints(s settings.Settings) []Endpoint {
 
 	out := make([]Endpoint, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, Endpoint{Leg: row.leg, Address: row.target.url, Unaddressed: row.reason})
+		out = append(out, Endpoint{Leg: row.leg, Address: row.address, Unaddressed: row.reason})
 	}
 	for _, e := range out {
 		assert.Assert((e.Address == "") == (e.Unaddressed != ReasonNone),
@@ -138,7 +147,7 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results[i] = run(ctx, row.leg, row.target)
+			results[i] = run(ctx, row)
 		}()
 	}
 	wg.Wait()
@@ -156,10 +165,18 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 // the registry.
 func resolve(s settings.Settings) []resolved {
 	listeners := transport.Listeners(s)
+	probes := transport.Probes(s)
 
 	rows := make([]resolved, 0, len(listeners)+1)
 	for name, address := range listeners {
-		rows = append(rows, resolved{leg: name, target: target{url: address, insecure: s.Relay.OnTrustedNetwork()}})
+		route, ok := probes[name]
+		assert.Assert(ok, "every listener names where a check dials it", name)
+
+		rows = append(rows, resolved{
+			leg:     name,
+			address: address,
+			target:  target{url: route, insecure: s.Relay.OnTrustedNetwork()},
+		})
 	}
 	rows = append(rows, groupService(s.Relay))
 
@@ -185,29 +202,40 @@ func groupService(r settings.Relay) resolved {
 	if !ok {
 		return resolved{leg: legGroups, reason: ReasonNoRelay}
 	}
-	return resolved{leg: legGroups, target: target{url: base + "/jwks.json", insecure: r.OnTrustedNetwork()}}
+	return resolved{
+		leg:     legGroups,
+		address: base,
+		target:  target{url: base + "/jwks.json", insecure: r.OnTrustedNetwork()},
+	}
 }
 
-// run is one row: the probe the address's protocol names, timed, carrying whatever came back.
-func run(ctx context.Context, leg string, t target) Result {
+// run is one row: the probe the route's protocol names, timed, carrying whatever came back.
+func run(ctx context.Context, row resolved) Result {
 	assert.IsNotNil(ctx, "a probe runs under a context, its whole bound being a deadline")
-	assert.Assert(t.url != "", "a dialled leg names where", leg)
+	assert.Assert(row.target.url != "", "a dialled leg names where", row.leg)
 
-	probe, ok := probes[schemeOf(t.url)]
-	assert.Assert(ok, "a leg is addressed in a protocol this speaks", leg, t.url)
+	probe, ok := probes[schemeOf(row.target.url)]
+	assert.Assert(ok, "a leg is addressed in a protocol this speaks", row.leg, row.target.url)
 
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
 	began := time.Now()
-	detail, err := probe(ctx, t)
+	a, err := probe(ctx, row.target)
 	took := time.Since(began)
 	if err != nil {
-		return Result{Leg: leg, Address: t.url, Verdict: Unreachable, Detail: err.Error(), Took: took}
+		return Result{Leg: row.leg, Address: row.address, Verdict: Unreachable, Detail: err.Error(), Took: took}
 	}
 
-	assert.Assert(detail != "", "a listener that answered says what it answered", leg)
-	return Result{Leg: leg, Address: t.url, Verdict: Reachable, Detail: detail, Took: took}
+	assert.Assert(a.detail != "", "a listener that answered says what it answered", row.leg)
+	return Result{
+		Leg:     row.leg,
+		Address: row.address,
+		Verdict: Reachable,
+		Detail:  a.detail,
+		Version: a.version,
+		Took:    took,
+	}
 }
 
 // schemeOf is the protocol an address names.

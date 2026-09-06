@@ -74,6 +74,12 @@ func (MoQ) ListenerURL(s settings.Settings) string {
 	return fmt.Sprintf("https://%s:%d", s.Relay.Host, s.Relay.MoqPort)
 }
 
+// ProbeURL is the player page under the path a check dials, a route the MoQ server owns.
+// Without the credential moqOrigin carries: a check reads a status and opens no track.
+func (MoQ) ProbeURL(s settings.Settings) string {
+	return MoQ{}.ListenerURL(s) + "/" + checkPath + "/"
+}
+
 // moqOrigin is that listener carrying the credential the page is answered on.
 func moqOrigin(s settings.Settings) string {
 	return withCredential(s, MoQ{}.ListenerURL(s))

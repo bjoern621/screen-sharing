@@ -30,8 +30,8 @@ var reasons = map[Reason]string{
 	ReasonNoRelay: "no relay is named in the settings",
 }
 
-// Report writes a line per leg: mark, leg, where it was dialled, what came back, how long it
-// waited.
+// Report writes a line per leg: mark, leg, where it answers, what came back, the version it named
+// and how long it waited.
 //
 // In Check's order, so the same relay prints the same way twice.
 func Report(w io.Writer, results []Result) error {
@@ -42,7 +42,7 @@ func Report(w io.Writer, results []Result) error {
 		mark, ok := marks[r.Verdict]
 		assert.Assert(ok, "every verdict prints under a mark of its own", r.Leg, r.Verdict)
 
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", mark, r.Leg, r.Address, detailOf(r), waitOf(r))
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n", mark, r.Leg, r.Address, detailOf(r), r.Version, waitOf(r))
 	}
 	return table.Flush()
 }

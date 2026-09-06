@@ -19,12 +19,20 @@ import (
 // Legs are dialled at once, so a check pays it once.
 const probeTimeout = 5 * time.Second
 
+// answer is what one probe got back.
+type answer struct {
+	// detail is the listener's own words: a status line, a certificate, a handshake.
+	detail string
+	// version is what the listener named for itself, empty where it named none.
+	version string
+}
+
 // probes is one entry per URL scheme, since what a listener answers follows the protocol
 // its address names, not the leg carrying it.
 //
 // A scheme with no entry is a transport addressing its listener in a protocol nothing speaks,
 // which run asserts rather than reports.
-var probes = map[string]func(context.Context, target) (string, error){
+var probes = map[string]func(context.Context, target) (answer, error){
 	"http":  probeHTTP,
 	"https": probeHTTP,
 	"rtsps": probeRTSP,
@@ -32,40 +40,55 @@ var probes = map[string]func(context.Context, target) (string, error){
 	"srt":   probeSRT,
 }
 
-// probeHTTP fetches the address and answers the status line.
+// probeHTTP fetches the route and answers the status line, with the version the server named.
 //
 // Any status counts as the listener answering, refusals included: the question is whether
-// the server is there, and a relay serving no such path answers 404 over a listener that is up.
-func probeHTTP(ctx context.Context, t target) (string, error) {
+// the server is there, and a route every reader needs a token for answers 401 over one that is up.
+func probeHTTP(ctx context.Context, t target) (answer, error) {
 	assert.Assert(t.url != "", "an HTTP probe names what it fetches")
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, t.url, nil)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: t.insecure}}}
 	response, err := client.Do(request)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 	defer response.Body.Close()
 
-	return response.Status, nil
+	return answer{detail: response.Status, version: versionOf(response.Header.Get("Server"))}, nil
+}
+
+// versionOf is the version a server named itself with: "groupd/0.6.1" is "0.6.1".
+//
+// The Server header rather than a route of its own, so one request answers both questions and
+// every route carries the answer.
+// A name with no version after it is a server that names none, MediaMTX being one.
+func versionOf(server string) string {
+	product := strings.Fields(server)
+	if len(product) == 0 {
+		return ""
+	}
+
+	_, version, _ := strings.Cut(product[0], "/")
+	return version
 }
 
 // probeTLS opens the connection and completes the handshake, as far as a check goes on a leg whose
 // next move is a publish.
 // Answers the certificate the listener presented, the other thing a reader asks about a leg
 // that terminates TLS itself.
-func probeTLS(ctx context.Context, t target) (string, error) {
+func probeTLS(ctx context.Context, t target) (answer, error) {
 	c, err := dialTLS(ctx, t)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 	defer c.Close()
 
-	return certificateOf(c), nil
+	return answer{detail: certificateOf(c)}, nil
 }
 
 // probeRTSP asks the listener for its options, the one request an RTSP server answers before
@@ -73,31 +96,31 @@ func probeTLS(ctx context.Context, t target) (string, error) {
 //
 // A listener answering something else is not this leg: a publish there needs RTSP, so the row says
 // so rather than calling the port open.
-func probeRTSP(ctx context.Context, t target) (string, error) {
+func probeRTSP(ctx context.Context, t target) (answer, error) {
 	c, err := dialTLS(ctx, t)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 	defer c.Close()
 
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := c.SetDeadline(deadline); err != nil {
-			return "", err
+			return answer{}, err
 		}
 	}
 	if _, err := fmt.Fprintf(c, "OPTIONS %s RTSP/1.0\r\nCSeq: 1\r\n\r\n", t.url); err != nil {
-		return "", err
+		return answer{}, err
 	}
 
 	line, err := bufio.NewReader(c).ReadString('\n')
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "RTSP/") {
-		return "", fmt.Errorf("answered %q, which is no RTSP listener", line)
+		return answer{}, fmt.Errorf("answered %q, which is no RTSP listener", line)
 	}
-	return line, nil
+	return answer{detail: line}, nil
 }
 
 // dialTLS opens the address's host and completes the handshake.

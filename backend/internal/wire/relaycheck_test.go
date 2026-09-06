@@ -70,3 +70,33 @@ func TestAnUndialledLegReportsNoWait(t *testing.T) {
 		t.Errorf("an undialled leg waited %d ms", legs[0].GetWaitedMs())
 	}
 }
+
+// A version a listener named crosses on its own row.
+func TestALegCarriesTheVersionItsListenerNamed(t *testing.T) {
+	legs := RelayLegs([]reach.Result{{
+		Leg:     "groups",
+		Address: "https://relay.example",
+		Verdict: reach.Reachable,
+		Detail:  "200 OK",
+		Version: "0.6.1",
+	}})
+
+	if got := legs[0].GetVersion(); got != "0.6.1" {
+		t.Errorf("the leg crosses with version %q, want the one the listener named", got)
+	}
+}
+
+// Absent rather than empty where a listener named none:
+// an empty string is a version, and a shell drawing one would put a blank where a number goes.
+func TestALegNamingNoVersionCarriesNoField(t *testing.T) {
+	legs := RelayLegs([]reach.Result{{
+		Leg:     "hls",
+		Address: "https://relay.example",
+		Verdict: reach.Reachable,
+		Detail:  "401 Unauthorized",
+	}})
+
+	if legs[0].Version != nil {
+		t.Errorf("a leg that named no version crosses with %q", legs[0].GetVersion())
+	}
+}

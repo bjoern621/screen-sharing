@@ -39,6 +39,10 @@ buildGoModule {
   modRoot = "backend";
   subPackages = [ "cmd/groupd" ];
 
+  # The number every answer names, which is how a member's relay check reads what a deployment
+  # is running (backend/internal/groupsvc, version.go).
+  ldflags = [ "-X main.version=${version}" ];
+
   # Nothing this binary imports reaches backend/internal/receive,
   # the one cgo and GStreamer package,
   # so it builds without a C compiler or GStreamer headers on the server.

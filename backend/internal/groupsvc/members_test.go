@@ -531,7 +531,7 @@ func raw(t *testing.T, s *Service, method, target, body string) (int, string) {
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
 	r.RemoteAddr = "192.0.2.1:1234"
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, r)
+	s.Handler("test").ServeHTTP(w, r)
 	return w.Code, w.Body.String()
 }
 

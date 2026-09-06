@@ -52,3 +52,24 @@ func TestOnlyALegThatWasDialledCanFail(t *testing.T) {
 		t.Error("a leg that answered reads as a failure")
 	}
 }
+
+// The version a listener named stands in its row, which is what a relay behind the app it serves
+// is read off from a terminal.
+func TestAReportCarriesTheVersionAListenerNamed(t *testing.T) {
+	var out strings.Builder
+	err := Report(&out, []Result{
+		{Leg: legGroups, Address: "https://relay", Verdict: Reachable, Detail: "200 OK", Version: "0.6.1", Took: time.Millisecond},
+		{Leg: "hls", Address: "https://relay", Verdict: Reachable, Detail: "401 Unauthorized", Took: time.Millisecond},
+	})
+	if err != nil {
+		t.Fatalf("Report: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	if !strings.Contains(lines[0], "0.6.1") {
+		t.Errorf("the row is %q, want the version the listener named", lines[0])
+	}
+	if strings.Contains(lines[1], "0.6.1") {
+		t.Errorf("the row is %q, want no version on a listener that named none", lines[1])
+	}
+}

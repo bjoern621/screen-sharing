@@ -150,6 +150,13 @@ func whepURL(s settings.Settings, name string) string {
 	return WebRTC{}.ListenerURL(s) + "/" + name + "/whep"
 }
 
+// ProbeURL is the WHEP endpoint under the path a check dials, a route the WebRTC server owns.
+// An exchange opens with a POST, so the server answers a check's GET at the method and negotiates
+// nothing.
+func (WebRTC) ProbeURL(s settings.Settings) string {
+	return whepURL(s, checkPath)
+}
+
 // ListenerURL is where the signalling answers: the relay's listener, or the proxy in front of it
 // (settings.Relay.HTTPOrigin).
 // Only the exchange goes there; the media leg negotiates its own path and meets neither.

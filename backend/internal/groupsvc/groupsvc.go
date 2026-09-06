@@ -182,13 +182,13 @@ func New(signer *token.Signer, streams Streams, members *membership.Registry, sr
 	return s
 }
 
-// Handler is the service's routes.
+// Handler is the service's routes, answering under the version given (version.go).
 //
 // A group key travels in the request body, never in the path:
 // a key in a URL is a key in every proxy log between here and the client.
 // The index and the members view are the exceptions and take theirs in the query,
 // a GET having no body a cache or proxy will honour.
-func (s *Service) Handler() http.Handler {
+func (s *Service) Handler(version string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /groups", s.createGroup)
 	mux.HandleFunc("POST /tokens", s.issueToken)
@@ -204,7 +204,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST /reconcile", s.reconcile)
 	// Takes a body and no key, bounded per address (reports.go).
 	mux.HandleFunc("POST /reports", s.takeReport)
-	return mux
+	return naming(version, mux)
 }
 
 // createGroup draws a group key and hands it back.

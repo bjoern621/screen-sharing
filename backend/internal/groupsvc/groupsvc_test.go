@@ -58,7 +58,7 @@ func call(t *testing.T, s *Service, method, target, body string) (int, map[strin
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
 	r.RemoteAddr = "192.0.2.1:1234"
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, r)
+	s.Handler("test").ServeHTTP(w, r)
 
 	var answer map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &answer); err != nil {
@@ -258,7 +258,7 @@ func TestTheServicePublishesTheKeyItsTokensAreVerifiedWith(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "/jwks.json", nil)
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, r)
+	s.Handler("test").ServeHTTP(w, r)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("the JWKS answered %d", w.Code)
@@ -316,5 +316,22 @@ func TestTheIndexCarriesTheIngestRateAndReaderCount(t *testing.T) {
 	}
 	if got, _ := row["readers"].(float64); int(got) != relayStreams.readers {
 		t.Errorf("the row states %v readers, want %d", row["readers"], relayStreams.readers)
+	}
+}
+
+// Every answer names the service and the version behind it, whichever route answered.
+// A relay check reads it off whatever it dialled and says what the deployment is running
+// (internal/reach), so a route that refuses carries it as much as one that serves.
+func TestEveryAnswerNamesTheVersionServing(t *testing.T) {
+	s := service(t)
+
+	for _, target := range []string{"/jwks.json", "/nothing-here"} {
+		r := httptest.NewRequest(http.MethodGet, target, nil)
+		w := httptest.NewRecorder()
+		s.Handler("0.6.1").ServeHTTP(w, r)
+
+		if got, want := w.Header().Get("Server"), "groupd/0.6.1"; got != want {
+			t.Errorf("%s answers as %q, want %q", target, got, want)
+		}
 	}
 }

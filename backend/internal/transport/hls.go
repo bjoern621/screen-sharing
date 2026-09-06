@@ -70,6 +70,12 @@ func (HLS) WatchURL(s settings.Settings, path string) string {
 	return HLS{}.ListenerURL(s) + "/" + path + "/index.m3u8"
 }
 
+// ProbeURL is the player page under the path a check dials, a route the HLS server owns.
+// The trailing slash saves a redirect, that address being where the server would send a reader.
+func (HLS) ProbeURL(s settings.Settings) string {
+	return HLS{}.ListenerURL(s) + "/" + checkPath + "/"
+}
+
 // ListenerURL is where the relay serves HLS: its own port, or the proxy's name where one fronts it
 // (settings.Relay.HTTPOrigin).
 func (HLS) ListenerURL(s settings.Settings) string {

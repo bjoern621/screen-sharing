@@ -2743,7 +2743,11 @@ type RelayLeg struct {
 	// Why nothing was dialled, present exactly under RELAY_LEG_VERDICT_UNADDRESSED.
 	Unaddressed *Text `protobuf:"bytes,5,opt,name=unaddressed,proto3" json:"unaddressed,omitempty"`
 	// How long the probe waited, absent where nothing was dialled.
-	WaitedMs      *int64 `protobuf:"varint,6,opt,name=waited_ms,json=waitedMs,proto3,oneof" json:"waited_ms,omitempty"`
+	WaitedMs *int64 `protobuf:"varint,6,opt,name=waited_ms,json=waitedMs,proto3,oneof" json:"waited_ms,omitempty"`
+	// The version the listener named for itself, absent where it named none.
+	// A relay's own services carry one and the media servers beside them carry none,
+	// so a leg is answered either way.
+	Version       *string `protobuf:"bytes,7,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2818,6 +2822,13 @@ func (x *RelayLeg) GetWaitedMs() int64 {
 		return *x.WaitedMs
 	}
 	return 0
+}
+
+func (x *RelayLeg) GetVersion() string {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return ""
 }
 
 type ForgetPortalConsentRequest struct {
@@ -3644,16 +3655,19 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x11CheckRelayRequest\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\"B\n" +
 	"\x12CheckRelayResponse\x12,\n" +
-	"\x04legs\x18\x01 \x03(\v2\x18.screenshare.v1.RelayLegR\x04legs\"\xf1\x01\n" +
+	"\x04legs\x18\x01 \x03(\v2\x18.screenshare.v1.RelayLegR\x04legs\"\x9c\x02\n" +
 	"\bRelayLeg\x12\x10\n" +
 	"\x03leg\x18\x01 \x01(\tR\x03leg\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x129\n" +
 	"\averdict\x18\x03 \x01(\x0e2\x1f.screenshare.v1.RelayLegVerdictR\averdict\x12\x16\n" +
 	"\x06detail\x18\x04 \x01(\tR\x06detail\x126\n" +
 	"\vunaddressed\x18\x05 \x01(\v2\x14.screenshare.v1.TextR\vunaddressed\x12 \n" +
-	"\twaited_ms\x18\x06 \x01(\x03H\x00R\bwaitedMs\x88\x01\x01B\f\n" +
+	"\twaited_ms\x18\x06 \x01(\x03H\x00R\bwaitedMs\x88\x01\x01\x12\x1d\n" +
+	"\aversion\x18\a \x01(\tH\x01R\aversion\x88\x01\x01B\f\n" +
 	"\n" +
-	"_waited_ms\"\x1c\n" +
+	"_waited_msB\n" +
+	"\n" +
+	"\b_version\"\x1c\n" +
 	"\x1aForgetPortalConsentRequest\"\x1d\n" +
 	"\x1bForgetPortalConsentResponse\"I\n" +
 	"\x12LinkDiscordRequest\x123\n" +

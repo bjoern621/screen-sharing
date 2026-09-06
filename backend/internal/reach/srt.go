@@ -40,32 +40,37 @@ const (
 //
 // A port with no listener swallows the datagram, so the failure is the deadline, or the refusal
 // on a machine answering ICMP.
-func probeSRT(ctx context.Context, t target) (string, error) {
+func probeSRT(ctx context.Context, t target) (answer, error) {
 	u, err := url.Parse(t.url)
 	assert.Assert(err == nil, "a leg's address parses", t.url)
 
 	var dialer net.Dialer
 	c, err := dialer.DialContext(ctx, "udp", u.Host)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
 	defer c.Close()
 
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := c.SetDeadline(deadline); err != nil {
-			return "", err
+			return answer{}, err
 		}
 	}
 	if _, err := c.Write(inductionRequest()); err != nil {
-		return "", err
+		return answer{}, err
 	}
 
-	answer := make([]byte, 1500)
-	n, err := c.Read(answer)
+	reply := make([]byte, 1500)
+	n, err := c.Read(reply)
 	if err != nil {
-		return "", err
+		return answer{}, err
 	}
-	return inductionAnswer(answer[:n])
+
+	detail, err := inductionAnswer(reply[:n])
+	if err != nil {
+		return answer{}, err
+	}
+	return answer{detail: detail}, nil
 }
 
 // inductionRequest is the packet an SRT caller opens with.

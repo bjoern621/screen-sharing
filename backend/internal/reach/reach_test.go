@@ -28,7 +28,7 @@ func TestEveryLegIsDialledWhereThisRelayAddressesIt(t *testing.T) {
 	s.Relay.Host = "relay.example"
 
 	want := map[string]string{
-		legGroups: "https://relay.example/jwks.json",
+		legGroups: "https://relay.example",
 		"srt":     "srt://relay.example:8890",
 		"rtsp":    "rtsps://relay.example:8322",
 		"rtmp":    "rtmps://relay.example:1936",
@@ -54,7 +54,7 @@ func TestARelayOnThisNetworkIsDialledOnItsOwnPorts(t *testing.T) {
 	s.Relay.Host = "192.168.1.9"
 
 	want := map[string]string{
-		legGroups: "http://192.168.1.9:9443/jwks.json",
+		legGroups: "http://192.168.1.9:9443",
 		"hls":     "http://192.168.1.9:8888",
 		"webrtc":  "http://192.168.1.9:8889",
 		// RTSP, RTMP and MoQ terminate TLS at the relay wherever it runs, so no proxy moves them.
@@ -246,7 +246,7 @@ func TestASilentUdpPortIsUnreachable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
-	r := run(ctx, "probe", target{url: "srt://" + address})
+	r := run(ctx, resolved{leg: "probe", address: "srt://" + address, target: target{url: "srt://" + address}})
 	if r.Verdict != Unreachable {
 		t.Fatalf("a silent UDP port reads %v, want %v", r.Verdict, Unreachable)
 	}
@@ -330,7 +330,7 @@ func endpointFor(endpoints []Endpoint, leg string) (Endpoint, bool) {
 func probeOne(t *testing.T, address string, insecure bool) Result {
 	t.Helper()
 
-	return run(t.Context(), "probe", target{url: address, insecure: insecure})
+	return run(t.Context(), resolved{leg: "probe", address: address, target: target{url: address, insecure: insecure}})
 }
 
 // serveTLS answers each connection with whatever handle writes, under a certificate nothing issued,
@@ -418,4 +418,76 @@ func selfSigned(t *testing.T) tls.Certificate {
 		t.Fatalf("drawing a certificate: %v", err)
 	}
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+}
+
+// A leg is dialled on the route its transport names, and the row stays about the listener.
+// What a reader corrects is the address and the port, so that is what the row carries, and where
+// the check reached inside it is the transport's own affair (transport.Probed).
+func TestALegIsDialledOnItsOwnRoute(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+
+	probes := transport.Probes(s)
+	listeners := transport.Listeners(s)
+	for _, row := range resolve(s) {
+		route, ok := probes[row.leg]
+		if !ok {
+			continue
+		}
+		if row.target.url != route {
+			t.Errorf("%s is dialled at %q, want the route %q", row.leg, row.target.url, route)
+		}
+		if row.address != listeners[row.leg] {
+			t.Errorf("%s reads as %q, want its listener %q", row.leg, row.address, listeners[row.leg])
+		}
+	}
+}
+
+// A listener naming its version has it read off the row, which is what tells a relay behind
+// the app it serves from one running what this build expects.
+func TestAListenerNamingItsVersionCarriesItOnTheRow(t *testing.T) {
+	address := serveTCP(t, func(c net.Conn) {
+		buf := make([]byte, 512)
+		if _, err := c.Read(buf); err != nil {
+			return
+		}
+		fmt.Fprint(c, "HTTP/1.1 200 OK\r\nServer: groupd/0.6.1\r\nContent-Length: 0\r\n\r\n")
+	})
+
+	r := probeOne(t, "http://"+address, false)
+	if r.Version != "0.6.1" {
+		t.Errorf("the row reads version %q, want the one the listener named", r.Version)
+	}
+}
+
+// A listener naming itself and no version leaves the row without one, rather than reading
+// its name as a number.
+func TestAListenerNamingNoVersionCarriesNone(t *testing.T) {
+	address := serveTCP(t, func(c net.Conn) {
+		buf := make([]byte, 512)
+		if _, err := c.Read(buf); err != nil {
+			return
+		}
+		fmt.Fprint(c, "HTTP/1.1 401 Unauthorized\r\nServer: mediamtx\r\nContent-Length: 0\r\n\r\n")
+	})
+
+	r := probeOne(t, "http://"+address, false)
+	if r.Version != "" {
+		t.Errorf("the row reads version %q from a listener that named none", r.Version)
+	}
+	if r.Verdict != Reachable {
+		t.Errorf("a listener that answered reads %v, want %v", r.Verdict, Reachable)
+	}
+}
+
+// A leg nothing dialled names no version either: nothing answered to name one.
+func TestAnUndialledLegCarriesNoVersion(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = ""
+
+	for _, r := range Check(t.Context(), s) {
+		if r.Version != "" {
+			t.Errorf("%s reads version %q with no relay named", r.Leg, r.Version)
+		}
+	}
 }

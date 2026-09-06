@@ -53,12 +53,19 @@ func RelayLegs(results []reach.Result) []*screensharev1.RelayLeg {
 		if r.Took > 0 {
 			leg.WaitedMs = proto.Int64(r.Took.Milliseconds())
 		}
+		// Absent rather than empty where the listener named no version, an empty string being
+		// a version a shell would draw as a blank where a number goes.
+		if r.Version != "" {
+			leg.Version = proto.String(r.Version)
+		}
 
 		unaddressed := leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_UNADDRESSED
 		assert.Assert(unaddressed == (leg.GetUnaddressed() != nil),
 			"a leg says why it went undialled exactly where it did", leg.GetLeg(), leg.GetVerdict())
 		assert.Assert(unaddressed == (leg.GetAddress() == ""),
 			"a leg names where it was dialled exactly where it was", leg.GetLeg(), leg.GetVerdict())
+		assert.Assert(leg.Version == nil || leg.GetVerdict() == screensharev1.RelayLegVerdict_RELAY_LEG_VERDICT_REACHABLE,
+			"a version comes off a listener that answered", leg.GetLeg(), leg.GetVerdict())
 
 		out = append(out, leg)
 	}

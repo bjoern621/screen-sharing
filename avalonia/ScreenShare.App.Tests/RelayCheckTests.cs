@@ -144,4 +144,49 @@ public sealed class RelayCheckTests
         Assert.False(flow.RelayCheck.HasRefusal);
         Assert.Equal("", flow.RelayCheck.Refusal);
     }
+
+    /// <summary>
+    /// The version a listener named stands in the summary, which is what tells a relay running
+    /// the release beside this app from one left behind.
+    /// </summary>
+    [Fact]
+    public void TheSummaryNamesTheVersionTheRelayAnswered()
+    {
+        var legs = RelayLegRows.Of(
+        [
+            new RelayLeg
+            {
+                Leg = "groups",
+                Address = "https://relay.test",
+                Verdict = RelayLegVerdict.Reachable,
+                Detail = "200 OK",
+                Version = "0.6.1",
+            },
+            new RelayLeg
+            {
+                Leg = "hls",
+                Address = "https://relay.test",
+                Verdict = RelayLegVerdict.Reachable,
+                Detail = "401 Unauthorized",
+            },
+        ]);
+
+        Assert.Equal("everything answered, relay version 0.6.1", RelayLegRows.SummaryOf(legs));
+    }
+
+    /// <summary>
+    /// Two versions are no version of the relay: a deployment answering both is running two,
+    /// and naming one of them would name whichever answered first.
+    /// </summary>
+    [Fact]
+    public void ARelayAnsweringTwoVersionsNamesNeither()
+    {
+        var legs = RelayLegRows.Of(
+        [
+            new RelayLeg { Leg = "groups", Address = "https://relay.test", Verdict = RelayLegVerdict.Reachable, Detail = "200 OK", Version = "0.6.1" },
+            new RelayLeg { Leg = "hls", Address = "https://relay.test", Verdict = RelayLegVerdict.Reachable, Detail = "200 OK", Version = "0.5.0" },
+        ]);
+
+        Assert.Equal("everything answered", RelayLegRows.SummaryOf(legs));
+    }
 }

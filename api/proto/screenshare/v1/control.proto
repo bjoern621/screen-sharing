@@ -732,6 +732,10 @@ message RelayLeg {
   Text unaddressed = 5;
   // How long the probe waited, absent where nothing was dialled.
   optional int64 waited_ms = 6;
+  // The version the listener named for itself, absent where it named none.
+  // A relay's own services carry one and the media servers beside them carry none,
+  // so a leg is answered either way.
+  optional string version = 7;
 }
 
 enum RelayLegVerdict {

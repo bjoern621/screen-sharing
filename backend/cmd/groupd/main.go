@@ -34,6 +34,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
+// version is the build stamp every answer names (internal/groupsvc, version.go),
+// which is what a member's relay check reads to say what this deployment is running.
+//
+// In main because that is what the linker writes into: -ldflags "-X main.version=...".
+// "dev" answers for a build nobody stamped.
+var version = "dev"
+
 // main serves keys, tokens and the index on the address given,
 // or prints one operator credential and exits where -api-token asks for it.
 //
@@ -117,7 +124,7 @@ func main() {
 	// and that read carries a timeout of its own.
 	server := &http.Server{
 		Addr:              *listen,
-		Handler:           service.Handler(),
+		Handler:           service.Handler(version),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      45 * time.Second,
