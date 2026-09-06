@@ -234,6 +234,11 @@ tasks:
       # The dot is the palette's Attention red (Design/Palette.axaml).
       - magick packaging/icons/appicon.png -resize 64x64 avalonia/ScreenShare.App/Assets/tray.png
       - magick packaging/icons/appicon.png -resize 64x64 '(' -size 64x64 xc:none -fill '#E5484D' -draw 'circle 49,49 49,61' ')' -composite avalonia/ScreenShare.App/Assets/tray-live.png
+      # The Discord bot's avatar and banner, each drawn from its own master.
+      # Discord crops to a circle, so the avatar drops the app icon's die-cut white edge.
+      # The banner carries no text, so it needs no font and no translation.
+      - magick -background none packaging/icons/discord-icon.svg -resize 1024x1024 packaging/icons/discord-icon.png
+      - magick -background none packaging/icons/discord-banner.svg -resize 1360x480 -depth 8 packaging/icons/discord-banner.png
 
   package:linux:
     desc: Build the Linux release tarball into build/dist

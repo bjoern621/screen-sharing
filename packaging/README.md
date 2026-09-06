@@ -15,7 +15,7 @@ One directory per channel, each holding what that channel's tooling reads.
 | `linux/` | the desktop entry, and `package.sh` for the portable tarball |
 | `windows/` | the Inno Setup script, and the scripts that stage, bundle and compile |
 | `nix/` | the derivations `flake.nix` exposes: the app, the group service, three container images, the NixOS module |
-| `icons/` | `appicon.svg`, the master raster drawn from it, and the hicolor sizes |
+| `icons/` | `appicon.svg`, the master raster drawn from it, the hicolor sizes, and the Discord bot's two assets |
 
 ## Building
 
@@ -49,3 +49,7 @@ The tag is the one place the number lives, and `.github/workflows/version.yml` r
 `icons/appicon.svg` is the master, and `icons/appicon.png` is the 1024px raster drawn from it that every other size comes off.
 `task icons` redraws both, the hicolor sizes beside them, and the multi-size `.ico` inside the shell's project, where the Nix build can reach it.
 All of them are committed, so no recipe carries an ImageMagick build dependency.
+
+The Discord bot draws from two masters of its own, `icons/discord-icon.svg` and `icons/discord-banner.svg`, which `task icons` rasters beside the rest.
+Discord crops an avatar to a circle, so the avatar drops the app icon's die-cut white edge and holds the mark inside the crop.
+The banner is 680x240, rastered at twice that, and carries no text, so it needs no font and no translation.
