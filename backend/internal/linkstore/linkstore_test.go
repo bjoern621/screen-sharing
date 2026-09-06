@@ -1,6 +1,7 @@
 package linkstore
 
 import (
+	"net/url"
 	"path/filepath"
 	"testing"
 )
@@ -25,6 +26,22 @@ func TestDrawThenResolve(t *testing.T) {
 	link, ok := s.Resolve(secret)
 	if !ok || link.UserID != "u1" {
 		t.Fatalf("a drawn link resolves to its user, got %+v ok=%v", link, ok)
+	}
+}
+
+// A secret reaches the install it was drawn for through the loopback redirect's query
+// (internal/discordapi), and a query decode reads '+' as a space,
+// so a drawn secret carries no character a query escapes.
+func TestADrawnSecretRidesAQueryUnchanged(t *testing.T) {
+	s := open(t, t.TempDir())
+
+	secret, err := s.Draw("u1")
+	if err != nil {
+		t.Fatalf("drawing a link: %v", err)
+	}
+
+	if escaped := url.QueryEscape(secret); escaped != secret {
+		t.Fatalf("a drawn secret rides a query unchanged, %q escapes to %q", secret, escaped)
 	}
 }
 

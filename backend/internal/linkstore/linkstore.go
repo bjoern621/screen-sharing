@@ -82,7 +82,9 @@ func (s *Store) Draw(userID string) (secret string, err error) {
 	if _, err := rand.Read(raw); err != nil {
 		return "", fmt.Errorf("drawing a link secret: %w", err)
 	}
-	secret = base64.StdEncoding.EncodeToString(raw)
+	// URL-safe alphabet: a drawn secret reaches its install through a query string,
+	// and a query decode reads '+' as a space (internal/discordapi).
+	secret = base64.RawURLEncoding.EncodeToString(raw)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
