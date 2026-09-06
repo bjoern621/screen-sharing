@@ -189,4 +189,27 @@ public sealed class RelayCheckTests
 
         Assert.Equal("everything answered", RelayLegRows.SummaryOf(legs));
     }
+
+    /// <summary>
+    /// The manager is a leg like the group service: named in words, and saying in words why
+    /// nothing was asked of it where Discord mode is off.
+    /// </summary>
+    [Fact]
+    public void TheDiscordManagerRowSaysWhyNothingWasAsked()
+    {
+        var legs = RelayLegRows.Of(
+        [
+            new RelayLeg
+            {
+                Leg = "discord",
+                Verdict = RelayLegVerdict.Unaddressed,
+                Unaddressed = new Text { Code = TextCode.RelayLegDiscordOff },
+            },
+        ]);
+
+        Assert.Equal(CheckState.Note, legs[0].State);
+        Assert.Contains(Words.RelayLeg("discord"), legs[0].Text);
+        Assert.Contains(Statements.Of(new Text { Code = TextCode.RelayLegDiscordOff }), legs[0].Text);
+        Assert.DoesNotContain(nameof(TextCode.RelayLegDiscordOff), legs[0].Text);
+    }
 }

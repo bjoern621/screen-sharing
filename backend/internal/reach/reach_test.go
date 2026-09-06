@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -130,7 +131,7 @@ func TestEveryLegAnswersOnceEitherWay(t *testing.T) {
 			t.Errorf("leg %q is dialled at %q and unaddressed for %v", e.Leg, e.Address, e.Unaddressed)
 		}
 	}
-	if want := len(transport.Listeners(s)) + 1; len(seen) != want {
+	if want := len(transport.Listeners(s)) + 2; len(seen) != want {
 		t.Errorf("%d legs answered, want %d", len(seen), want)
 	}
 }
@@ -246,7 +247,7 @@ func TestASilentUdpPortIsUnreachable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
-	r := run(ctx, resolved{leg: "probe", address: "srt://" + address, target: target{url: "srt://" + address}})
+	r := run(ctx, resolved{leg: "probe", address: "srt://" + address, target: target{url: "srt://" + address, method: http.MethodGet}})
 	if r.Verdict != Unreachable {
 		t.Fatalf("a silent UDP port reads %v, want %v", r.Verdict, Unreachable)
 	}
@@ -301,7 +302,7 @@ func TestCheckAnswersARowPerLeg(t *testing.T) {
 	s.Relay.Host = ""
 
 	rows := Check(t.Context(), s)
-	if want := len(transport.Listeners(s)) + 1; len(rows) != want {
+	if want := len(transport.Listeners(s)) + 2; len(rows) != want {
 		t.Fatalf("%d rows, want %d", len(rows), want)
 	}
 	for _, r := range rows {
@@ -330,7 +331,7 @@ func endpointFor(endpoints []Endpoint, leg string) (Endpoint, bool) {
 func probeOne(t *testing.T, address string, insecure bool) Result {
 	t.Helper()
 
-	return run(t.Context(), resolved{leg: "probe", address: address, target: target{url: address, insecure: insecure}})
+	return run(t.Context(), resolved{leg: "probe", address: address, target: target{url: address, method: http.MethodGet, insecure: insecure}})
 }
 
 // serveTLS answers each connection with whatever handle writes, under a certificate nothing issued,
@@ -434,8 +435,9 @@ func TestALegIsDialledOnItsOwnRoute(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if row.target.url != route {
-			t.Errorf("%s is dialled at %q, want the route %q", row.leg, row.target.url, route)
+		if row.target.url != route.URL || row.target.method != route.Method {
+			t.Errorf("%s is dialled with %s %q, want %s %q",
+				row.leg, row.target.method, row.target.url, route.Method, route.URL)
 		}
 		if row.address != listeners[row.leg] {
 			t.Errorf("%s reads as %q, want its listener %q", row.leg, row.address, listeners[row.leg])
@@ -489,5 +491,112 @@ func TestAnUndialledLegCarriesNoVersion(t *testing.T) {
 		if r.Version != "" {
 			t.Errorf("%s reads version %q with no relay named", r.Leg, r.Version)
 		}
+	}
+}
+
+// The HTTP legs carry the token the settings hold, which is what makes a relay answer the route
+// rather than the credential.
+// The key set is the exception: it verifies a token and cannot make one, so it is public.
+func TestTheHttpLegsCarryTheRelayToken(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+	s.Relay.Token = "a-token"
+
+	for _, row := range resolve(s) {
+		// The key set verifies a token and cannot make one, and the manager takes a link secret
+		// in a body: neither route reads a relay token.
+		if row.leg == legGroups || row.leg == legDiscord {
+			if row.target.credential.value != "" {
+				t.Errorf("%s is dialled with a relay token", row.leg)
+			}
+			continue
+		}
+		if !strings.Contains(row.target.credential.value, s.Relay.Token) {
+			t.Errorf("%s is dialled with %q, want the token the settings hold", row.leg, row.target.credential.name)
+		}
+	}
+}
+
+// Settings holding no token dial every leg without one, rather than a header naming nothing.
+func TestNoTokenDialsWithNoCredential(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+
+	for _, row := range resolve(s) {
+		if row.target.credential.name != "" {
+			t.Errorf("%s is dialled with a %q header on settings holding no token", row.leg, row.target.credential.name)
+		}
+	}
+}
+
+// The token reaches the listener, so a route the relay serves is answered as a reader.
+func TestAProbeSendsTheTokenItWasGiven(t *testing.T) {
+	var sent string
+	address := serveTCP(t, func(c net.Conn) {
+		buf := make([]byte, 1024)
+		n, err := c.Read(buf)
+		if err != nil {
+			return
+		}
+		sent = string(buf[:n])
+		fmt.Fprint(c, "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")
+	})
+
+	r := run(t.Context(), resolved{
+		leg:     "webrtc",
+		address: "http://" + address,
+		target: target{
+			url:        "http://" + address + "/group/mirrorme-check/whep",
+			method:     "OPTIONS",
+			credential: header{name: "Authorization", value: "Bearer a-token"},
+		},
+	})
+
+	if r.Verdict != Reachable {
+		t.Fatalf("a listener that answered reads %v: %s", r.Verdict, r.Detail)
+	}
+	if !strings.Contains(sent, "OPTIONS /group/mirrorme-check/whep") {
+		t.Errorf("the listener was asked %q, want the leg's own request", strings.SplitN(sent, "\r\n", 2)[0])
+	}
+	if !strings.Contains(sent, "Authorization: Bearer a-token") {
+		t.Error("the request carries no credential")
+	}
+}
+
+// Discord mode reaches the manager beside the relay for presence, tokens and the paths a group
+// gets, so a check of a relay in that mode says whether it answers (docs/discord-mode.md).
+func TestTheDiscordManagerIsCheckedInDiscordMode(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+	s.Relay.DiscordMode = true
+
+	e, ok := endpointFor(Endpoints(s), legDiscord)
+	if !ok {
+		t.Fatalf("the manager is checked nowhere, so nothing says whether Discord mode has one")
+	}
+	if e.Address != "https://relay.example/discord" {
+		t.Errorf("the manager is checked at %q", e.Address)
+	}
+	if e.Unaddressed != ReasonNone {
+		t.Errorf("the manager reads %v with Discord mode on", e.Unaddressed)
+	}
+}
+
+// Discord mode off leaves the manager undialled, and says which case that is:
+// nothing this machine does reaches it, so a cross against it would send a reader after a break
+// that is not there.
+func TestTheDiscordManagerIsUndialledWithTheModeOff(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+
+	e, ok := endpointFor(Endpoints(s), legDiscord)
+	if !ok {
+		t.Fatalf("the manager has no row at all with the mode off")
+	}
+	if e.Unaddressed != ReasonDiscordOff {
+		t.Errorf("the manager reads %v with the mode off, want %v", e.Unaddressed, ReasonDiscordOff)
+	}
+	if e.Address != "" {
+		t.Errorf("the manager is dialled at %q with the mode off", e.Address)
 	}
 }

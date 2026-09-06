@@ -774,6 +774,9 @@ const (
 	// No relay is named in the settings, so no leg has an address at all.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY TextCode = 166
+	// Discord mode is off, so nothing this machine does reaches the manager beside the relay.
+	// No arguments.
+	TextCode_TEXT_CODE_RELAY_LEG_DISCORD_OFF TextCode = 189
 	// MIRRORME_UPDATE_CHECK is off in this environment.
 	// No arguments.
 	TextCode_TEXT_CODE_UPDATE_CHECK_OFF TextCode = 180
@@ -942,6 +945,7 @@ var (
 		150: "TEXT_CODE_SETTINGS_STORE_UNREADABLE",
 		151: "TEXT_CODE_PRESET_STORE_UNREADABLE",
 		166: "TEXT_CODE_RELAY_LEG_NO_RELAY",
+		189: "TEXT_CODE_RELAY_LEG_DISCORD_OFF",
 		180: "TEXT_CODE_UPDATE_CHECK_OFF",
 		181: "TEXT_CODE_UPDATE_BUILD_UNSTAMPED",
 		182: "TEXT_CODE_UPDATE_CHANNEL_MANAGED",
@@ -1086,6 +1090,7 @@ var (
 		"TEXT_CODE_SETTINGS_STORE_UNREADABLE":                 150,
 		"TEXT_CODE_PRESET_STORE_UNREADABLE":                   151,
 		"TEXT_CODE_RELAY_LEG_NO_RELAY":                        166,
+		"TEXT_CODE_RELAY_LEG_DISCORD_OFF":                     189,
 		"TEXT_CODE_UPDATE_CHECK_OFF":                          180,
 		"TEXT_CODE_UPDATE_BUILD_UNSTAMPED":                    181,
 		"TEXT_CODE_UPDATE_CHANNEL_MANAGED":                    182,
@@ -1451,7 +1456,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
 	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CHANNEL\x10B\x12\x19\n" +
-	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xab/\n" +
+	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xd1/\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1586,7 +1591,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\x12!\n" +
-	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\x12\x1f\n" +
+	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\x12$\n" +
+	"\x1fTEXT_CODE_RELAY_LEG_DISCORD_OFF\x10\xbd\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_UPDATE_CHECK_OFF\x10\xb4\x01\x12%\n" +
 	" TEXT_CODE_UPDATE_BUILD_UNSTAMPED\x10\xb5\x01\x12%\n" +
 	" TEXT_CODE_UPDATE_CHANNEL_MANAGED\x10\xb6\x01\x12(\n" +

@@ -109,10 +109,12 @@ The app draws it under the connection step's controls, on the settings on screen
 `backend check-relay` runs the same check over the stored ones and prints them.
 
 ```
-✓  groups  https://relay.example       200 OK            0.6.1  64ms
-✓  hls     https://relay.example       401 Unauthorized         71ms
-✓  rtsp    rtsps://relay.example:8322  RTSP/1.0 200 OK          63ms
-✗  srt     srt://relay.example:8890    i/o timeout              5.001s
+–  discord                             Discord mode is off
+✓  groups   https://relay.example      200 OK           0.9.0  62ms
+✓  hls      https://relay.example      200 OK                  64ms
+✓  webrtc   https://relay.example      204 No Content          64ms
+✓  rtsp     rtsps://relay.example:8322 RTSP/1.0 200 OK         60ms
+✗  srt      srt://relay.example:8890   i/o timeout             5.001s
 ```
 
 Each row is about the listener the transport carrying it names, so a check reaches what a stream reaches.
@@ -121,13 +123,20 @@ A port the relay does not bind is a cross here rather than a publish that waits 
 Each is asked in its own protocol, an open socket proving nothing on its own.
 RTSP answers `OPTIONS`, SRT answers the induction handshake that precedes any stream id or passphrase, an HTTP leg answers a request with any status at all, and RTMPS is the TLS handshake and the certificate behind it.
 
-An HTTP leg is dialled on a route its own server owns, under a path segment matching no stream.
-One name fronts HLS, WebRTC and the group service, and a path no route claims reaches whichever server handles the rest, so a bare listener would have one leg reporting another's health.
-WebRTC is asked at a WHEP endpoint, which takes a `POST` and answers a check's `GET` at the method.
-HLS and MoQ are asked at a player page, which every relay gates behind a token, so a 401 there is the listener answering.
+An HTTP leg is dialled with the request its own server serves, so what comes back is 2xx.
+One name fronts HLS, WebRTC and the two services, and a path no route claims reaches whichever server handles the rest, so a bare listener would have one leg reporting another's health.
+WebRTC is asked with the `OPTIONS` a WHEP endpoint answers its ICE servers to, and HLS and MoQ with a `GET` of the player page, each under a path inside this machine's group that names no stream.
+The relay serves a page before it looks for a stream, so a check needs neither a publisher nor a viewer.
+
+The request carries the relay token, traded for the group key the way a publish trades for one.
+Nothing is read without one, so a leg dialled without a token answers 401 whatever the listener behind it is doing.
+A trade that fails leaves the legs dialled bare, and the group service has a row of its own to fail in.
+
+The Discord manager is a leg where Discord mode is on, presence and tokens coming from it rather than from the group service (`discord-mode.md`).
+It is asked on the one route of its own that takes no credential, every other one either refusing a check or starting a consent flow.
 
 The version is what a listener named itself with in its `Server` header.
-The group service carries the number its release was built with, and MediaMTX names itself without one.
+The group service and the manager carry the number their release was built with, and MediaMTX names itself without one.
 
 A dash is a leg this deployment addresses nowhere, and is no failure: settings naming no relay leave every leg with one, nothing having been asked of any listener.
 The relay's own API is no leg here at all, being an operator's endpoint that no publish and no viewer dials.

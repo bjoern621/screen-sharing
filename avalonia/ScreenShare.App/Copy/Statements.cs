@@ -45,7 +45,7 @@ public static class Statements
 
             TextCode.CaptureWrongSession =>
                 $"{Words.Capture(a.Capture)} needs an {Words.DisplayServer(a.Display)} session. "
-                + "On Wayland it sees only X11 windows, not the desktop. Use the screen picker instead.",
+                + "On Wayland it sees only X11 windows. Use the screen picker instead.",
 
             // Prints as a fragment on the entry's own row, where a sentence would crowd out the name.
             // What the privilege is for is the entry's paragraph (Descriptions.Capture).
@@ -587,6 +587,9 @@ public static class Statements
 
             TextCode.RelayLegNoRelay =>
                 "No relay is set, so there is no address to check.",
+
+            TextCode.RelayLegDiscordOff =>
+                "Discord mode is off, so nothing here talks to the Discord manager.",
 
             // Updates.
             // The first three are why nothing is checked or installed here, and each names what does it instead.

@@ -32,6 +32,13 @@ import (
 // Well inside channelgroup.RetireAfter, so a retire lands close to the window it names.
 const sweepEvery = 15 * time.Second
 
+// version is the build stamp every answer names (internal/serving),
+// which is what a member's relay check reads to say what this deployment is running.
+//
+// In main because that is what the linker writes into: -ldflags "-X main.version=...".
+// "dev" answers for a build nobody stamped.
+var version = "dev"
+
 // main serves the manager on the address given.
 //
 // A missing secret, an unreadable link store and an unreachable gateway all end the process
@@ -84,7 +91,7 @@ func main() {
 	// and the same proxy terminating TLS in front (deploy/Caddyfile).
 	server := &http.Server{
 		Addr:              *listen,
-		Handler:           service.Handler(),
+		Handler:           service.Handler(version),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      45 * time.Second,

@@ -740,6 +740,10 @@ enum TextCode {
   // No arguments.
   TEXT_CODE_RELAY_LEG_NO_RELAY = 166;
 
+  // Discord mode is off, so nothing this machine does reaches the manager beside the relay.
+  // No arguments.
+  TEXT_CODE_RELAY_LEG_DISCORD_OFF = 189;
+
   // --- Updates -------------------------------------------------------------------
   //
   // The first three sit on UpdateState.unchecked and UpdateState.uninstallable,

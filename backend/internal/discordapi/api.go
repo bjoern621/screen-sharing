@@ -25,6 +25,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/channelgroup"
 	"bjoernblessin.de/screenshare/internal/discordoauth"
 	"bjoernblessin.de/screenshare/internal/groupclient"
+	"bjoernblessin.de/screenshare/internal/serving"
 )
 
 // linkWindow is how long a started link waits for its callback.
@@ -82,14 +83,20 @@ func New(broker Broker, links Links, oauth OAuth) *Service {
 	}
 }
 
-// Handler is the service's routes.
-func (s *Service) Handler() http.Handler {
+// Handler is the service's routes, answering under the version given (internal/serving).
+func (s *Service) Handler(version string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("PUT /presence", s.statePresence)
 	mux.HandleFunc("POST /tokens", s.issueToken)
 	mux.HandleFunc("GET /link", s.startLink)
 	mux.HandleFunc("GET /link/callback", s.finishLink)
-	return mux
+	// What a relay check dials (internal/reach).
+	// A route of its own because every other one here takes a credential or starts a consent flow,
+	// so a check on one would either be refused or leave a pending link behind.
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	return serving.Naming("discordd", version, mux)
 }
 
 // wireAnswer is a presence answer as it crosses to the app.

@@ -2,6 +2,7 @@ package transport
 
 import (
 	"fmt"
+	"net/http"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -74,10 +75,11 @@ func (MoQ) ListenerURL(s settings.Settings) string {
 	return fmt.Sprintf("https://%s:%d", s.Relay.Host, s.Relay.MoqPort)
 }
 
-// ProbeURL is the player page under the path a check dials, a route the MoQ server owns.
-// Without the credential moqOrigin carries: a check reads a status and opens no track.
-func (MoQ) ProbeURL(s settings.Settings) string {
-	return MoQ{}.ListenerURL(s) + "/" + checkPath + "/"
+// Probe is the player page under the path a check dials, a route the MoQ server owns and serves
+// before it looks for a track.
+// The address carries no userinfo, unlike moqOrigin: a check sets the header itself.
+func (MoQ) Probe(s settings.Settings) Probe {
+	return Probe{Method: http.MethodGet, URL: MoQ{}.ListenerURL(s) + "/" + s.Relay.Path(checkPath) + "/"}
 }
 
 // moqOrigin is that listener carrying the credential the page is answered on.

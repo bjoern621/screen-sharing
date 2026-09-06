@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"net/http"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -33,35 +35,44 @@ func Listeners(s settings.Settings) map[string]string {
 	return out
 }
 
-// Probed is a listener a check reaches on a route of its own rather than on its bare address.
+// Probe is the request a check makes of one leg.
+type Probe struct {
+	// Method is the request's verb, meaningless on a leg carrying no HTTP.
+	Method string
+	// URL is what the probe dials.
+	URL string
+}
+
+// Probed is a listener a check reaches on a request of its own rather than on its bare address.
 //
 // One name fronts several HTTP legs, and a path no route claims is answered by whichever server
 // handles the rest, so a check dialling the bare listener would report on another leg
 // (deploy/Caddyfile).
-// A route its own server owns answers for itself, refusals included.
+// A route its own server owns answers for itself, and a request the route serves answers 2xx.
 type Probed interface {
-	ProbeURL(s settings.Settings) string
+	Probe(s settings.Settings) Probe
 }
 
-// checkPath is the one path segment a check addresses, matching no stream.
+// checkPath is the stream name a check addresses, inside the group the settings name and matching
+// no stream of that group.
 //
-// What is asked is whether the route's own server answers,
-// which a relay answers before it looks for a stream:
-// a request carrying no credential is refused at the credential,
-// and a method the route does not take is refused at the method.
-// This machine's own stream path would put a group's prefix in every row instead.
+// A name of its own rather than this machine's stream, so a check reads the same on a machine
+// that publishes and one that watches.
+// Inside the group because a relay token grants that group's prefix and nothing beside it,
+// so a name outside it is answered at the credential whatever the listener is doing.
 const checkPath = "mirrorme-check"
 
-// Probes is where a check dials each transport, keyed by the registry name.
-// The listener itself for a transport naming no route of its own.
-func Probes(s settings.Settings) map[string]string {
-	out := make(map[string]string, len(registry))
+// Probes is the request a check makes of each transport, keyed by the registry name.
+// A GET at the listener itself for a transport naming no request of its own.
+func Probes(s settings.Settings) map[string]Probe {
+	out := make(map[string]Probe, len(registry))
 	for name, address := range Listeners(s) {
-		out[name] = address
+		out[name] = Probe{Method: http.MethodGet, URL: address}
 		if p, ok := registry[name].(Probed); ok {
-			out[name] = p.ProbeURL(s)
+			out[name] = p.Probe(s)
 		}
-		assert.Assert(out[name] != "", "a checked leg names where it is dialled", name)
+		assert.Assert(out[name].URL != "", "a checked leg names where it is dialled", name)
+		assert.Assert(out[name].Method != "", "a checked leg names what it asks", name)
 	}
 	return out
 }

@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"net/http"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -150,11 +152,11 @@ func whepURL(s settings.Settings, name string) string {
 	return WebRTC{}.ListenerURL(s) + "/" + name + "/whep"
 }
 
-// ProbeURL is the WHEP endpoint under the path a check dials, a route the WebRTC server owns.
-// An exchange opens with a POST, so the server answers a check's GET at the method and negotiates
-// nothing.
-func (WebRTC) ProbeURL(s settings.Settings) string {
-	return whepURL(s, checkPath)
+// Probe is the WHEP endpoint under the path a check dials, asked with the OPTIONS every WHEP
+// endpoint answers 204 and its ICE servers to.
+// An exchange opens with a POST, so nothing is negotiated and no session is left behind.
+func (WebRTC) Probe(s settings.Settings) Probe {
+	return Probe{Method: http.MethodOptions, URL: whepURL(s, s.Relay.Path(checkPath))}
 }
 
 // ListenerURL is where the signalling answers: the relay's listener, or the proxy in front of it

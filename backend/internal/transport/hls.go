@@ -2,6 +2,7 @@ package transport
 
 import (
 	"fmt"
+	"net/http"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -70,10 +71,14 @@ func (HLS) WatchURL(s settings.Settings, path string) string {
 	return HLS{}.ListenerURL(s) + "/" + path + "/index.m3u8"
 }
 
-// ProbeURL is the player page under the path a check dials, a route the HLS server owns.
+// Probe is the player page under the path a check dials, a route the HLS server owns and serves
+// before it looks for a stream.
 // The trailing slash saves a redirect, that address being where the server would send a reader.
-func (HLS) ProbeURL(s settings.Settings) string {
-	return HLS{}.ListenerURL(s) + "/" + checkPath + "/"
+//
+// The page rather than the playlist: a playlist is a read, which starts a demand on the relay and
+// redirects through a cookie of its own.
+func (HLS) Probe(s settings.Settings) Probe {
+	return Probe{Method: http.MethodGet, URL: HLS{}.ListenerURL(s) + "/" + s.Relay.Path(checkPath) + "/"}
 }
 
 // ListenerURL is where the relay serves HLS: its own port, or the proxy's name where one fronts it

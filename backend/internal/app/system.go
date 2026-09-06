@@ -92,9 +92,21 @@ func (a *App) measureUplinkAtBoot() {
 // checkRelay dials every leg of the relay the given settings name and answers what each listener said,
 // so a shell can say which of them this machine reaches.
 //
-// Nothing of this app's is read: the addresses are the draft's and the answers the relay's,
-// so a check of the settings on screen needs nothing that has been saved.
+// The addresses are the draft's, so a check of the settings on screen needs nothing that has been
+// saved.
+// The credential is this machine's, traded for the draft's group key like a publish command's:
+// the relay refuses a reader holding none, and a check dialled without one reads 401 on every
+// HTTP leg whatever those listeners are doing.
+//
+// A trade that fails leaves the legs dialled without one, the refusal that follows being a row
+// like any other, and the group service having a row of its own to fail in.
 func (a *App) checkRelay(ctx context.Context, s settings.Settings) []reach.Result {
+	credentialled, err := a.settingsForCommand(s)
+	if err != nil {
+		logger.Warnf("no relay token for this check, so the HTTP legs are dialled without one: %v", err)
+	} else {
+		s = credentialled
+	}
 	return reach.Check(ctx, s)
 }
 

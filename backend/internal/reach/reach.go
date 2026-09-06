@@ -14,6 +14,7 @@ package reach
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -26,9 +27,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// The one leg no transport carries: the service every publisher asks for a token before reaching
-// any listener.
-const legGroups = "groups"
+// The two legs no transport carries: the service every publisher asks for a token before reaching
+// any listener, and the manager a relay in Discord mode asks instead (docs/discord-mode.md).
+const (
+	legGroups  = "groups"
+	legDiscord = "discord"
+)
 
 // Verdict is what one leg's probe found.
 type Verdict int
@@ -49,7 +53,7 @@ const (
 // A value added above and left out of one is a failing test rather than a row nobody can draw.
 var (
 	Verdicts = []Verdict{Reachable, Unreachable, Unaddressed}
-	Reasons  = []Reason{ReasonNoRelay}
+	Reasons  = []Reason{ReasonNoRelay, ReasonDiscordOff}
 )
 
 // Reason is why a leg is dialled nowhere.
@@ -59,6 +63,8 @@ const (
 	ReasonNone Reason = iota
 	// ReasonNoRelay: settings name no relay, so no leg has an address.
 	ReasonNoRelay
+	// ReasonDiscordOff: Discord mode is off, so nothing this machine does reaches the manager.
+	ReasonDiscordOff
 )
 
 // Endpoint is one leg and where this deployment addresses it.
@@ -105,10 +111,22 @@ type resolved struct {
 type target struct {
 	// url is the whole address, each probe reading what it needs off it.
 	url string
+	// method is the request an HTTP probe makes, ignored by the legs carrying no HTTP.
+	method string
+	// credential is the header an HTTP probe sends, empty where the settings hold no token.
+	// Without one the relay answers 401 over a listener that is up, which is an answer about
+	// the credential rather than about the route (transport.CredentialHeader).
+	credential header
 	// insecure follows the relay's certificate: a relay reached directly on this network holds
 	// the self-signed pair deploy/relay.sh draws, which nothing issued, so validating it opens
 	// nothing (transport/tls.go).
 	insecure bool
+}
+
+// header is one request header, both halves empty where there is none.
+type header struct {
+	name  string
+	value string
 }
 
 // Endpoints is where each leg is addressed, without dialling any of them.
@@ -166,19 +184,25 @@ func Check(ctx context.Context, s settings.Settings) []Result {
 func resolve(s settings.Settings) []resolved {
 	listeners := transport.Listeners(s)
 	probes := transport.Probes(s)
+	credential := relayCredential(s)
 
 	rows := make([]resolved, 0, len(listeners)+1)
 	for name, address := range listeners {
-		route, ok := probes[name]
+		probe, ok := probes[name]
 		assert.Assert(ok, "every listener names where a check dials it", name)
 
 		rows = append(rows, resolved{
 			leg:     name,
 			address: address,
-			target:  target{url: route, insecure: s.Relay.OnTrustedNetwork()},
+			target: target{
+				url:        probe.URL,
+				method:     probe.Method,
+				credential: credential,
+				insecure:   s.Relay.OnTrustedNetwork(),
+			},
 		})
 	}
-	rows = append(rows, groupService(s.Relay))
+	rows = append(rows, groupService(s.Relay), discordService(s.Relay))
 
 	// A relay nobody named leaves every leg without an address, whatever the ports beside it would
 	// otherwise build.
@@ -205,8 +229,46 @@ func groupService(r settings.Relay) resolved {
 	return resolved{
 		leg:     legGroups,
 		address: base,
-		target:  target{url: base + "/jwks.json", insecure: r.OnTrustedNetwork()},
+		// No credential: the key set is what a token is verified against, so it is public
+		// by construction and is answered before anybody holds one.
+		target: target{url: base + "/jwks.json", method: http.MethodGet, insecure: r.OnTrustedNetwork()},
 	}
+}
+
+// discordService is the manager a relay in Discord mode asks for presence, tokens and the paths
+// a voice channel's group gets (settings.Relay.DiscordService).
+//
+// Dialled on the route it answers a check with, which takes no credential and starts no consent
+// flow (internal/discordapi).
+// Undialled with the mode off: the stored group key is what a token is traded for then, and
+// nothing this machine does reaches the manager.
+func discordService(r settings.Relay) resolved {
+	base, ok := r.DiscordService()
+	if !ok {
+		return resolved{leg: legDiscord, reason: ReasonNoRelay}
+	}
+	if !r.DiscordMode {
+		return resolved{leg: legDiscord, reason: ReasonDiscordOff}
+	}
+	return resolved{
+		leg:     legDiscord,
+		address: base,
+		target:  target{url: base + "/health", method: http.MethodGet, insecure: r.OnTrustedNetwork()},
+	}
+}
+
+// relayCredential is the header the HTTP legs are dialled with, empty where the settings hold
+// no token.
+//
+// The token is the caller's, traded for the group key before a check runs (internal/app,
+// checkRelay): a relay refuses a reader holding none, which is a row about the credential rather
+// than about the listener.
+func relayCredential(s settings.Settings) header {
+	name, value, ok := transport.CredentialHeader(s)
+	if !ok {
+		return header{}
+	}
+	return header{name: name, value: value}
 }
 
 // run is one row: the probe the route's protocol names, timed, carrying whatever came back.

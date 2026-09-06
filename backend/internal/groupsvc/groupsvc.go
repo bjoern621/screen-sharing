@@ -42,6 +42,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/membership"
+	"bjoernblessin.de/screenshare/internal/serving"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
@@ -204,7 +205,7 @@ func (s *Service) Handler(version string) http.Handler {
 	mux.HandleFunc("POST /reconcile", s.reconcile)
 	// Takes a body and no key, bounded per address (reports.go).
 	mux.HandleFunc("POST /reports", s.takeReport)
-	return naming(version, mux)
+	return serving.Naming("groupd", version, mux)
 }
 
 // createGroup draws a group key and hands it back.

@@ -40,16 +40,22 @@ var probes = map[string]func(context.Context, target) (answer, error){
 	"srt":   probeSRT,
 }
 
-// probeHTTP fetches the route and answers the status line, with the version the server named.
+// probeHTTP makes the leg's own request and answers the status line, with the version the server
+// named.
 //
-// Any status counts as the listener answering, refusals included: the question is whether
-// the server is there, and a route every reader needs a token for answers 401 over one that is up.
+// A route the relay serves answers 2xx where the request carries the credential the settings hold.
+// Any status counts as the listener answering: the question is whether the server is there, and
+// a reader holding no token is answered 401 over a listener that is up.
 func probeHTTP(ctx context.Context, t target) (answer, error) {
 	assert.Assert(t.url != "", "an HTTP probe names what it fetches")
+	assert.Assert(t.method != "", "an HTTP probe names what it asks", t.url)
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, t.url, nil)
+	request, err := http.NewRequestWithContext(ctx, t.method, t.url, nil)
 	if err != nil {
 		return answer{}, err
+	}
+	if t.credential.name != "" {
+		request.Header.Set(t.credential.name, t.credential.value)
 	}
 
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: t.insecure}}}

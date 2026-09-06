@@ -118,12 +118,13 @@ public static class Words
     };
 
     /// <summary>
-    /// The one leg of a relay check no transport carries.
+    /// The legs of a relay check no transport carries.
     /// Every other leg is a transport and is named by <see cref="Transports"/>.
     /// </summary>
     private static readonly Dictionary<string, string> RelayLegs = new()
     {
         ["groups"] = "Group service",
+        ["discord"] = "Discord manager",
     };
 
     /// <summary>

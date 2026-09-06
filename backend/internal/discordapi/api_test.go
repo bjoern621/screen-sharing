@@ -62,7 +62,7 @@ func serve(t *testing.T) (*httptest.Server, *fakeLinks, *fakeOAuth) {
 	links := &fakeLinks{}
 	oauth := &fakeOAuth{}
 	service := New(fakeBroker{}, links, oauth)
-	server := httptest.NewServer(service.Handler())
+	server := httptest.NewServer(service.Handler("test"))
 	t.Cleanup(server.Close)
 	return server, links, oauth
 }
@@ -229,5 +229,22 @@ func TestALinkStartNeedsAUsablePort(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("a port that is no port is refused, got %s", resp.Status)
+	}
+}
+
+// The manager answers a check on a route of its own, taking no credential and touching no link:
+// a relay check dials it to say whether Discord mode has a manager behind it (internal/reach).
+func TestTheHealthRouteAnswersWithoutACredential(t *testing.T) {
+	service := New(fakeBroker{}, &fakeLinks{}, &fakeOAuth{})
+
+	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	service.Handler("0.9.0").ServeHTTP(w, r)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("the health route answers %d, want %d", w.Code, http.StatusNoContent)
+	}
+	if got, want := w.Header().Get("Server"), "discordd/0.9.0"; got != want {
+		t.Errorf("the answer names %q, want %q", got, want)
 	}
 }
