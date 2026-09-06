@@ -308,6 +308,7 @@ Nothing about the arrangement crosses the contract and nothing could: the backen
 
 **Nothing is measured over the picture.**
 A tile draws its name on hover and a colour badge where the range needs one, and every figure about the decode is in the stats panel the tile's menu opens.
+Both go again, with the cursor, once the pointer has held still over the tile for a moment, and the stats panel stays up through it, being asked for rather than hovered into (`Features/Viewer/Tile/View/RestingWatch.cs`).
 
 The panel is composed from two readings coming from opposite directions.
 What the decode is doing is `ReceiveStats`, a sample the backend reads off the running pipeline once a second and pushes.

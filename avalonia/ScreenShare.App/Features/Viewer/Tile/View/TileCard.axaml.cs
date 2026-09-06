@@ -11,7 +11,8 @@ namespace ScreenShare.App.Features.Viewer.Tile.View;
 /// <summary>
 /// A tile's code-behind, for every host that draws one.
 /// Covers what markup cannot state: the meter's bar is a pixel width rather than a proportion any panel offers,
-/// the volume slider has to survive the menu's own click handling, and a gesture is not a binding.
+/// the volume slider has to survive the menu's own click handling, a gesture is not a binding,
+/// and a pointer holding still is a fact no selector carries.
 /// </summary>
 public partial class TileCard : UserControl
 {
@@ -30,6 +31,31 @@ public partial class TileCard : UserControl
         };
 
         DataContextChanged += (_, _) => Watch();
+
+        // Held by the handlers it puts on this card, so it lasts as long as the card draws.
+        _ = new RestingWatch(this, Rest);
+    }
+
+    /// <summary>
+    /// The pointer while it rests over a picture.
+    /// One for every card: a cursor is a platform handle, and one per tile would open a handle each to say
+    /// the same thing.
+    /// </summary>
+    private static readonly Cursor Hidden = new(StandardCursorType.None);
+
+    /// <summary>
+    /// Clears the picture of everything the pointer raised, and puts it back on the next stir.
+    ///
+    /// The class is what the markup hides the chrome on, and the cursor is this control's own property,
+    /// inherited by everything drawn inside it.
+    /// The stats overlay reads its own state and stays, being asked for rather than hovered into.
+    ///
+    /// Both writes are the state named rather than a change to it, so a stir per pointer move costs nothing.
+    /// </summary>
+    private void Rest(bool resting)
+    {
+        PseudoClasses.Set(":resting", resting);
+        Cursor = resting ? Hidden : null;
     }
 
     /// <summary>

@@ -13,8 +13,9 @@
     a filled screen.
     Defined once rather than per host, so the menu, the meter and the badge cannot drift apart between them.
 
-    Chrome waits for the pointer.
-    Names left standing over the pictures turn a grid into a diagnostic screen instead of something to watch.
+    Chrome waits for the pointer, and goes again once the pointer holds still.
+    Names left standing over the pictures turn a grid into a diagnostic screen instead of something to watch,
+    and a pointer parked on a picture is somebody watching it (Features/Viewer/Tile/View/RestingWatch.cs).
 
     Nothing is measured over the picture.
     A decode is diagnosed in one place, the stats overlay, with no pinned copy in the chrome:
@@ -38,6 +39,16 @@
     <Style Selector="tiles|TileCard:pointerover Border.chrome">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+
+    <!--
+      A pointer that stopped moving takes it off again, along with the cursor itself
+      (Features/Viewer/Tile/View/RestingWatch.cs).
+      After the hover setter it overrides, styles applying in the order they are written.
+    -->
+    <Style Selector="tiles|TileCard:resting Border.chrome">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
     <!-- Tile's shape, and what stands behind a picture that has not arrived. -->
@@ -296,9 +307,9 @@
       <!--
         The badge: what is being done here about a range wider than this display's.
 
-        Drawn unasked instead of as hover chrome, which is what makes the choice discoverable:
-        an HDR stream drawn as it arrives is not visibly wrong, it is a picture at the wrong brightness,
-        and a reader with nothing to read blames the stream.
+        What makes the choice discoverable: an HDR stream drawn as it arrives is not visibly wrong,
+        it is a picture at the wrong brightness, and a reader with nothing to read blames the stream.
+        Raised with the rest of the chrome, a reader looking at the picture having read it already.
 
         Low rather than high, the top right being where the stats overlay opens.
       -->
