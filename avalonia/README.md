@@ -78,7 +78,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Assets/Fonts/` | the mono family `Design/Typography.axaml` names, as files: Avalonia packages Inter and no mono, so this one is carried rather than resolved off the platform |
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch, and `SideColumnPanel`, which puts a screen's side column beside its body or over it |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
-| `Features/Shell/` | the window, title bar, shared nav strip, status band, and which destination is showing |
+| `Features/Shell/` | the window, title bar, shared nav strip, status band, the settings dialog over all of them, and which destination is showing |
 | `Features/Tray/` | the tray icon: its menu model, the view model pressing the destinations' own commands, and the host drawing the platform icon |
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
@@ -145,7 +145,7 @@ Placement stays this module's: the terminal step, the groups drawn by a layout o
 **The watch group is drawn by the viewer, the same placement rule doing real work.**
 The wizard configures what this machine *sends*.
 The watch group is the legs a stream comes back on, the jitter buffers a receiver holds and the chain a tile converts frames with.
-It sits beside the tiles, in a column with a commit of its own and a button to dismiss it, so a reader who only watches keeps a change from there without opening the broadcast setup or going live.
+It sits beside the tiles, in a column with a commit of its own and a button to dismiss it, so a reader who only watches keeps a change from there without opening setup or going live.
 
 **The group is staged, so nothing in it reaches a decode until the commit does.**
 Every knob a receive pipeline reads is read by the backend out of its own settings as the pipeline is built.
@@ -358,6 +358,14 @@ The card never takes the keyboard, taking it on hover being taking it out of wha
 The keys are one table, read by the press and by the gesture the menu row prints, a menu naming a key nothing acted on being wrong the moment either half moved.
 A press asks the command whether it can run first, so a key is refused wherever the row it names is greyed.
 
+**The settings about the app stand over the window.**
+What the app reports, what it reads on start, where its logs are, which account it follows and which build it is:
+none of it is about a stream, so no screen configuring one owns it (`Features/Shell/Settings`).
+A dimmed ground carries the dialog, which is why it is a control over the window's grid rather than a second window:
+a window cannot dim the one it came from.
+Escape and a press on that ground close it, and the group inside is applied, so a control is the write and there is no commit to press.
+The release line and the build are the same view models the status band draws, so the two cannot disagree.
+
 ## The tray
 
 The window closes to the tray, and the tray's quit is the one full shutdown, which a close runs where there is no tray.
@@ -376,6 +384,7 @@ and the streams the grid watched come back with the window (`docs/viewer-archite
 Quit is one sequence whichever control runs it: the window's decodes close and a stream running on a backend this shell started ends, side by side and bounded, then the process shuts down and the exit hooks take that backend with it (`Backend/BackendProcess.cs`).
 A backend this shell attached to keeps its stream, the arrangement a window close leaves it in.
 `TrayIconHost.TryCreate` answers null where `MIRRORME_TRAY=0` asks for no icon, and where the platform serves no tray.
+`task avalonia` sets it, so a checkout run ends on the close button and puts no second icon beside an installed app's.
 A hidden window nothing can reopen is gone, so closing the window there runs the quit.
 
 ## How the repository's principles land in C#

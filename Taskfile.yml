@@ -80,6 +80,9 @@ tasks:
       # the window then shows that build's version and `task dev` finds its endpoint taken.
       # Off, a run without `task dev` reports the endpoint as unserved and names it.
       MIRRORME_BACKEND_SPAWN: "0"
+      # No icon in the tray: a checkout run ends on its close button,
+      # and a second icon beside the installed app's says nothing about which window it opens.
+      MIRRORME_TRAY: "0"
     # No toolchain variable: this project links nothing through cgo, so MSYS2 stays out,
     # and the .NET SDK is on PATH either way,
     # system-wide on Windows and from the flake's dev shell on Linux and macOS,
