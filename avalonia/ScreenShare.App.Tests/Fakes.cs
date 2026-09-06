@@ -409,8 +409,22 @@ internal sealed class PublishingBackend : IBackend
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => _seed.SettingsAsync(cancellation);
 
-    public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
-        => _seed.ResolveFormAsync(draft, cancellation);
+    /// <summary>
+    /// The seed's form, carrying this backend's verdict on whether the draft is what publishes:
+    /// the two groups the stream was built from equal the draft's.
+    /// Field equality stands in for the backend's render comparison (<c>publish.SamePipeline</c>),
+    /// the shell reading the verdict alone.
+    /// </summary>
+    public async Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
+    {
+        var form = await _seed.ResolveFormAsync(draft, cancellation).ConfigureAwait(false);
+
+        form.InForce = Publish.Live is { } live
+            && Equals(live.Publish, form.Settings.Publish)
+            && Equals(live.Relay, form.Settings.Relay);
+
+        return form;
+    }
 
     public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
         => _seed.WatchingAsync(cancellation);

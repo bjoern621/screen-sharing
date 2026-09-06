@@ -25,6 +25,8 @@ public enum PublishCommit
 /// Every condition is a whole state another side stated, read rather than evaluated (<c>docs/ipc-api.md</c>,
 /// "The rule").
 /// Live stream blocks nothing; it picks <see cref="Commit"/> instead.
+/// A live stream built from the draft greys the apply (<see cref="InForce"/>),
+/// that being the one restart which would change nothing.
 /// Record, so a render pass over unchanged state compares equal
 /// and <see cref="ReviewStep.ViewModel.ReviewStepViewModel.Apply"/> stays idempotent.
 /// </summary>
@@ -42,36 +44,59 @@ public sealed record PublishGate
     /// Why not pressable.
     /// Empty where pressable, and where the settings themselves block.
     /// Preflight list beside the button carries those in the backend's words.
+    /// Empty for a draft in force too, a state the card names in the commit's own words
+    /// (<see cref="CommitCopy.Entry.InForce"/>).
     /// </summary>
     public required string Blocked { get; init; }
 
     public bool IsBlocked => Blocked.Length > 0;
 
     /// <summary>
+    /// Whether the live stream was built from the pipeline the draft builds, <c>Form.in_force</c> read against
+    /// a stream to apply to.
+    /// The backend decides sameness, as it does for a repeated start (<c>publish.SamePipeline</c>);
+    /// a comparison of fields here would be a second definition of it.
+    /// Read anew on every pass, so a value put back greys the button with nothing having remembered the edit.
+    /// </summary>
+    public required bool InForce { get; init; }
+
+    /// <summary>
     /// Gate before anything has been read: nothing committable, nothing to say.
     /// Commit from <see cref="CommitFor"/> rather than written down twice.
     /// </summary>
     public static readonly PublishGate Unread =
-        new() { CanStartSharing = false, Commit = CommitFor(null), Blocked = "" };
+        new() { CanStartSharing = false, Commit = CommitFor(null), Blocked = "", InForce = false };
 
     /// <summary>Gate for one reading of everything the commit depends on.</summary>
     /// <param name="publishable">Form's answer about the settings. False before one arrives.</param>
+    /// <param name="inForce">Form's answer on whether the stream runs the draft. False before one arrives.</param>
     /// <param name="unreachable">Why the backend could not describe the screen. Empty while it can.</param>
     /// <param name="publish">What is publishing. Null before the running state has been read.</param>
     /// <param name="relay">Relay snapshot. Null before one has been read.</param>
     /// <param name="starting">Whether a commit this flow asked for is still in flight.</param>
     public static PublishGate Of(
-        bool publishable, string unreachable, PublishState? publish, RelayStatus? relay, bool starting)
+        bool publishable,
+        bool inForce,
+        string unreachable,
+        PublishState? publish,
+        RelayStatus? relay,
+        bool starting)
     {
         Assert.NotNull(unreachable, "the gate reads the backend's own sentence, or the empty one");
 
         var blocked = BlockedBy(unreachable, relay);
+        var commit = CommitFor(publish);
+
+        // The form's verdict outlives the stream it was read against, so it counts against a live one alone:
+        // a stream that ended between the resolve and this pass leaves a start to offer on the draft.
+        var running = commit == PublishCommit.Apply && inForce;
 
         var gate = new PublishGate
         {
-            CanStartSharing = publishable && !starting && blocked.Length == 0,
-            Commit = CommitFor(publish),
+            CanStartSharing = publishable && !starting && blocked.Length == 0 && !running,
+            Commit = commit,
             Blocked = blocked,
+            InForce = running,
         };
 
         // Asserted where produced, not where relied on: review draws the label off this gate,
@@ -79,6 +104,8 @@ public sealed record PublishGate
         Assert.That(
             (gate.Commit == PublishCommit.Apply) == (publish?.Live is not null),
             "a commit that applies has a stream to apply to", gate.Commit);
+        Assert.That(!gate.InForce || gate.Commit == PublishCommit.Apply, "a draft in force has a stream running it", gate.Commit);
+        Assert.That(!gate.InForce || !gate.CanStartSharing, "a draft in force has nothing to apply", gate.Commit);
 
         return gate;
     }

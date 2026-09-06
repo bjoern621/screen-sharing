@@ -35,6 +35,12 @@ public static class CommitCopy
 
         /// <summary>Half after it.</summary>
         public required string Tail { get; init; }
+
+        /// <summary>
+        /// In place of the promise while the stream was built from these settings, the press being greyed.
+        /// Empty on a commit with no stream to have been built from.
+        /// </summary>
+        public required string InForce { get; init; }
     }
 
     private static readonly Dictionary<PublishCommit, Entry> Entries = new()
@@ -44,6 +50,7 @@ public static class CommitCopy
             Label = "Start sharing",
             Lead = "Sharing starts on these settings. Viewers on ",
             Tail = " can watch the stream afterwards.",
+            InForce = "",
         },
 
         [PublishCommit.Apply] = new Entry
@@ -51,6 +58,7 @@ public static class CommitCopy
             Label = "Apply and restart",
             Lead = "Applying restarts the stream on these settings. Viewers on ",
             Tail = " lose the picture for a moment and reconnect.",
+            InForce = "Sharing already runs on these settings. Change one to apply it.",
         },
     };
 

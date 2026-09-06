@@ -496,15 +496,17 @@ public sealed class SetupViewModel : Observable
 
         IsPublishable = form?.Publishable ?? false;
 
-        // Composed on every pass out of states nothing here owns: the form's verdict on the settings,
-        // whether the backend answered at all, whether a stream is in force,
-        // and whether the relay is there to publish to.
+        // Composed on every pass out of states nothing here owns: the form's verdict on the settings
+        // and on whether the stream was built from them, whether the backend answered at all,
+        // whether a stream is in force, and whether the relay is there to publish to.
         // A stream in force decides what pressing the button does rather than whether it lights,
         // that being the gate's Commit, which the label and the sentence under it are read from;
         // the rest decide the lighting.
-        // Every one is read through rather than cached, so a relay that came back unlocks the button on the next pass
-        // and a stream that ended puts "restart" back to "start sharing", with nothing to remember.
-        var gate = PublishGate.Of(IsPublishable, _form.Unavailable, _session.Publish, _session.Relay, Starting);
+        // Every one is read through rather than cached, so a relay that came back unlocks the button on the next pass,
+        // a stream that ended puts "restart" back to "start sharing",
+        // and a value put back to what the stream runs greys the apply again, with nothing to remember.
+        var gate = PublishGate.Of(
+            IsPublishable, form?.InForce ?? false, _form.Unavailable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _form.Draft?.StreamName ?? "", _refusal, Summaries(drawn, form));
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));

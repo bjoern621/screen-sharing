@@ -72,6 +72,15 @@ public sealed class FormSession
     private Settings? _asked;
 
     /// <summary>
+    /// The stream in force when the draft was last handed over, null with none.
+    /// The answer is a function of the draft and of that stream (<c>form.proto</c>, <c>Form.in_force</c>),
+    /// so both are inputs to the round-trip guard: a stream that started or ended under an unchanged draft
+    /// is asked about, and an event under which neither moved is not.
+    /// The live message alone, so a backend with nothing publishing reads as the same input every time.
+    /// </summary>
+    private PublishState.Types.Live? _askedUnder;
+
+    /// <summary>
     /// Settings the backend is holding. Null until the opening read answers.
     /// A different fact from the draft, and the difference is what a staged group means: effects are served off
     /// the backend's own settings rather than off anything a call hands over, a decode reading its render chain
@@ -232,15 +241,15 @@ public sealed class FormSession
     /// <summary>
     /// Asks for the form this draft resolves to, unless the backend has already been asked for it.
     /// <b>Idempotent, which makes it safe on a render pass.</b>
-    /// The resolve is side-effect free and answers the same form for the same draft (<c>docs/ipc-api.md</c>),
-    /// so a draft still equal to the one last handed over has nothing to learn from a second round trip, landed
-    /// or in flight.
+    /// The resolve is side-effect free and answers the same form for the same draft under the same stream
+    /// (<c>docs/ipc-api.md</c>), so a draft still equal to the one last handed over,
+    /// with what publishes unchanged since, has nothing to learn from a second round trip, landed or in flight.
     /// A hundred render passes cost the one call.
     /// </summary>
     public void Sync()
     {
         // No draft yet means the read that fetches the stored settings is still out, started by the constructor.
-        if (_draft is null || _draft.Equals(_asked))
+        if (_draft is null || (_draft.Equals(_asked) && Equals(_session.Publish?.Live, _askedUnder)))
         {
             return;
         }
@@ -256,6 +265,7 @@ public sealed class FormSession
         // change the message mid-send, and leave the answer describing settings nobody asked about.
         var draft = _draft.Clone();
         _asked = draft;
+        _askedUnder = _session.Publish?.Live;
         Start(draft);
     }
 
@@ -860,6 +870,10 @@ public sealed class FormSession
         {
             Retry();
         }
+
+        // What publishes is the resolve's second input, and this is where news of it arrives.
+        // Idempotent, so every event may ask: the guard skips the ones under which nothing moved.
+        Sync();
     }
 
     private void Announce() => Changed?.Invoke();

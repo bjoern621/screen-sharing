@@ -69,6 +69,9 @@ public sealed class ReviewStepViewModel : Observable
     private bool _hasRefusal;
     private string _streamName = "";
     private bool _hasStreamName;
+    private bool _isInForce;
+    private string _inForce = "";
+    private bool _showsPromise;
 
     public ObservableCollection<ReviewTile> Tiles { get; }
 
@@ -127,6 +130,21 @@ public sealed class ReviewStepViewModel : Observable
     public bool HasStreamName { get => _hasStreamName; private set => Set(ref _hasStreamName, value); }
 
     /// <summary>
+    /// Whether the stream runs the pipeline the draft builds, the gate's reading of <c>Form.in_force</c>.
+    /// Greys the commit: a restart into the same pipeline costs every viewer the picture for nothing.
+    /// </summary>
+    public bool IsInForce { get => _isInForce; private set => Set(ref _isInForce, value); }
+
+    /// <summary>The sentence for that state, drawn where the promise would be. Empty otherwise.</summary>
+    public string InForce { get => _inForce; private set => Set(ref _inForce, value); }
+
+    /// <summary>
+    /// Whether the promise under the button draws: a named stream, and a press the card offers.
+    /// The promise describes a press, so it gives way to <see cref="InForce"/> where none is offered.
+    /// </summary>
+    public bool ShowsPromise { get => _showsPromise; private set => Set(ref _showsPromise, value); }
+
+    /// <summary>
     /// The one render function.
     /// Idempotent: the rows are rebuilt from the arguments and reconciled,
     /// so two passes over one form produce rows that compare equal.
@@ -163,6 +181,12 @@ public sealed class ReviewStepViewModel : Observable
         StreamName = streamName;
         HasStreamName = StreamName.Length > 0;
 
+        // Written on every pass, the branch that puts the promise back included:
+        // a stream that ended, or a value moved off it, offers the press again and the sentence about it.
+        IsInForce = gate.InForce;
+        InForce = gate.InForce ? words.InForce : "";
+        ShowsPromise = HasStreamName && !IsInForce;
+
         StartSharingCommand.Refresh();
 
         Assert.That(Tiles.Count == groups.Count, "a tile per group of the form", Tiles.Count, groups.Count);
@@ -173,5 +197,7 @@ public sealed class ReviewStepViewModel : Observable
         Assert.That(!CanStartSharing || !IsBlocked, "a commit that is offered has nothing standing in its way", Blocked);
         Assert.That(IsBlocked == (Blocked.Length > 0), "the locked notice and its sentence agree", IsBlocked);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
+        Assert.That(IsInForce == (InForce.Length > 0), "the in-force notice and its sentence agree", gate.Commit);
+        Assert.That(!ShowsPromise || !IsInForce, "the promise and the in-force notice take turns", IsInForce);
     }
 }

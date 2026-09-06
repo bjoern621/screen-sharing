@@ -5,6 +5,8 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -136,6 +138,45 @@ func TestResolveFormGreysNothingBeforeTheProbeHasRun(t *testing.T) {
 
 	if option := encoderOption(t, form.GetForm(), "qsv"); !option.GetEnabled() {
 		t.Errorf("the Quick Sync encoder is greyed on an unprobed machine with %q", option.GetReason())
+	}
+}
+
+// The verdict a shell greys the apply on, answered where sameness is decided (publish.SamePipeline):
+// a shell comparing fields would fall behind the builders the first time one read a field it did not name.
+//
+// The stream is built from what the empty draft repairs to on this machine,
+// the settings a start would run being the ones a resolve answers with.
+func TestResolveFormReportsADraftTheRunningStreamWasBuiltFrom(t *testing.T) {
+	backend := &probedBackend{}
+	server := New(backend, events.New(), "test")
+
+	idle, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{})
+	if err != nil {
+		t.Fatalf("resolving a form answered %v, want an answer", err)
+	}
+	if idle.GetForm().GetInForce() {
+		t.Fatal("a draft is reported in force with nothing publishing")
+	}
+
+	running := idle.GetForm().GetSettings()
+	backend.publish = wire.PublishSnapshot{Live: &wire.LiveSnapshot{Settings: wire.ToSettings(running)}}
+
+	same, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{Settings: running})
+	if err != nil {
+		t.Fatalf("resolving the running settings answered %v, want an answer", err)
+	}
+	if !same.GetForm().GetInForce() {
+		t.Error("the settings the stream was built from are not reported in force")
+	}
+
+	moved := proto.Clone(running).(*screensharev1.Settings)
+	moved.Publish.Fps = running.GetPublish().GetFps() + 1
+	changed, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{Settings: moved})
+	if err != nil {
+		t.Fatalf("resolving a moved draft answered %v, want an answer", err)
+	}
+	if changed.GetForm().GetInForce() {
+		t.Error("a draft at another frame rate is reported in force")
 	}
 }
 

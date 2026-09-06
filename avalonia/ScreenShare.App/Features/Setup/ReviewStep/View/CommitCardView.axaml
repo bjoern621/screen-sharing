@@ -22,7 +22,7 @@
                  TextTrimming="None"
                  LineHeight="{StaticResource LineHeightSmall}"
                  Margin="0,0,0,11"
-                 IsVisible="{Binding HasStreamName}">
+                 IsVisible="{Binding ShowsPromise}">
         <Run Text="{Binding PromiseLead}" />
         <Run Text="{Binding StreamName}"
              FontWeight="SemiBold"
@@ -31,9 +31,21 @@
       </TextBlock>
 
       <!--
+        In the promise's place while the stream runs the draft as it stands, which greys the button.
+        A state the reader is in and no fault, so the plain hint colour (Model/CommitCopy.cs).
+      -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 Margin="0,0,0,11"
+                 IsVisible="{Binding IsInForce}"
+                 Text="{Binding InForce}" />
+
+      <!--
         Why the button is locked, naming only the backend or the relay.
-        A settings problem is in the checks card above in the backend's own words, and a stream already on the
-        air changes what the commit does rather than whether it can be done.
+        A settings problem is in the checks card above in the backend's own words,
+        and a stream on the air changes what the commit does, or says above that it runs the draft.
       -->
       <SelectableTextBlock Classes="hint danger"
                            TextWrapping="Wrap"

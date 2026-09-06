@@ -189,6 +189,7 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 		Summary:           summarize(d, s, est),
 		Presets:           resolvePresets(d, s),
 		Publishable:       publishable(diags),
+		// InForce reads the stream in force, which a resolve has no view of (control/reads.go).
 	}
 	if ok {
 		// The detach rule, stated so a shell applies it rather than deciding it:

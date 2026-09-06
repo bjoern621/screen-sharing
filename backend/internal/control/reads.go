@@ -9,6 +9,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/form"
+	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -94,7 +95,26 @@ func (s *Server) GetSettings(ctx context.Context, req *screensharev1.GetSettings
 func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveFormRequest) (*screensharev1.ResolveFormResponse, error) {
 	// Brokered ahead of the resolve, so the audience diagnostic reads Discord mode's membership.
 	draft := s.backend.Brokered(wire.ToSettings(req.GetSettings()))
-	return &screensharev1.ResolveFormResponse{Form: form.Resolve(s.formDeps(), draft)}, nil
+	resolved := form.Resolve(s.formDeps(), draft)
+
+	// Held against the stream as the resolve answered it, repair and followed preset included:
+	// those settings are what a start would run, so they are the ones an apply could repeat.
+	resolved.InForce = s.inForce(wire.ToSettings(resolved.GetSettings()))
+	return &screensharev1.ResolveFormResponse{Form: resolved}, nil
+}
+
+// inForce reports whether the stream in force was built from the pipeline draft builds,
+// and false with none in force.
+// publish.SamePipeline decides it, as it does for a repeated start and for PublishState.Live.pending.
+// Settings no engine renders name no running pipeline, so an unanswerable comparison is false.
+func (s *Server) inForce(draft settings.Settings) bool {
+	state := s.backend.PublishState()
+	if !state.Publishing() {
+		return false
+	}
+
+	same, err := publish.SamePipeline(state.Live.Settings, draft)
+	return err == nil && same
 }
 
 // formDeps is what a resolve reads off this machine, one builder for every caller:

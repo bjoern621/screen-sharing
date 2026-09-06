@@ -140,6 +140,10 @@ One host stored twice is two hosts able to disagree.
 It returns a possibly repaired draft alongside the form and names the fields it repaired: where the draft held a value the tables forbid, the backend walked to the first legal one.
 A shell adopts the returned settings wholesale, so a greyed option and its replacement cannot disagree.
 
+`Form.in_force` says whether a stream is in force and was built from the pipeline the returned settings build, the sameness a repeated `StartPublish` reads (`publish.SamePipeline`).
+A shell greys the apply on it: a restart into the same pipeline costs every viewer the picture for nothing.
+The answer moves with the stream, so a shell resolves again when the publish state changes under an unchanged draft.
+
 ## The format, and why this one
 
 **Protocol Buffers for the schema, gRPC for the calls, a local socket for the transport.**

@@ -1057,8 +1057,15 @@ type Form struct {
 	// A write anywhere else keeps the draft following,
 	// the preset promising nothing about the field (docs/presets.md).
 	PresetOwnedFieldKeys []string `protobuf:"bytes,10,rep,name=preset_owned_field_keys,json=presetOwnedFieldKeys,proto3" json:"preset_owned_field_keys,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Set where a stream is in force and these settings build the pipeline it runs:
+	// applying them would restart the stream into itself, so a shell greys the apply on it.
+	// Answered here because sameness is one rule, the one a repeated StartPublish
+	// and PublishState.Live.pending read (publish.SamePipeline),
+	// and a shell comparing fields would be a second one.
+	// False with nothing in force.
+	InForce       bool `protobuf:"varint,11,opt,name=in_force,json=inForce,proto3" json:"in_force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Form) Reset() {
@@ -1145,6 +1152,13 @@ func (x *Form) GetPresetOwnedFieldKeys() []string {
 		return x.PresetOwnedFieldKeys
 	}
 	return nil
+}
+
+func (x *Form) GetInForce() bool {
+	if x != nil {
+		return x.InForce
+	}
+	return false
 }
 
 // A way of publishing this app names as a promise about the picture
@@ -1305,7 +1319,7 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aSummary\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12#\n" +
 	"\rcommand_error\x18\x03 \x01(\tR\fcommandError\x124\n" +
-	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xc3\x03\n" +
+	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xde\x03\n" +
 	"\x04Form\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\x12.\n" +
 	"\x13repaired_field_keys\x18\a \x03(\tR\x11repairedFieldKeys\x122\n" +
@@ -1315,7 +1329,8 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\apresets\x18\t \x03(\v2\x1d.screenshare.v1.BuiltinPresetR\apresets\x12 \n" +
 	"\vpublishable\x18\x06 \x01(\bR\vpublishable\x125\n" +
 	"\x17preset_owned_field_keys\x18\n" +
-	" \x03(\tR\x14presetOwnedFieldKeysJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings\"\xa8\x01\n" +
+	" \x03(\tR\x14presetOwnedFieldKeys\x12\x19\n" +
+	"\bin_force\x18\v \x01(\bR\ainForceJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings\"\xa8\x01\n" +
 	"\rBuiltinPreset\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12;\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\bsettings\x12,\n" +

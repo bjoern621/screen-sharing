@@ -7,9 +7,10 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Commit gate, read off four whole states this module does not decide.
+/// Commit gate, read off five whole states this module does not decide.
 /// <c>Form.publishable</c>, a backend that answers and <c>RelayStatus.reachable</c> decide whether it is pressable.
 /// <c>PublishState.live</c> decides what pressing it does: start a stream, or restart the running one.
+/// <c>Form.in_force</c> takes the restart away where the running one was built from the draft.
 /// </summary>
 public sealed class StartSharingTests
 {
@@ -18,14 +19,20 @@ public sealed class StartSharingTests
     /// Fixtures answer from memory and the dispatcher runs inline, so a call returns with the render pass done.
     /// </summary>
     private static SetupViewModel Flow(PublishingBackend backend, out Session session)
+        => Flow(backend, out session, out _);
+
+    /// <summary>The same flow, with the draft in hand for the tests that move a value.</summary>
+    private static SetupViewModel Flow(PublishingBackend backend, out Session session, out FormSession form)
     {
         var opened = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, opened);
+        var draft = new FormSession(backend, opened, action => action());
+        var flow = new SetupViewModel(backend, draft, opened, action => action());
 
         Load(opened);
         flow.Apply();
 
         session = opened;
+        form = draft;
         return flow;
     }
 
@@ -49,6 +56,22 @@ public sealed class StartSharingTests
     {
         Live = new PublishState.Types.Live { Publish = new PublishSettings(), StreamName = name },
     };
+
+    /// <summary>Stream built from the settings the seed holds, which is the draft a fresh flow opens on.</summary>
+    private static PublishState Running(PublishingBackend backend)
+    {
+        var settings = backend.SettingsAsync().Result;
+
+        return new PublishState
+        {
+            Live = new PublishState.Types.Live
+            {
+                Publish = settings.Publish,
+                Relay = settings.Relay,
+                StreamName = settings.StreamName,
+            },
+        };
+    }
 
     [Fact]
     public void AResolvedFormAndAReachableRelayLetTheCommitBePressed()
@@ -214,6 +237,96 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
+    /// Applying restarts the stream, so a draft the stream was built from has nothing to apply:
+    /// the button greys and the card says why in place of a promise about a press it does not offer.
+    /// </summary>
+    [Fact]
+    public void ADraftTheStreamWasBuiltFromGreysTheCommit()
+    {
+        var backend = new PublishingBackend();
+        backend.Publish = Running(backend);
+        var flow = Flow(backend, out _);
+
+        Assert.False(flow.Review.CanStartSharing);
+        Assert.False(flow.Review.StartSharingCommand.CanExecute(null));
+        Assert.True(flow.Review.IsInForce);
+        Assert.Equal(CommitCopy.Of(PublishCommit.Apply).InForce, flow.Review.InForce);
+        Assert.False(flow.Review.ShowsPromise);
+        Assert.False(flow.Review.IsBlocked);
+        Assert.Equal(CommitCopy.Of(PublishCommit.Apply).Label, flow.Review.CommitLabel);
+    }
+
+    /// <summary>
+    /// Read off the draft on every pass, so a value moved and put back leaves nothing to apply again,
+    /// with nothing here having remembered an edit (<c>docs/development-principles.md</c>, "Stateless").
+    /// </summary>
+    [Fact]
+    public void AValueMovedLightsTheCommitAndPutBackGreysItAgain()
+    {
+        var backend = new PublishingBackend();
+        backend.Publish = Running(backend);
+        var flow = Flow(backend, out _, out var form);
+        var fps = form.Draft!.Publish.Fps;
+
+        Assert.False(flow.Review.CanStartSharing);
+
+        // A frame rate the seed offers, its select refusing a value off its ladder.
+        form.Write("publish.fps", new FieldValue { Number = 120 });
+
+        Assert.True(flow.Review.CanStartSharing);
+        Assert.False(flow.Review.IsInForce);
+        Assert.True(flow.Review.ShowsPromise);
+
+        form.Write("publish.fps", new FieldValue { Number = fps });
+
+        Assert.False(flow.Review.CanStartSharing);
+        Assert.True(flow.Review.IsInForce);
+        Assert.False(flow.Review.ShowsPromise);
+    }
+
+    /// <summary>
+    /// The verdict rides the form and the form is asked about the draft,
+    /// so a stream that started under an unchanged draft is asked about too:
+    /// what publishes is the resolve's second input, and it moved.
+    /// </summary>
+    [Fact]
+    public void AStreamThatStartedOnTheDraftGreysTheCommitWithNothingTyped()
+    {
+        var backend = new PublishingBackend();
+        var flow = Flow(backend, out var session);
+
+        Assert.True(flow.Review.CanStartSharing);
+
+        backend.Publish = Running(backend);
+        Reload(session, flow);
+
+        Assert.False(flow.Review.CanStartSharing);
+        Assert.True(flow.Review.IsInForce);
+
+        backend.Publish = new PublishState();
+        Reload(session, flow);
+
+        Assert.True(flow.Review.CanStartSharing);
+        Assert.False(flow.Review.IsInForce);
+        Assert.True(flow.Review.ShowsPromise);
+    }
+
+    /// <summary>
+    /// A form's verdict outlives the stream it was read against: the two readings cross where a stream ends
+    /// between the resolve and this pass, and a start is offered on the draft either way.
+    /// </summary>
+    [Fact]
+    public void AVerdictWithNoStreamBehindItGreysNothing()
+    {
+        var gate = PublishGate.Of(
+            true, inForce: true, "", publish: null, new RelayStatus { Reachable = true }, starting: false);
+
+        Assert.Equal(PublishCommit.Start, gate.Commit);
+        Assert.False(gate.InForce);
+        Assert.True(gate.CanStartSharing);
+    }
+
+    /// <summary>
     /// Gate is a record so two readings compare equal,
     /// letting the review render twice and write nothing (<c>docs/development-principles.md</c>, "Idempotency").
     /// </summary>
@@ -224,8 +337,8 @@ public sealed class StartSharingTests
         var relay = new RelayStatus { Reachable = true };
 
         Assert.Equal(
-            PublishGate.Of(true, "", publish, relay, starting: false),
-            PublishGate.Of(true, "", publish, relay, starting: false));
+            PublishGate.Of(true, false, "", publish, relay, starting: false),
+            PublishGate.Of(true, false, "", publish, relay, starting: false));
     }
 
     /// <summary>The pass runs on every keystroke, so an unchanged commit has to notify nothing.</summary>

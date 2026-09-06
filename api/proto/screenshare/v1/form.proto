@@ -400,6 +400,14 @@ message Form {
   // the preset promising nothing about the field (docs/presets.md).
   repeated string preset_owned_field_keys = 10;
 
+  // Set where a stream is in force and these settings build the pipeline it runs:
+  // applying them would restart the stream into itself, so a shell greys the apply on it.
+  // Answered here because sameness is one rule, the one a repeated StartPublish
+  // and PublishState.Live.pending read (publish.SamePipeline),
+  // and a shell comparing fields would be a second one.
+  // False with nothing in force.
+  bool in_force = 11;
+
   // 2 was repaired and 4 was warnings, renamed above to say what they hold.
   reserved 2, 4;
   reserved "repaired", "warnings";
