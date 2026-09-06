@@ -50,3 +50,22 @@ func TestADraftIsResolvedAgainstTheStoredLink(t *testing.T) {
 		t.Fatalf("the draft carries the link %q, want the stored secret", got)
 	}
 }
+
+// A command is built from the settings a shell hands over, and those carry no secret at all
+// (internal/wire, ToRelay), so the trade reads the stored one.
+func TestACommandIsBuiltOnTheStoredLink(t *testing.T) {
+	fake := &fakeDiscord{answer: inChannel(), token: "a-token", prefix: aPrefix}
+	a := discordApp(fake)
+	a.discordPass()
+
+	draft := a.GetSettings()
+	draft.Relay.DiscordLink = ""
+
+	got, err := a.settingsForCommand(draft)
+	if err != nil {
+		t.Fatalf("a command on the settings a shell handed over answered %v, want the brokered trade", err)
+	}
+	if got.Relay.Token != "a-token" {
+		t.Fatalf("the command carries the token %q, want the one the manager brokered", got.Relay.Token)
+	}
+}

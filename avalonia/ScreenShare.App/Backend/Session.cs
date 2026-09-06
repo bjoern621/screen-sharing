@@ -110,6 +110,16 @@ public sealed class Session
     public event Action? Changed;
 
     /// <summary>
+    /// Raised on the UI loop when the backend says its stored settings moved.
+    ///
+    /// A second signal rather than a reason to raise <see cref="Changed"/>: nothing this class holds moved,
+    /// and what did is the draft's owner to read again (<see cref="FormSession"/>).
+    /// The announcement carries no settings, so there is one way to learn what they became
+    /// (<c>docs/ipc-api.md</c>).
+    /// </summary>
+    public event Action? SettingsMoved;
+
+    /// <summary>
     /// Raised on the UI loop after <see cref="Levels"/> or <see cref="Pointer"/> has moved, and by nothing else.
     ///
     /// <b>A second signal rather than a second reason to raise the first, and the reason is cadence.</b>
@@ -633,6 +643,13 @@ public sealed class Session
                 // The whole group on every presence the service answers, so a shell draws it rather than merging
                 // arrivals and departures into what it held.
                 Members = change.MembersState;
+                break;
+
+            case Event.PayloadOneofCase.SettingsChanged:
+                // A write this window did not make: another window's, or the backend's own, a landed
+                // Discord link being the one nothing else reports.
+                // Nothing to take, the announcement carrying no settings.
+                SettingsMoved?.Invoke();
                 break;
 
             case Event.PayloadOneofCase.DiscordState:

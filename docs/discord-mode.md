@@ -43,6 +43,9 @@ sequenceDiagram
 The link secret is 32 bytes naming this install as that Discord user.
 It sits in the settings the way a group key does and carries the same trust:
 whoever reads the file watches this user's channels.
+It stays on the backend: the flow above is its one writer, the control contract carries it in neither direction,
+and every draft arriving from a shell gets it put back (`ipc-api.md`).
+What a shell learns is `DiscordState.linked`.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
 

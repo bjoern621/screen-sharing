@@ -88,6 +88,11 @@ and a filesystem path crosses as a path.
 | `control.proto` | `ControlService`, the whole callable surface |
 | `frame.proto` | `FrameService`: handles, loans, release-backs. No pixels, no tile |
 
+**A secret no reader edits does not cross.**
+Two fields of the settings stay on the backend: the relay token, minted per command and good for minutes, and the Discord link secret the link flow draws.
+Neither is a value somebody types, so the backend puts each on a draft arriving from a shell rather than reading a shell's copy back.
+A draft read before a link landed carries none, and taking that copy would unlink the install on the next save.
+
 **What is not here is as much of the rule as what is.**
 No grid, no tile, no window layout, no widget arrangement.
 How a viewer arranges what it receives is the shell's job, on the list "The rule" gives it, which is exhaustive both ways.
@@ -278,7 +283,7 @@ Its paths carry an empty `reader_roster` beside a count, so a roster is complete
 
 ## Events
 
-Two rules keep the event stream from becoming a second definition of the state.
+Three rules keep the event stream from becoming a second definition of the state.
 
 **Every event carries a whole state.**
 A shell receiving `PublishState` renders it.
@@ -289,6 +294,13 @@ A duplicate is harmless, and a dropped connection is recovered from by reading s
 `StopPublish` answers empty.
 What the state became arrives on the stream.
 One path into the display is what stops the window that pressed the button and the window that did not from showing different things.
+
+**One event carries no state and says to read again.**
+`SettingsChanged` announces that the backend's settings moved for a reason the receiving shell did not cause: another window's write, or the backend's own.
+A landed Discord link is the one nothing else reports.
+The settings are the one state a shell holds a copy of, the draft being what a reader edits, so the announcement is what keeps that copy from aging.
+A shell reads them again rather than merging what it holds.
+A draft equal to the copy the backend last said it held becomes what the settings became, and uncommitted edits stand (`settings-editing.md`).
 
 ## Versioning
 

@@ -160,6 +160,10 @@ public sealed class FormSession
         // Raised on the UI loop by the session, so there is nothing to marshal.
         _session.Changed += OnSessionChanged;
 
+        // The settings this window holds are a copy of the backend's, and this is where news that they moved
+        // arrives. Raised on the UI loop by the session as well.
+        _session.SettingsMoved += Reread;
+
         // The one read with no draft in front of it.
         // The stored settings are what this opens on and nothing here derives them, so it is started once rather
         // than reconciled from a render pass the way every resolve after it is.
@@ -780,8 +784,13 @@ public sealed class FormSession
         // repaired them.
         // A repair nobody kept is not a value the backend runs on, and recording it as one hides the difference
         // _stored exists to hold.
+        //
+        // A draft that differs from the copy the backend last said it holds is uncommitted work, read here
+        // against the previous answer because this is the one place that answer moves (Reread).
+        var uncommitted = false;
         if (stored is not null)
         {
+            uncommitted = _draft is not null && !_draft.Equals(_stored);
             _stored = stored;
         }
 
@@ -803,7 +812,10 @@ public sealed class FormSession
         //
         // A held thumb is the same case held open: the reader is on a value they have not settled on,
         // so the repair waits for the release (AdoptHeld).
-        if (!_sweeping && (_draft is null || _draft.Equals(_asked)))
+        //
+        // Uncommitted work stands for the same reason: an answer about the backend's own settings describes
+        // what this window would open on, not what the reader has typed into it since.
+        if (!_sweeping && !uncommitted && (_draft is null || _draft.Equals(_asked)))
         {
             _draft = form.Settings.Clone();
             _asked = form.Settings;
@@ -832,6 +844,25 @@ public sealed class FormSession
         }
 
         Unavailable = reason;
+        Announce();
+    }
+
+    /// <summary>
+    /// Reads the backend's settings again, because they moved for a reason this window did not cause:
+    /// another window's write, or the backend's own, a landed Discord link being the one nothing else reports.
+    ///
+    /// The read with no draft in front of it, the shape the opening one has, so the answer is what the backend
+    /// holds rather than what this window last handed over.
+    /// <b>A draft equal to the copy the backend last said it holds becomes the new settings</b>, and
+    /// uncommitted work stands: <c>_stored</c> moves under it either way, which is the difference the two of
+    /// them exist to hold (<see cref="Adopt"/>).
+    ///
+    /// A window hears its own writes here too, the announcement naming no author.
+    /// Idempotent, so that costs a read answering the settings this window just saved.
+    /// </summary>
+    public void Reread()
+    {
+        Start(draft: null);
         Announce();
     }
 

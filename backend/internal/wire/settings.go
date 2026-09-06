@@ -43,6 +43,12 @@ func AppSettings(a settings.App) *screensharev1.AppSettings {
 	}
 }
 
+// RelaySettings carries the relay group out.
+//
+// RelaySettings.discord_link is not written.
+// The link secret is a credential rather than a setting: the link flow is its one writer
+// and the backend puts it back on every copy coming in (internal/app, withStoredLink),
+// so a shell has nothing to edit about it and carrying it would hand every shell a secret it has no use for.
 func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	return &screensharev1.RelaySettings{
 		Host:        r.Host,
@@ -56,7 +62,6 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		GroupKey:    r.GroupKey,
 		DisplayName: r.DisplayName,
 		DiscordMode: r.DiscordMode,
-		DiscordLink: r.DiscordLink,
 
 		DiscordRichPresence: r.DiscordRichPresence,
 	}
@@ -123,8 +128,10 @@ func ViewerSettings(v settings.Viewer) *screensharev1.ViewerSettings {
 // An assert here would turn every malformed request into a crash of the process holding
 // the encoder, which the error model forbids (docs/ipc-api.md, "Errors").
 //
-// The contract carries every settings field,
+// The contract carries every settings field a shell can edit,
 // so a draft read off it is whole and nothing is merged onto what the backend already held.
+// The two credentials are the exception, each written by the backend alone and put back there
+// (ToRelay, and internal/app settingsForCommand for the relay token).
 func ToSettings(m *screensharev1.Settings) settings.Settings {
 	return settings.Settings{
 		Relay:   ToRelay(m.GetRelay()),
@@ -149,6 +156,10 @@ func ToApp(m *screensharev1.AppSettings) settings.App {
 // so the field crosses outward as a reading and a value coming back is a shell's copy of an answer
 // this side already holds.
 // Taking it would let a stale draft turn encryption off.
+//
+// RelaySettings.discord_link is not read either, and crosses in neither direction (RelaySettings).
+// A draft read before a link landed carries none, so taking it would unlink this install
+// on the next save.
 func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
 		Host:        m.GetHost(),
@@ -161,7 +172,6 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		GroupKey:    m.GetGroupKey(),
 		DisplayName: m.GetDisplayName(),
 		DiscordMode: m.GetDiscordMode(),
-		DiscordLink: m.GetDiscordLink(),
 
 		DiscordRichPresence: m.GetDiscordRichPresence(),
 	}

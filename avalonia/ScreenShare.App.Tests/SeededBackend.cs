@@ -311,13 +311,19 @@ internal sealed class SeededBackend : IBackend
             : Task.FromResult(Build);
     }
 
+    /// <summary>
+    /// What a settings read answers, the seeded defaults where a test set none.
+    /// Set to move the backend's own settings under a window, which is what an announcement says happened.
+    /// </summary>
+    public Settings? Stored { get; set; }
+
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
         // Honoured rather than ignored, so an abandoned read takes the same path whichever implementation
         // stands behind the boundary.
         return cancellation.IsCancellationRequested
             ? Task.FromCanceled<Settings>(cancellation)
-            : Task.FromResult(Defaults());
+            : Task.FromResult(Stored ?? Defaults());
     }
 
     /// <summary>
@@ -880,15 +886,23 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// Event stream that ends at once.
-    /// Nothing here changes on its own, so there is no event to deliver, and the real client reads an ending
-    /// stream as the backend going away.
+    /// Events one subscription delivers, in the order a test queued them.
+    /// Empty on a fixture nothing pushed to, and nothing here changes on its own.
+    /// </summary>
+    public List<Event> Announcements { get; } = [];
+
+    /// <summary>
+    /// Event stream that delivers <see cref="Announcements"/> and ends.
+    /// The real client reads an ending stream as the backend going away.
     /// </summary>
     public async IAsyncEnumerable<Event> SubscribeAsync(
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         await Task.CompletedTask.ConfigureAwait(false);
-        yield break;
+        foreach (var announcement in Announcements)
+        {
+            yield return announcement;
+        }
     }
 
     /// <summary>
