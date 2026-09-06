@@ -9,9 +9,6 @@ namespace ScreenShare.App.Features.Insights.Model;
 /// </summary>
 public enum InsightsAction
 {
-    Pause,
-    ForceKeyframe,
-    Reconnect,
     Stop,
     EditInSetup,
     OpenFullLog,

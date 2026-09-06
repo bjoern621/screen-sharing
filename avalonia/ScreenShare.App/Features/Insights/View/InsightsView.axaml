@@ -34,8 +34,7 @@
           <!--
             Opens the cards on a window that draws them over the figures
             (docs/design-language.md, "Narrow windows").
-            Beside the stream's own actions because it is not one: it moves what this screen shows and reaches
-            no stream.
+            It moves what this screen shows and reaches no stream.
           -->
           <Button Theme="{StaticResource IconButton}"
                   VerticalAlignment="Center"
@@ -44,18 +43,6 @@
                   ToolTip.Tip="{Binding CardsColumn.ToggleTip}">
             <ti:TablerIcon Classes="button" Icon="{Binding CardsColumn.ToggleGlyph}" />
           </Button>
-
-          <!-- Each carries its reason. A grayed button with no tooltip is a dead end. -->
-          <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}"
-                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
-          <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}"
-                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
-          <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}"
-                  ToolTip.Tip="{Binding UnbackedActions}" ToolTip.ShowOnDisabled="True" />
-          <Button Theme="{StaticResource DangerButton}"
-                  Content="{x:Static vm:InsightsViewModel.StopLabel}"
-                  Command="{Binding StopCommand}"
-                  controls:Pending.IsActive="{Binding StopCommand.IsRunning}" />
         </WrapPanel>
 
         <header:HeaderStatsView DataContext="{Binding Stats}" />
@@ -63,9 +50,8 @@
     </Border>
 
     <!--
-      What the backend refused one of the four actions with, in its own words.
-      Under the row that asked rather than in a tip on the button: the refusal outlives the press,
-      and the four share one sentence because only the last press has anything to say.
+      What the backend refused stopping the stream with, in its own words.
+      The press can come from the tray or the Go-strip, so the refusal is shown here rather than at either.
     -->
     <Border DockPanel.Dock="Top"
             Classes="panel"

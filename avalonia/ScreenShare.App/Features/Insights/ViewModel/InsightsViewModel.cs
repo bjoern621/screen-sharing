@@ -37,25 +37,14 @@ namespace ScreenShare.App.Features.Insights.ViewModel;
 /// <see cref="Apply"/> is the one render function and pushes one composed reading into every card, so two cards
 /// cannot disagree about the stream they describe.
 ///
-/// Pause, force keyframe and reconnect name effects the control contract does not carry
-/// (<c>docs/ipc-api.md</c>, "The rule").
-/// They are drawn disabled and carrying why, the treatment the settings form gives a blocked concept: removing
-/// them would hide that the capability is missing.
-///
-/// Stop is the one that is real, and pressing it writes nothing here: the reply carries no state and what
-/// the stream became arrives on the event stream.
+/// Stop is real, and pressing it writes nothing here: the reply carries no state and what the stream became
+/// arrives on the event stream.
+/// Owned here because the running snapshot that gates it is, but drawn nowhere on this screen: the tray row
+/// and the Go-strip's primary button press it instead
+/// (<c>Tray/ViewModel/TrayViewModel.cs</c>, <c>Shell/Go/ViewModel/GoViewModel.cs</c>).
 /// </summary>
 public sealed class InsightsViewModel : Observable
 {
-    /// <summary>
-    /// Why the three header actions are inert, and what reaches a running stream instead.
-    /// One sentence for all three: the contract carries none of them, so three would say the same thing
-    /// (<c>docs/ipc-api.md</c>, "The rule").
-    /// </summary>
-    private const string UnbackedReason =
-        "Pausing, forcing a keyframe and reconnecting are not available. "
-        + "Stopping the stream and starting it again is the only control over a running stream.";
-
     private readonly IBackend _backend;
 
     private readonly Session _session;
@@ -139,13 +128,7 @@ public sealed class InsightsViewModel : Observable
             "Show the preview, the configuration and the test streams",
             "Hide the preview, the configuration and the test streams");
 
-        // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one
-        // of the three works.
-        PauseCommand = new DelegateCommand(() => Request(InsightsAction.Pause), static () => false);
-        ForceKeyframeCommand = new DelegateCommand(() => Request(InsightsAction.ForceKeyframe), static () => false);
-        ReconnectCommand = new DelegateCommand(() => Request(InsightsAction.Reconnect), static () => false);
-
-        // Ending a stream crosses to the backend and the encoder it brings down, so the button waits
+        // Ending a stream crosses to the backend and the encoder it brings down, so it waits
         // on the answer and refuses a second press while the first is out.
         StopCommand = new PendingCommand(() => PerformAsync(_backend.StopPublishAsync), dispatch, () => IsLive);
 
@@ -230,19 +213,13 @@ public sealed class InsightsViewModel : Observable
 
     public SessionLogViewModel Log { get; }
 
-    public DelegateCommand PauseCommand { get; }
-
-    public DelegateCommand ForceKeyframeCommand { get; }
-
-    public DelegateCommand ReconnectCommand { get; }
-
     /// <summary>
-    /// Word on the stop control, wherever it is drawn: this screen's button and the tray's row.
+    /// Word on the stop control, wherever it is drawn: the tray's row and the Go-strip's button.
     /// One place, so the two cannot drift.
     /// </summary>
     public const string StopLabel = "Stop sharing";
 
-    /// <summary>The one control on this screen ending the stream.</summary>
+    /// <summary>The one command ending the stream, pressed from the tray and the Go-strip.</summary>
     public PendingCommand StopCommand { get; }
 
     /// <summary>
@@ -250,9 +227,6 @@ public sealed class InsightsViewModel : Observable
     /// An output rather than an input: the backend alone knows it, so nothing writes it from outside.
     /// </summary>
     public InsightsSnapshot Snapshot { get => _snapshot; private set => Set(ref _snapshot, value); }
-
-    /// <summary>Sentence the inert actions' tooltip carries.</summary>
-    public string UnbackedActions => UnbackedReason;
 
     /// <summary>Backend's own sentence for something this screen asked and was refused, empty otherwise.</summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
@@ -306,18 +280,11 @@ public sealed class InsightsViewModel : Observable
 
         HasRefusal = Refusal.Length > 0;
 
-        PauseCommand.Refresh();
-        ForceKeyframeCommand.Refresh();
-        ReconnectCommand.Refresh();
         StopCommand.Refresh();
 
         Assert.That(
             Stats.Snapshot == reading && Preview.Snapshot == reading && Plots.Snapshot == reading,
             "every card on the screen describes one reading", reading.Elapsed);
-        Assert.That(
-            !PauseCommand.CanExecute(null) && !ForceKeyframeCommand.CanExecute(null) && !ReconnectCommand.CanExecute(null),
-            "an action the contract has no method for is never pressable");
-        Assert.That(UnbackedActions.Length > 0, "an inert action says why");
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
     }
 
