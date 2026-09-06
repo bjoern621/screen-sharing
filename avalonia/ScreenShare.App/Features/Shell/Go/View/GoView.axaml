@@ -36,7 +36,7 @@
                  Fill="{Binding $parent[Button].Foreground}"
                  IsVisible="{Binding !ShowsStop}"
                  VerticalAlignment="Center" />
-        <ti:TablerIcon Classes="button mark"
+        <ti:TablerIcon Classes="button"
                        Icon="IconPlayerStop"
                        Brush="{Binding $parent[Button].Foreground}"
                        IsVisible="{Binding ShowsStop}"

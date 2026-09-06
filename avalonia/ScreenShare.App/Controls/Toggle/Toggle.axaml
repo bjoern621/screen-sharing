@@ -18,8 +18,9 @@
                 Background="{StaticResource ControlBrush}"
                 BorderThickness="1"
                 BorderBrush="{StaticResource ChipBorderBrush}">
+          <!-- Even against the track's 16px inner box, so the inset around the knob is a whole 2px. -->
           <Ellipse Name="Knob"
-                   Width="11" Height="11"
+                   Width="12" Height="12"
                    Margin="3,0"
                    Fill="{StaticResource MutedBrush}"
                    HorizontalAlignment="Left"

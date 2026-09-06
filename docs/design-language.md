@@ -31,6 +31,9 @@ Green marks the way in: `Start sharing` is green, and the machine that is sharin
 On and selected both take inversion ("Selection"), so each hue keeps to the question its row names.
 None of the three carries a fact alone: what is coloured also says itself in words, a glyph or weight, so a reader who separates none of them loses nothing.
 A hue as a fill takes the label its contrast affords, white on red and green, near-black on amber.
+A badge whose whole content is a glyph takes near-black on every hue, a 1.25px stroke asking more of a fill than a label's stems do:
+white clears 3.9:1 on red and 3.2:1 on green, and near-black clears 4.7 and 5.8.
+A glyph standing beside a label follows the label.
 A hue that cannot be pressed drops the fill for a grey outline, so colour on a control says a press is there and the greyed controls read as one family.
 
 **Why a control is inert is read before anything else on it.**
@@ -95,6 +98,9 @@ Labels render in the case they are written in.
 ## Surfaces and shape
 
 Radius follows what a thing is: a segment, a control, a button, a strip, a panel, a video tile, and the one capsule, a stream chip.
+
+A shape centred inside another takes the parity of the box holding it: a 12px glyph in a 16px badge, a 12px knob in a track's 16px inner box, an 8px dot in a 30px control.
+An odd leftover splits into halves and puts the inner shape on a half pixel, where its own edges come back as two soft rows instead of one.
 
 Two things cast a shadow and nothing else is elevated.
 The window's is the platform's, so the app states nothing for it.
@@ -326,9 +332,10 @@ They sit with the tiles because a reader who only watches never opens setup, and
 
 ## Icons
 
-Outline glyphs, vector paths at a 1.2 stroke with round caps.
-A stroke is in the glyph's own 24-unit artwork, so the line on screen scales with the size the glyph is drawn at, and 1.2 lands at about 0.7px on a 14px glyph.
-A glyph standing in for a mark takes 3 instead, about 2px at the size a button glyph is drawn at, that hairline reading thin beside a filled dot.
+Outline glyphs, vector paths at a 2.5 stroke with round caps.
+One stroke covers every glyph on every surface, a badge mark included.
+A stroke is in the glyph's own 24-unit artwork, so the line on screen scales with the size the glyph is drawn at: 2.5 lands at about 1.25px on a 12px badge glyph and 1.7px on a 16px button glyph.
+Below 2 a 12px glyph is a sub-pixel line the fill behind it swallows, and above 3 the same glyph clogs, the gear's teeth and the info circle's ring closing into a blob.
 Sizes range 12 to 22px by surface.
 Emoji are never used: the platform emoji font paints them in colour and ignores the foreground brush, so a button's states become inexpressible.
 Window controls are geometry rather than text, for the same reason a font's box-drawing metrics cannot be relied on.
@@ -338,7 +345,7 @@ The shell uses the Tabler outline set, through `TablerIcons.Avalonia`.
 Platform icon themes go unused, so every surface shows the same glyphs.
 No surface draws its own path: a hand-written tick or chevron would be a fourth icon set nobody maintains, and would miss the stroke rule the first time it was resized.
 
-The window controls are the one exception and are not on the ladder above.
+The window controls are the one exception and take neither that stroke nor those sizes.
 They stand in for the caption buttons the platform hid when the client area was extended over them, so they are the platform's shapes at the platform's measurements.
 On Windows a 10px box at a 1px line with mitred corners (minimise, maximise, restore, close), the middle button drawing restore while the window is maximised.
 A reader compares them with every other window on the screen rather than with the app underneath, so an app-set glyph at the app's stroke is wrong there even when it is the same three lines.

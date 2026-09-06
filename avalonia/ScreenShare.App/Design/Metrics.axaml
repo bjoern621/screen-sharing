@@ -93,8 +93,11 @@
   <Thickness x:Key="ScrollBarGapVertical">4,0,0,0</Thickness>
   <Thickness x:Key="ScrollBarGapHorizontal">0,4,0,0</Thickness>
 
-  <!-- Small, because it is state and not decoration (docs/design-language.md). -->
-  <sys:Double x:Key="DotSize">7</sys:Double>
+  <!--
+    Small, because it is state and not decoration (docs/design-language.md).
+    Even, so a dot centred in a 30px control keeps to whole pixels.
+  -->
+  <sys:Double x:Key="DotSize">8</sys:Double>
 
   <!--
     One size for every control that can be waiting.
@@ -105,20 +108,15 @@
   <sys:Double x:Key="SpinnerStroke">1.5</sys:Double>
 
   <!--
-    Three sizes off the design's 12-22px range, named by where a glyph sits, and one stroke under all of them,
-    a heavier one standing beside it for the glyphs drawn as marks.
+    Three sizes off the design's 12-22px range, named by where a glyph sits, and one stroke under all of them.
     The window controls are not on this ladder.
 
     A stroke is in the glyph's own 24-unit artwork rather than in pixels,
     so what lands on the screen is the number times the size the glyph is drawn at, over 24:
-    1.2 is about 0.7px on a 14px control glyph.
+    2.5 is about 1.25px on a 12px badge glyph and 1.7px on a 16px button glyph.
+    Above 3 the 12px glyphs clog, the gear's teeth and the info circle's ring closing into a blob.
   -->
-  <sys:Single x:Key="IconStroke">1.2</sys:Single>
-  <!--
-    A glyph standing in for a mark, drawn beside filled shapes of its own size:
-    the line above reads thin against a solid dot, and 3 is about 2px at the 16px a button glyph takes.
-  -->
-  <sys:Single x:Key="IconStrokeMark">3</sys:Single>
+  <sys:Single x:Key="IconStroke">2.5</sys:Single>
   <!-- Inside a badge or a pill, where the surrounding shape is already 15-16px. -->
   <sys:Double x:Key="IconSizeBadge">12</sys:Double>
   <sys:Double x:Key="IconSizeControl">14</sys:Double>

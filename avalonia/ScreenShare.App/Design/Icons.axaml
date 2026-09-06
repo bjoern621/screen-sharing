@@ -25,11 +25,6 @@
     <Setter Property="Height" Value="{DynamicResource IconSizeBadge}" />
   </Style>
 
-  <!-- A glyph carrying a mark's job, at the heavier of the two strokes (Metrics.axaml). -->
-  <Style Selector="ti|TablerIcon.mark">
-    <Setter Property="StrokeWidth" Value="{DynamicResource IconStrokeMark}" />
-  </Style>
-
   <Style Selector="ti|TablerIcon.button">
     <Setter Property="Width" Value="{DynamicResource IconSizeButton}" />
     <Setter Property="Height" Value="{DynamicResource IconSizeButton}" />

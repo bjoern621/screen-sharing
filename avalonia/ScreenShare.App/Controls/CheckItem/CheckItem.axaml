@@ -15,9 +15,10 @@
     <Setter Property="Template">
       <ControlTemplate>
         <Grid ColumnDefinitions="Auto,*">
+          <!-- The badge is even, so the 12px glyph's slack splits into whole pixels and the ink lands centred. -->
           <Border Name="Badge"
                   Grid.Column="0"
-                  Width="15" Height="15"
+                  Width="16" Height="16"
                   CornerRadius="{StaticResource RadiusSegment}"
                   Background="{StaticResource ChipBorderBrush}"
                   BorderThickness="1"
@@ -27,7 +28,7 @@
             <ti:TablerIcon Name="Glyph"
                            Classes="badge"
                            Icon="{Binding $parent[controls:CheckItem].State, Converter={x:Static controls:CheckGlyphConverter.Instance}}"
-                           Brush="{StaticResource ForegroundBrush}"
+                           Brush="{StaticResource OnHueBrush}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
           </Border>
@@ -74,10 +75,6 @@
 
     <Style Selector="^[State=Warned] /template/ Border#Badge">
       <Setter Property="Background" Value="{StaticResource CautionBrush}" />
-    </Style>
-    <!-- The glyph inverts on this one badge, amber being lighter than the white every other badge carries. -->
-    <Style Selector="^[State=Warned] /template/ ti|TablerIcon#Glyph">
-      <Setter Property="Brush" Value="{StaticResource OnCautionBrush}" />
     </Style>
     <Style Selector="^[State=Warned] /template/ SelectableTextBlock#Body">
       <Setter Property="Foreground" Value="{StaticResource CautionBrush}" />
