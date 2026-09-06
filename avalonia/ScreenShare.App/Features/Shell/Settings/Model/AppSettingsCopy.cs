@@ -3,11 +3,10 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Shell.Settings.Model;
 
 /// <summary>
-/// What the settings dialog says in its own right: its title, its section headings, and the sentence
-/// stating where this install stands with Discord.
+/// What the settings dialog says in its own right, around the controls the fields own.
 ///
-/// Keyed on nothing, like <see cref="Copy.Cards"/>: the controls under the heading are keyed by field and
-/// take their words from <see cref="Copy.Fields"/>, and these are the words around them.
+/// Keyed on nothing, like <see cref="Copy.Cards"/>: a control under a heading is keyed by field and takes
+/// its words from <see cref="Copy.Fields"/>.
 /// </summary>
 public static class AppSettingsCopy
 {
@@ -15,7 +14,8 @@ public static class AppSettingsCopy
 
     public const string CloseTip = "Closes this dialog. Every setting here is already kept.";
 
-    public const string OpenTip = "Settings for the app: reports, updates, logs and the linked account.";
+    public const string OpenTip =
+        "Opens settings for the app as a whole. Set sharing and watching in Setup and Viewer.";
 
     public const string ResetLabel = "Reset to defaults";
 
