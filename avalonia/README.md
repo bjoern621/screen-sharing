@@ -371,7 +371,8 @@ The lifetime is the host's (`App.axaml.cs`).
 With an icon registered, closing the window hides it and shutdown is explicit.
 Quit ends a stream running on a backend this shell started, bounded, then shuts down, and the exit hooks take that backend with the process (`Backend/BackendProcess.cs`).
 A backend this shell attached to keeps its stream, the arrangement window close has always left it in.
-Where the platform serves no tray, `TrayIconHost.TryCreate` answers null and quit-on-close stands: a hidden window nothing can reopen is gone.
+`TrayIconHost.TryCreate` answers null where `MIRRORME_TRAY=0` asks for no icon, and where the platform serves no tray.
+Quit-on-close stands either way: a hidden window nothing can reopen is gone.
 
 ## How the repository's principles land in C#
 

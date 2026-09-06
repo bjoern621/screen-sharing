@@ -12,11 +12,20 @@ namespace ScreenShare.App.Features.Tray.View;
 /// The tray icon as the platform draws it, rendered whole from <see cref="TrayViewModel.Menu"/>.
 /// Code-behind for the reason the pop-out pass is: nothing binds a tray icon into existence.
 ///
-/// <see cref="TryCreate"/> answers null where the platform serves no tray, an Umgebungsfehler the caller
-/// reads as keep-the-quit-on-close-lifetime: a hidden window with no icon to come back through is gone.
+/// <see cref="TryCreate"/> answers null where <see cref="EnvTray"/> asks for no icon, and where the platform
+/// serves no tray, an Umgebungsfehler the caller reads the same way: quit-on-close stands, a hidden window
+/// with no icon to come back through being gone.
 /// </summary>
 public sealed class TrayIconHost : IDisposable
 {
+    /// <summary>
+    /// <c>0</c> keeps the icon out of the tray for a whole run.
+    ///
+    /// For a desktop whose panel draws no tray, and for a reader who wants the close button to end the app.
+    /// Everything the menu offers is the window's own, so a run without the icon loses no control.
+    /// </summary>
+    internal const string EnvTray = "MIRRORME_TRAY";
+
     private readonly TrayViewModel _tray;
     private readonly TrayIcon _icon;
     private readonly WindowIcon _idle;
@@ -59,10 +68,18 @@ public sealed class TrayIconHost : IDisposable
         Render();
     }
 
-    /// <summary>Puts the icon in the tray, or answers null on a platform serving none.</summary>
+    /// <summary>
+    /// Puts the icon in the tray.
+    /// Null where <see cref="EnvTray"/> is off, and on a platform serving no tray.
+    /// </summary>
     public static TrayIconHost? TryCreate(TrayViewModel tray)
     {
         Assert.NotNull(tray, "a tray icon draws the tray's state");
+
+        if (!IsWanted(Environment.GetEnvironmentVariable(EnvTray)))
+        {
+            return null;
+        }
 
         try
         {
@@ -77,6 +94,9 @@ public sealed class TrayIconHost : IDisposable
 
     /// <summary>Takes the icon out of the tray. A disposed host stays disposed.</summary>
     public void Dispose() => _icon.Dispose();
+
+    /// <summary>Whether a run wants an icon, read off <see cref="EnvTray"/>. Every value but <c>0</c> does.</summary>
+    internal static bool IsWanted(string? setting) => setting != "0";
 
     /// <summary>
     /// Whether a dispatcher exception is the tray watch dying of its own disposal,

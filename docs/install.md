@@ -154,6 +154,13 @@ Two backends capture the desktop properly:
   That capability is close to root and belongs on a dedicated ffmpeg copy rather than on `/usr/bin/ffmpeg`.
   The NixOS module builds that copy, and `docs/packaging.md` describes it for everyone else.
 
+## The tray icon
+
+The window closes to a tray icon, whose menu starts and stops a stream and whose quit ends the app.
+
+`MIRRORME_TRAY=0` puts no icon in the tray.
+Closing the window ends the app instead, and everything the menu offers stays in the window.
+
 ## Where settings are kept
 
 `~/.config/mirrorme/settings.json` on Linux, `%AppData%\mirrorme\settings.json` on Windows.
