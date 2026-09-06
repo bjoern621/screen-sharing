@@ -79,7 +79,9 @@ public sealed class TileStatsTests
         {
             PublishMs = 8.4,
             PathMs = 440,
-            ReceiveMs = 6.2,
+            ArriveMs = 51,
+            DecodeMs = 6.2,
+            WorkPeakMs = 22.5,
             PresentMs = 13.8,
             TotalMs = 468.4,
         },
@@ -99,16 +101,17 @@ public sealed class TileStatsTests
         var panel = TileStats.Of(Sample(), Report());
 
         Assert.Equal(
-            ["Arriving", "Picture", "Decode", "Render", "Timing", "Delay", "Audio", "This window"],
+            ["Arriving", "Picture", "Decode", "Render", "Delay", "Clock", "Audio", "This window"],
             panel.Select(section => section.Heading));
     }
 
     /// <summary>
-    /// Delay block is the whole path in the order a frame crosses it.
+    /// Delay block leads with what a reader came for and breaks it down behind it,
+    /// the stages in the order a frame crosses them.
     /// Every row is a stage any transport can fill, the way between the two machines being one measurement
     /// rather than a leg's window that only SRT states.
-    /// Decode's worst frame is the one row that is not a stage,
-    /// and it sits under the mean it is read against rather than in a block of its own.
+    /// Two rows are not stages: the worst single frame, and the window the last stages are scheduled
+    /// inside, both sitting under the figures they are read against.
     /// </summary>
     [Fact]
     public void TheDelayBlockNamesEveryStageOfThePath()
@@ -117,14 +120,17 @@ public sealed class TileStatsTests
 
         Assert.Equal(
             [
-                "Capture and encode", "Publisher to here", "Decode",
-                "Decode, worst", "Held for play time", "At least, end to end",
+                "End to end", "Capture and encode", "Publisher to here", "Buffered here",
+                "Decode", "Slowest frame", "Held for play time", "Latency window",
             ],
             Section(panel, "Delay").Lines.Select(line => line.Label));
 
+        Assert.Equal("468 ms", Value(panel, "Delay", "End to end"));
         Assert.Equal("8.4 ms", Value(panel, "Delay", "Capture and encode"));
         Assert.Equal("440 ms", Value(panel, "Delay", "Publisher to here"));
-        Assert.Equal("468 ms", Value(panel, "Delay", "At least, end to end"));
+        Assert.Equal("51 ms", Value(panel, "Delay", "Buffered here"));
+        Assert.Equal("6.2 ms", Value(panel, "Delay", "Decode"));
+        Assert.Equal("20 to 220 ms", Value(panel, "Delay", "Latency window"));
     }
 
     /// <summary>
@@ -135,12 +141,15 @@ public sealed class TileStatsTests
     public void AnUnstampedStreamShowsNoPathReading()
     {
         var unstamped = Sample();
-        unstamped.Delay = new DelayBudget { PublishMs = 8.4, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 28.4 };
+        unstamped.Delay = new DelayBudget
+        {
+            PublishMs = 8.4, ArriveMs = 51, DecodeMs = 6.2, PresentMs = 13.8, TotalMs = 79.4,
+        };
 
         var panel = TileStats.Of(unstamped, Report());
 
         Assert.Equal("…", Value(panel, "Delay", "Publisher to here"));
-        Assert.Equal("28 ms", Value(panel, "Delay", "At least, end to end"));
+        Assert.Equal("79 ms", Value(panel, "Delay", "End to end"));
     }
 
     /// <summary>
@@ -152,13 +161,13 @@ public sealed class TileStatsTests
     public void AStreamWithNoPublishingReadingShowsNoPublishingStages()
     {
         var unstamped = Sample();
-        unstamped.Delay = new DelayBudget { ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 20 };
+        unstamped.Delay = new DelayBudget { ArriveMs = 51, DecodeMs = 6.2, PresentMs = 13.8, TotalMs = 71 };
 
         var panel = TileStats.Of(unstamped, Report());
 
         Assert.Equal("…", Value(panel, "Delay", "Capture and encode"));
         Assert.Equal("…", Value(panel, "Delay", "Publisher to here"));
-        Assert.Equal("20 ms", Value(panel, "Delay", "At least, end to end"));
+        Assert.Equal("71 ms", Value(panel, "Delay", "End to end"));
     }
 
     /// <summary>
@@ -192,8 +201,7 @@ public sealed class TileStatsTests
         Assert.Equal("2.40 GB", Value(panel, "Arriving", "Video received"));
         Assert.Equal("2560×1440", Value(panel, "Picture", "Size"));
         Assert.Equal("1280×720", Value(panel, "Render", "Drawn at"));
-        Assert.Equal("20 to 220 ms", Value(panel, "Timing", "Latency window"));
-        Assert.Equal("1:00:00", Value(panel, "Timing", "Position"));
+        Assert.Equal("1:00:00", Value(panel, "Clock", "Position"));
         Assert.Equal("96 kb/s", Value(panel, "Audio", "Bitrate"));
     }
 
@@ -226,7 +234,7 @@ public sealed class TileStatsTests
         Assert.Equal("…", Value(panel, "Arriving", "Bitrate"));
         Assert.Equal("…", Value(panel, "Arriving", "Codec"));
         Assert.Equal("…", Value(panel, "Picture", "Size"));
-        Assert.Equal("…", Value(panel, "Timing", "Latency window"));
+        Assert.Equal("…", Value(panel, "Delay", "Latency window"));
         Assert.Equal("…", Value(panel, "This window", "Handed over at"));
 
         // A counter that counted nothing is a reading of zero, not an absence.

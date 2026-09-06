@@ -1496,7 +1496,7 @@ type DelayBudget struct {
 	PublishMs *float64 `protobuf:"fixed64,1,opt,name=publish_ms,json=publishMs,proto3,oneof" json:"publish_ms,omitempty"`
 	// From the publishing machine's encoder handing a frame over,
 	// to this machine's decoder being handed the same frame:
-	// the two legs and the relay between them, as one measurement.
+	// the two legs, the relay between them and this machine's own buffering, as one measurement.
 	//
 	// Measured rather than derived, off a clock written into the coded picture,
 	// so it is present on somebody else's stream and over every transport.
@@ -1504,26 +1504,41 @@ type DelayBudget struct {
 	// on a stream this app did not publish,
 	// and where the two machines' clocks disagree enough to put the encoder ahead of the decoder.
 	//
-	// total_ms counts it in place of the stages it spans.
+	// total_ms counts it in place of the stages it spans, arrive_ms among them.
 	// A reader may draw it or not,
 	// this stating what was measured rather than what a panel has room for.
 	PathMs *float64 `protobuf:"fixed64,8,opt,name=path_ms,json=pathMs,proto3,oneof" json:"path_ms,omitempty"`
-	// The source of this leg stamping a frame to the sink taking it:
-	// depacketizing, decoding and the queues between them, measured.
-	ReceiveMs *float64 `protobuf:"fixed64,4,opt,name=receive_ms,json=receiveMs,proto3,oneof" json:"receive_ms,omitempty"`
-	// The worst that same stage has cost any one frame since this decode started,
+	// The share of path_ms this machine spent:
+	// from the leg's source stamping a frame to the decoder being handed it,
+	// which is the transport's own buffering, the demuxer and the parser.
+	//
+	// The one stretch two measurements bracket, path_ms crossing it and the sink's window opening
+	// on it, so a sum that added the whole of both would count it twice.
+	// total_ms counts it inside path_ms and starts decode_ms where path_ms ends.
+	//
+	// What a leg holds packets for against loss lands here:
+	// an RTSP jitter buffer spends its window on this stage,
+	// and an SRT leg buffers inside its source and leaves the demuxer and the parser alone here.
+	ArriveMs *float64 `protobuf:"fixed64,10,opt,name=arrive_ms,json=arriveMs,proto3,oneof" json:"arrive_ms,omitempty"`
+	// The decoder being handed a frame to the sink taking it: the decode and the queues around it.
+	// Absent where nothing measured the arrival to subtract,
+	// in which case the whole stretch behind the source's stamp is reported here.
+	DecodeMs *float64 `protobuf:"fixed64,11,opt,name=decode_ms,json=decodeMs,proto3,oneof" json:"decode_ms,omitempty"`
+	// The worst arrive_ms and decode_ms together have cost any one frame since this decode started,
 	// which never comes down.
-	// receive_ms is a mean over the interval between two samples,
-	// and holds steady while single frames run long,
+	// Both of those are means over the interval between two samples,
+	// and hold steady while single frames run long,
 	// so the worst single frame says whether a decode has ever been short of the rate it is sent,
 	// rather than short on average.
-	ReceivePeakMs *float64 `protobuf:"fixed64,7,opt,name=receive_peak_ms,json=receivePeakMs,proto3,oneof" json:"receive_peak_ms,omitempty"`
+	//
+	// Read against the latency window, which schedules exactly the stretch it spans.
+	WorkPeakMs *float64 `protobuf:"fixed64,12,opt,name=work_peak_ms,json=workPeakMs,proto3,oneof" json:"work_peak_ms,omitempty"`
 	// What the sink still holds a frame for after it arrives,
 	// so that it is drawn at the moment the pipeline's latency window puts it.
-	// Work and wait together are that window,
-	// which is why a receive_ms rising to meet it is a decode about to start dropping frames.
+	// Arriving, decoding and waiting together are that window,
+	// which is why the first two rising to meet it is a decode about to start dropping frames.
 	PresentMs *float64 `protobuf:"fixed64,5,opt,name=present_ms,json=presentMs,proto3,oneof" json:"present_ms,omitempty"`
-	// The stages above that carry a figure, added up.
+	// The whole path a frame took, every measured stretch counted once.
 	// A floor rather than a total:
 	// path_ms is the only measurement of the way between the two machines,
 	// so a stream carrying no stamp counts none of that way,
@@ -1578,16 +1593,23 @@ func (x *DelayBudget) GetPathMs() float64 {
 	return 0
 }
 
-func (x *DelayBudget) GetReceiveMs() float64 {
-	if x != nil && x.ReceiveMs != nil {
-		return *x.ReceiveMs
+func (x *DelayBudget) GetArriveMs() float64 {
+	if x != nil && x.ArriveMs != nil {
+		return *x.ArriveMs
 	}
 	return 0
 }
 
-func (x *DelayBudget) GetReceivePeakMs() float64 {
-	if x != nil && x.ReceivePeakMs != nil {
-		return *x.ReceivePeakMs
+func (x *DelayBudget) GetDecodeMs() float64 {
+	if x != nil && x.DecodeMs != nil {
+		return *x.DecodeMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetWorkPeakMs() float64 {
+	if x != nil && x.WorkPeakMs != nil {
+		return *x.WorkPeakMs
 	}
 	return 0
 }
@@ -2520,25 +2542,31 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x0f_latency_min_msB\x11\n" +
 	"\x0f_latency_max_msB\x0f\n" +
 	"\r_position_secB\r\n" +
-	"\v_audio_kbps\"\xfa\x02\n" +
+	"\v_audio_kbps\"\xc7\x03\n" +
 	"\vDelayBudget\x12\"\n" +
 	"\n" +
 	"publish_ms\x18\x01 \x01(\x01H\x00R\tpublishMs\x88\x01\x01\x12\x1c\n" +
-	"\apath_ms\x18\b \x01(\x01H\x01R\x06pathMs\x88\x01\x01\x12\"\n" +
+	"\apath_ms\x18\b \x01(\x01H\x01R\x06pathMs\x88\x01\x01\x12 \n" +
+	"\tarrive_ms\x18\n" +
+	" \x01(\x01H\x02R\barriveMs\x88\x01\x01\x12 \n" +
+	"\tdecode_ms\x18\v \x01(\x01H\x03R\bdecodeMs\x88\x01\x01\x12%\n" +
+	"\fwork_peak_ms\x18\f \x01(\x01H\x04R\n" +
+	"workPeakMs\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"receive_ms\x18\x04 \x01(\x01H\x02R\treceiveMs\x88\x01\x01\x12+\n" +
-	"\x0freceive_peak_ms\x18\a \x01(\x01H\x03R\rreceivePeakMs\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"present_ms\x18\x05 \x01(\x01H\x04R\tpresentMs\x88\x01\x01\x12\x1e\n" +
-	"\btotal_ms\x18\x06 \x01(\x01H\x05R\atotalMs\x88\x01\x01B\r\n" +
+	"present_ms\x18\x05 \x01(\x01H\x05R\tpresentMs\x88\x01\x01\x12\x1e\n" +
+	"\btotal_ms\x18\x06 \x01(\x01H\x06R\atotalMs\x88\x01\x01B\r\n" +
 	"\v_publish_msB\n" +
 	"\n" +
-	"\b_path_msB\r\n" +
-	"\v_receive_msB\x12\n" +
-	"\x10_receive_peak_msB\r\n" +
+	"\b_path_msB\f\n" +
+	"\n" +
+	"_arrive_msB\f\n" +
+	"\n" +
+	"_decode_msB\x0f\n" +
+	"\r_work_peak_msB\r\n" +
 	"\v_present_msB\v\n" +
-	"\t_total_msJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\t\x10\n" +
-	"R\x0fpublish_link_msR\rwatch_link_msR\brelay_ms\"L\n" +
+	"\t_total_msJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\a\x10\bJ\x04\b\t\x10\n" +
+	"R\x0fpublish_link_msR\rwatch_link_msR\brelay_msR\n" +
+	"receive_msR\x0freceive_peak_ms\"L\n" +
 	"\fReceiveStats\x12<\n" +
 	"\astreams\x18\x01 \x03(\v2\".screenshare.v1.ReceiveStreamStatsR\astreams\"@\n" +
 	"\x10PreviewedMonitor\x12\x18\n" +

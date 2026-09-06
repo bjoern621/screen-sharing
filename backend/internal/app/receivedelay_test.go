@@ -35,7 +35,7 @@ func TestReceiveDelayTransitIsPerInterval(t *testing.T) {
 	budget := receiveDelayOf(now, last, true, publishDelay{})
 
 	// 300 ms across 10 frames, where the run holds 400 across 20.
-	closeTo(t, "receive", budget.Receive, ms(30))
+	closeTo(t, "decode", budget.Decode, ms(30))
 }
 
 // A first reading has nothing to divide, and neither does a pipeline rebuilt under one key:
@@ -43,13 +43,13 @@ func TestReceiveDelayTransitIsPerInterval(t *testing.T) {
 func TestReceiveDelayNeedsTwoReadingsOfOneRun(t *testing.T) {
 	now := receive.Stats{Transit: 400 * time.Millisecond, TransitFrames: 20}
 
-	if budget := receiveDelayOf(now, receive.Stats{}, false, publishDelay{}); budget.Receive != nil {
-		t.Errorf("a first reading measures a transit of %v ms, want it absent", *budget.Receive)
+	if budget := receiveDelayOf(now, receive.Stats{}, false, publishDelay{}); budget.Decode != nil {
+		t.Errorf("a first reading measures a transit of %v ms, want it absent", *budget.Decode)
 	}
 
 	rebuilt := receive.Stats{Transit: 10 * time.Millisecond, TransitFrames: 2}
-	if budget := receiveDelayOf(rebuilt, now, true, publishDelay{}); budget.Receive != nil {
-		t.Errorf("a restarted pipeline measures a transit of %v ms, want it absent", *budget.Receive)
+	if budget := receiveDelayOf(rebuilt, now, true, publishDelay{}); budget.Decode != nil {
+		t.Errorf("a restarted pipeline measures a transit of %v ms, want it absent", *budget.Decode)
 	}
 }
 
@@ -59,8 +59,8 @@ func TestReceiveDelayAnIdleIntervalTimesNothing(t *testing.T) {
 	last := receive.Stats{Transit: 100 * time.Millisecond, TransitFrames: 10}
 	now := receive.Stats{Transit: 100 * time.Millisecond, TransitFrames: 10}
 
-	if budget := receiveDelayOf(now, last, true, publishDelay{}); budget.Receive != nil {
-		t.Errorf("an interval with no frames measures %v ms, want it absent", *budget.Receive)
+	if budget := receiveDelayOf(now, last, true, publishDelay{}); budget.Decode != nil {
+		t.Errorf("an interval with no frames measures %v ms, want it absent", *budget.Decode)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestReceiveDelayPresentIsTheRestOfTheWindow(t *testing.T) {
 
 	budget := receiveDelayOf(now, last, true, publishDelay{})
 
-	closeTo(t, "receive", budget.Receive, ms(20))
+	closeTo(t, "decode", budget.Decode, ms(20))
 	closeTo(t, "present", budget.Present, ms(40))
 }
 
@@ -201,4 +201,55 @@ func TestReceiveDelayTotalIsAbsentWithNoStage(t *testing.T) {
 	if budget := receiveDelayOf(receive.Stats{}, receive.Stats{}, false, publishDelay{}); budget.Total != nil {
 		t.Errorf("an unmeasured decode totals %v ms, want it absent", *budget.Total)
 	}
+}
+
+// The way here and the work here bracket one stretch of the pipeline in common:
+// the leg's source stamps a frame, and the decoder is handed it later.
+// The decode row starts where the way here ends, so that stretch is counted once.
+func TestReceiveDelayDecodeStartsWhereTheWayHereEnds(t *testing.T) {
+	last := receive.Stats{}
+	now := receive.Stats{
+		Transit: 500 * time.Millisecond, TransitFrames: 10,
+		Arrive: 300 * time.Millisecond, ArriveFrames: 10,
+		Path: 800 * time.Millisecond, PathFrames: 10,
+
+		LatencyMin: 80 * time.Millisecond,
+	}
+
+	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8)})
+
+	closeTo(t, "arrive", budget.Arrive, ms(30))
+	closeTo(t, "decode", budget.Decode, ms(20))
+	closeTo(t, "present", budget.Present, ms(30))
+	// 8 encoding, 80 across, 20 decoding, 30 waiting at the sink,
+	// the 30 ms of buffering here being inside the way across.
+	closeTo(t, "total", budget.Total, ms(138))
+}
+
+// A pipeline with no decoder to bracket measures no way here either,
+// so the whole transit is the decode and no stretch is counted twice.
+func TestReceiveDelayWithNoArrivalReadingDecodesTheWholeTransit(t *testing.T) {
+	last := receive.Stats{}
+	now := receive.Stats{
+		Transit: 200 * time.Millisecond, TransitFrames: 10,
+
+		LatencyMin: 60 * time.Millisecond,
+	}
+
+	budget := receiveDelayOf(now, last, true, publishDelay{})
+
+	if budget.Arrive != nil {
+		t.Errorf("a pipeline with no decoder measures an arrival of %v ms, want it absent", *budget.Arrive)
+	}
+	closeTo(t, "decode", budget.Decode, ms(20))
+}
+
+// The worst single frame spans the arrival and the decode together:
+// the stretch the latency window schedules, and the one a sink's deadline is judged against.
+func TestReceiveDelayWorstFrameSpansTheWholeTransit(t *testing.T) {
+	now := receive.Stats{TransitPeak: 90 * time.Millisecond}
+
+	budget := receiveDelayOf(now, receive.Stats{}, false, publishDelay{})
+
+	closeTo(t, "work peak", budget.WorkPeak, ms(90))
 }

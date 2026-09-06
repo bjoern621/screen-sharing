@@ -44,14 +44,20 @@ func (a *App) publishedStreamLocked() (string, publishDelay) {
 // a transit is a mean over the interval between two readings rather than over the run.
 // publishing is this machine's own publishing leg where the decode is of the stream it sends,
 // and the zero value otherwise.
+//
+// Two measurements bracket one stretch of the pipeline in common:
+// the way here ends at the decoder, and the transit starts at the leg's source, ahead of it.
+// The stages split there, so the sum crosses that stretch once.
 func receiveDelayOf(now, last receive.Stats, seen bool, publishing publishDelay) wire.DelayBudget {
+	transit := transitOf(now, last, seen)
 	budget := wire.DelayBudget{
-		Publish:     firstOf(publishing.Transit, stampedPublishOf(now, last, seen)),
-		Path:        pathOf(now, last, seen),
-		Receive:     transitOf(now, last, seen),
-		ReceivePeak: transitPeakOf(now),
+		Publish:  firstOf(publishing.Transit, stampedPublishOf(now, last, seen)),
+		Path:     pathOf(now, last, seen),
+		Arrive:   arriveOf(now, last, seen),
+		WorkPeak: transitPeakOf(now),
 	}
-	budget.Present = presentOf(now.LatencyMin, budget.Receive)
+	budget.Decode = decodeOf(transit, budget.Arrive)
+	budget.Present = presentOf(now.LatencyMin, transit)
 	budget.Total = totalOf(budget)
 
 	assert.Assert(budget.Total == nil || *budget.Total >= 0,
@@ -71,6 +77,40 @@ func transitOf(now, last receive.Stats, seen bool) *float64 {
 	}
 	mean := float64(now.Transit-last.Transit) / float64(now.TransitFrames-last.TransitFrames)
 	return msOfPtr(time.Duration(mean))
+}
+
+// arriveOf is the mean wall clock one frame spent between the leg's source stamping it
+// and the decoder being handed it, over the interval between two readings.
+//
+// The same three readings a transit is taken from, and nil on the same three grounds.
+// Also nil before the pipeline picks a decoder, there being no pad to measure at.
+func arriveOf(now, last receive.Stats, seen bool) *float64 {
+	if !seen || now.ArriveFrames <= last.ArriveFrames || now.Arrive < last.Arrive {
+		return nil
+	}
+	mean := float64(now.Arrive-last.Arrive) / float64(now.ArriveFrames-last.ArriveFrames)
+	return msOfPtr(time.Duration(mean))
+}
+
+// decodeOf is what the decode itself cost: the transit less the arrival it opens with.
+//
+// The whole transit where nothing measured the arrival, which is a pipeline holding no decoder
+// to measure at and therefore no way here either, so nothing is counted twice.
+// Never negative.
+// The two are means over one interval taken across different frames,
+// so an arrival crossing the transit is those sets parting rather than a decode of less than nothing.
+func decodeOf(transit, arrive *float64) *float64 {
+	if transit == nil {
+		return nil
+	}
+	if arrive == nil {
+		return transit
+	}
+	work := *transit - *arrive
+	if work < 0 {
+		work = 0
+	}
+	return &work
 }
 
 // firstOf is the nearer of two readings of one stage, and nil where neither took one.
@@ -119,7 +159,8 @@ func pathOf(now, last receive.Stats, seen bool) *float64 {
 	return msOfPtr(time.Duration(mean))
 }
 
-// transitPeakOf is the worst that stage has cost a single frame since the decode started.
+// transitPeakOf is the worst the arrival and the decode together have cost a single frame since
+// the decode started, the stretch the latency window schedules.
 //
 // One reading and no interval, unlike every other stage here:
 // a high-water mark already answers over the whole run,
@@ -149,7 +190,7 @@ func presentOf(latency time.Duration, transit *float64) *float64 {
 	return &wait
 }
 
-// totalOf adds the stages that carry a figure, and is nil where none does.
+// totalOf adds the stretches that carry a figure, each counted once, and is nil where none does.
 //
 // A floor rather than a total.
 // Path is the only measurement of the way between the two machines,
@@ -157,7 +198,14 @@ func presentOf(latency time.Duration, transit *float64) *float64 {
 // either way.
 // Adding what is there still answers, every absent stage only making the real delay larger.
 func totalOf(budget wire.DelayBudget) *float64 {
-	stages := []*float64{budget.Publish, budget.Path, budget.Receive, budget.Present}
+	stages := []*float64{budget.Publish, budget.Path, budget.Decode, budget.Present}
+
+	// Arrive lies inside Path, so it is added only where Path is absent.
+	// What a leg held a frame for is measured on an unstamped stream too,
+	// and a floor dropping it would report less than what was read.
+	if budget.Path == nil {
+		stages = append(stages, budget.Arrive)
+	}
 
 	total, measured := 0.0, false
 	for _, stage := range stages {

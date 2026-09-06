@@ -63,8 +63,9 @@ The rows below them carry the whole path a frame took, which `delay-measurement.
 | Frames arriving | encoded frames reaching the decoder each second |
 | Discarded to keep up | frames the decoder threw away each second rather than hand on |
 | Drawn | frames leaving the sink each second |
-| Decode | mean time a frame spent between arriving and being ready to draw, over the interval between two samples |
-| Decode, worst | the longest any single frame ever spent, which only rises |
+| Buffered here | mean time a frame waited in the leg's own buffer before the decoder took it |
+| Decode | mean time a frame spent in the decoder, over the interval between two samples |
+| Slowest frame | the longest any single frame ever spent on those two together, which only rises |
 | Dropped at the last step | frames thrown away after the whole chain had been spent on them |
 
 Arriving less discarded is drawn, so the middle row is where a shortfall goes and it is the row to read first.

@@ -3,7 +3,7 @@
 Every stage between a screen and a window is measured, or named and left without a figure.
 Nothing is derived from a setting or from what a transport states: a delay a leg asked for is not what a packet took.
 
-Two measuring points do the work, one per pipeline, and a clock inside the picture joins them.
+Two measuring points carry a clock between the pipelines, and a third brackets what the receiving pipeline itself spends.
 
 ## Where the readings are taken
 
@@ -13,12 +13,13 @@ flowchart LR
         C[capture] --> E[encode] --> S(("stamp<br/>and probe"))
     end
     S --> R[relay]
-    R --> D(("probe")) --> V[decode] --> W[window]
+    R --> D(("probe")) --> V[decode] --> K(("probe")) --> W[window]
 ```
 
-Both points sit on the encoded stream.
+The two points the clock joins sit on the encoded stream.
 On the publishing side that is the encoded-frame counter's source pad, past the parser.
 On the receiving side it is the decoder's sink pad.
+The third sits at the sink, where a decoded frame is handed to the window.
 So no measurement maps a video surface, and the frames a capture or a decoder leaves on the GPU stay there.
 
 ## What each row is
@@ -28,27 +29,31 @@ So no measurement maps a video surface, and the frames a capture or a decoder le
 | Capture and encode | publish pipeline, encoded-frame counter | its own clock, less the frame's running time |
 | that row, on another machine's stream | the pictures themselves | the publisher's own reading, stamped into each one |
 | Publisher to here | both measuring points | the clock in the picture, against this machine's |
-| Decode | receive pipeline, sink pad | its own clock, less the frame's running time |
-| Held for play time | derived | the latency query, less the decode |
-| At least, end to end | derived | the measured stages, added |
+| Buffered here | receive pipeline, decoder sink pad | its own clock, less the frame's running time |
+| Decode | receive pipeline, sink pad | the same subtraction, less what the buffering took |
+| Slowest frame | receive pipeline, sink pad | the worst that subtraction has ever read |
+| Held for play time | derived | the latency query, less the buffering and the decode |
+| End to end | derived | the measured stretches, each counted once |
 
 Every row is a stage any transport can fill.
 A leg's own delivery window is not one: SRT states a window and the other four transports state nothing, so a row for it would stand blank on most legs.
-What a leg holds a packet for is inside the way here, and inside the decode where that leg buffers in the pipeline.
+What a leg holds a packet for is the buffering row: an RTSP jitter buffer spends its window there, and an SRT leg buffers inside its source and leaves that row the demuxer and the parser.
 
-The relay's own share is inside the way here as well, and on no row.
-A relay terminates one protocol and re-muxes per listener, so neither end can time what it spent:
-the relay API states no per-path delay, and no leg carries a relay timestamp to subtract.
+Two readings cross that row.
+The way here ends at the decoder, and the receiving pipeline's own subtraction starts at the leg's source, ahead of it.
+So the stretch between the source and the decoder lies inside both, and the decode row is the receiving reading less it.
 
-The total is the rows above it, added.
-Where the way here carries a figure the relay is counted inside it, and the sum is the whole journey.
-Where it does not, the sum is short by the whole way between the machines, which is why it is stated as a floor.
+## Adding them up
+
+The total is the stretches that carry a figure, added, each counted once.
+The way here holds both the buffering row and the relay inside it, so the buffering row is added alone only where the way here is blank.
+A way here with a figure makes the sum the whole journey, and one without leaves it short by everything between the machines, which is why it is stated as a floor.
 
 The budget is assembled once, on this side.
 Which stage a figure belongs to and which figures may be added is a decision, so no shell makes it again.
 
 Every figure is a mean over the interval between two samples, carried as a sum and a count so the interval stays the reader's.
-The exception is the decode's worst single frame, a high-water mark over the whole run.
+The exception is the slowest single frame, a high-water mark over the whole run.
 A mean holds steady while single frames run long, and the long one is what a sink's deadline is judged against.
 
 ## The clock in the picture

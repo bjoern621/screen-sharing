@@ -13,6 +13,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/framestamp"
 	"bjoernblessin.de/screenshare/internal/padprobe"
+	"bjoernblessin.de/screenshare/internal/pipedelay"
 )
 
 // The markers read out of a factory's GStreamer class, a slash-separated path, e.g.
@@ -78,6 +79,10 @@ type decodeTrack struct {
 	dec      gst.Element
 	factory  string
 	hardware bool
+	// arrive measures at the decoder input pad:
+	// what the leg spent buffering, demuxing and parsing ahead of the decode.
+	// nil until the pipeline picks a decoder, and on the track carrying no stamp.
+	arrive *pipedelay.Probe
 }
 
 // takeStamp reads what one frame carried out of the publishing machine:
@@ -179,6 +184,15 @@ func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 	pad := e.GetStaticPad("sink")
 	if pad == nil {
 		return
+	}
+
+	// The pad the stamp is read at, so one reading brackets two stretches at once:
+	// the one the way here ends on,
+	// and the one the latency window opens on (internal/app, receiveDelayOf).
+	if stamped {
+		r.mu.Lock()
+		t.arrive = pipedelay.Watch(e, "sink")
+		r.mu.Unlock()
 	}
 	pad.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		buf := padprobe.Buffer(info)

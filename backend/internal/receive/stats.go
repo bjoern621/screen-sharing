@@ -126,6 +126,17 @@ type Stats struct {
 	// rather than short on average.
 	TransitPeak time.Duration
 
+	// Arrive is the wall clock spent between the leg's source stamping a frame and the decoder being
+	// handed it, summed over ArriveFrames frames:
+	// the transport's own buffering, the demuxer and the parser (internal/pipedelay).
+	// A sum and a count like Transit, and read the same way.
+	//
+	// The opening stretch of Transit, and the closing stretch of Path.
+	// Both stay at zero until the pipeline picks a decoder, there being no pad to measure at before
+	// that.
+	Arrive       time.Duration
+	ArriveFrames uint64
+
 	// Path is the wall clock between the publishing machine's encoder handing a frame over and this
 	// machine's decoder being handed the same frame, summed over PathFrames frames:
 	// the publish leg, the relay's own share and this leg, as one figure.

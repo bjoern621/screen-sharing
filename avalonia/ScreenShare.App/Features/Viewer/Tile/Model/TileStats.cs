@@ -100,8 +100,8 @@ public static class TileStats
         Add(sections, "section.picture", Picture(s));
         Add(sections, "section.decode", Decode(s));
         Add(sections, "section.render", Render(s));
-        Add(sections, "section.timing", Timing(s));
         Add(sections, "section.delay", Delay(s));
+        Add(sections, "section.clock", Clock(s));
         Add(sections, "section.audio", Audio(s));
         Add(sections, "section.window", Window(report));
 
@@ -246,40 +246,48 @@ public static class TileStats
         Line("sink_dropped", Count(s.Dropped)),
     ];
 
-    private static IReadOnlyList<StatLine> Timing(ReceiveStreamStats s) =>
+    /// <summary>
+    /// How the decode is paced and how far it has got.
+    /// The window the pacing is scheduled inside is a figure of the path and sits with the path
+    /// (<see cref="Delay"/>).
+    /// </summary>
+    private static IReadOnlyList<StatLine> Clock(ReceiveStreamStats s) =>
     [
         Line("live", s.Live ? "yes" : "no"),
-        Line("latency", Latency(s)),
-        Line("position_sec", s.HasPositionSec ? Clock(s.PositionSec) : ""),
-        Line("uptime_sec", Clock(s.UptimeSec)),
+        Line("position_sec", s.HasPositionSec ? Elapsed(s.PositionSec) : ""),
+        Line("uptime_sec", Elapsed(s.UptimeSec)),
     ];
 
     /// <summary>
-    /// Path a frame took, stage by stage, in the order it crossed them.
+    /// What the path cost a frame: the whole of it first,
+    /// then the stages behind it in the order the frame crossed them.
     ///
     /// Which stages carry a figure is the backend's answer and not this side's:
     /// a viewer measures its own leg and its own pipeline,
     /// and sees the publishing machine's own work only where it is that machine too
     /// (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
     ///
-    /// One row is not a stage: the decode's worst single frame sits directly under the decode's mean,
-    /// read against it and against the sink's deadline rather than from memory two blocks away.
+    /// Two rows are not stages, and each sits under the figures it is read against.
+    /// The worst single frame goes under the two means it spans.
+    /// The latency window goes last, under the three rows that fill it.
+    ///
+    /// A decode reporting no budget at all is drawn as one that measured nothing,
+    /// the window being the sample's own figure and there either way.
     /// </summary>
     private static IReadOnlyList<StatLine> Delay(ReceiveStreamStats s)
     {
-        if (s.Delay is not { } d)
-        {
-            return [];
-        }
+        var d = s.Delay ?? new DelayBudget();
 
         return
         [
+            Line("delay.total", Ms(d.HasTotalMs, d.TotalMs)),
             Line("delay.publish", Ms(d.HasPublishMs, d.PublishMs)),
             Line("delay.path", Ms(d.HasPathMs, d.PathMs)),
-            Line("delay.receive", Ms(d.HasReceiveMs, d.ReceiveMs)),
-            Line("delay.receive_peak", Ms(d.HasReceivePeakMs, d.ReceivePeakMs)),
+            Line("delay.arrive", Ms(d.HasArriveMs, d.ArriveMs)),
+            Line("delay.decode", Ms(d.HasDecodeMs, d.DecodeMs)),
+            Line("delay.work_peak", Ms(d.HasWorkPeakMs, d.WorkPeakMs)),
             Line("delay.present", Ms(d.HasPresentMs, d.PresentMs)),
-            Line("delay.total", Ms(d.HasTotalMs, d.TotalMs)),
+            Line("latency", Latency(s)),
         ];
     }
 
@@ -444,7 +452,7 @@ public static class TileStats
     /// Position and uptime sit beside each other and are compared, a stalled position against an uptime that runs
     /// on, so both are spelled the same way.
     /// </summary>
-    private static string Clock(double seconds)
+    private static string Elapsed(double seconds)
     {
         var span = TimeSpan.FromSeconds(seconds);
         return span.TotalHours >= 1

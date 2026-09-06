@@ -36,12 +36,12 @@ public static class Counters
         ["section.render"] = new(
             "Render",
             "What happened between the decoder and this window: the render chain, the memory the frames arrived in, and what this computer did with them."),
-        ["section.timing"] = new(
-            "Timing",
-            "How the decode is paced. A live stream cannot slow down to catch up, so anything not decoded in time is dropped."),
         ["section.delay"] = new(
             "Delay",
             "What each stage costs a frame, from the publisher's screen to this window. The relay cannot be timed, so the total is a floor."),
+        ["section.clock"] = new(
+            "Clock",
+            "How the decode is paced and how far it has got. A live stream cannot slow down to catch up, so late frames are dropped."),
         ["section.audio"] = new(
             "Audio",
             "The sound track this decode is carrying. Absent on a stream published without one."),
@@ -58,7 +58,7 @@ public static class Counters
     {
         ["srtsrc"] = new(
             "SRT link",
-            "The SRT connection this tile receives on: the leg from the relay to here. Its counters describe that hop alone, not the publisher's."),
+            "The SRT connection this tile receives on: the leg from the relay to here. Its counters describe that hop alone."),
         ["rtpjitterbuffer"] = new(
             "RTP jitter buffer",
             "Reorders RTP packets and requests missing ones again. One per track, so two blocks are two tracks rather than two problems."),
@@ -102,7 +102,7 @@ public static class Counters
         // section.picture
         ["picture_size"] = new(
             "Size",
-            "The picture as the publisher encoded it, not the tile's size. What this window draws is under Render."),
+            "The picture as the publisher encoded it. What this window draws is under Render."),
         ["pixel_format"] = new(
             "Pixel format",
             "How the decoded samples are laid out, in GStreamer's spelling. Depth and chroma sampling beside it are read out of this name."),
@@ -165,13 +165,10 @@ public static class Counters
             "Dropped at the last step",
             "Frames dropped after everything was already spent on them. Zero on a healthy decode. Frames shed to stay current are dropped much earlier instead."),
 
-        // section.timing
+        // section.clock
         ["live"] = new(
             "Live timing",
             "Whether the decode runs against a clock it cannot pause. Every relay leg does. What is not decoded in time is dropped."),
-        ["latency"] = new(
-            "Latency window",
-            "How long a frame is held before playing, the buffer against jitter. Larger is steadier and later. The floor under this tile's speed."),
         ["position_sec"] = new(
             "Position",
             "The running time the decode has reached. Frozen while uptime climbs means the stream stalled, which separates a stalled tile from a still picture."),
@@ -180,24 +177,30 @@ public static class Counters
             "How long this decode has been running. It restarts whenever the decode is rebuilt, which turning tone mapping on does."),
 
         // section.delay
+        ["delay.total"] = new(
+            "End to end",
+            "Everything measured, added up, each stretch counted once. A floor where a stage is missing: a stream carrying no clock leaves out the way here."),
         ["delay.publish"] = new(
             "Capture and encode",
             "How long the publisher held a frame between reading the screen and having it encoded. A faster effort step or a shorter lookahead shortens this stage."),
         ["delay.path"] = new(
             "Publisher to here",
-            "The whole way between the publishing machine and this one, relay included. Read from a clock in each frame, so H.264 and H.265 carry it and other formats do not."),
-        ["delay.receive"] = new(
+            "The whole way between the publishing machine and this one, relay and the buffering here included. Read from a clock only H.264 and H.265 carry."),
+        ["delay.arrive"] = new(
+            "Buffered here",
+            "What this computer's transport buffer, demuxer and parser held a frame for. Part of the way here, and set by the leg's latency setting."),
+        ["delay.decode"] = new(
             "Decode",
-            "Time from packet arrival to a frame ready to draw. Rising to meet the latency window means the decode is about to drop frames."),
-        ["delay.receive_peak"] = new(
-            "Decode, worst",
-            "The longest a single frame has taken on this decode. It only rises, so one slow frame shows here where an average hides it."),
+            "Time from the decoder taking a frame to a frame ready to draw. Rising to meet the latency window means frames are about to drop."),
+        ["delay.work_peak"] = new(
+            "Slowest frame",
+            "The longest one frame has taken between arriving and being ready. It only rises, so one slow frame shows here where the means hide it."),
         ["delay.present"] = new(
             "Held for play time",
-            "How long each frame waited to be drawn at its play time. It shrinks as the decode above grows, the two together making the window."),
-        ["delay.total"] = new(
-            "At least, end to end",
-            "Everything measured, added up, nothing counted twice. A floor wherever a stage is missing: a stream without its own timestamp leaves the relay out."),
+            "How long each frame waited to be drawn at its play time. Buffering, decoding and this wait together fill the latency window."),
+        ["latency"] = new(
+            "Latency window",
+            "How long a frame is held before playing, the buffer against jitter. Larger is steadier and later. The floor under this tile's speed."),
 
         // section.audio
         ["audio_codec_description"] = new(

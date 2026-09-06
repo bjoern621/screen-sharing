@@ -42,11 +42,19 @@ func (r *Receiver) Stats() Stats {
 	// so the handles are copied under it and the pipeline is queried outside it.
 	r.mu.Lock()
 	videoDec, audioDec := r.video.dec, r.audio.dec
+	arrive := r.video.arrive
 	s.Decoder, s.Hardware = r.video.factory, r.video.hardware
 	s.AudioDecoder = r.audio.factory
 	audioConvert := r.audioConvert
 	sources := slices.Clone(r.stats)
 	r.mu.Unlock()
+
+	// nil before the pipeline picks a decoder,
+	// which leaves the whole transit to be read as the decode (internal/app, decodeOf).
+	if arrive != nil {
+		reading := arrive.Read()
+		s.Arrive, s.ArriveFrames = reading.Total, reading.Frames
+	}
 
 	readEncoded(&s, videoDec)
 	readDecoded(&s, videoDec)

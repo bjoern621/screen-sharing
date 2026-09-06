@@ -396,7 +396,7 @@ message DelayBudget {
   optional double publish_ms = 1;
   // From the publishing machine's encoder handing a frame over,
   // to this machine's decoder being handed the same frame:
-  // the two legs and the relay between them, as one measurement.
+  // the two legs, the relay between them and this machine's own buffering, as one measurement.
   //
   // Measured rather than derived, off a clock written into the coded picture,
   // so it is present on somebody else's stream and over every transport.
@@ -404,26 +404,41 @@ message DelayBudget {
   // on a stream this app did not publish,
   // and where the two machines' clocks disagree enough to put the encoder ahead of the decoder.
   //
-  // total_ms counts it in place of the stages it spans.
+  // total_ms counts it in place of the stages it spans, arrive_ms among them.
   // A reader may draw it or not,
   // this stating what was measured rather than what a panel has room for.
   optional double path_ms = 8;
-  // The source of this leg stamping a frame to the sink taking it:
-  // depacketizing, decoding and the queues between them, measured.
-  optional double receive_ms = 4;
-  // The worst that same stage has cost any one frame since this decode started,
+  // The share of path_ms this machine spent:
+  // from the leg's source stamping a frame to the decoder being handed it,
+  // which is the transport's own buffering, the demuxer and the parser.
+  //
+  // The one stretch two measurements bracket, path_ms crossing it and the sink's window opening
+  // on it, so a sum that added the whole of both would count it twice.
+  // total_ms counts it inside path_ms and starts decode_ms where path_ms ends.
+  //
+  // What a leg holds packets for against loss lands here:
+  // an RTSP jitter buffer spends its window on this stage,
+  // and an SRT leg buffers inside its source and leaves the demuxer and the parser alone here.
+  optional double arrive_ms = 10;
+  // The decoder being handed a frame to the sink taking it: the decode and the queues around it.
+  // Absent where nothing measured the arrival to subtract,
+  // in which case the whole stretch behind the source's stamp is reported here.
+  optional double decode_ms = 11;
+  // The worst arrive_ms and decode_ms together have cost any one frame since this decode started,
   // which never comes down.
-  // receive_ms is a mean over the interval between two samples,
-  // and holds steady while single frames run long,
+  // Both of those are means over the interval between two samples,
+  // and hold steady while single frames run long,
   // so the worst single frame says whether a decode has ever been short of the rate it is sent,
   // rather than short on average.
-  optional double receive_peak_ms = 7;
+  //
+  // Read against the latency window, which schedules exactly the stretch it spans.
+  optional double work_peak_ms = 12;
   // What the sink still holds a frame for after it arrives,
   // so that it is drawn at the moment the pipeline's latency window puts it.
-  // Work and wait together are that window,
-  // which is why a receive_ms rising to meet it is a decode about to start dropping frames.
+  // Arriving, decoding and waiting together are that window,
+  // which is why the first two rising to meet it is a decode about to start dropping frames.
   optional double present_ms = 5;
-  // The stages above that carry a figure, added up.
+  // The whole path a frame took, every measured stretch counted once.
   // A floor rather than a total:
   // path_ms is the only measurement of the way between the two machines,
   // so a stream carrying no stamp counts none of that way,
@@ -435,8 +450,11 @@ message DelayBudget {
   // the delivery window each leg stated, and what the two of them left of path_ms.
   // SRT alone states a window,
   // so the first two were blank on every other leg and the third was derivable on none.
-  reserved 2, 3, 9;
-  reserved "publish_link_ms", "watch_link_ms", "relay_ms";
+  //
+  // 4 and 7 held receive_ms and receive_peak_ms, measured from the leg's source stamp,
+  // which put arrive_ms inside both them and path_ms.
+  reserved 2, 3, 4, 7, 9;
+  reserved "publish_link_ms", "watch_link_ms", "relay_ms", "receive_ms", "receive_peak_ms";
 }
 
 // One sample across every decode.
