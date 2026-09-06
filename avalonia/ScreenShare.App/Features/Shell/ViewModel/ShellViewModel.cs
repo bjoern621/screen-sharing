@@ -112,7 +112,7 @@ public sealed class ShellViewModel : Observable
         // The tray presses the destinations' own commands rather than carrying a gate of its own,
         // so it is built beside them.
         // Whether this shell owns a backend is read at the press, the spawn being lazy.
-        Tray = new TrayViewModel(backend, _session, Setup, Broadcast, () => BackendProcess.Owns, dispatch);
+        Tray = new TrayViewModel(backend, _session, Setup, Broadcast, () => BackendProcess.Owns, PartAsync, dispatch);
 
         // The strip's commit presses the destinations' own commands the way the tray does,
         // so it is built beside them and handed to the strip as its right-hand control.
@@ -288,6 +288,15 @@ public sealed class ShellViewModel : Observable
         Viewer.SetWindowShown(shown);
         Broadcast.SetWindowShown(shown);
     }
+
+    /// <summary>
+    /// Hides ahead of a quit: closes every decode the window's screens hold open, the grid's and the preview's,
+    /// and answers once the backend has.
+    /// Bounded by the token, so a wedged backend cannot hold the exit.
+    /// The stream this machine sends is the quit's own business (<c>Features/Tray/ViewModel/TrayViewModel.cs</c>).
+    /// </summary>
+    public Task PartAsync(CancellationToken cancellation)
+        => Task.WhenAll(Viewer.PartAsync(), Broadcast.PartAsync()).WaitAsync(cancellation);
 
     /// <summary>
     /// One render function.

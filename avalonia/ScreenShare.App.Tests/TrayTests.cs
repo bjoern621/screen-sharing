@@ -13,7 +13,7 @@ namespace ScreenShare.App.Tests;
 /// Tray menu, derived from the same commands the window presses.
 /// What is on the air decides the one commit row: a start where nothing runs, a stop where something does.
 /// A preset picked from the tray writes the draft the window holds, and restarts the stream where one is live.
-/// Quit stops the stream first, and only for a backend this shell started.
+/// Quit closes the window's decodes, then stops the stream, the latter only for a backend this shell started.
 /// </summary>
 public sealed class TrayTests
 {
@@ -42,13 +42,16 @@ public sealed class TrayTests
         }
     }
 
-    private static Fixture Open(PublishingBackend backend, Func<bool>? owns = null)
+    private static Fixture Open(
+        PublishingBackend backend, Func<bool>? owns = null, Func<CancellationToken, Task>? part = null)
     {
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
         var broadcast = new BroadcastViewModel(backend, form, session, Inline);
-        var tray = new TrayViewModel(backend, session, setup, broadcast, owns ?? (static () => true), Inline);
+        var tray = new TrayViewModel(
+            backend, session, setup, broadcast,
+            owns ?? (static () => true), part ?? (static _ => Task.CompletedTask), Inline);
 
         var opened = new Fixture(backend, session, form, setup, broadcast, tray);
         opened.Reload();
@@ -259,6 +262,46 @@ public sealed class TrayTests
 
         Assert.Equal(0, opened.Backend.Stopped);
         Assert.Equal(1, quits);
+    }
+
+    /// <summary>
+    /// The window's decodes are the shell's alone, whichever backend runs them,
+    /// so they close on every quit and before the shutdown is asked for.
+    /// </summary>
+    [Fact]
+    public void QuitPartsTheWindowBeforeAskingToShutDown()
+    {
+        var order = new List<string>();
+        var opened = Open(
+            new PublishingBackend { Publish = Live("lab04") },
+            owns: static () => false,
+            part: _ =>
+            {
+                order.Add("part");
+                return Task.CompletedTask;
+            });
+        opened.Tray.QuitRequested += () => order.Add("quit");
+
+        opened.Tray.QuitCommand.Execute(null);
+
+        Assert.Equal(["part", "quit"], order);
+        Assert.Equal(0, opened.Backend.Stopped);
+    }
+
+    /// <summary>A part that never answers is waited out, the exit being what was asked for.</summary>
+    [Fact]
+    public async Task QuitOutwaitsAPartThatNeverAnswers()
+    {
+        var quit = new TaskCompletionSource();
+        var opened = Open(
+            new PublishingBackend { Publish = Live("lab04") },
+            part: async cancellation => await Task.Delay(Timeout.Infinite, cancellation));
+        opened.Tray.QuitRequested += () => quit.SetResult();
+
+        opened.Tray.QuitCommand.Execute(null);
+
+        await quit.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(1, opened.Backend.Stopped);
     }
 
     /// <summary>The pass runs on every shell render, so an unchanged menu has to notify nothing.</summary>

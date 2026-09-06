@@ -160,7 +160,8 @@ An entry dropped where it ended would take the reason with it, and the reason is
 **A decode runs while a window draws it.**
 Which tiles exist is the shell's arrangement, and a window closed to the tray draws none:
 the tiles in its grid leave and their decodes close, while a stream in a window of its own keeps both.
-The grid comes back empty with the window, what to watch being the reader's to say again.
+The streams are kept, so the window comes back watching them, each through the start a press runs and on the leg the settings name then.
+A quit waits for those closes, bounded, and a backend that outlives the shell keeps only the stream it publishes.
 The stream this machine publishes stays on the air behind a closed window (`avalonia/README.md`, "The tray").
 
 The child ends when its control connection does, taking every pipeline down first, and the backend waits for that: a host killed mid-teardown leaves a decoder on the device.

@@ -217,6 +217,9 @@ public sealed class BroadcastViewModel : Observable
     /// <summary>States whether the window is on screen, which the preview's picture follows. Idempotent.</summary>
     public void SetWindowShown(bool shown) => Preview.SetWindowShown(shown);
 
+    /// <summary>Hides ahead of a quit, answering once the preview's decode is closed.</summary>
+    public Task PartAsync() => Preview.PartAsync();
+
     /// <summary>
     /// Synthetic publishers this machine runs, a row per slot.
     /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable

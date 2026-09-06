@@ -25,7 +25,7 @@ namespace ScreenShare.App.Features.Tray.ViewModel;
 /// </summary>
 public sealed class TrayViewModel : Observable
 {
-    /// <summary>Bound wait for the stop a quit runs first, so a wedged backend cannot hold the exit.</summary>
+    /// <summary>Bound wait for the stops a quit runs first, so a wedged backend cannot hold the exit.</summary>
     private static readonly TimeSpan StopBudget = TimeSpan.FromSeconds(2);
 
     private readonly IBackend _backend;
@@ -33,6 +33,7 @@ public sealed class TrayViewModel : Observable
     private readonly SetupViewModel _setup;
     private readonly BroadcastViewModel _broadcast;
     private readonly Func<bool> _ownsBackend;
+    private readonly Func<CancellationToken, Task> _part;
     private readonly Action<Action> _dispatch;
 
     private TrayMenu _menu = TrayMenu.Unread;
@@ -42,12 +43,18 @@ public sealed class TrayViewModel : Observable
     /// A function rather than a value: the backend is started lazily, on the first connect that finds
     /// nothing listening (<c>Backend/BackendProcess.cs</c>).
     /// </param>
+    /// <param name="part">
+    /// Closes what the window alone holds open on the backend, the grid's decodes and the preview's,
+    /// answering once the backend has (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>).
+    /// Run on every quit, whichever backend runs them: nothing draws them once the process is gone.
+    /// </param>
     public TrayViewModel(
         IBackend backend,
         Session session,
         SetupViewModel setup,
         BroadcastViewModel broadcast,
         Func<bool> ownsBackend,
+        Func<CancellationToken, Task> part,
         Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a tray asks the backend to stop the stream a quit ends");
@@ -55,6 +62,7 @@ public sealed class TrayViewModel : Observable
         Assert.NotNull(setup, "a tray presses the setup flow's own commit");
         Assert.NotNull(broadcast, "a tray presses the broadcast screen's own stop");
         Assert.NotNull(ownsBackend, "a tray asks whether this shell has a backend of its own to stop");
+        Assert.NotNull(part, "a tray closes the window's decodes before a quit");
         Assert.NotNull(dispatch, "a tray needs a UI loop to marshal an answer back to");
 
         _backend = backend;
@@ -62,6 +70,7 @@ public sealed class TrayViewModel : Observable
         _setup = setup;
         _broadcast = broadcast;
         _ownsBackend = ownsBackend;
+        _part = part;
         _dispatch = dispatch;
 
         QuitCommand = new PendingCommand(QuitAsync, dispatch);
@@ -87,8 +96,8 @@ public sealed class TrayViewModel : Observable
     public TrayMenu Menu { get => _menu; private set => Set(ref _menu, value); }
 
     /// <summary>
-    /// Ends the app: stream first, then <see cref="QuitRequested"/>.
-    /// Waits rather than going inert, the stop being a round trip.
+    /// Ends the app: the window's decodes and the stream first, then <see cref="QuitRequested"/>.
+    /// Waits rather than going inert, each stop being a round trip.
     /// </summary>
     public PendingCommand QuitCommand { get; }
 
@@ -220,32 +229,40 @@ public sealed class TrayViewModel : Observable
     }
 
     /// <summary>
-    /// Stops the stream, then asks the host to shut down.
-    /// Only a backend this shell started is stopped: it dies with the shell either way, and the stop lets
-    /// the relay drop the session now rather than at the lease sweep.
+    /// Closes the window's decodes and stops the stream, side by side under one budget, then asks the host
+    /// to shut down.
+    /// The decodes close on every quit, being the shell's alone.
+    /// Only a backend this shell started has its stream stopped: it dies with the shell either way, and the stop
+    /// lets the relay drop the session now rather than at the lease sweep.
     /// One left running keeps its stream (<c>Backend/BackendProcess.cs</c>).
-    /// Bounded, and a stop that failed still quits: the exit is what was asked for, and the kill on exit
+    /// A stop that failed or ran out the budget still quits: the exit is what was asked for, and the kill on exit
     /// takes the pipeline with it.
     /// </summary>
     private async Task QuitAsync()
     {
-        if (_session.Publish?.Live is not null && _ownsBackend())
-        {
-            using var bound = new CancellationTokenSource(StopBudget);
-            try
-            {
-                await _backend.StopPublishAsync(bound.Token).ConfigureAwait(false);
-            }
-            catch (BackendUnavailableException)
-            {
-                // A backend that cannot be reached has nothing to stop.
-            }
-            catch (OperationCanceledException)
-            {
-                // The budget ran out.
-            }
-        }
+        using var bound = new CancellationTokenSource(StopBudget);
+
+        var part = Attempt(_part(bound.Token));
+        var stop = _session.Publish?.Live is not null && _ownsBackend()
+            ? Attempt(_backend.StopPublishAsync(bound.Token))
+            : Task.CompletedTask;
+        await Task.WhenAll(part, stop).ConfigureAwait(false);
 
         _dispatch(() => QuitRequested?.Invoke());
+    }
+
+    /// <summary>Waits one stop out. A backend that cannot be reached has nothing to stop, and a budget can run out.</summary>
+    private static async Task Attempt(Task stop)
+    {
+        try
+        {
+            await stop.ConfigureAwait(false);
+        }
+        catch (BackendUnavailableException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 }

@@ -816,4 +816,18 @@ public sealed class BroadcastPreviewTests
         Assert.NotNull(preview.Tile);
         Assert.Equal(TileSourceKind.PublishPreview, preview.Tile.Source.Kind);
     }
+
+    /// <summary>A quit waits for the reader slot to be given back, so the answer is the backend's.</summary>
+    [Fact]
+    public void PartingClosesTheEndToEndDecode()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
+
+        var parted = preview.PartAsync();
+
+        Assert.True(parted.IsCompleted);
+        Assert.Single(backend.Stopped);
+        Assert.Null(preview.Tile);
+    }
 }

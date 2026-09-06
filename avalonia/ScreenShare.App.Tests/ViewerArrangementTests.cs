@@ -56,6 +56,30 @@ public sealed class ViewerArrangementTests
             held?.SetResult();
         }
 
+        /// <summary>
+        /// Answers the held stops wait on, one per call, empty while stops answer at once.
+        /// One per call rather than one shared: the runtime resumes a second awaiter of one task off the thread,
+        /// and a test then reads a state still being written.
+        /// </summary>
+        private readonly Queue<TaskCompletionSource> _heldStops = [];
+
+        private bool _holdsStops;
+
+        public void HoldStops() => _holdsStops = true;
+
+        /// <summary>Lets every held stop answer, in order, off the test's own context (<see cref="Answers.Now"/>).</summary>
+        public void AnswerStops()
+        {
+            _holdsStops = false;
+            while (_heldStops.TryDequeue(out var held))
+            {
+                held.SetResult();
+            }
+        }
+
+        /// <summary>Starts asked for, a repeat included, so a pass that asks again is caught.</summary>
+        public int Starts { get; private set; }
+
         /// <summary>Replaces what the relay lists, read on the next load.</summary>
         public void Carry(params string[] paths) => _paths = paths;
 
@@ -103,13 +127,21 @@ public sealed class ViewerArrangementTests
                 _decoding.Add(streamRef);
             }
 
+            Starts++;
             return _heldStart?.Task ?? Task.CompletedTask;
         }
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         {
             _decoding.Remove(new StreamRef { StreamName = streamName, Transport = transport });
-            return Task.CompletedTask;
+            if (!_holdsStops)
+            {
+                return Task.CompletedTask;
+            }
+
+            var held = new TaskCompletionSource();
+            _heldStops.Enqueue(held);
+            return held.Task;
         }
 
         public async Task<Settings> SettingsAsync(CancellationToken cancellation = default)
@@ -638,9 +670,12 @@ public sealed class ViewerArrangementTests
         Assert.Contains("one", viewer.PoppedOut);
     }
 
-    /// <summary>The slot a closed pop-out returns to is in a window nothing shows.</summary>
+    /// <summary>
+    /// The slot a closed pop-out returns to is in a window nothing shows, and the stream is back in the grid
+    /// when the window is.
+    /// </summary>
     [Fact]
-    public void APopOutClosedWhileTheWindowIsHiddenStopsItsDecode()
+    public void APopOutClosedWhileTheWindowIsHiddenStopsItsDecodeUntilTheWindowIsBack()
     {
         var (viewer, backend, _) = GridOn("one");
         var tile = Tile(viewer, "one");
@@ -651,28 +686,54 @@ public sealed class ViewerArrangementTests
 
         Assert.Empty(viewer.Tiles);
         Assert.Empty(backend.Decoding);
+
+        viewer.SetWindowShown(true);
+
+        Assert.Single(viewer.Tiles, back => back.Name == "one");
+        Assert.Single(backend.Decoding);
+        Assert.Empty(viewer.PoppedOut);
     }
 
     /// <summary>
-    /// The grid comes back empty, what to watch being the reader's to say again,
-    /// and stating the same visibility twice moves nothing.
+    /// What the grid watched is the reader's arrangement and survives the hide,
+    /// so the window comes back watching it, a start per stream answered as any press is.
+    /// Stating the same visibility twice asks for nothing more.
     /// </summary>
     [Fact]
-    public void ShowingTheWindowAgainOpensNothing()
+    public void ShowingTheWindowAgainWatchesWhatItWatched()
     {
-        var (viewer, backend, _) = GridOn("one");
+        var (viewer, backend, _) = GridOn("one", "two");
         viewer.SetWindowShown(false);
+        Assert.Empty(viewer.Tiles);
 
         viewer.SetWindowShown(true);
         viewer.SetWindowShown(true);
+
+        Assert.Equal(["one", "two"], viewer.Tiles.Select(tile => tile.Name));
+        Assert.Equal(2, backend.Decoding.Count);
+        Assert.Equal(4, backend.Starts);
+    }
+
+    /// <summary>
+    /// A quit waits on this, so the answer is the backend's rather than the hide's own return:
+    /// a stop still on its way as the process exits is a decode left running on a backend that outlives the shell.
+    /// </summary>
+    [Fact]
+    public void PartingClosesEveryDecodeAndAnswersOnceTheBackendHas()
+    {
+        var (viewer, backend, _) = GridOn("one", "two");
+        backend.HoldStops();
+
+        var parted = viewer.PartAsync();
 
         Assert.Empty(viewer.Tiles);
+        Assert.False(parted.IsCompleted);
+
+        Answers.Now(backend.AnswerStops);
+
+        Assert.True(parted.IsCompleted);
         Assert.Empty(backend.Decoding);
-
-        viewer.Streams.Single().Show.Execute(null);
-
-        Assert.Single(viewer.Tiles);
-        Assert.Single(backend.Decoding);
+        Assert.True(viewer.PartAsync().IsCompleted);
     }
 
     /// <summary>
@@ -697,5 +758,11 @@ public sealed class ViewerArrangementTests
 
         Assert.Empty(viewer.Tiles);
         Assert.Empty(backend.Decoding);
+
+        // Kept like the tiles the hide took down, so the press is honoured once there is a window for it.
+        viewer.SetWindowShown(true);
+
+        Assert.Single(viewer.Tiles);
+        Assert.Single(backend.Decoding);
     }
 }

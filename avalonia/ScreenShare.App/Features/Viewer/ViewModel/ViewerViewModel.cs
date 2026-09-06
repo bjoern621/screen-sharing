@@ -84,6 +84,16 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     private bool _shown = true;
 
+    /// <summary>
+    /// Streams the hidden window was watching, in tile order, empty while it is on screen.
+    /// The one fact a hide keeps: the tiles go with their decodes,
+    /// and the names bring both back with the window.
+    /// </summary>
+    private readonly List<string> _parked = [];
+
+    /// <summary>Closes the last hide asked for, complete where it asked for none. A quit waits on it.</summary>
+    private Task _parting = Task.CompletedTask;
+
     /// <param name="dispatch">
     /// Hands work to the UI loop.
     /// An effect answers on whichever thread the transport completed on,
@@ -303,7 +313,8 @@ public sealed class ViewerViewModel : Observable
     /// A decode runs while a window draws its tile, and a window closed to the tray draws nothing:
     /// every tile in its grid leaves and its decode stops, and a stream in a window of its own keeps both
     /// (<c>docs/viewer-architecture.md</c>, "A decode runs while a window draws it").
-    /// The grid comes back empty with the window, what to watch being the reader's to say again.
+    /// The streams are kept, so the window comes back watching them,
+    /// each through the start a press runs and on the leg the settings name then.
     /// Idempotent: the same answer twice moves nothing.
     /// </summary>
     public void SetWindowShown(bool shown)
@@ -314,8 +325,27 @@ public sealed class ViewerViewModel : Observable
         }
 
         _shown = shown;
-        CloseUndrawn();
+        if (shown)
+        {
+            Unpark();
+        }
+        else
+        {
+            _parting = Park();
+        }
+
         Apply();
+    }
+
+    /// <summary>
+    /// Hides ahead of a quit, answering once the backend has closed every decode the hide took down.
+    /// A stop still on its way as the process exits is a decode left running on a backend that outlives
+    /// the shell.
+    /// </summary>
+    public Task PartAsync()
+    {
+        SetWindowShown(false);
+        return _parting;
     }
 
     /// <summary>For a view that has to hand a tile to a window it is opening.</summary>
@@ -493,6 +523,8 @@ public sealed class ViewerViewModel : Observable
         Assert.That(!_popped.Contains(Fullscreen), "the stream filling this window is one of its own grid's", Fullscreen);
         Assert.That(_tiles.Count == Tiles.Count, "one tile per stream in the grid", _tiles.Count, Tiles.Count);
         Assert.That(_tiles.Keys.All(Drawn), "every tile has a window drawing it", _tiles.Count, _shown);
+        Assert.That(!_shown || _parked.Count == 0, "a window on screen keeps no streams for its return", _parked.Count);
+        Assert.That(!_parked.Any(_tiles.ContainsKey), "a kept stream has no tile", _parked.Count);
         Assert.That(HasStreams == (Notice.Length == 0), "a list and the sentence standing in for it are never both on screen", HasStreams);
         Assert.That(HasNotice == (Notice.Length > 0), "the notice and its text agree", HasNotice);
         Assert.That(!NoticeIsFailure || HasNotice, "a failure is marked on the sentence stating it", NoticeIsFailure, HasNotice);
@@ -649,6 +681,7 @@ public sealed class ViewerViewModel : Observable
             // Read before the tile goes, the tile being where the answer is.
             var opened = _tiles.TryGetValue(stream, out var tile) ? tile.Transport : "";
             Drop(stream);
+            _parked.Remove(stream);
             Apply();
 
             if (opened.Length > 0)
@@ -706,21 +739,35 @@ public sealed class ViewerViewModel : Observable
     private bool Drawn(string stream) => _shown || _popped.Contains(stream);
 
     /// <summary>
-    /// Takes every tile no window draws off the grid and closes its decode.
+    /// Takes every tile no window draws off the grid, closes its decode and keeps its stream for the window's
+    /// return.
     /// Runs after each write that can leave one: the window hiding, and a pop-out closing into a hidden grid.
     /// The tiles go before any stop is asked for, the order <see cref="TileAsync"/> states.
+    /// Answers once every stop has.
     /// </summary>
-    private void CloseUndrawn()
+    private Task Park()
     {
         var undrawn = _tiles.Values.Where(tile => !Drawn(tile.Name)).ToList();
         foreach (var tile in undrawn)
         {
             Drop(tile.Name);
+            _parked.Add(tile.Name);
         }
 
-        foreach (var tile in undrawn)
+        return Task.WhenAll(undrawn.Select(tile => CloseAsync(tile.Name, tile.Transport)));
+    }
+
+    /// <summary>
+    /// Watches every kept stream again through the start a press runs, and forgets the list:
+    /// what the answers add back is the grid.
+    /// </summary>
+    private void Unpark()
+    {
+        var parked = _parked.ToList();
+        _parked.Clear();
+        foreach (var stream in parked)
         {
-            _ = CloseAsync(tile.Name, tile.Transport);
+            _ = TileAsync(stream, false);
         }
     }
 
@@ -788,7 +835,8 @@ public sealed class ViewerViewModel : Observable
             case TileIntent.LeavePopOut:
                 // The state a closed window reports, so a stream already in the grid is left where it is.
                 // The slot it returns to is drawn while the main window is on screen, and the decode runs on.
-                // Into a hidden grid, the stream leaves instead, that slot being in a window nothing shows.
+                // Into a hidden grid, the stream is kept for the window's return instead,
+                // that slot being in a window nothing shows.
                 _popped.Remove(stream);
                 break;
 
@@ -813,7 +861,7 @@ public sealed class ViewerViewModel : Observable
                 break;
         }
 
-        CloseUndrawn();
+        _ = Park();
         Apply();
     }
 
@@ -822,7 +870,7 @@ public sealed class ViewerViewModel : Observable
     /// The leg is passed in rather than read again,
     /// so the tile is keyed by the pair the backend keyed the decode by even where the setting moved in between.
     /// A window that hid while the start's answer was out has no grid for the tile,
-    /// so the decode closes again instead.
+    /// so the decode closes again and the stream is kept for the window's return, like the tiles the hide took.
     /// </summary>
     private void Add(string stream, string leg)
     {
@@ -835,6 +883,11 @@ public sealed class ViewerViewModel : Observable
 
         if (!Drawn(stream))
         {
+            if (!_parked.Contains(stream))
+            {
+                _parked.Add(stream);
+            }
+
             _ = CloseAsync(stream, leg);
             return;
         }

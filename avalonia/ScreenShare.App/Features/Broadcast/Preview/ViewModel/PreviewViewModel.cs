@@ -119,6 +119,9 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     private bool _shown = true;
 
+    /// <summary>Closes the last release asked for, complete where it asked for none. A quit waits on it.</summary>
+    private Task _closing = Task.CompletedTask;
+
     /// <param name="form">
     /// Settings, read for two values and written for one of them.
     ///
@@ -212,6 +215,16 @@ public sealed class PreviewViewModel : Observable
     {
         _shown = shown;
         Apply();
+    }
+
+    /// <summary>
+    /// Hides ahead of a quit, answering once the backend has closed the decode the hide let go of.
+    /// A stop still on its way as the process exits is a reader slot held on a backend that outlives the shell.
+    /// </summary>
+    public Task PartAsync()
+    {
+        SetWindowShown(false);
+        return _closing;
     }
 
     // --- Outputs ------------------------------------------------------------------
@@ -656,7 +669,7 @@ public sealed class PreviewViewModel : Observable
             return;
         }
 
-        _ = CloseAsync(streamRef);
+        _closing = CloseAsync(streamRef);
     }
 
     private async Task CloseAsync(StreamRef streamRef)

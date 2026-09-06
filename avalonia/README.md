@@ -360,22 +360,23 @@ A press asks the command whether it can run first, so a key is refused wherever 
 
 ## The tray
 
-The window closes to the tray, and the tray's quit is the one full shutdown.
+The window closes to the tray, and the tray's quit is the one full shutdown, which a close runs where there is no tray.
 
 The menu decides nothing.
 Its commit row presses the review's commit and the broadcast screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
 The preset rows are the rail card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
 The icon says whether this machine is sharing, as a second baked asset (`task icons`).
 
-The lifetime is the host's (`App.axaml.cs`).
-With an icon registered, closing the window hides it and shutdown is explicit.
+The lifetime is the host's (`App.axaml.cs`), and shutdown is explicit.
+With an icon registered, closing the window hides it.
 A hidden window draws nothing, so closing it takes down every picture it alone was drawing:
 the grid's tiles and the broadcast preview go and the relay decodes behind them close,
-while a pop-out window stays on screen with its decode (`docs/viewer-architecture.md`, "A decode runs while a window draws it").
-Quit ends a stream running on a backend this shell started, bounded, then shuts down, and the exit hooks take that backend with the process (`Backend/BackendProcess.cs`).
+while a pop-out window stays on screen with its decode,
+and the streams the grid watched come back with the window (`docs/viewer-architecture.md`, "A decode runs while a window draws it").
+Quit is one sequence whichever control runs it: the window's decodes close and a stream running on a backend this shell started ends, side by side and bounded, then the process shuts down and the exit hooks take that backend with it (`Backend/BackendProcess.cs`).
 A backend this shell attached to keeps its stream, the arrangement a window close leaves it in.
 `TrayIconHost.TryCreate` answers null where `MIRRORME_TRAY=0` asks for no icon, and where the platform serves no tray.
-Quit-on-close stands either way: a hidden window nothing can reopen is gone.
+A hidden window nothing can reopen is gone, so closing the window there runs the quit.
 
 ## How the repository's principles land in C#
 

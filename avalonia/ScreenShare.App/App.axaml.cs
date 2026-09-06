@@ -80,29 +80,39 @@ public sealed partial class App : Application
             // so ending the app is what lets it start (backend/internal/update).
             shell.Update.RestartRequested += () => desktop.Shutdown();
 
-            // With a tray, closing the window keeps the app alive in it,
-            // and only the tray's quit ends the process:
-            // the backend keeps publishing behind a hidden window,
-            // and the exit hooks take a spawned one down with the shell (Backend/BackendProcess.cs).
-            // Without one, a session serving no tray, quit-on-close stands:
+            // The reader's close is the tray's hide where an icon is up, and the quit where none is:
             // a hidden window nothing can reopen is gone.
+            // Both take the tray's quit, so the window's decodes close and a stream on a backend this shell
+            // started ends before the process does, and the exit hooks take that backend with the shell
+            // (Features/Tray/ViewModel/TrayViewModel.cs, Backend/BackendProcess.cs).
+            // Shutdown is explicit either way: the close is cancelled, and the quit closes the window for real.
             var tray = TrayIconHost.TryCreate(shell.Tray);
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            window.Closing += (_, close) =>
+            {
+                // The desktop taking the app down closes for real.
+                if (close.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
+                {
+                    return;
+                }
+
+                close.Cancel = true;
+                if (tray is not null)
+                {
+                    window.Hide();
+                }
+                else
+                {
+                    shell.Tray.QuitCommand.Execute(null);
+                }
+            };
+
+            // Raised once the quit's own stops are over.
+            shell.Tray.QuitRequested += () => desktop.Shutdown();
+
             if (tray is not null)
             {
-                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-                window.Closing += (_, close) =>
-                {
-                    // The desktop taking the app down closes for real; the reader's close hides to the tray.
-                    if (close.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
-                    {
-                        return;
-                    }
-
-                    close.Cancel = true;
-                    window.Hide();
-                };
-
                 shell.Tray.OpenRequested += () =>
                 {
                     window.Show();
@@ -113,9 +123,6 @@ public sealed partial class App : Application
 
                     window.Activate();
                 };
-
-                // Raised once the quit's own stop attempt is over (Features/Tray/ViewModel/TrayViewModel.cs).
-                shell.Tray.QuitRequested += () => desktop.Shutdown();
 
                 desktop.Exit += (_, _) => tray.Dispose();
             }
