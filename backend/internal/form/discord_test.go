@@ -129,3 +129,20 @@ func TestABrokeredDraftInsideAChannelPublishes(t *testing.T) {
 		t.Errorf("a brokered group is membership, and this draft was refused: %v", diags)
 	}
 }
+
+// A resolve describes the draft it was handed, the link and the brokered group with it.
+// Repair walks the settings as a wire message and neither rides one,
+// so a draft losing them on the way through is refused as unlinked
+// while the app states the link and the channel beside it.
+func TestAResolvedBrokeredDraftPublishes(t *testing.T) {
+	d := diagnosticTestDeps()
+	s := diagnosticTestStream()
+	s.Relay.DiscordMode = true
+	s.Relay.DiscordLink = "link-secret"
+	s.Relay = s.Relay.WithBrokeredGroup("PREFIX/", "passphrase", "Bob")
+
+	form := Resolve(d, s)
+	if !form.GetPublishable() {
+		t.Errorf("a brokered group is membership, and the resolve refused it: %v", form.GetDiagnostics())
+	}
+}

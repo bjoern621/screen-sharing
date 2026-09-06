@@ -452,6 +452,9 @@ func (a *App) GetPublishState() PublishState {
 	a.settingsMu.Lock()
 	held := a.settings
 	a.settingsMu.Unlock()
+	// Membership is brokered per read in Discord mode, so the stored copy names no group
+	// and would compare as a pipeline other than the one it started (discord.go).
+	held = a.withBrokered(held)
 
 	var state PublishState
 

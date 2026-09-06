@@ -136,3 +136,31 @@ func TestStoppingTheControlServiceTwiceIsOneStop(t *testing.T) {
 		t.Error("a stopped app still holds a control service, want the handle released")
 	}
 }
+
+// TestADiscordStreamCarriesNoPendingChange: membership comes brokered per read in Discord mode,
+// so the settings the app holds name no group on their own (discord.go).
+// Held against the running pipeline bare, they describe a stream nothing is publishing,
+// and every read of the state would tell a shell the form is waiting to be applied.
+func TestADiscordStreamCarriesNoPendingChange(t *testing.T) {
+	held := settings.Defaults()
+	held.Relay.Host = "relay.example.com"
+	held.Relay.DiscordMode = true
+	held.Relay.DiscordLink = "link-secret"
+
+	a := &App{settings: held}
+	a.discordLast.Store(&discordSnapshot{
+		InChannel:     true,
+		Prefix:        "PREFIX/",
+		SrtPassphrase: "passphrase",
+		DisplayName:   "Bob",
+	})
+	a.run = &publishRun{settings: a.withBrokered(held), handle: liveHandle{}}
+
+	state := a.GetPublishState()
+	if !state.Publishing {
+		t.Fatal("a running pipeline reports nothing publishing")
+	}
+	if state.Pending {
+		t.Error("the stream the app's own settings built is reported as waiting to be applied")
+	}
+}

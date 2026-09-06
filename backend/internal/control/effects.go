@@ -197,7 +197,12 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 	}
 
 	if state := s.backend.PublishState(); state.Publishing() {
-		if same, err := publish.SamePipeline(state.Live.Settings, draft); err == nil && same {
+		// Brokered for the comparison alone: Discord mode's membership rides on no request,
+		// so a draft holding none names a pipeline other than the one running
+		// and the repeat is refused as a second stream (internal/app, withBrokered).
+		// The draft the backend is handed stays the one that arrived,
+		// a brokered copy carrying the Discord nick over the stored name.
+		if same, err := publish.SamePipeline(state.Live.Settings, s.backend.Brokered(draft)); err == nil && same {
 			return &screensharev1.StartPublishResponse{}, nil
 		}
 		if retry := state.Retry(); retry != nil {

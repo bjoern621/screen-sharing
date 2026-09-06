@@ -99,7 +99,9 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 
 	// Held against the stream as the resolve answered it, repair and followed preset included:
 	// those settings are what a start would run, so they are the ones an apply could repeat.
-	resolved.InForce = s.inForce(wire.ToSettings(resolved.GetSettings()))
+	// The answer travels as a message and Discord mode's membership rides on none,
+	// so the draft's unsent half goes back on before the comparison reads a path.
+	resolved.InForce = s.inForce(wire.ToSettings(resolved.GetSettings()).WithUnsent(draft))
 	return &screensharev1.ResolveFormResponse{Form: resolved}, nil
 }
 

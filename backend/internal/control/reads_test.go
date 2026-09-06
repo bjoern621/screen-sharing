@@ -14,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/portal"
+	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -250,4 +251,48 @@ func textArgID(t *screensharev1.Text, name screensharev1.TextArgName) string {
 		}
 	}
 	return ""
+}
+
+// Discord mode's membership and link ride on no wire message (internal/wire, RelaySettings),
+// so the draft a resolve answers with carries neither.
+// Read back bare, the settings a stream was built from name a pipeline nothing is running,
+// and a shell lights the apply on a stream already publishing exactly them.
+func TestResolveFormReportsADiscordStreamInForce(t *testing.T) {
+	backend := &probedBackend{}
+	server := New(backend, events.New(), "test")
+
+	idle, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{})
+	if err != nil {
+		t.Fatalf("resolving a form answered %v, want an answer", err)
+	}
+	draft := idle.GetForm().GetSettings()
+	draft.Relay.DiscordMode = true
+
+	resolved, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{Settings: draft})
+	if err != nil {
+		t.Fatalf("resolving a Discord draft answered %v, want an answer", err)
+	}
+	// What a start runs, the brokered facts injected the way the backend injects them
+	// (internal/app, StartPublish).
+	running := backend.Brokered(wire.ToSettings(resolved.GetForm().GetSettings()))
+	backend.publish = wire.PublishSnapshot{Live: &wire.LiveSnapshot{Settings: running}}
+
+	same, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{Settings: draft})
+	if err != nil {
+		t.Fatalf("resolving the running settings answered %v, want an answer", err)
+	}
+	if !same.GetForm().GetInForce() {
+		t.Error("the settings the Discord stream was built from are not reported in force")
+	}
+}
+
+// Brokered is Discord mode's injection: the link and the group the manager derives for the current
+// voice channel, which the settings a shell sends carry on neither direction (internal/app, withBrokered).
+func (p *probedBackend) Brokered(s settings.Settings) settings.Settings {
+	if !s.Relay.DiscordMode {
+		return s
+	}
+	s.Relay.DiscordLink = "link-secret"
+	s.Relay = s.Relay.WithBrokeredGroup("PREFIX/", "passphrase", "Bob")
+	return s
 }

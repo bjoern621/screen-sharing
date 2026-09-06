@@ -73,11 +73,11 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 			// A repeated row is walked once per entry the draft holds, never for the row past the end:
 			// nothing is stranded on a row the settings do not carry.
 			// The entries are re-read each round with everything else.
-			for _, entry := range repairEntries(f, wire.ToSettings(m)) {
+			for _, entry := range repairEntries(f, walked(m, draft)) {
 				// The draft as every earlier repair left it, read back rather than carried:
 				// an option list is a function of the whole draft, so the list this field is held
 				// against has to be the list it would be offered.
-				s := wire.ToSettings(m)
+				s := walked(m, draft)
 				if repairSkips(f.key, s) {
 					continue
 				}
@@ -137,12 +137,19 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 		}
 	}
 
-	// Read straight off the message.
-	// The contract carries every settings field, so the walk ran on the whole draft
-	// and no off-contract field is left for a base draft to restore.
-	out := wire.ToSettings(m)
+	out := walked(m, draft)
 	assert.Assert(len(repaired) <= len(fieldTable), "a field is named repaired at most once", len(repaired))
 	return out, repaired
+}
+
+// walked is the message the walk holds, as settings carrying the draft's unsent half
+// (settings.WithUnsent).
+//
+// A shell sends the message, and the Discord link and the brokered group ride on neither direction
+// of it: a linked install inside a voice channel reads back as a draft holding no link and in no
+// group, which the audience diagnostic then refuses by that name (diagnostics.go).
+func walked(m *screensharev1.Settings, draft settings.Settings) settings.Settings {
+	return wire.ToSettings(m).WithUnsent(draft)
 }
 
 // repairSkips reports whether a field is left unchanged however the rest of the draft reads.
@@ -222,9 +229,9 @@ func repairLadders(m *screensharev1.Settings) []string {
 // Ceilings only, and downward only.
 // A figure under a limit is the user's to choose.
 func repairCeilings(d Deps, m *screensharev1.Settings) []string {
-	// Off the message alone, unlike the walk above: the codec, the bitrate
-	// and the ceiling are all on the contract,
-	// so no off-contract field is left for a base draft to restore.
+	// Off the message alone, where the walk above carries the draft's unsent half (walked):
+	// the codec, the bitrate and the ceiling all ride the message,
+	// and the ceilings read no field that stays behind on it.
 	s := wire.ToSettings(m)
 	// The ends come off the same evaluation the form offers the control within,
 	// so a figure held down here and the end a slider stops at cannot disagree.
