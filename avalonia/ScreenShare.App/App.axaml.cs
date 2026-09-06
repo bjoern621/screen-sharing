@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.Update.View;
 using ScreenShare.App.Features.Shell.View;
 using ScreenShare.App.Features.Shell.ViewModel;
@@ -130,6 +131,16 @@ public sealed partial class App : Application
             // One render pass before the window shows.
             // Apply is idempotent, so a second one changes nothing.
             shell.Apply();
+
+            // A link the desktop started this window with, which is how a stream of this app is opened from
+            // outside it (<c>backend/internal/applink</c>).
+            // After the pass, so the window it moves to is drawn either way, and unawaited because the answer
+            // travels over the socket while the window is already up.
+            var link = LaunchLink.In(desktop.Args);
+            if (link.Length > 0)
+            {
+                _ = shell.FollowAsync(link);
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

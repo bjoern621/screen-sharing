@@ -734,6 +734,24 @@ public sealed class ViewerViewModel : Observable
     }
 
     /// <summary>
+    /// Opens one stream on the grid, for a link the desktop handed this window
+    /// (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>).
+    ///
+    /// The press's own path, so a linked stream is tiled on the leg every other tile uses and a stream already
+    /// tiled stays as it is.
+    /// A refusal lands where a press's would, the screen being where a reader is looking.
+    /// </summary>
+    public Task OpenAsync(string stream)
+    {
+        Assert.That(stream.Length > 0, "a link opens a stream it names");
+
+        return TileAsync(stream, tiled: false);
+    }
+
+    /// <summary>Says why a link could not be opened, in the line a press's refusal lands in.</summary>
+    public void RefuseLink(string reason) => Refused(reason);
+
+    /// <summary>
     /// Watches every kept stream again through the start a press runs, and forgets the list:
     /// what the answers add back is the grid.
     /// </summary>

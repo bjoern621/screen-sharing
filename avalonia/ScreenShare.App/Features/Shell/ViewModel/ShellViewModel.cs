@@ -54,6 +54,16 @@ public sealed class ShellViewModel : Observable
     private readonly Session _session;
 
     /// <summary>
+    /// The control plane, kept because a link the window was started with is read through it
+    /// (<see cref="FollowAsync"/>).
+    /// Every destination holds the same one.
+    /// </summary>
+    private readonly IBackend _backend;
+
+    /// <summary>Post to the UI loop, kept for the same reason the backend is.</summary>
+    private readonly Action<Action> _dispatch;
+
+    /// <summary>
     /// Settings draft and the form it resolves to, owned once for the window and read through by the destinations
     /// that edit settings.
     /// </summary>
@@ -89,6 +99,8 @@ public sealed class ShellViewModel : Observable
         // Posted rather than checked first, a post from the UI thread already being right.
         var backend = new ControlBackend();
         var dispatch = (Action<Action>)(action => Dispatcher.UIThread.Post(action));
+        _backend = backend;
+        _dispatch = dispatch;
 
         // One session for the window, and the one owner of the running state.
         // Insights and the viewer describe that session from two angles, so a session each would be two
@@ -262,6 +274,38 @@ public sealed class ShellViewModel : Observable
         // the body Apply writes, and nothing binds the destination itself.
         _current = destination;
         Apply();
+    }
+
+    /// <summary>
+    /// Opens the stream a link names, for a window the desktop started with one
+    /// (<c>backend/internal/applink</c>).
+    ///
+    /// The backend reads the link and answers which stream it is, refusing one into a group this machine is not
+    /// in with the way in: in Discord mode, the voice channel to join.
+    /// This side does what a press does with that answer, which is to show the viewer and tile the stream.
+    ///
+    /// The window moves to the viewer before the answer lands, a reader who followed a link to a stream having
+    /// asked for the screen streams are on, and the refusal is drawn there.
+    /// </summary>
+    public async Task FollowAsync(string link)
+    {
+        Assert.That(link.Length > 0, "a window follows a link that names something");
+
+        Show(Destination.Viewer);
+
+        try
+        {
+            var stream = await _backend.ResolveLinkAsync(link).ConfigureAwait(false);
+            await Viewer.OpenAsync(stream).ConfigureAwait(false);
+        }
+        catch (BackendUnavailableException e)
+        {
+            // Shown as the backend wrote it: the refusal names the channel to join or the group to hold.
+            _dispatch(() => Viewer.RefuseLink(e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     /// <summary>

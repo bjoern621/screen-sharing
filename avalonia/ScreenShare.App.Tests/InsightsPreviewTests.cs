@@ -198,6 +198,11 @@ public sealed class InsightsPreviewTests
         public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
             => _seed.DiscordAsync(cancellation);
 
+
+        public Task<string> ResolveLinkAsync(string url, CancellationToken cancellation = default)
+
+            => _seed.ResolveLinkAsync(url, cancellation);
+
         public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
             => _seed.LinkDiscordAsync(relay, cancellation);
 

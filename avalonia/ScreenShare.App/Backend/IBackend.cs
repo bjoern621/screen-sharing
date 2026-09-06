@@ -136,6 +136,14 @@ public interface IBackend
     Task<DiscordState> DiscordAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// The stream a link names, for a window the desktop handed one to.
+    /// Refused where the link names a group this machine is not in, the reason naming the way in: in Discord
+    /// mode, the voice channel to join.
+    /// Opens nothing, the decode and the tile staying the caller's.
+    /// </summary>
+    Task<string> ResolveLinkAsync(string url, CancellationToken cancellation = default);
+
+    /// <summary>
     /// Synthetic publishers this machine runs, one entry per slot of the set whether or not a child is filling
     /// it.
     /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable only

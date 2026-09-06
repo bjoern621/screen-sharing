@@ -638,6 +638,25 @@ internal sealed class SeededBackend : IBackend
     public Task<DiscordState> DiscordAsync(CancellationToken cancellation = default)
         => Task.FromResult(Discord);
 
+    /// <summary>The stream a link resolves to, and the refusal a test states instead.</summary>
+    public string LinkStream { get; set; } = "";
+
+    public string LinkRefusal { get; set; } = "";
+
+    /// <summary>Links this backend was asked to read, in order.</summary>
+    public List<string> LinksRead { get; } = [];
+
+    public Task<string> ResolveLinkAsync(string url, CancellationToken cancellation = default)
+    {
+        LinksRead.Add(url);
+        if (LinkRefusal.Length > 0)
+        {
+            throw new BackendUnavailableException(LinkRefusal);
+        }
+
+        return Task.FromResult(LinkStream);
+    }
+
     /// <summary>Presses recorded, the reading staying where the test put it, as the group effects do.</summary>
     public List<RelaySettings> DiscordLinks { get; } = [];
 

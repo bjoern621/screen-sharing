@@ -30,6 +30,7 @@ const (
 	ControlService_GetTestStreamState_FullMethodName     = "/screenshare.v1.ControlService/GetTestStreamState"
 	ControlService_GetMembersState_FullMethodName        = "/screenshare.v1.ControlService/GetMembersState"
 	ControlService_GetDiscordState_FullMethodName        = "/screenshare.v1.ControlService/GetDiscordState"
+	ControlService_ResolveLink_FullMethodName            = "/screenshare.v1.ControlService/ResolveLink"
 	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
 	ControlService_GetUpdateState_FullMethodName         = "/screenshare.v1.ControlService/GetUpdateState"
@@ -135,6 +136,15 @@ type ControlServiceClient interface {
 	// Discord mode as the backend's last manager pass read it, the event's read twin.
 	// Meaningful while the settings hold discord_mode.
 	GetDiscordState(ctx context.Context, in *GetDiscordStateRequest, opts ...grpc.CallOption) (*DiscordState, error)
+	// Reads a link this machine was handed and answers the stream it opens
+	// (backend/internal/applink).
+	// A link names a stream inside a group, so a link into a group this machine is not in is refused
+	// with the move that would put it there: in Discord mode, the voice channel to join.
+	//
+	// Nothing is opened here.
+	// What follows is StartReceive and a tile, both of them the caller's,
+	// so this stays a read and the grid stays the shell's (docs/ipc-api.md, "The rule").
+	ResolveLink(ctx context.Context, in *ResolveLinkRequest, opts ...grpc.CallOption) (*ResolveLinkResponse, error)
 	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does,
@@ -512,6 +522,16 @@ func (c *controlServiceClient) GetDiscordState(ctx context.Context, in *GetDisco
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DiscordState)
 	err := c.cc.Invoke(ctx, ControlService_GetDiscordState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) ResolveLink(ctx context.Context, in *ResolveLinkRequest, opts ...grpc.CallOption) (*ResolveLinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveLinkResponse)
+	err := c.cc.Invoke(ctx, ControlService_ResolveLink_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -954,6 +974,15 @@ type ControlServiceServer interface {
 	// Discord mode as the backend's last manager pass read it, the event's read twin.
 	// Meaningful while the settings hold discord_mode.
 	GetDiscordState(context.Context, *GetDiscordStateRequest) (*DiscordState, error)
+	// Reads a link this machine was handed and answers the stream it opens
+	// (backend/internal/applink).
+	// A link names a stream inside a group, so a link into a group this machine is not in is refused
+	// with the move that would put it there: in Discord mode, the voice channel to join.
+	//
+	// Nothing is opened here.
+	// What follows is StartReceive and a tile, both of them the caller's,
+	// so this stays a read and the grid stays the shell's (docs/ipc-api.md, "The rule").
+	ResolveLink(context.Context, *ResolveLinkRequest) (*ResolveLinkResponse, error)
 	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does,
@@ -1259,6 +1288,9 @@ func (UnimplementedControlServiceServer) GetMembersState(context.Context, *GetMe
 }
 func (UnimplementedControlServiceServer) GetDiscordState(context.Context, *GetDiscordStateRequest) (*DiscordState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetDiscordState not implemented")
+}
+func (UnimplementedControlServiceServer) ResolveLink(context.Context, *ResolveLinkRequest) (*ResolveLinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveLink not implemented")
 }
 func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReceiveState not implemented")
@@ -1577,6 +1609,24 @@ func _ControlService_GetDiscordState_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).GetDiscordState(ctx, req.(*GetDiscordStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_ResolveLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ResolveLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ResolveLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ResolveLink(ctx, req.(*ResolveLinkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2222,6 +2272,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDiscordState",
 			Handler:    _ControlService_GetDiscordState_Handler,
+		},
+		{
+			MethodName: "ResolveLink",
+			Handler:    _ControlService_ResolveLink_Handler,
 		},
 		{
 			MethodName: "GetReceiveState",

@@ -89,6 +89,21 @@ Membership nobody stated is not the same as a group nobody is in, and enforcing 
 A run that could not read one of the relay's lists says so in `unread`, and a close the relay refused lands in `failed`.
 Both are a member possibly still watching, so neither is folded into the count of what was closed.
 
+## Opening a stream from a link
+
+A stream has an address outside the app: `mirrorme://watch/<group id>/<stream>` (`backend/internal/applink`).
+The desktop hands one to the app rather than to a browser, the app being registered as the handler for that scheme
+(`packaging/linux/mirrorme.desktop`).
+
+Holding a link opens nothing.
+The group id in it is the public digest every path already carries, and what a link names is refused unless the
+machine following it is in that group:
+a link into another group answers with the way into it, which in Discord mode is the voice channel to join.
+A link to a stream the relay is not carrying says that instead, a link outliving the share it names.
+
+`ResolveLink` is where that is decided, and it opens no decode and no tile:
+it answers which stream the link means, and the window opens it the way a press does (`docs/ipc-api.md`).
+
 ## Leaving
 
 A group key the settings stop naming is a group left, and the settings write is where it happens.
@@ -129,7 +144,7 @@ So a bot serving a voice channel, holding what a member holds, states presence f
 | `POST /tokens` | the deployment's name, through the proxy | group key, and the member secret where the caller holds one |
 | `PUT /members`, `DELETE /members` | the deployment's name, through the proxy | group key and member secret, in the body |
 | `GET /members` | the deployment's name, through the proxy | group key, in the query |
-| `POST /reconcile` | loopback | a relay path, and it grants nothing |
+| `POST /reconcile` | loopback | a relay path, and it grants nothing and answers nothing |
 
 A member's app reaches the group service at the relay's own name, one certificate covering both (`settings.Relay.GroupService`).
 `/reconcile` is the one route the proxy leaves out (`deploy/Caddyfile`).

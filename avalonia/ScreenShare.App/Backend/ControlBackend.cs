@@ -295,6 +295,17 @@ public sealed class ControlBackend : IBackend
         => ReadAsync(c => c.GetDiscordStateAsync(new GetDiscordStateRequest(), cancellationToken: cancellation), cancellation);
 
     /// <inheritdoc />
+    public Task<string> ResolveLinkAsync(string url, CancellationToken cancellation = default)
+    {
+        Assert.That(url.Length > 0, "a link names a stream to open");
+
+        return ReadAsync(
+            c => c.ResolveLinkAsync(new ResolveLinkRequest { Url = url }, cancellationToken: cancellation),
+            r => r.StreamName,
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
     {
         Assert.NotNull(relay, "a link runs against the relay the draft names");

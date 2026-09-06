@@ -225,6 +225,25 @@ func (s *Server) GetDiscordState(ctx context.Context, req *screensharev1.GetDisc
 	return wire.DiscordState(s.backend.DiscordState()), nil
 }
 
+// ResolveLink answers the stream a link opens, on the leg this machine watches over.
+//
+// The refusals are the world's rather than the caller's:
+// a link into another voice channel is well formed and names a group this machine is not in,
+// so it is a precondition rather than a bad argument.
+// An unreadable link is the argument, and it is the one case this side can tell apart
+// without asking the backend (internal/applink).
+func (s *Server) ResolveLink(ctx context.Context, req *screensharev1.ResolveLinkRequest) (*screensharev1.ResolveLinkResponse, error) {
+	if req.GetUrl() == "" {
+		return nil, invalidArgument("a link names a stream to open")
+	}
+
+	stream, err := s.backend.ResolveLink(req.GetUrl())
+	if err != nil {
+		return nil, failedPrecondition("%s", err.Error())
+	}
+	return &screensharev1.ResolveLinkResponse{StreamName: stream}, nil
+}
+
 // GetUpdateState answers what this install knows about the release published beside it.
 //
 // Reaches nothing: CheckUpdate is what asks the release service,

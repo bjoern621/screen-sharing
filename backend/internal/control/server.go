@@ -90,6 +90,9 @@ type Backend interface {
 	MembersState() wire.MembersSnapshot
 	// DiscordState is Discord mode as the backend's last manager pass read it.
 	DiscordState() wire.DiscordSnapshot
+	// ResolveLink reads a link this machine was handed and answers the stream it names.
+	// Refused where the link names a group this machine is not in, the reason naming the way in.
+	ResolveLink(url string) (string, error)
 	// Brokered is s carrying the facts Discord mode brokers for the current voice channel,
 	// and s unchanged outside that mode.
 	// A draft crossing the contract cannot carry them,

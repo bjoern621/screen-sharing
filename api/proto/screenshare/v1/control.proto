@@ -92,6 +92,16 @@ service ControlService {
   // Meaningful while the settings hold discord_mode.
   rpc GetDiscordState(GetDiscordStateRequest) returns (DiscordState);
 
+  // Reads a link this machine was handed and answers the stream it opens
+  // (backend/internal/applink).
+  // A link names a stream inside a group, so a link into a group this machine is not in is refused
+  // with the move that would put it there: in Discord mode, the voice channel to join.
+  //
+  // Nothing is opened here.
+  // What follows is StartReceive and a tile, both of them the caller's,
+  // so this stays a read and the grid stays the shell's (docs/ipc-api.md, "The rule").
+  rpc ResolveLink(ResolveLinkRequest) returns (ResolveLinkResponse);
+
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
   // What a shell that has just connected converges against.
@@ -479,6 +489,20 @@ message GetTestStreamStateRequest {}
 message GetMembersStateRequest {}
 
 message GetDiscordStateRequest {}
+
+message ResolveLinkRequest {
+  // The link, as the desktop handed it over: "mirrorme://watch/<group id>/<stream>".
+  string url = 1;
+}
+
+message ResolveLinkResponse {
+  // The stream the link opens, named as RelayPath.name spells it.
+  //
+  // The name alone: which leg a tile receives over is the one decision a shell makes per tile,
+  // at one site of its own, so answering one here would be a second place deciding it
+  // (avalonia, Features/Viewer/Tile/Model/TileLeg.cs).
+  string stream_name = 1;
+}
 
 message GetReceiveStateRequest {}
 

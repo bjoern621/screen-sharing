@@ -108,6 +108,11 @@ func (b controlBackend) DiscordState() wire.DiscordSnapshot {
 	return b.app.discordWire()
 }
 
+// ResolveLink reads a link and answers the stream it names (link.go).
+func (b controlBackend) ResolveLink(url string) (string, error) {
+	return b.app.ResolveLink(url)
+}
+
 // MaxTestStreams is the bound StartTestStreams enforces,
 // read rather than discovered by asking for too much.
 // A bound only an error could reveal would leave a saturated machine and a missing binary

@@ -47,6 +47,10 @@ type fakeBackend struct {
 	// err is what every effect answers with,
 	// so a test wanting a refusal sets one field rather than one per method.
 	err error
+	// link is the stream a link resolves to, and linkRefusal what it is refused with instead.
+	// Apart from err, a link being read where every effect refuses.
+	link        string
+	linkRefusal error
 }
 
 func (f *fakeBackend) Settings() settings.Settings                    { return f.settings }
@@ -71,6 +75,14 @@ func (f *fakeBackend) AudioLevels() []wire.AudioLevel                 { return n
 func (f *fakeBackend) MembersState() wire.MembersSnapshot             { return f.members }
 func (f *fakeBackend) Brokered(s settings.Settings) settings.Settings { return s }
 func (f *fakeBackend) DiscordState() wire.DiscordSnapshot             { return wire.DiscordSnapshot{} }
+
+// The link the fake resolves, and the refusal it answers instead where that is what a case wants.
+func (f *fakeBackend) ResolveLink(url string) (string, error) {
+	if f.linkRefusal != nil {
+		return "", f.linkRefusal
+	}
+	return f.link, nil
+}
 func (f *fakeBackend) MaxTestStreams() int                            { return 9 }
 func (f *fakeBackend) MeasureUplink(context.Context) (float64, error) { return 0, f.err }
 func (f *fakeBackend) MeasureEncodeRate(context.Context, settings.Settings) (encoderate.Rate, error) {
