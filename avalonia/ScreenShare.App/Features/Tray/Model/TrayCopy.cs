@@ -10,13 +10,13 @@ namespace ScreenShare.App.Features.Tray.Model;
 public static class TrayCopy
 {
     /// <summary>What hovering the icon says. The name alone: the icon itself carries the live state.</summary>
-    public const string Tip = "mirrorme";
+    public const string Tip = "MirrorMe";
 
     /// <summary>Heading of the submenu, the word the rail's card uses for the same list.</summary>
     public const string Presets = "Presets";
 
-    public const string Open = "Open mirrorme";
+    public const string Open = "Open MirrorMe";
 
     /// <summary>The one full-shutdown path: window, tray and the backend this shell started.</summary>
-    public const string Quit = "Quit mirrorme";
+    public const string Quit = "Quit MirrorMe";
 }
