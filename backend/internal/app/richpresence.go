@@ -25,9 +25,18 @@ import (
 // richPresenceDetails is the first line Discord draws, under this app's own name.
 const richPresenceDetails = "Sharing a screen"
 
+// presenceClient is the connection a pass states on,
+// held as an interface at the caller so a test states a pass with no Discord running.
+// One implementation, *discordrpc.Client.
+type presenceClient interface {
+	SetActivity(discordrpc.Activity) error
+	ClearActivity() error
+	Close() error
+}
+
 // richPresence is the poll loop's own state, read and written on that goroutine alone.
 type richPresence struct {
-	client *discordrpc.Client
+	client presenceClient
 	// quiet keeps a machine with no Discord client running to one log line
 	// rather than one every two seconds.
 	quiet bool
@@ -138,7 +147,7 @@ func (a *App) sharingNow() sharing {
 // A machine with no Discord client running answers false and is tried again on the next pass:
 // a socket that is not there refuses at once, so the retry costs the poll nothing worth spacing out.
 // An empty application is a manager that has answered no pass yet.
-func (a *App) discordClient(application string) (*discordrpc.Client, bool) {
+func (a *App) discordClient(application string) (presenceClient, bool) {
 	if a.presence.client != nil {
 		return a.presence.client, true
 	}

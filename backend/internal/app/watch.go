@@ -26,10 +26,23 @@ import (
 // half of why the poll is this process's rather than each shell's.
 const relayPollInterval = 2 * time.Second
 
+// relayStopWait bounds how long a shutdown waits for the poll's pass to finish.
+// Longer than a pass that is only computing, and short enough that a manager which stopped
+// answering does not hold the window open (stopRelayPoll).
+const relayStopWait = 2 * time.Second
+
 // startRelayPoll is idempotent through sync.Once, as startControl is.
 // A second call joins the running loop instead of starting one that asks the relay twice as often.
 func (a *App) startRelayPoll() {
-	a.relayPollOnce.Do(func() { go a.pollRelay() })
+	a.relayPollOnce.Do(func() {
+		// Made here rather than only in New, so an App a test assembled by hand still reports its exit.
+		// Inside the Once and before the goroutine, which is what makes the write safe.
+		if a.relayDone == nil {
+			a.relayDone = make(chan struct{})
+		}
+		a.relayPolling.Store(true)
+		go a.pollRelay()
+	})
 }
 
 // pollRelay fetches until relayStop closes.
@@ -46,6 +59,9 @@ func (a *App) startRelayPoll() {
 // and a second timer would be a second thing deciding when this machine is in its group (members.go).
 func (a *App) pollRelay() {
 	assert.Assert(relayPollInterval > 0, "a poll interval is positive")
+
+	// Closed last, so a shutdown waiting on it knows the activity is off the profile.
+	defer close(a.relayDone)
 
 	ticker := time.NewTicker(relayPollInterval)
 	defer ticker.Stop()
@@ -67,8 +83,23 @@ func (a *App) pollRelay() {
 
 // stopRelayPoll is safe with no poll running: the channel closes once,
 // and a loop started later finds it closed at its first select.
+//
+// It waits for the loop to leave, which is what takes this app's activity off Discord before the
+// process ends (richpresence.go).
+// The wait is bounded because the pass it interrupts can be mid-request:
+// a manager that stopped answering would otherwise hold up every shutdown for its own timeout,
+// and the socket closing with the process takes the activity off in that case anyway.
 func (a *App) stopRelayPoll() {
 	a.relayStopOnce.Do(func() { close(a.relayStop) })
+
+	if !a.relayPolling.Load() {
+		return
+	}
+	select {
+	case <-a.relayDone:
+	case <-time.After(relayStopWait):
+		logger.Warnf("the relay poll did not finish its pass, so the shutdown goes on without it")
+	}
 }
 
 // fetchRelay records the relay's answer and announces it.

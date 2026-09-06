@@ -88,6 +88,11 @@ type App struct {
 	relayPollOnce sync.Once
 	relayStopOnce sync.Once
 	relayStop     chan struct{}
+	// relayDone closes when the loop has left, and relayPolling says whether one ever ran.
+	// What lets a shutdown wait for the pass to finish taking this app's activity off Discord,
+	// rather than leaving it to the socket closing with the process (richpresence.go).
+	relayDone    chan struct{}
+	relayPolling atomic.Bool
 
 	// receiveStatsOnce starts the sampling of the running decodes, receiveStatsStopOnce ends it, and
 	// both guard receiveStatsStop, which the loop selects on.
@@ -197,6 +202,7 @@ func New(version, channel string) *App {
 		groups:           groupclient.New(),
 		discord:          discordclient.New(),
 		relayStop:        make(chan struct{}),
+		relayDone:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),
 		fatal:            make(chan error, 1),
 		decodes:          decode.NewClient(),
