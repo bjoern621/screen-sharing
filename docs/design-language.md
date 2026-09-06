@@ -34,7 +34,7 @@ A hue as a fill takes the label its contrast affords, white on red and green, ne
 A hue that cannot be pressed drops the fill for a grey outline, so colour on a control says a press is there and the greyed controls read as one family.
 
 **Why a control is inert is read before anything else on it.**
-The reason takes the amber and the emphasis weight, so it stands above the paragraph teaching what the control would have done, and above the copy of a card that has greyed around it (`field-availability.md`).
+The reason takes the amber at body weight, so it stands above the paragraph teaching what the control would have done, and above the copy of a card that has greyed around it (`field-availability.md`).
 A reader who has met a greyed control came for that line.
 
 Everything a hue does not answer for is carried by weight, fill or inversion.

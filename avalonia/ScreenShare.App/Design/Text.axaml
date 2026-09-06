@@ -113,7 +113,6 @@
   -->
   <Style Selector=":is(TextBlock).reason">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource ReasonBrush}" />
     <Setter Property="TextWrapping" Value="Wrap" />
     <Setter Property="TextTrimming" Value="None" />
