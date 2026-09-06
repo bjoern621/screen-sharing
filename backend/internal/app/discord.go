@@ -29,6 +29,14 @@ type discordService interface {
 	Token(base, linkSecret string) (token, prefix string, err error)
 }
 
+// storedLink is Discord's half of the settings: whether this install holds a link,
+// and the account it was drawn for.
+// No pass answers either, so every landing carries it beside the pass's own snapshot.
+type storedLink struct {
+	Linked  bool
+	Account string
+}
+
 // discordSnapshot is what the last Discord pass landed, the zero value before one has run.
 //
 // Held whole and read wherever a command needs the brokered facts,
@@ -94,26 +102,26 @@ func (a *App) discordPass() {
 
 	// Out here because settingsMu is not held while membersMu is taken (app.go),
 	// and every landing below announces the link beside the channel.
-	linked := s.Relay.DiscordLink != ""
+	held := storedLink{Linked: s.Relay.DiscordLink != "", Account: s.Relay.DiscordAccount}
 
 	a.membersMu.Lock()
 	defer a.membersMu.Unlock()
 
 	base, okBase := s.Relay.DiscordService()
-	if !okBase || !linked {
-		a.landDiscord(linked, discordSnapshot{}, membership{}, relay.Status{})
+	if !okBase || !held.Linked {
+		a.landDiscord(held, discordSnapshot{}, membership{}, relay.Status{})
 		return
 	}
 
 	answer, err := a.discord.Presence(base, s.Relay.DiscordLink)
 	if err != nil {
-		a.discordPassFailed(linked, err)
+		a.discordPassFailed(held, err)
 		return
 	}
 
 	if answer.Group == nil {
 		// Standing in no voice channel: no group, and an index nothing can ask.
-		a.landDiscord(linked, discordSnapshot{Application: answer.Application}, membership{}, relay.Status{})
+		a.landDiscord(held, discordSnapshot{Application: answer.Application}, membership{}, relay.Status{})
 		return
 	}
 
@@ -126,8 +134,8 @@ func (a *App) discordPass() {
 		Application:   answer.Application,
 	}
 
-	held := a.discordState()
-	if held.Prefix != snap.Prefix {
+	last := a.discordState()
+	if last.Prefix != snap.Prefix {
 		logger.Infof("the group follows the voice channel %s in %s", snap.ChannelName, snap.GuildName)
 	}
 
@@ -139,29 +147,29 @@ func (a *App) discordPass() {
 		PublishingUnread: answer.Group.PublishingUnread,
 	})
 	status := relay.Status{Reachable: true, FromIndex: true, Paths: indexPaths(answer.Group.Streams)}
-	a.landDiscord(linked, snap, taken, status)
+	a.landDiscord(held, snap, taken, status)
 }
 
 // discordPassFailed leaves the last answer standing where the manager did not refuse it,
 // and lands the refusal where it did: a 401 is the manager declining to resolve the link.
-func (a *App) discordPassFailed(linked bool, err error) {
-	held := a.discordState()
+func (a *App) discordPassFailed(held storedLink, err error) {
+	last := a.discordState()
 
 	var refusal *groupclient.Refusal
 	if errors.As(err, &refusal) && refusal.Status == http.StatusUnauthorized {
-		if !held.Refused {
+		if !last.Refused {
 			logger.Warnf("the manager does not know this install's link, so Discord mode has no group until it is linked again: %v", err)
 		}
-		a.landDiscord(linked, discordSnapshot{Refused: true}, membership{}, relay.Status{})
+		a.landDiscord(held, discordSnapshot{Refused: true}, membership{}, relay.Status{})
 		return
 	}
 
-	if !held.Stale {
+	if !last.Stale {
 		logger.Warnf("the Discord pass did not land, the answer already read standing until its lease runs out: %v", err)
 	}
-	held.Stale = true
-	a.discordLast.Store(&held)
-	a.emit(wire.DiscordStateEvent(held.wire(linked)))
+	last.Stale = true
+	a.discordLast.Store(&last)
+	a.emit(wire.DiscordStateEvent(last.wire(held)))
 
 	// Membership stands as the manual pass leaves it: the last taken answer, until its lease lapses.
 	heldMembers := a.membership()
@@ -170,12 +178,12 @@ func (a *App) discordPassFailed(linked bool, err error) {
 }
 
 // landDiscord records one pass's whole answer and announces the three snapshots shells draw from.
-// linked is the settings' fact the pass does not own (wire).
-func (a *App) landDiscord(linked bool, snap discordSnapshot, m membership, status relay.Status) {
+// held is the settings' half the pass does not own (wire).
+func (a *App) landDiscord(held storedLink, snap discordSnapshot, m membership, status relay.Status) {
 	a.discordLast.Store(&snap)
 	a.relayLast.Store(&status)
 	a.emit(wire.RelayStatusEvent(status))
-	a.emit(wire.DiscordStateEvent(snap.wire(linked)))
+	a.emit(wire.DiscordStateEvent(snap.wire(held)))
 	a.landMembership(m)
 }
 
@@ -190,22 +198,24 @@ func (a *App) discordWire() wire.DiscordSnapshot {
 	r := a.settings.Relay
 	a.settingsMu.Unlock()
 
-	linked := r.DiscordLink != ""
+	held := storedLink{Linked: r.DiscordLink != "", Account: r.DiscordAccount}
 	if !r.DiscordMode {
-		return wire.DiscordSnapshot{Linked: linked}
+		return wire.DiscordSnapshot{Linked: held.Linked, AccountName: held.Account}
 	}
-	return a.discordState().wire(linked)
+	return a.discordState().wire(held)
 }
 
 // wire is this snapshot in the contract's shape, the brokered facts staying behind:
 // a prefix and a passphrase are the backend's to build with, and a shell draws neither.
 //
-// linked is the settings' fact, the pass owning only whether the manager resolves it.
+// held is the settings' half, the pass owning only whether the manager resolves the link.
 // A secret stored while Discord mode is off has no pass behind it and links this install all the same,
 // which is the state the link flow leaves (discordlink.go).
-func (d discordSnapshot) wire(linked bool) wire.DiscordSnapshot {
+// The account stands through a refusal: it names the link the manager will not resolve.
+func (d discordSnapshot) wire(held storedLink) wire.DiscordSnapshot {
 	return wire.DiscordSnapshot{
-		Linked:      linked && !d.Refused,
+		Linked:      held.Linked && !d.Refused,
+		AccountName: held.Account,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,
 		ChannelName: d.ChannelName,
@@ -213,9 +223,9 @@ func (d discordSnapshot) wire(linked bool) wire.DiscordSnapshot {
 	}
 }
 
-// withStoredLink is s carrying the link secret the settings hold.
+// withStoredLink is s carrying the link the settings hold, secret and account both.
 //
-// The link flow is the one writer of it (discordlink.go), so a copy that came from a shell says nothing
+// The link flow is the one writer of them (discordlink.go), so a copy that came from a shell says nothing
 // about a link that landed after the shell read it.
 // Taking such a copy would unlink this install, and every path holding or resolving one reads through here.
 func (a *App) withStoredLink(s settings.Settings) settings.Settings {
@@ -223,6 +233,7 @@ func (a *App) withStoredLink(s settings.Settings) settings.Settings {
 	defer a.settingsMu.Unlock()
 
 	s.Relay.DiscordLink = a.settings.Relay.DiscordLink
+	s.Relay.DiscordAccount = a.settings.Relay.DiscordAccount
 	return s
 }
 

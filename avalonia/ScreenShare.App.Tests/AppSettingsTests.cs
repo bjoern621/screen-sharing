@@ -145,6 +145,34 @@ public sealed class AppSettingsTests
         Assert.Contains("Fixture guild", panel.Settings.DiscordLine);
     }
 
+    /// <summary>
+    /// Which account is linked is what a reader checks a link by,
+    /// so the line names it wherever the backend answered one.
+    /// </summary>
+    [Fact]
+    public async Task TheDiscordLineNamesTheLinkedAccount()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
+        };
+
+        var panel = await PanelAsync(backend);
+
+        Assert.Contains("bjoern", panel.Settings.DiscordLine);
+    }
+
+    /// <summary>A manager that named no account still links this install, and the line states the link.</summary>
+    [Fact]
+    public async Task TheDiscordLineStandsWithoutAnAccount()
+    {
+        var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
+
+        var panel = await PanelAsync(backend);
+
+        Assert.StartsWith("Linked.", panel.Settings.DiscordLine);
+    }
+
     /// <summary>An install with no linked account says so, rather than drawing an empty channel.</summary>
     [Fact]
     public async Task TheDiscordLineSaysWhenNothingIsLinked()

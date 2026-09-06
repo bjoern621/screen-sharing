@@ -106,6 +106,14 @@ type Relay struct {
 	// whoever reads it watches this account's channels.
 	// Empty is an install that has not linked.
 	DiscordLink string `json:"discordLink,omitempty"`
+	// DiscordAccount is the Discord username the link was drawn for, for a reader alone.
+	//
+	// Stored beside the secret rather than read through the manager,
+	// the pass that would answer it running in Discord mode alone
+	// while a link stands in either mode (docs/discord-mode.md).
+	// It labels one credential and the link flow rewrites it with every draw,
+	// so a rename on Discord shows here after the next link.
+	DiscordAccount string `json:"discordAccount,omitempty"`
 	// DiscordRichPresence has a share state itself on the Discord client running beside this app
 	// (internal/discordrpc).
 	// Read only while DiscordMode is set, which is what answers the channel and the audience,

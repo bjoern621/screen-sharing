@@ -45,19 +45,8 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 	assert.Assert(port > 0, "a bound listener has a port", port)
 
 	// Buffered, so the handler never blocks on a caller that already gave up.
-	landed := make(chan string, 1)
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		secret := r.URL.Query().Get("linkSecret")
-		if secret == "" {
-			linkPage(w, http.StatusBadRequest, "The link came back without a secret. Start the link again from the app.")
-			return
-		}
-		linkPage(w, http.StatusOK, "Discord is linked. You can close this tab and return to the app.")
-		select {
-		case landed <- secret:
-		default:
-		}
-	})}
+	landed := make(chan landedLink, 1)
+	server := &http.Server{Handler: linkHandler(landed)}
 	go server.Serve(listener)
 	defer server.Close()
 
@@ -70,23 +59,51 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 		return ctx.Err()
 	case <-time.After(linkWindow):
 		return errors.New("nothing came back from the browser within five minutes: start the link again")
-	case secret := <-landed:
-		a.storeDiscordLink(secret)
-		logger.Infof("Discord is linked")
+	case link := <-landed:
+		a.storeDiscordLink(link)
+		logger.Infof("Discord is linked as %s", link.account)
 		return nil
 	}
 }
 
-// storeDiscordLink writes the one field the flow changes and announces the move,
+// landedLink is what the browser leg brings back:
+// the secret this install proves its identity with, and the account it was drawn for.
+// The account is empty from a manager that names none.
+type landedLink struct {
+	secret  string
+	account string
+}
+
+// linkHandler answers the browser leg and passes on what it carried, one link at most.
+func linkHandler(landed chan<- landedLink) http.HandlerFunc {
+	assert.IsNotNil(landed, "a handler passes its link somewhere")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		secret := r.URL.Query().Get("linkSecret")
+		if secret == "" {
+			linkPage(w, http.StatusBadRequest, "The link came back without a secret. Start the link again from the app.")
+			return
+		}
+		linkPage(w, http.StatusOK, "Discord is linked. You can close this tab and return to the app.")
+		select {
+		case landed <- landedLink{secret: secret, account: r.URL.Query().Get("account")}:
+		default:
+		}
+	}
+}
+
+// storeDiscordLink writes the two fields the flow changes and announces the move,
 // so a shell holding a draft re-reads rather than overwriting it on its next save.
 //
 // The Discord state goes out with it: a pass runs only in Discord mode (discord.go),
-// so nothing else tells a shell that an install with the toggle still off is linked.
-func (a *App) storeDiscordLink(secret string) {
-	assert.Assert(secret != "", "a landed link carries its secret")
+// so nothing else tells a shell that an install with the toggle still off is linked,
+// or which account it is linked as.
+func (a *App) storeDiscordLink(link landedLink) {
+	assert.Assert(link.secret != "", "a landed link carries its secret")
 
 	a.settingsMu.Lock()
-	a.settings.Relay.DiscordLink = secret
+	a.settings.Relay.DiscordLink = link.secret
+	a.settings.Relay.DiscordAccount = link.account
 	s := a.settings
 	a.settingsMu.Unlock()
 

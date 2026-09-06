@@ -35,8 +35,8 @@ sequenceDiagram
     B->>O: authorize
     O->>B: redirect to GET /link/callback, code attached
     B->>D: GET /link/callback
-    D->>O: trade code, read user id
-    D->>B: redirect to 127.0.0.1:n, link secret attached
+    D->>O: trade code, read the account
+    D->>B: redirect to 127.0.0.1:n, link secret and account attached
     B->>A: link secret
 ```
 
@@ -45,7 +45,11 @@ It sits in the settings the way a group key does and carries the same trust:
 whoever reads the file watches this user's channels.
 It stays on the backend: the flow above is its one writer, the control contract carries it in neither direction,
 and every draft arriving from a shell gets it put back (`ipc-api.md`).
-What a shell learns is `DiscordState.linked`.
+The account that consented rides back with the secret and is stored beside it, a label on the link.
+The pass that would answer it runs in Discord mode alone, and a link stands in either mode,
+so the label is what names the account on screen.
+A rename on Discord reaches the app on the next link.
+What a shell learns is `DiscordState.linked` and `DiscordState.account_name`.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
 
@@ -134,7 +138,7 @@ The next occupancy draws a fresh group, so a prefix outlives no session.
 | link secret to Discord user | `discordd`, on disk |
 | the Discord application every app draws an activity under | `discordd`, from the credentials it links through |
 | leases, tokens, enforcement | `groupd`, as ever |
-| mode toggle, link secret | the app's settings |
+| mode toggle, link secret, the account it was drawn for | the app's settings |
 
 A `discordd` restart forgets every session:
 leases lapse, streams close, and the next pass rebuilds fresh groups.

@@ -60,12 +60,13 @@ public static class AppSettingsCopy
             return "No Discord account is linked. Link one in Setup to follow a voice channel.";
         }
 
+        var linked = Copy.Links.Linked(state);
         if (!state.InChannel)
         {
-            return Stale(state, "Linked. The group follows a voice channel once the account joins one.");
+            return Stale(state, $"{linked}. The group follows a voice channel once the account joins one.");
         }
 
-        return Stale(state, $"Linked. Following {state.GuildName} / {state.ChannelName}.");
+        return Stale(state, $"{linked}. Following {state.GuildName} / {state.ChannelName}.");
     }
 
     /// <summary>Adds what an unanswered manager means for the line above it.</summary>

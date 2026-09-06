@@ -264,7 +264,14 @@ type RelaySettings struct {
 	// and the stored key waits for the toggle to go off (docs/discord-mode.md).
 	DiscordMode bool `protobuf:"varint,13,opt,name=discord_mode,json=discordMode,proto3" json:"discord_mode,omitempty"`
 	// Names this install as a Discord account at the manager, drawn by the link flow.
-	// It carries the trust group_key does. Empty is an install that has not linked.
+	// It carries the trust group_key does.
+	//
+	// Written by neither side and read by neither.
+	// The secret is the backend's: the link flow draws it, the store keeps it, and the backend puts it
+	// on every draft coming in, so a shell has nothing to edit about it and never holds a copy
+	// (backend/internal/wire, RelaySettings).
+	// Whether this install is linked reaches a shell as DiscordState.linked.
+	// The number stays taken.
 	DiscordLink string `protobuf:"bytes,14,opt,name=discord_link,json=discordLink,proto3" json:"discord_link,omitempty"`
 	// A share states itself on the Discord client running beside this app:
 	// what is shared, which voice channel, how many are watching of how many in it

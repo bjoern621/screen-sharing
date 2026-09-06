@@ -188,6 +188,7 @@ func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 // DiscordSnapshot is Discord mode as the backend's last manager pass read it.
 type DiscordSnapshot struct {
 	Linked      bool
+	AccountName string
 	InChannel   bool
 	GuildName   string
 	ChannelName string
@@ -198,6 +199,7 @@ type DiscordSnapshot struct {
 func DiscordState(d DiscordSnapshot) *screensharev1.DiscordState {
 	return &screensharev1.DiscordState{
 		Linked:      d.Linked,
+		AccountName: d.AccountName,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,
 		ChannelName: d.ChannelName,

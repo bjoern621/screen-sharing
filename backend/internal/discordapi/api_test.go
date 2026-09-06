@@ -36,10 +36,17 @@ func (fakeBroker) Token(linkSecret string) (string, string, error) {
 	return "", "", channelgroup.ErrUnlinked
 }
 
-type fakeLinks struct{ drawnFor string }
+type fakeLinks struct {
+	drawnFor string
+	// secret is what a draw answers, "drawn-secret" for the zero value.
+	secret string
+}
 
 func (f *fakeLinks) Draw(userID string) (string, error) {
 	f.drawnFor = userID
+	if f.secret != "" {
+		return f.secret, nil
+	}
 	return "drawn-secret", nil
 }
 
@@ -59,9 +66,11 @@ func (f *fakeOAuth) Identify(code string) (discordoauth.Identity, error) {
 	return discordoauth.Identity{UserID: "u1", Username: "bob"}, nil
 }
 
-func serve(t *testing.T) (*httptest.Server, *fakeLinks, *fakeOAuth) {
+func serve(t *testing.T, links *fakeLinks) (*httptest.Server, *fakeLinks, *fakeOAuth) {
 	t.Helper()
-	links := &fakeLinks{}
+	if links == nil {
+		links = &fakeLinks{}
+	}
 	oauth := &fakeOAuth{}
 	service := New(fakeBroker{}, links, oauth)
 	server := httptest.NewServer(service.Handler("test"))
@@ -80,7 +89,7 @@ func put(t *testing.T, address, body string) *http.Response {
 }
 
 func TestPresenceAnswersTheGroup(t *testing.T) {
-	server, _, _ := serve(t)
+	server, _, _ := serve(t, nil)
 
 	resp := put(t, server.URL+"/presence", `{"linkSecret":"known"}`)
 	defer resp.Body.Close()
@@ -106,7 +115,7 @@ func TestPresenceAnswersTheGroup(t *testing.T) {
 }
 
 func TestPresenceForAnUnknownSecretIs401(t *testing.T) {
-	server, _, _ := serve(t)
+	server, _, _ := serve(t, nil)
 
 	resp := put(t, server.URL+"/presence", `{"linkSecret":"stranger"}`)
 	defer resp.Body.Close()
@@ -127,7 +136,7 @@ func post(t *testing.T, address, body string) *http.Response {
 }
 
 func TestTokensTradeAndRefusals(t *testing.T) {
-	server, _, _ := serve(t)
+	server, _, _ := serve(t, nil)
 
 	resp := post(t, server.URL+"/tokens", `{"linkSecret":"known"}`)
 	defer resp.Body.Close()
@@ -171,7 +180,7 @@ func startLink(t *testing.T, server *httptest.Server) string {
 }
 
 func TestLinkFlowLandsTheSecretOnLoopback(t *testing.T) {
-	server, links, oauth := serve(t)
+	server, links, oauth := serve(t, nil)
 	state := startLink(t, server)
 
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
@@ -192,14 +201,16 @@ func TestLinkFlowLandsTheSecretOnLoopback(t *testing.T) {
 	if links.drawnFor != "u1" {
 		t.Fatalf("the link is drawn for the identified user, drawn for %q", links.drawnFor)
 	}
+	// The account rides along because the app names it beside the link,
+	// and this trade is the one read of it (internal/app, storeDiscordLink).
 	location := resp.Header.Get("Location")
-	if location != "http://127.0.0.1:8123/?linkSecret=drawn-secret" {
-		t.Fatalf("the secret lands on the port the start named, got %s", location)
+	if location != "http://127.0.0.1:8123/?linkSecret=drawn-secret&account=bob" {
+		t.Fatalf("the secret and the account land on the port the start named, got %s", location)
 	}
 }
 
 func TestACallbackStateIsSpentOnUse(t *testing.T) {
-	server, _, _ := serve(t)
+	server, _, _ := serve(t, nil)
 	state := startLink(t, server)
 
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
@@ -222,7 +233,7 @@ func TestACallbackStateIsSpentOnUse(t *testing.T) {
 }
 
 func TestALinkStartNeedsAUsablePort(t *testing.T) {
-	server, _, _ := serve(t)
+	server, _, _ := serve(t, nil)
 
 	resp, err := http.Get(server.URL + "/link?port=notanumber")
 	if err != nil {
@@ -248,5 +259,30 @@ func TestTheHealthRouteAnswersWithoutACredential(t *testing.T) {
 	}
 	if got, want := w.Header().Get("Server"), "discordd/0.9.0"; got != want {
 		t.Errorf("the answer names %q, want %q", got, want)
+	}
+}
+
+// The secret crosses to the app in a query string, where an unescaped "+" is read as a space.
+// The store draws a URL-safe alphabet (internal/linkstore), and the escape holds for whatever it draws.
+func TestALinkSecretSurvivesTheRedirect(t *testing.T) {
+	secret := "a+b/c="
+	server, _, _ := serve(t, &fakeLinks{secret: secret})
+	state := startLink(t, server)
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(server.URL + "/link/callback?code=good-code&state=" + url.QueryEscape(state))
+	if err != nil {
+		t.Fatalf("finishing a link: %v", err)
+	}
+	defer resp.Body.Close()
+
+	landed, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("the redirect is no address: %v", err)
+	}
+	if got := landed.Query().Get("linkSecret"); got != secret {
+		t.Fatalf("the app reads the secret %q, want %q", got, secret)
 	}
 }

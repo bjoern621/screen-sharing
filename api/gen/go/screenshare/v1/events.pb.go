@@ -1886,7 +1886,11 @@ type DiscordState struct {
 	GuildName   string `protobuf:"bytes,3,opt,name=guild_name,json=guildName,proto3" json:"guild_name,omitempty"`
 	ChannelName string `protobuf:"bytes,4,opt,name=channel_name,json=channelName,proto3" json:"channel_name,omitempty"`
 	// The answer stands from an earlier pass because the manager stopped answering.
-	Stale         bool `protobuf:"varint,5,opt,name=stale,proto3" json:"stale,omitempty"`
+	Stale bool `protobuf:"varint,5,opt,name=stale,proto3" json:"stale,omitempty"`
+	// The Discord account this install is linked as, for a reader.
+	// The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
+	// Empty where the manager that drew the link named no account.
+	AccountName   string `protobuf:"bytes,6,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1954,6 +1958,13 @@ func (x *DiscordState) GetStale() bool {
 		return x.Stale
 	}
 	return false
+}
+
+func (x *DiscordState) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
 }
 
 // One member of the group.
@@ -2578,7 +2589,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2\x16.screenshare.v1.MemberR\amembers\x12.\n" +
 	"\arefusal\x18\x02 \x01(\v2\x14.screenshare.v1.TextR\arefusal\x12\x16\n" +
 	"\x06joined\x18\x03 \x01(\bR\x06joined\x12+\n" +
-	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\x9d\x01\n" +
+	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\xc0\x01\n" +
 	"\fDiscordState\x12\x16\n" +
 	"\x06linked\x18\x01 \x01(\bR\x06linked\x12\x1d\n" +
 	"\n" +
@@ -2586,7 +2597,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\n" +
 	"guild_name\x18\x03 \x01(\tR\tguildName\x12!\n" +
 	"\fchannel_name\x18\x04 \x01(\tR\vchannelName\x12\x14\n" +
-	"\x05stale\x18\x05 \x01(\bR\x05stale\"|\n" +
+	"\x05stale\x18\x05 \x01(\bR\x05stale\x12!\n" +
+	"\faccount_name\x18\x06 \x01(\tR\vaccountName\"|\n" +
 	"\x06Member\x12\x1b\n" +
 	"\tmember_id\x18\x01 \x01(\tR\bmemberId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1e\n" +

@@ -527,6 +527,10 @@ message DiscordState {
   string channel_name = 4;
   // The answer stands from an earlier pass because the manager stopped answering.
   bool stale = 5;
+  // The Discord account this install is linked as, for a reader.
+  // The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
+  // Empty where the manager that drew the link named no account.
+  string account_name = 6;
 }
 
 // One member of the group.

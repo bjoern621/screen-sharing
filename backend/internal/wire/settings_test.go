@@ -21,17 +21,18 @@ import (
 func populatedSettings() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:        "relay.fixture",
-			SrtPort:     1001,
-			RtspPort:    1003,
-			WebrtcPort:  1004,
-			RtmpPort:    1005,
-			HlsPort:     1006,
-			MoqPort:     1007,
-			GroupKey:    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-			DisplayName: "fixture-member",
-			DiscordMode: true,
-			DiscordLink: "fixture-discord-link",
+			Host:           "relay.fixture",
+			SrtPort:        1001,
+			RtspPort:       1003,
+			WebrtcPort:     1004,
+			RtmpPort:       1005,
+			HlsPort:        1006,
+			MoqPort:        1007,
+			GroupKey:       "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+			DisplayName:    "fixture-member",
+			DiscordMode:    true,
+			DiscordLink:    "fixture-discord-link",
+			DiscordAccount: "fixture-discord-account",
 
 			DiscordRichPresence: true,
 		},
@@ -119,17 +120,20 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 // are read once, turned into what replaced them and cleared,
 // so a draft crossing to a shell and back has nothing to say about either (settings/migrate.go).
 //
-// The last two are credentials rather than settings, and a contract carrying either would hand every
-// shell a secret it has no use for.
+// The other three are the backend's own, and a contract carrying the two secrets would hand every
+// shell one it has no use for.
 // The relay token is minted per command from the group key beside it, lives for minutes and is written
 // by one function in the backend (internal/app, settingsForCommand).
 // The Discord link secret is drawn by the link flow, which is its one writer, and the backend puts it
 // back on every copy coming in (internal/app, withStoredLink).
+// The account that link was drawn for is written by the same flow,
+// and it reaches a shell as DiscordState.account_name.
 var offContract = map[string]bool{
-	"Publish.FlatAudio": true,
-	"Publish.FlatCodec": true,
-	"Relay.Token":       true,
-	"Relay.DiscordLink": true,
+	"Publish.FlatAudio":    true,
+	"Publish.FlatCodec":    true,
+	"Relay.Token":          true,
+	"Relay.DiscordLink":    true,
+	"Relay.DiscordAccount": true,
 }
 
 // A settings draft crosses to a shell and comes back edited on every keystroke,

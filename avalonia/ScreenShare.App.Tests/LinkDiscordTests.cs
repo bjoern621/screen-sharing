@@ -110,6 +110,30 @@ public sealed class LinkDiscordTests
     }
 
     /// <summary>
+    /// The account labels the link the settings hold, so it reads with the mode off,
+    /// where no pass answers anything else about Discord.
+    /// </summary>
+    [Fact]
+    public async Task TheNoticeNamesTheLinkedAccount()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
+        };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.Contains("bjoern", DiscordMode(flow).ActionNotice);
+    }
+
+    /// <summary>
     /// A linked install can press again, the press putting another account where the linked one stands,
     /// so the label says which of the two presses this is rather than offering a link already made.
     /// </summary>

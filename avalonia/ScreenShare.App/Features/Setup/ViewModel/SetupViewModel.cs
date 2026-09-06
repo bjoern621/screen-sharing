@@ -785,14 +785,15 @@ public sealed class SetupViewModel : Observable
         {
             return "Not linked yet.";
         }
+        var linked = Copy.Links.Linked(discord);
         // With the mode off the backend follows no channel, so the toggle beside this is the next move.
         if (_form.Draft?.Relay?.DiscordMode != true)
         {
-            return "Linked. Turn on Follow Discord to tie the group to your voice channel.";
+            return $"{linked}. Turn on Follow Discord to tie the group to your voice channel.";
         }
         var state = discord.InChannel
-            ? $"Linked. Sharing follows {discord.ChannelName} in {discord.GuildName}."
-            : "Linked. Join a voice channel in Discord to get a group.";
+            ? $"{linked}. Sharing follows {discord.ChannelName} in {discord.GuildName}."
+            : $"{linked}. Join a voice channel in Discord to get a group.";
         return discord.Stale
             ? state + " The Discord manager is not answering, so this may be out of date."
             : state;

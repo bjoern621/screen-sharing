@@ -67,9 +67,10 @@ func discordApp(fake *fakeDiscord) *App {
 		events:  events.New(),
 		discord: fake,
 		settings: settings.Settings{Relay: settings.Relay{
-			Host:        "127.0.0.1",
-			DiscordMode: true,
-			DiscordLink: "link-secret",
+			Host:           "127.0.0.1",
+			DiscordMode:    true,
+			DiscordLink:    "link-secret",
+			DiscordAccount: "bob",
 		}},
 	}
 }
@@ -182,7 +183,7 @@ func TestStoringALinkAnnouncesIt(t *testing.T) {
 	}
 	defer cancel()
 
-	a.storeDiscordLink("fresh-secret")
+	a.storeDiscordLink(landedLink{secret: "fresh-secret", account: "bob"})
 
 	if !a.discordWire().Linked {
 		t.Fatal("a stored link draws as linked")
