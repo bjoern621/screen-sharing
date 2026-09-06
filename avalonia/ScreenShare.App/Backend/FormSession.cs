@@ -81,6 +81,15 @@ public sealed class FormSession
     private PublishState.Types.Live? _askedUnder;
 
     /// <summary>
+    /// Discord mode as this window had read it when the draft was last handed over, null before any read landed.
+    /// A third input to the answer: the backend brokers Discord mode's membership into the draft before it
+    /// resolves, so a channel joined or left moves the audience diagnostic under a draft nothing touched
+    /// (<c>backend/internal/form</c>, <c>diagnosticsAboutTheAudience</c>).
+    /// The whole state rather than the channel alone, a link refused and a channel switched moving the answer too.
+    /// </summary>
+    private DiscordState? _askedDiscord;
+
+    /// <summary>
     /// Settings the backend is holding. Null until the opening read answers.
     /// A different fact from the draft, and the difference is what a staged group means: effects are served off
     /// the backend's own settings rather than off anything a call hands over, a decode reading its render chain
@@ -246,14 +255,23 @@ public sealed class FormSession
     /// Asks for the form this draft resolves to, unless the backend has already been asked for it.
     /// <b>Idempotent, which makes it safe on a render pass.</b>
     /// The resolve is side-effect free and answers the same form for the same draft under the same stream
-    /// (<c>docs/ipc-api.md</c>), so a draft still equal to the one last handed over,
-    /// with what publishes unchanged since, has nothing to learn from a second round trip, landed or in flight.
+    /// and the same Discord state (<c>docs/ipc-api.md</c>), so a draft still equal to the one last handed over,
+    /// with those two unchanged since, has nothing to learn from a second round trip, landed or in flight.
     /// A hundred render passes cost the one call.
     /// </summary>
     public void Sync()
     {
+        // The opening resolve goes out before this window has read Discord,
+        // and the backend answers against the state it holds,
+        // so the first reading to land is what that answer was made under rather than news.
+        // A state read once never reads unknown again, so this fills the gap at the open and nothing after it.
+        _askedDiscord ??= _session.Discord;
+
         // No draft yet means the read that fetches the stored settings is still out, started by the constructor.
-        if (_draft is null || (_draft.Equals(_asked) && Equals(_session.Publish?.Live, _askedUnder)))
+        if (_draft is null
+            || (_draft.Equals(_asked)
+                && Equals(_session.Publish?.Live, _askedUnder)
+                && Equals(_session.Discord, _askedDiscord)))
         {
             return;
         }
@@ -270,6 +288,7 @@ public sealed class FormSession
         var draft = _draft.Clone();
         _asked = draft;
         _askedUnder = _session.Publish?.Live;
+        _askedDiscord = _session.Discord;
         Start(draft);
     }
 

@@ -1,3 +1,4 @@
+using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
@@ -176,6 +177,41 @@ public sealed class SetupResolveTests
         await backend.AnswerAsync(0);
 
         Assert.Equal(settled, form.Draft);
+        Assert.Equal(2, backend.Resolves);
+    }
+
+    /// <summary>
+    /// A channel joined or left moves what a resolve answers under an unchanged draft:
+    /// Discord mode's membership is brokered in on the backend's side, and the audience diagnostic reads it.
+    /// A form held from before the join says there is no voice channel while the link line beside it names one.
+    /// </summary>
+    [Fact]
+    public async Task AJoinedVoiceChannelAsksForTheFormAgain()
+    {
+        var backend = new DeferredBackend();
+        var session = new Session(backend, static action => action());
+        _ = new FormSession(backend, session, static action => action());
+
+        Load(session);
+        await backend.AnswerAsync(0);
+
+        Assert.Equal(1, backend.Resolves);
+
+        backend.Discord = new DiscordState
+        {
+            Linked = true,
+            AccountName = "bjoern",
+            InChannel = true,
+            GuildName = "among",
+            ChannelName = "Allgemein",
+        };
+        Load(session);
+
+        Assert.Equal(2, backend.Resolves);
+
+        // Idempotent: a state that reads the same asks nothing.
+        Load(session);
+
         Assert.Equal(2, backend.Resolves);
     }
 

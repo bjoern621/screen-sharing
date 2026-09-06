@@ -71,6 +71,13 @@ internal sealed class DeferredBackend : IBackend
     /// <summary>Resolves asked for, the count an idempotent pass leaves alone.</summary>
     public int Resolves => _held.Count;
 
+    /// <summary>Discord mode as a manager pass read it, written by a test that moves the channel.</summary>
+    public DiscordState Discord
+    {
+        get => _seed.Discord;
+        set => _seed.Discord = value;
+    }
+
     public void Announce() => Changed?.Invoke();
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
