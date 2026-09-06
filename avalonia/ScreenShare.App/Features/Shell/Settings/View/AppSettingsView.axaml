@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
-             xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              xmlns:model="using:ScreenShare.App.Features.Shell.Settings.Model"
              xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Shell.Settings.ViewModel"
@@ -59,18 +58,23 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Spacing="{StaticResource GapSection}">
 
-            <!--
-              The backend's own group, drawn by the renderer the wizard and the watch panel share.
-              Which controls it holds and in what order is the form's answer.
-            -->
-            <fields:FieldGroupView DataContext="{Binding Group}" />
-
             <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.LogsHeading}" />
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"
                          TextTrimming="None"
                          Text="{x:Static model:AppSettingsCopy.LogsBody}" />
+
+              <!--
+                Pulled off the app group by key, so the write path stays the field's own (AppSettingsViewModel.Apply).
+                Margin cancels the row's own trailing 18px (FieldRow.axaml), built for an unspaced list,
+                so the gap to the button below reads as the same GapTight every other pair in this dialog uses.
+              -->
+              <ContentControl Content="{Binding CrashReports}"
+                              ContentTemplate="{StaticResource FieldRow}"
+                              Margin="0,0,0,-18"
+                              IsVisible="{Binding CrashReports, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
               <Button HorizontalAlignment="Left"
                       Content="{x:Static model:AppSettingsCopy.OpenLogsFolder}"
                       Command="{Binding OpenLogsFolder}"
@@ -80,6 +84,12 @@
 
             <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.UpdatesHeading}" />
+
+              <!-- Same cancelling margin as the crash-report row above. -->
+              <ContentControl Content="{Binding CheckUpdatesOnStart}"
+                              ContentTemplate="{StaticResource FieldRow}"
+                              Margin="0,0,0,-18"
+                              IsVisible="{Binding CheckUpdatesOnStart, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
               <!--
                 The band's own answer, the same view model behind both
@@ -97,8 +107,12 @@
                       Content="{x:Static model:AppSettingsCopy.CheckNow}"
                       Command="{Binding Updates.Check}"
                       IsEnabled="{Binding Updates.CanCheck}"
-                      controls:Pending.IsActive="{Binding Updates.Check.IsRunning}"
-                      ToolTip.Tip="{Binding Updates.CheckHint}" />
+                      controls:Pending.IsActive="{Binding Updates.Check.IsRunning}" />
+
+              <!-- Beside the button rather than only on its hover: a copyable reason is one a bug report can carry. -->
+              <SelectableTextBlock Classes="reason"
+                                   IsVisible="{Binding !Updates.CanCheck}"
+                                   Text="{Binding Updates.CheckHint}" />
             </StackPanel>
 
             <StackPanel Spacing="{StaticResource GapTight}">

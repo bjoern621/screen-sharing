@@ -122,12 +122,13 @@ func (s *Server) inForce(draft settings.Settings) bool {
 // answer from the same machine.
 func (s *Server) formDeps() form.Deps {
 	return form.Deps{
-		Monitors:     s.backend.Monitors(),
-		Platform:     s.backend.Platform(),
-		Device:       s.backend.Device(),
-		Encoders:     s.backend.CachedEncoders(),
-		AudioDevices: s.backend.AudioDevices(),
-		Portal:       s.backend.PortalCapabilities(),
+		Monitors:       s.backend.Monitors(),
+		Platform:       s.backend.Platform(),
+		Device:         s.backend.Device(),
+		Encoders:       s.backend.CachedEncoders(),
+		AudioDevices:   s.backend.AudioDevices(),
+		Portal:         s.backend.PortalCapabilities(),
+		UpdateCheckOff: s.backend.UpdateState().Unchecked != nil,
 	}
 }
 

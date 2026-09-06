@@ -24,8 +24,7 @@ public static class AppSettingsCopy
 
     public const string LogsHeading = "Logs";
 
-    public const string LogsBody =
-        "One log per run, kept on this computer. A report sent from the status bar carries the newest of them.";
+    public const string LogsBody = "One log per run, kept on this computer.";
 
     public const string OpenLogsFolder = "Open logs folder";
 

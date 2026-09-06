@@ -30,6 +30,13 @@ namespace ScreenShare.App.Features.Shell.Settings.ViewModel;
 /// </summary>
 public sealed class AppSettingsViewModel : Observable
 {
+    /// <summary>
+    /// The two keys this dialog places by name, under the heading each belongs to rather than in the
+    /// group's own order (<see cref="Apply"/>).
+    /// </summary>
+    private const string CrashReportsKey = "app.send_crash_reports";
+    private const string CheckUpdatesOnStartKey = "app.check_updates_on_start";
+
     private readonly FormSession _form;
     private readonly Session _session;
     private readonly UpdateViewModel _updates;
@@ -87,8 +94,21 @@ public sealed class AppSettingsViewModel : Observable
 
     public PendingCommand OpenLogsFolder { get; }
 
-    /// <summary>The app group of the resolved form, drawn by the renderer every other screen shares.</summary>
+    /// <summary>The app group of the resolved form, holding the two fields below and their write path.</summary>
     public FieldGroupViewModel Group { get; }
+
+    private FieldViewModel? _crashReports;
+    private FieldViewModel? _checkUpdatesOnStart;
+
+    /// <summary>Placed under the Logs heading, beside <see cref="OpenLogsFolder"/>.</summary>
+    public FieldViewModel? CrashReports { get => _crashReports; private set => Set(ref _crashReports, value); }
+
+    /// <summary>Placed under the Updates heading, beside <see cref="Updates"/>'s own check.</summary>
+    public FieldViewModel? CheckUpdatesOnStart
+    {
+        get => _checkUpdatesOnStart;
+        private set => Set(ref _checkUpdatesOnStart, value);
+    }
 
     /// <summary>Published release, the band's answer and this one being the same object.</summary>
     public UpdateViewModel Updates => _updates;
@@ -115,6 +135,8 @@ public sealed class AppSettingsViewModel : Observable
 
         var form = _form.Form;
         Group.Apply(GroupOf(form), _session.Words, form?.Settings, _form.IsAnswered);
+        CrashReports = Group.Visible(CrashReportsKey);
+        CheckUpdatesOnStart = Group.Visible(CheckUpdatesOnStartKey);
 
         Version = _session.Version;
 
@@ -125,6 +147,12 @@ public sealed class AppSettingsViewModel : Observable
         Assert.That(
             Group.IsResolved || Group.Fields.Count == 0,
             "a dialog with no group draws no controls", Group.Fields.Count);
+        Assert.That(
+            !Group.IsResolved || CrashReports is not null,
+            "a resolved app group always carries the crash-report toggle");
+        Assert.That(
+            !Group.IsResolved || CheckUpdatesOnStart is not null,
+            "a resolved app group always carries the update-on-start toggle");
     }
 
     /// <summary>

@@ -94,6 +94,8 @@ const (
 	encryptionFollowsTheAddress = screensharev1.TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
 
+	updateCheckOff = screensharev1.TextCode_TEXT_CODE_UPDATE_CHECK_OFF
+
 	publishRefused         = screensharev1.TextCode_TEXT_CODE_PUBLISH_REFUSED
 	noUplinkStated         = screensharev1.TextCode_TEXT_CODE_NO_UPLINK_STATED
 	uplinkBelowPrediction  = screensharev1.TextCode_TEXT_CODE_UPLINK_BELOW_PREDICTION

@@ -59,6 +59,10 @@ type Deps struct {
 	// The zero value is a machine nothing asked, which greys nothing,
 	// as an unprobed engine does.
 	Portal portal.Capabilities
+	// UpdateCheckOff is whether this install's update channel refuses every check
+	// (internal/update, MIRRORME_UPDATE_CHECK=0 or an unstamped build).
+	// The zero value is live, matching a caller that never asked the channel.
+	UpdateCheckOff bool
 }
 
 // state is what availability decided about one field, in the treatments

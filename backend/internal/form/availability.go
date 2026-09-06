@@ -141,11 +141,18 @@ var availabilityRules = map[string]func(availability) state{
 	KeyMoqPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityMoq)) },
 
 	// The app group, which no capture backend, codec or leg reaches.
-	// Both stay live on every machine: what a send or a check runs into is an Umgebungsfehler
-	// the run reports where it happens, and an install that replaces nothing says so through
-	// the update state a shell already draws (control.proto, GetUpdateState).
-	KeySendCrashReports:    func(availability) state { return availabilityLive() },
-	KeyCheckUpdatesOnStart: func(availability) state { return availabilityLive() },
+	// Crash reporting stays live on every machine: what a send runs into is an Umgebungsfehler
+	// the run reports where it happens, needing no verdict here.
+	KeySendCrashReports: func(availability) state { return availabilityLive() },
+	// Greyed where the update channel already refuses every check, the same fact the band's own
+	// version control states (control.proto, GetUpdateState): a preference over a check that never
+	// runs is a control with nothing behind it.
+	KeyCheckUpdatesOnStart: func(av availability) state {
+		if av.deps.UpdateCheckOff {
+			return availabilityDisabled(say(updateCheckOff))
+		}
+		return availabilityLive()
+	},
 
 	// Greyed per entry rather than per control: a greyed entry
 	// and its reason name the thing to change.
