@@ -185,16 +185,13 @@ public static class Counters
             "How long the publisher held a frame between reading the screen and having it encoded. A faster effort step or a shorter lookahead shortens this stage."),
         ["delay.path"] = new(
             "Publisher to here",
-            "The whole way between the publishing machine and this one, relay and the buffering here included. Read from a clock only H.264 and H.265 carry."),
+            "Network and relay time before this computer buffers the frame. Read from a clock only H.264 and H.265 carry."),
         ["delay.arrive"] = new(
             "Buffered here",
-            "What this computer's transport buffer, demuxer and parser held a frame for. Part of the way here, and set by the leg's latency setting."),
+            "What this computer's transport buffer, demuxer and parser held a frame for, set by the leg's latency setting."),
         ["delay.decode"] = new(
             "Decode",
             "Time from the decoder taking a frame to a frame ready to draw. Rising to meet the latency window means frames are about to drop."),
-        ["delay.work_peak"] = new(
-            "Slowest frame",
-            "The longest one frame has taken between arriving and being ready. It only rises, so one slow frame shows here where the means hide it."),
         ["delay.present"] = new(
             "Held for play time",
             "How long each frame waited to be drawn at its play time. Buffering, decoding and this wait together fill the latency window."),

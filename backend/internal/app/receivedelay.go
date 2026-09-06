@@ -50,11 +50,11 @@ func (a *App) publishedStreamLocked() (string, publishDelay) {
 // The stages split there, so the sum crosses that stretch once.
 func receiveDelayOf(now, last receive.Stats, seen bool, publishing publishDelay) wire.DelayBudget {
 	transit := transitOf(now, last, seen)
+	arrive := arriveOf(now, last, seen)
 	budget := wire.DelayBudget{
-		Publish:  firstOf(publishing.Transit, stampedPublishOf(now, last, seen)),
-		Path:     pathOf(now, last, seen),
-		Arrive:   arriveOf(now, last, seen),
-		WorkPeak: transitPeakOf(now),
+		Publish: firstOf(publishing.Transit, stampedPublishOf(now, last, seen)),
+		Path:    pathOf(now, last, seen, arrive),
+		Arrive:  arrive,
 	}
 	budget.Decode = decodeOf(transit, budget.Arrive)
 	budget.Present = presentOf(now.LatencyMin, transit)
@@ -144,33 +144,32 @@ func stampedPublishOf(now, last receive.Stats, seen bool) *float64 {
 	return msOfPtr(time.Duration(mean))
 }
 
-// pathOf is the mean wall clock one frame spent between the publishing machine's encoder
-// and this decoder, over the interval between two readings.
+// pathOf is the mean wall clock the network and the relay alone spent moving one frame between
+// the publishing machine's encoder and this machine's own buffering, over the interval between
+// two readings, arrive subtracted out.
 //
-// The same three readings a transit is taken from, and nil on the same three grounds:
+// Both readings end at the same pad, the one delay.arrive starts counting from,
+// so the raw subtraction would carry that stage's stretch twice were it left in.
+// nil on the same three grounds a transit is:
 // a first reading, a pipeline whose counters restarted, and an interval no stamped frame crossed.
 // The last also covers every frame of a stream carrying no clock at all,
 // a path nothing measured rather than a path of no length (internal/framestamp).
-func pathOf(now, last receive.Stats, seen bool) *float64 {
+// Never negative: the two means are taken across frame sets that need not match exactly,
+// so buffering that outruns the raw path is those sets parting rather than a stretch shorter
+// than nothing (decodeOf).
+func pathOf(now, last receive.Stats, seen bool, arrive *float64) *float64 {
 	if !seen || now.PathFrames <= last.PathFrames || now.Path < last.Path {
 		return nil
 	}
 	mean := float64(now.Path-last.Path) / float64(now.PathFrames-last.PathFrames)
-	return msOfPtr(time.Duration(mean))
-}
-
-// transitPeakOf is the worst the arrival and the decode together have cost a single frame since
-// the decode started, the stretch the latency window schedules.
-//
-// One reading and no interval, unlike every other stage here:
-// a high-water mark already answers over the whole run,
-// and subtracting two would read an interval that beat no record as an interval with nothing slow.
-// nil before a frame has been measured at all.
-func transitPeakOf(now receive.Stats) *float64 {
-	if now.TransitPeak <= 0 {
-		return nil
+	path := msOf(time.Duration(mean))
+	if arrive != nil {
+		path -= *arrive
+		if path < 0 {
+			path = 0
+		}
 	}
-	return msOfPtr(now.TransitPeak)
+	return &path
 }
 
 // presentOf is what the sink holds a frame for after it arrives:
@@ -198,14 +197,7 @@ func presentOf(latency time.Duration, transit *float64) *float64 {
 // either way.
 // Adding what is there still answers, every absent stage only making the real delay larger.
 func totalOf(budget wire.DelayBudget) *float64 {
-	stages := []*float64{budget.Publish, budget.Path, budget.Decode, budget.Present}
-
-	// Arrive lies inside Path, so it is added only where Path is absent.
-	// What a leg held a frame for is measured on an unstamped stream too,
-	// and a floor dropping it would report less than what was read.
-	if budget.Path == nil {
-		stages = append(stages, budget.Arrive)
-	}
+	stages := []*float64{budget.Publish, budget.Path, budget.Arrive, budget.Decode, budget.Present}
 
 	total, measured := 0.0, false
 	for _, stage := range stages {

@@ -267,9 +267,7 @@ public static class TileStats
     /// and sees the publishing machine's own work only where it is that machine too
     /// (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
     ///
-    /// Two rows are not stages, and each sits under the figures it is read against.
-    /// The worst single frame goes under the two means it spans.
-    /// The latency window goes last, under the three rows that fill it.
+    /// One row is not a stage: the latency window, sitting last under the three rows that fill it.
     ///
     /// A decode reporting no budget at all is drawn as one that measured nothing,
     /// the window being the sample's own figure and there either way.
@@ -285,7 +283,6 @@ public static class TileStats
             Line("delay.path", Ms(d.HasPathMs, d.PathMs)),
             Line("delay.arrive", Ms(d.HasArriveMs, d.ArriveMs)),
             Line("delay.decode", Ms(d.HasDecodeMs, d.DecodeMs)),
-            Line("delay.work_peak", Ms(d.HasWorkPeakMs, d.WorkPeakMs)),
             Line("delay.present", Ms(d.HasPresentMs, d.PresentMs)),
             Line("latency", Latency(s)),
         ];

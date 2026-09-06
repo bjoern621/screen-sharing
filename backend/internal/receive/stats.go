@@ -119,12 +119,6 @@ type Stats struct {
 	// which is what the two figures read together say and neither says alone.
 	Transit       time.Duration
 	TransitFrames uint64
-	// TransitPeak is the worst Transit any one frame cost since the pipeline started,
-	// and it never comes down.
-	// A mean holds steady while single frames run long,
-	// so this is the reading that says whether a decode has ever been short of the rate it is sent
-	// rather than short on average.
-	TransitPeak time.Duration
 
 	// Arrive is the wall clock spent between the leg's source stamping a frame and the decoder being
 	// handed it, summed over ArriveFrames frames:

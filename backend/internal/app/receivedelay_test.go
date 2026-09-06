@@ -219,11 +219,26 @@ func TestReceiveDelayDecodeStartsWhereTheWayHereEnds(t *testing.T) {
 	budget := receiveDelayOf(now, last, true, publishDelay{Transit: ms(8)})
 
 	closeTo(t, "arrive", budget.Arrive, ms(30))
+	// 80 raw across, less the 30 ms buffered here already counted on its own row.
+	closeTo(t, "path", budget.Path, ms(50))
 	closeTo(t, "decode", budget.Decode, ms(20))
 	closeTo(t, "present", budget.Present, ms(30))
-	// 8 encoding, 80 across, 20 decoding, 30 waiting at the sink,
-	// the 30 ms of buffering here being inside the way across.
+	// 8 encoding, 50 across, 30 buffered here, 20 decoding, 30 waiting at the sink.
 	closeTo(t, "total", budget.Total, ms(138))
+}
+
+// Buffering that outruns the raw path is the two means parting rather than a stretch shorter
+// than nothing, so the way across floors at zero instead of going negative.
+func TestReceiveDelayPathNeverGoesNegative(t *testing.T) {
+	last := receive.Stats{}
+	now := receive.Stats{
+		Path: 100 * time.Millisecond, PathFrames: 10,
+		Arrive: 500 * time.Millisecond, ArriveFrames: 10,
+	}
+
+	budget := receiveDelayOf(now, last, true, publishDelay{})
+
+	closeTo(t, "path", budget.Path, ms(0))
 }
 
 // A pipeline with no decoder to bracket measures no way here either,
@@ -242,14 +257,4 @@ func TestReceiveDelayWithNoArrivalReadingDecodesTheWholeTransit(t *testing.T) {
 		t.Errorf("a pipeline with no decoder measures an arrival of %v ms, want it absent", *budget.Arrive)
 	}
 	closeTo(t, "decode", budget.Decode, ms(20))
-}
-
-// The worst single frame spans the arrival and the decode together:
-// the stretch the latency window schedules, and the one a sink's deadline is judged against.
-func TestReceiveDelayWorstFrameSpansTheWholeTransit(t *testing.T) {
-	now := receive.Stats{TransitPeak: 90 * time.Millisecond}
-
-	budget := receiveDelayOf(now, receive.Stats{}, false, publishDelay{})
-
-	closeTo(t, "work peak", budget.WorkPeak, ms(90))
 }

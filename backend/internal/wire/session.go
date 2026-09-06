@@ -510,17 +510,16 @@ type ReceiveStreamStats struct {
 // (api/proto/screenshare/v1/events.proto, DelayBudget).
 type DelayBudget struct {
 	Publish *float64
-	// Path is the two legs, the relay between them and this machine's buffering ahead of the decoder,
-	// as one measurement, off the clock the publisher wrote into the coded picture.
+	// Path is the two legs and the relay between them,
+	// off the clock the publisher wrote into the coded picture,
+	// up to where this machine's own buffering starts (Arrive).
 	Path *float64
-	// Arrive is the share of Path this machine spent, which Total counts inside Path.
-	Arrive *float64
-	Decode *float64
-	// WorkPeak is the worst Arrive and Decode together have been for a single frame since the decode
-	// started, the one field here that is not a figure over the interval between two samples.
-	WorkPeak *float64
-	Present  *float64
-	Total    *float64
+	// Arrive is what this machine spent buffering, demuxing and parsing a frame ahead of the decode,
+	// its own stage rather than a share of Path.
+	Arrive  *float64
+	Decode  *float64
+	Present *float64
+	Total   *float64
 }
 
 // ReceiveStats carries one sample of every running decode across.
@@ -583,13 +582,12 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 			Groups: receiveStatGroups(s.Groups),
 
 			Delay: &screensharev1.DelayBudget{
-				PublishMs:  s.Delay.Publish,
-				PathMs:     s.Delay.Path,
-				ArriveMs:   s.Delay.Arrive,
-				DecodeMs:   s.Delay.Decode,
-				WorkPeakMs: s.Delay.WorkPeak,
-				PresentMs:  s.Delay.Present,
-				TotalMs:    s.Delay.Total,
+				PublishMs: s.Delay.Publish,
+				PathMs:    s.Delay.Path,
+				ArriveMs:  s.Delay.Arrive,
+				DecodeMs:  s.Delay.Decode,
+				PresentMs: s.Delay.Present,
+				TotalMs:   s.Delay.Total,
 			},
 		}
 

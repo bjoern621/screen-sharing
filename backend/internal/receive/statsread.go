@@ -33,7 +33,7 @@ func (r *Receiver) Stats() Stats {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
 	}
 	transit := r.delay.Read()
-	s.Transit, s.TransitFrames, s.TransitPeak = transit.Total, transit.Frames, transit.Peak
+	s.Transit, s.TransitFrames = transit.Total, transit.Frames
 	s.Path, s.PathFrames = time.Duration(r.video.path.Load()), r.video.pathFrames.Load()
 	s.PublishTotal = time.Duration(r.video.publishMs.Load()) * time.Millisecond
 	s.PublishFrames = r.video.publishFrames.Load()

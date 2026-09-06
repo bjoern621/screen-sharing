@@ -81,7 +81,6 @@ public sealed class TileStatsTests
             PathMs = 440,
             ArriveMs = 51,
             DecodeMs = 6.2,
-            WorkPeakMs = 22.5,
             PresentMs = 13.8,
             TotalMs = 468.4,
         },
@@ -110,8 +109,8 @@ public sealed class TileStatsTests
     /// the stages in the order a frame crosses them.
     /// Every row is a stage any transport can fill, the way between the two machines being one measurement
     /// rather than a leg's window that only SRT states.
-    /// Two rows are not stages: the worst single frame, and the window the last stages are scheduled
-    /// inside, both sitting under the figures they are read against.
+    /// One row is not a stage: the window the last stages are scheduled inside,
+    /// sitting under the figures it is read against.
     /// </summary>
     [Fact]
     public void TheDelayBlockNamesEveryStageOfThePath()
@@ -121,7 +120,7 @@ public sealed class TileStatsTests
         Assert.Equal(
             [
                 "End to end", "Capture and encode", "Publisher to here", "Buffered here",
-                "Decode", "Slowest frame", "Held for play time", "Latency window",
+                "Decode", "Held for play time", "Latency window",
             ],
             Section(panel, "Delay").Lines.Select(line => line.Label));
 
