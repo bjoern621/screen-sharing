@@ -190,6 +190,23 @@ public sealed class AppSettingsTests
         Assert.True(panel.Settings.IsDiscordLinked);
         Assert.Contains("bjoern", panel.Settings.DiscordLine);
         Assert.Contains("Link Discord", panel.Settings.DiscordLine);
+        // A refusal blocks sharing, so the line is drawn in the failure hue
+        // (docs/design-language.md, "Palette").
+        Assert.True(panel.Settings.DiscordLineIsFailure);
+    }
+
+    /// <summary>A link the manager resolves reports where sharing stands, which takes no hue.</summary>
+    [Fact]
+    public async Task TheDiscordLineIsPlainWhereTheLinkHolds()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
+        };
+
+        var panel = await PanelAsync(backend);
+
+        Assert.False(panel.Settings.DiscordLineIsFailure);
     }
 
     /// <summary>An install with no linked account says so, rather than drawing an empty channel.</summary>

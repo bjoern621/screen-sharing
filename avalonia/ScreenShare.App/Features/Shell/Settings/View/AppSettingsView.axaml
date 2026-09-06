@@ -118,6 +118,7 @@
             <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DiscordHeading}" />
               <SelectableTextBlock Classes="hint"
+                                   Classes.danger="{Binding DiscordLineIsFailure}"
                                    TextWrapping="Wrap"
                                    TextTrimming="None"
                                    Text="{Binding DiscordLine}" />

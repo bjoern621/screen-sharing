@@ -85,6 +85,7 @@ public sealed class AppSettingsViewModel : Observable
     private string _version = "";
     private string _discordLine = "";
     private bool _isDiscordLinked;
+    private bool _discordLineIsFailure;
 
     /// <summary>Whether the dialog stands over the window.</summary>
     public bool IsOpen { get => _isOpen; private set => Set(ref _isOpen, value); }
@@ -129,6 +130,17 @@ public sealed class AppSettingsViewModel : Observable
     /// <summary>Where this install stands with Discord, in one sentence.</summary>
     public string DiscordLine { get => _discordLine; private set => Set(ref _discordLine, value); }
 
+    /// <summary>
+    /// Whether that sentence reports something broken, which draws it in the failure hue
+    /// (<c>docs/design-language.md</c>, "Palette").
+    /// A link the manager declines is the one state here that is.
+    /// </summary>
+    public bool DiscordLineIsFailure
+    {
+        get => _discordLineIsFailure;
+        private set => Set(ref _discordLineIsFailure, value);
+    }
+
     public bool IsDiscordLinked { get => _isDiscordLinked; private set => Set(ref _isDiscordLinked, value); }
 
     /// <summary>Names the state the press asks for, so pressing twice changes nothing the second time.</summary>
@@ -154,6 +166,7 @@ public sealed class AppSettingsViewModel : Observable
         var discord = _session.Discord;
         IsDiscordLinked = discord?.Linked ?? false;
         DiscordLine = AppSettingsCopy.DiscordLine(discord);
+        DiscordLineIsFailure = discord?.LinkRefused ?? false;
 
         Assert.That(
             Group.IsResolved || Group.Fields.Count == 0,

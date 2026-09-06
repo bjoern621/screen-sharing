@@ -277,6 +277,7 @@ public sealed class FieldViewModel : Observable
     private bool _hasAction;
     private string _actionNotice = "";
     private bool _hasActionNotice;
+    private bool _actionNoticeIsFailure;
     private bool _hasRefused;
     private string _refusedCount = "";
     private Icons _refusedGlyph = Icons.IconChevronRight;
@@ -327,6 +328,17 @@ public sealed class FieldViewModel : Observable
     public string ActionNotice { get => _actionNotice; private set => Set(ref _actionNotice, value); }
 
     public bool HasActionNotice { get => _hasActionNotice; private set => Set(ref _hasActionNotice, value); }
+
+    /// <summary>
+    /// Whether that sentence reports something broken, which draws it in the failure hue
+    /// (<c>docs/design-language.md</c>, "Palette").
+    /// Lifted off the action for the reason <see cref="ActionNotice"/> is.
+    /// </summary>
+    public bool ActionNoticeIsFailure
+    {
+        get => _actionNoticeIsFailure;
+        private set => Set(ref _actionNoticeIsFailure, value);
+    }
 
     public string Label { get => _label; private set => Set(ref _label, value); }
 
@@ -533,6 +545,7 @@ public sealed class FieldViewModel : Observable
         HasAction = action is not null;
         ActionNotice = action?.Notice ?? "";
         HasActionNotice = ActionNotice.Length > 0;
+        ActionNoticeIsFailure = action?.NoticeIsFailure ?? false;
 
         // Heading and paragraph are keyed by the field the backend named; the reason and the note are codes it sent,
         // turned into sentences here.
@@ -609,6 +622,7 @@ public sealed class FieldViewModel : Observable
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
         Assert.That(HasAction == (Action is not null), "the action and the flag that draws it agree", Key);
         Assert.That(!HasActionNotice || HasAction, "a sentence about an effect has an effect to be about", Key);
+        Assert.That(!ActionNoticeIsFailure || HasActionNotice, "a failure is marked on the sentence stating it", Key);
         // Written after the entries, the answer being whether the picked one sits inside the range.
         IsEntryOutsideBand = IsNumberSelect
             && field.Range is not null

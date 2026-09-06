@@ -825,6 +825,14 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
+    /// Whether that sentence reports something broken: a link the manager declines,
+    /// or an attempt that came back with a reason.
+    /// Everything else the notice says is where sharing stands, which takes no hue
+    /// (<c>docs/design-language.md</c>, "Palette").
+    /// </summary>
+    private bool LinkNoticeIsFailure() => _linkFailed.Length > 0 || (IsLinked && IsLinkRefused);
+
+    /// <summary>
     /// Takes the measured figure, on the UI loop.
     /// Goes in through the write every control uses,
     /// so the measurement is a value the reader could have typed rather than a second path into the draft.
@@ -1096,7 +1104,8 @@ public sealed class SetupViewModel : Observable
             LinkLabel(),
             LinkTip(),
             LinkNotice(),
-            _linkDiscord),
+            _linkDiscord,
+            LinkNoticeIsFailure()),
         _ => null,
     };
 

@@ -210,6 +210,7 @@
                 ToolTip.Tip="{Binding Action.Tip}" />
 
         <SelectableTextBlock Classes="hint"
+                             Classes.danger="{Binding ActionNoticeIsFailure}"
                              TextWrapping="Wrap"
                              TextTrimming="None"
                              IsVisible="{Binding HasActionNotice}"

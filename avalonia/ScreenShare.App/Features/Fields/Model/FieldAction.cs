@@ -30,7 +30,13 @@ public sealed record FieldAction
     /// <param name="tip">What the effect does and when it is refused, since the label is one word.</param>
     /// <param name="notice">Why the press is refused, or what the last attempt answered.</param>
     /// <param name="command">Effect, holding whether one is already in flight.</param>
-    public FieldAction(string label, string tip, string notice, PendingCommand command)
+    /// <param name="noticeIsFailure">
+    /// Whether that sentence reports something broken, which is what draws it in the failure hue
+    /// (<c>docs/design-language.md</c>, "Palette").
+    /// A precondition the reader has yet to meet is not one.
+    /// </param>
+    public FieldAction(
+        string label, string tip, string notice, PendingCommand command, bool noticeIsFailure = false)
     {
         Assert.That(label.Length > 0, "an action beside a control says what it does");
         Assert.That(tip.Length > 0, "an action beside a control explains itself");
@@ -41,6 +47,9 @@ public sealed record FieldAction
         Tip = tip;
         Notice = notice;
         Command = command;
+        NoticeIsFailure = noticeIsFailure;
+
+        Assert.That(!NoticeIsFailure || Notice.Length > 0, "a failure is marked on the sentence stating it", label);
     }
 
     public string Label { get; }
@@ -49,6 +58,9 @@ public sealed record FieldAction
 
     /// <summary>Empty where the effect is offered and nothing has been said about it.</summary>
     public string Notice { get; }
+
+    /// <summary>Whether <see cref="Notice"/> reports something broken.</summary>
+    public bool NoticeIsFailure { get; }
 
     public PendingCommand Command { get; }
 }

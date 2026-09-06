@@ -134,6 +134,37 @@ public sealed class LinkDiscordTests
         Assert.Contains("does not recognize this link", DiscordMode(flow).ActionNotice);
         Assert.DoesNotContain("Not linked yet", DiscordMode(flow).ActionNotice);
         Assert.Equal("Link Discord again", DiscordMode(flow).Action!.Label);
+        // A refusal blocks sharing, so the sentence is drawn in the failure hue
+        // (docs/design-language.md, "Palette").
+        Assert.True(DiscordMode(flow).ActionNoticeIsFailure);
+    }
+
+    /// <summary>
+    /// A link the manager resolves says where sharing stands, which no hue answers,
+    /// so the notice keeps the hint it carries everywhere else.
+    /// </summary>
+    [Fact]
+    public async Task AResolvedLinkReadsAsAPlainNotice()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState
+            {
+                Linked = true, AccountName = "bjoern", InChannel = true,
+                GuildName = "Guild", ChannelName = "General",
+            },
+        };
+        var session = new Session(backend, action => action());
+        var flow = Flows.Setup(backend, session);
+        _ = session.Start();
+        while (!session.IsLoaded)
+        {
+            await Task.Delay(1);
+        }
+        await flow.Settled;
+        flow.Apply();
+
+        Assert.False(DiscordMode(flow).ActionNoticeIsFailure);
     }
 
     /// <summary>
