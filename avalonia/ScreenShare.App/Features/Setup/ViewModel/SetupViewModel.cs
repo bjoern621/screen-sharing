@@ -970,7 +970,7 @@ public sealed class SetupViewModel : Observable
     {
         QualityLayout.GroupKey => StepContent.Quality,
         AudioLayout.GroupKey => StepContent.Audio,
-        SetupSteps.ShareKey => StepContent.Review,
+        SetupSteps.SummaryKey => StepContent.Review,
         _ => StepContent.Fields,
     };
 
@@ -1046,7 +1046,7 @@ public sealed class SetupViewModel : Observable
             _measure),
         RelayLayout.GroupKeyKey => new FieldAction(
             "Create group",
-            "Draws a new group key at the relay and puts it in the box. Hand the key to the people who should be able to watch. Leaving the box empty publishes where anyone can watch.",
+            "Draws a new group key at the relay and puts it in the box. Hand the key to the people who should be able to watch.",
             GroupNotice(),
             _createGroup),
         RelayLayout.DiscordModeKey => new FieldAction(

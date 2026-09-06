@@ -17,7 +17,7 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// Everything in <c>Copy/</c> is keyed on an identifier the backend sends and read by every feature.
 /// This is keyed on a state the shell derived, so the table there would point <c>Copy/</c> at a feature
 /// and close a cycle.
-/// <see cref="PreflightChecks.Clear"/> and <see cref="SetupSteps.ShareLabel"/> sit here for the same reason.
+/// <see cref="PreflightChecks.Clear"/> and <see cref="SetupSteps.SummaryLabel"/> sit here for the same reason.
 /// </summary>
 public static class CommitCopy
 {

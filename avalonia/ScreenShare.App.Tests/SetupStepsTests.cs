@@ -37,7 +37,7 @@ public sealed class SetupStepsTests
 
         Assert.Equal(sent.Count + 1, flow.Steps.Count);
         Assert.Equal(
-            sent.Select(group => group.Key).Append(SetupSteps.ShareKey),
+            sent.Select(group => group.Key).Append(SetupSteps.SummaryKey),
             flow.Steps.Select(step => step.Key));
         // Chip titles are this shell's, keyed by the form's group key.
         // What fits on a chip is this strip's decision, the contract not seeing how wide one is.
@@ -78,7 +78,7 @@ public sealed class SetupStepsTests
         {
             flow.CurrentStep = step.Key;
 
-            if (step.Key == SetupSteps.ShareKey)
+            if (step.Key == SetupSteps.SummaryKey)
             {
                 Assert.True(flow.ShowsReview);
                 continue;
@@ -111,7 +111,7 @@ public sealed class SetupStepsTests
             flow.ContinueCommand.Execute(null);
         }
 
-        Assert.Equal(SetupSteps.ShareKey, flow.Steps.Single(step => step.IsCurrent).Key);
+        Assert.Equal(SetupSteps.SummaryKey, flow.Steps.Single(step => step.IsCurrent).Key);
         Assert.True(flow.ShowsReview);
     }
 

@@ -11,7 +11,7 @@
 
   <Border Classes="card" Padding="16,14" VerticalAlignment="Top">
     <StackPanel>
-      <TextBlock Classes="heading" Text="Review" />
+      <TextBlock Classes="heading" Text="Summary" />
       <TextBlock Classes="secondary"
                  Margin="0,3,0,15"
                  TextWrapping="Wrap"
