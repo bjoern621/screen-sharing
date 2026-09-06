@@ -569,3 +569,34 @@ func (s *Server) SendReport(ctx context.Context, req *screensharev1.SendReportRe
 	assert.Assert(id != "", "a delivered report carries the name it was stored under")
 	return &screensharev1.SendReportResponse{ReportId: id}, nil
 }
+
+// CheckUpdate reads the published release, and fetches it where this install replaces its own files.
+//
+// Returns as soon as the work is under way, the download outliving the call.
+// What it finds arrives on the event stream, so the shell that asked and the shell that did not
+// are told the same thing.
+//
+// Refused where the install asks the release service nothing at all,
+// which the state says before a shell draws a control to ask with.
+func (s *Server) CheckUpdate(ctx context.Context, req *screensharev1.CheckUpdateRequest) (*screensharev1.CheckUpdateResponse, error) {
+	if err := s.backend.CheckUpdate(); err != nil {
+		// A well-formed request whose moment is wrong: this install asks nothing,
+		// which UpdateState.unchecked stated before any control was drawn.
+		return nil, failedPrecondition("cannot check for updates: %v", err)
+	}
+	return &screensharev1.CheckUpdateResponse{}, nil
+}
+
+// InstallUpdate starts the staged release and leaves the running app to close.
+//
+// It answers while the app is still up: the applier is a process of its own that waits for this
+// one to exit before it replaces anything (internal/update).
+// Refused where nothing is staged and verified.
+func (s *Server) InstallUpdate(ctx context.Context, req *screensharev1.InstallUpdateRequest) (*screensharev1.InstallUpdateResponse, error) {
+	if err := s.backend.InstallUpdate(); err != nil {
+		// FAILED_PRECONDITION for the reason CheckUpdate answers with one:
+		// nothing is staged, which the state says before the dialog offers a restart.
+		return nil, failedPrecondition("cannot install the staged release: %v", err)
+	}
+	return &screensharev1.InstallUpdateResponse{}, nil
+}

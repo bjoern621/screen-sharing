@@ -81,6 +81,12 @@ The dev tasks leave it at that default.
 The flake reads the same variable, under `--impure`, and stamps the revision it was built from where nothing sets it:
 `builtins.getEnv` answers empty under pure evaluation, which every build outside the release pipeline is (`flake.nix`).
 
+### The channel stamp
+
+`-X main.channel=...` rides beside the version and says who owns the files this copy is made of.
+A recipe whose package manager owns them stamps that manager's name, and the app then names a newer release rather than replacing anything (`updates.md`).
+Unstamped is a build nobody packaged, which replaces nothing either.
+
 ## How the app locates the programs it spawns
 
 `FindExe` in the `ffmpeg` package resolves the name (`ffmpeg`, `ffplay`, `gst-launch-1.0` or `gst-inspect-1.0`, `.exe` on Windows) in this order:

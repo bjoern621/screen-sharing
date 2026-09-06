@@ -32,7 +32,7 @@ Three kinds of method, the rule in executable form:
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `OpenInBrowser`, `CreateGroup` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `CheckUpdate`, `InstallUpdate`, `OpenInBrowser`, `CreateGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
 The table lists samples.
@@ -54,6 +54,12 @@ The group key and the display name are what put this machine in a group, so `Sav
 and `GetMembersState` answers the group as the backend last read it.
 Nothing on the contract joins, leaves or refreshes presence.
 The backend states it on the loop that already polls the relay, so a method for it would be a second thing deciding when this machine is in a group (`membership.md`).
+
+**An update is two effects and a read.**
+`CheckUpdate` reads the published release and downloads it where the install replaces its own files,
+`InstallUpdate` starts what a restart runs, and `GetUpdateState` answers what the last check landed.
+Both effects return at once and report on the event stream, a download running for as long as a download runs.
+Which copies may replace themselves is the backend's answer, on `UpdateState` before a shell draws a control (`updates.md`).
 
 Discord mode holds the same shape.
 `SaveSettings` turns it on, `LinkDiscord` is the one effect that stores the link secret,

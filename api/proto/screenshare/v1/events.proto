@@ -549,6 +549,7 @@ enum EventKind {
   EVENT_KIND_RECEIVE_STATS = 15;
   EVENT_KIND_MEMBERS_STATE = 16;
   EVENT_KIND_DISCORD_STATE = 17;
+  EVENT_KIND_UPDATE_STATE = 18;
 
   // 11 was EVENT_KIND_SHOW_SETTINGS, and Event records why that payload left.
   reserved 11;
@@ -630,6 +631,12 @@ message Event {
     // The catalog travels rather than the probe result alone,
     // because a shell holding a catalog has nowhere to merge half a state into.
     Catalog catalog = 14;
+
+    // What this install knows about the release published beside it,
+    // on every step of a check and as a download fills in.
+    // Pushed like every other state,
+    // so a second window learns that a release is staged without having asked for one.
+    UpdateState update_state = 21;
 
     SettingsChanged settings_changed = 10;
   }

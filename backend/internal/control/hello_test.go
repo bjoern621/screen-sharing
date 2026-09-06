@@ -24,6 +24,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/update"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -126,6 +127,10 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
 func (f *fakeBackend) SendReport() (string, error)        { return "report-1", f.err }
+
+func (f *fakeBackend) UpdateState() update.State { return update.State{} }
+func (f *fakeBackend) CheckUpdate() error        { return f.err }
+func (f *fakeBackend) InstallUpdate() error      { return f.err }
 
 // The handshake is the last call two sides that disagree about the contract can both understand,
 // so its refusal carries the one thing neither works out afterwards: which major each is on.

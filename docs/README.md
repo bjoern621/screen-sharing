@@ -11,6 +11,7 @@ Read the page before guessing, and put a new fact on the page that owns it.
 | --- | --- |
 | [install.md](install.md) | which download to take, what it carries, and how to run a relay |
 | [packaging.md](packaging.md) | what the app needs at run time, and how each channel provides it |
+| [updates.md](updates.md) | which copies replace their own files, and what a restart installs |
 
 ## How it works
 

@@ -320,3 +320,71 @@ message EncodeRate {
   bool low_bounded = 3;
   bool high_bounded = 4;
 }
+
+// UpdateState is what this install knows about the release published beside it,
+// and how far it has got towards running that one instead.
+//
+// The whole answer in one message, like every state here.
+// Which build is running, which is published, how much of it has arrived,
+// and the two facts that decide what a reader may be offered at all:
+// whether this install asks, and whether it replaces itself.
+//
+// Both of those are the channel's rather than the moment's (docs/updates.md).
+// An install a package manager owns reports the published release and refuses to fetch it,
+// which is a different sentence from one that could not reach the service.
+message UpdateState {
+  // How far the app has got.
+  UpdateStage stage = 1;
+  // The build serving this connection, as the handshake spells it.
+  string running = 2;
+  // The published release's tag, empty until a check answers.
+  string latest = 3;
+  // Page the release is reached at, for a reader who installs it by hand.
+  string page = 4;
+  // How much of the download has arrived, 0 to 100.
+  // Meaningful under UPDATE_STAGE_FETCHING and zero everywhere else.
+  int32 percent = 5;
+
+  // Why this install asks nothing, present exactly under UPDATE_STAGE_OFF.
+  // A shell reads it before drawing a control:
+  // an install that never checks offers no button to check with.
+  Text unchecked = 6;
+
+  // Why this install does not replace itself, absent where it does.
+  // The channel's property, so it stands whatever the stage:
+  // a shell knows before the check whether a found release ends in a restart
+  // or in a page to open.
+  Text uninstallable = 7;
+
+  // What went wrong, present exactly under UPDATE_STAGE_FAILED.
+  Text failure = 8;
+  // The service's own words behind that failure, raw and drawn as they stand (text.proto).
+  string detail = 9;
+}
+
+// UpdateStage is how far one install has got towards the published release.
+//
+// Linear, and every stage reachable from every other:
+// a check runs again over a stage that already landed,
+// and what it finds replaces what stood.
+enum UpdateStage {
+  UPDATE_STAGE_UNSPECIFIED = 0;
+  // Nothing is asked on this install, and UpdateState.unchecked says why.
+  UPDATE_STAGE_OFF = 1;
+  // Nothing has been asked yet.
+  UPDATE_STAGE_UNCHECKED = 2;
+  // A check is in flight.
+  UPDATE_STAGE_CHECKING = 3;
+  // The running build is at or ahead of the published one.
+  UPDATE_STAGE_CURRENT = 4;
+  // A newer release is published.
+  // Where the install replaces itself this is the stage a download follows,
+  // and where it does not it is the last one.
+  UPDATE_STAGE_AVAILABLE = 5;
+  // The release is arriving, and percent says how much of it has.
+  UPDATE_STAGE_FETCHING = 6;
+  // The release is on disk and verified, and a restart runs it.
+  UPDATE_STAGE_READY = 7;
+  // The check or the download did not finish, and failure says which.
+  UPDATE_STAGE_FAILED = 8;
+}

@@ -123,7 +123,7 @@ export CGO_ENABLED=1
 export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
-go build -C backend -ldflags "-X main.version=%{version}" \
+go build -C backend -ldflags "-X main.version=%{version} -X main.channel=dnf" \
   -o ../dist/mirrorme-backend ./cmd/backend
 
 # Framework-dependent: the runtime is a dependency of this package,

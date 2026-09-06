@@ -100,6 +100,11 @@ service ControlService {
   // and the next one closes what nothing is drawing.
   rpc GetMonitorPreviewState(GetMonitorPreviewStateRequest) returns (MonitorPreviewState);
 
+  // What this install knows about the release published beside it.
+  // Answers without reaching the network:
+  // CheckUpdate is what asks the release service, and this reads what it last landed.
+  rpc GetUpdateState(GetUpdateStateRequest) returns (UpdateState);
+
   // --- Effects -----------------------------------------------------------------
 
   // Persists the settings the shell holds.
@@ -263,6 +268,38 @@ service ControlService {
   // and it is asked in its own protocol because an open socket proves nothing
   // (backend/internal/reach, docs/network-architecture.md).
   rpc CheckRelay(CheckRelayRequest) returns (CheckRelayResponse);
+
+  // Reads the published release, and fetches it where this install replaces its own files.
+  //
+  // An effect on the test the measurements meet:
+  // it reaches the network and it leaves a result a later read answers from.
+  // The call returns at once and the work outlives it,
+  // as StartMonitorPreview's does: a download runs for as long as a download runs,
+  // and every step of it reaches every shell on the event stream.
+  //
+  // One call for both steps because they are one thing asked for.
+  // A reader pressing this wants the newer build running,
+  // and a separate fetch would be a second press for a step with no decision in it.
+  // Where UpdateState.uninstallable stands, it stops at UPDATE_STAGE_AVAILABLE
+  // and downloads nothing.
+  //
+  // Idempotent: a check over a staged release checks again,
+  // and a release already on disk and verified is not fetched twice.
+  // Refused with FAILED_PRECONDITION where UpdateState.unchecked stands,
+  // this install asking the service nothing at all.
+  rpc CheckUpdate(CheckUpdateRequest) returns (CheckUpdateResponse);
+
+  // Starts the staged release and leaves the running one to close.
+  //
+  // The applier is a process of its own, outliving both halves of the app:
+  // it waits for the control endpoint to go quiet,
+  // puts the staged files in place and starts the app again (docs/updates.md).
+  // So this call answers while the running app is still up,
+  // and the shell that asked closes itself afterwards.
+  //
+  // Refused with FAILED_PRECONDITION below UPDATE_STAGE_READY:
+  // nothing is installed that has not been fetched and verified.
+  rpc InstallUpdate(InstallUpdateRequest) returns (InstallUpdateResponse);
 
   // Drops the stored screen-capture consent,
   // so the next capture asks the compositor to pick again.
@@ -446,6 +483,20 @@ message GetDiscordStateRequest {}
 message GetReceiveStateRequest {}
 
 message GetMonitorPreviewStateRequest {}
+
+message GetUpdateStateRequest {}
+
+message CheckUpdateRequest {}
+
+// Empty, like every effect's: what the check found arrives on the event stream.
+// A download runs for as long as a download runs,
+// so a reply carrying the outcome would be a call held open for minutes.
+message CheckUpdateResponse {}
+
+message InstallUpdateRequest {}
+
+// Carries nothing. The caller closes next, and the app it comes back as is the staged one.
+message InstallUpdateResponse {}
 
 // --- Effect requests and responses ------------------------------------------------
 //

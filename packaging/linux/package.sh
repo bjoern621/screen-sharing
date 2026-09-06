@@ -34,7 +34,7 @@ mkdir -p "$stage"
 # Go turns cgo off by itself when it finds no C compiler,
 # and the failure then names a package that looks unrelated to it.
 CGO_ENABLED=1 go build -C "$root/backend" \
-    -ldflags "-X main.version=$version" \
+    -ldflags "-X main.version=$version -X main.channel=portable" \
     -o "$stage/mirrorme-backend" ./cmd/backend
 
 dotnet publish "$root/avalonia/ScreenShare.App/ScreenShare.App.csproj" \

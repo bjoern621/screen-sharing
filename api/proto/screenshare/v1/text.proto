@@ -169,6 +169,13 @@ enum TextArgName {
   // The transport a pending relaunch runs, beside TEXT_ARG_NAME_TRANSPORT carrying the one
   // given up (TEXT_CODE_TRANSPORT_FALLING_BACK).
   TEXT_ARG_NAME_NEXT_TRANSPORT = 65;
+  // Where this copy of the app came from, as docs/updates.md names the channels:
+  // "pacman", "dnf", "flatpak", "nix", "windows-zip".
+  // What decides whether the app may replace its own files,
+  // and what a reader is pointed at where it may not.
+  TEXT_ARG_NAME_CHANNEL = 66;
+  // A release, spelled as the tag spells it: "v0.5.1".
+  TEXT_ARG_NAME_VERSION = 67;
 
   // Reserved for a rename rather than a removal:
   // TEXT_ARG_NAME_EFFORT carries the number,
@@ -732,6 +739,43 @@ enum TextCode {
   // No relay is named in the settings, so no leg has an address at all.
   // No arguments.
   TEXT_CODE_RELAY_LEG_NO_RELAY = 166;
+
+  // --- Updates -------------------------------------------------------------------
+  //
+  // The first three sit on UpdateState.unchecked and UpdateState.uninstallable,
+  // which are the channel's answer and stand before anything is asked (docs/updates.md).
+  // The rest sit on UpdateState.failure, beside the raw words in UpdateState.detail.
+
+  // MIRRORME_UPDATE_CHECK is off in this environment.
+  // No arguments.
+  TEXT_CODE_UPDATE_CHECK_OFF = 180;
+  // The running build carries no version, so nothing compares against a tag.
+  // Every build outside the release pipeline is one (docs/packaging.md, "The build stamp").
+  // No arguments.
+  TEXT_CODE_UPDATE_BUILD_UNSTAMPED = 181;
+  // A package manager owns this copy's files, so the app leaves them alone.
+  // TEXT_ARG_NAME_CHANNEL names which one.
+  TEXT_CODE_UPDATE_CHANNEL_MANAGED = 182;
+  // The release service did not answer, or answered something that is not a release.
+  // No arguments; UpdateState.detail carries what it said.
+  TEXT_CODE_UPDATE_SERVICE_UNREADABLE = 183;
+  // The published release carries no download this channel can install.
+  // TEXT_ARG_NAME_CHANNEL and TEXT_ARG_NAME_VERSION.
+  TEXT_CODE_UPDATE_NO_DOWNLOAD = 184;
+  // The download did not finish.
+  // No arguments; UpdateState.detail carries what the transfer reported.
+  TEXT_CODE_UPDATE_DOWNLOAD_FAILED = 185;
+  // What arrived is not what the release names, so it is deleted rather than installed.
+  // No arguments.
+  TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT = 186;
+  // The staged release could not be started.
+  // No arguments; UpdateState.detail carries what the attempt reported.
+  TEXT_CODE_UPDATE_INSTALL_FAILED = 187;
+  // The release names no hash for that download,
+  // so nothing here can tell what arrived from what was published.
+  // The download is refused rather than trusted, and the page stays open to a reader.
+  // TEXT_ARG_NAME_VERSION.
+  TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE = 188;
 
   // 66 said only some encoder families take a preset ladder,
   // which stopped holding once every implemented encoder's row declared its own.

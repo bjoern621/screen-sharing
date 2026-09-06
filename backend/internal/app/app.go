@@ -18,6 +18,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/update"
 )
 
 // App is the backend a shell reaches.
@@ -40,6 +41,9 @@ type App struct {
 	// Build stamp the control handshake answers with.
 	// Handed in: the linker writes it into package main.
 	version string
+	// What this install knows about the release published beside it (update.go).
+	// One per process, so a check one shell asked for is the answer every shell reads.
+	updates *update.Manager
 
 	settingsMu sync.Mutex
 	settings   settings.Settings
@@ -165,7 +169,7 @@ type App struct {
 
 // New builds the backend.
 // version is the build stamp the control handshake answers with.
-func New(version string) *App {
+func New(version, channel string) *App {
 	assert.Assert(version != "", "a build names the version its shells report")
 
 	s, err := settings.Load()
@@ -181,7 +185,7 @@ func New(version string) *App {
 			screensharev1.TextCode_TEXT_CODE_SETTINGS_STORE_UNREADABLE, err)
 	}
 
-	return &App{
+	a := &App{
 		events:           events.New(),
 		version:          version,
 		settings:         s,
@@ -197,6 +201,10 @@ func New(version string) *App {
 		monitorPreviews:  map[int]*decode.Handle{},
 		testStreams:      map[int]*testStream{},
 	}
+
+	// After the struct, the manager announcing through the broker it is built beside.
+	a.updates = newUpdates(version, channel, a.emitUpdateState)
+	return a
 }
 
 // Fatal reports the failure that leaves this process with nothing left to do, and stays empty while

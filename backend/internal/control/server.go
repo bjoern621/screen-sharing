@@ -31,6 +31,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/update"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -217,6 +218,14 @@ type Backend interface {
 	// SendReport bundles this machine's facts and run logs, delivers them to the group service
 	// beside the stored relay, and answers the name the bundle was stored under.
 	SendReport() (string, error)
+	// UpdateState is what this install knows about the release published beside it, reaching nothing.
+	UpdateState() update.State
+	// CheckUpdate reads the published release and fetches it where this install replaces its own
+	// files. It returns as soon as the work is under way, every step reaching the event stream.
+	// No context: what it starts outlives the call.
+	CheckUpdate() error
+	// InstallUpdate starts the staged release and leaves the running app to close.
+	InstallUpdate() error
 }
 
 // FrameStream is one consumer's running subscription to a decode's frames.

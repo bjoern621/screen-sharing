@@ -32,6 +32,7 @@ const (
 	ControlService_GetDiscordState_FullMethodName        = "/screenshare.v1.ControlService/GetDiscordState"
 	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
+	ControlService_GetUpdateState_FullMethodName         = "/screenshare.v1.ControlService/GetUpdateState"
 	ControlService_SaveSettings_FullMethodName           = "/screenshare.v1.ControlService/SaveSettings"
 	ControlService_SavePreset_FullMethodName             = "/screenshare.v1.ControlService/SavePreset"
 	ControlService_DeletePreset_FullMethodName           = "/screenshare.v1.ControlService/DeletePreset"
@@ -52,6 +53,8 @@ const (
 	ControlService_MeasureUplink_FullMethodName          = "/screenshare.v1.ControlService/MeasureUplink"
 	ControlService_MeasureEncodeRate_FullMethodName      = "/screenshare.v1.ControlService/MeasureEncodeRate"
 	ControlService_CheckRelay_FullMethodName             = "/screenshare.v1.ControlService/CheckRelay"
+	ControlService_CheckUpdate_FullMethodName            = "/screenshare.v1.ControlService/CheckUpdate"
+	ControlService_InstallUpdate_FullMethodName          = "/screenshare.v1.ControlService/InstallUpdate"
 	ControlService_ForgetPortalConsent_FullMethodName    = "/screenshare.v1.ControlService/ForgetPortalConsent"
 	ControlService_CreateGroup_FullMethodName            = "/screenshare.v1.ControlService/CreateGroup"
 	ControlService_LinkDiscord_FullMethodName            = "/screenshare.v1.ControlService/LinkDiscord"
@@ -138,6 +141,10 @@ type ControlServiceClient interface {
 	// so a shell that crashed with screens being read leaves them running,
 	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(ctx context.Context, in *GetMonitorPreviewStateRequest, opts ...grpc.CallOption) (*MonitorPreviewState, error)
+	// What this install knows about the release published beside it.
+	// Answers without reaching the network:
+	// CheckUpdate is what asks the release service, and this reads what it last landed.
+	GetUpdateState(ctx context.Context, in *GetUpdateStateRequest, opts ...grpc.CallOption) (*UpdateState, error)
 	// Persists the settings the shell holds.
 	// Touches no running stream:
 	// what reaches a live pipeline is asked for separately, by ApplyToStream,
@@ -280,6 +287,36 @@ type ControlServiceClient interface {
 	// and it is asked in its own protocol because an open socket proves nothing
 	// (backend/internal/reach, docs/network-architecture.md).
 	CheckRelay(ctx context.Context, in *CheckRelayRequest, opts ...grpc.CallOption) (*CheckRelayResponse, error)
+	// Reads the published release, and fetches it where this install replaces its own files.
+	//
+	// An effect on the test the measurements meet:
+	// it reaches the network and it leaves a result a later read answers from.
+	// The call returns at once and the work outlives it,
+	// as StartMonitorPreview's does: a download runs for as long as a download runs,
+	// and every step of it reaches every shell on the event stream.
+	//
+	// One call for both steps because they are one thing asked for.
+	// A reader pressing this wants the newer build running,
+	// and a separate fetch would be a second press for a step with no decision in it.
+	// Where UpdateState.uninstallable stands, it stops at UPDATE_STAGE_AVAILABLE
+	// and downloads nothing.
+	//
+	// Idempotent: a check over a staged release checks again,
+	// and a release already on disk and verified is not fetched twice.
+	// Refused with FAILED_PRECONDITION where UpdateState.unchecked stands,
+	// this install asking the service nothing at all.
+	CheckUpdate(ctx context.Context, in *CheckUpdateRequest, opts ...grpc.CallOption) (*CheckUpdateResponse, error)
+	// Starts the staged release and leaves the running one to close.
+	//
+	// The applier is a process of its own, outliving both halves of the app:
+	// it waits for the control endpoint to go quiet,
+	// puts the staged files in place and starts the app again (docs/updates.md).
+	// So this call answers while the running app is still up,
+	// and the shell that asked closes itself afterwards.
+	//
+	// Refused with FAILED_PRECONDITION below UPDATE_STAGE_READY:
+	// nothing is installed that has not been fetched and verified.
+	InstallUpdate(ctx context.Context, in *InstallUpdateRequest, opts ...grpc.CallOption) (*InstallUpdateResponse, error)
 	// Drops the stored screen-capture consent,
 	// so the next capture asks the compositor to pick again.
 	// How a share aimed at the wrong window or monitor is corrected.
@@ -501,6 +538,16 @@ func (c *controlServiceClient) GetMonitorPreviewState(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *controlServiceClient) GetUpdateState(ctx context.Context, in *GetUpdateStateRequest, opts ...grpc.CallOption) (*UpdateState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateState)
+	err := c.cc.Invoke(ctx, ControlService_GetUpdateState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) SaveSettings(ctx context.Context, in *SaveSettingsRequest, opts ...grpc.CallOption) (*SaveSettingsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SaveSettingsResponse)
@@ -701,6 +748,26 @@ func (c *controlServiceClient) CheckRelay(ctx context.Context, in *CheckRelayReq
 	return out, nil
 }
 
+func (c *controlServiceClient) CheckUpdate(ctx context.Context, in *CheckUpdateRequest, opts ...grpc.CallOption) (*CheckUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckUpdateResponse)
+	err := c.cc.Invoke(ctx, ControlService_CheckUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) InstallUpdate(ctx context.Context, in *InstallUpdateRequest, opts ...grpc.CallOption) (*InstallUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InstallUpdateResponse)
+	err := c.cc.Invoke(ctx, ControlService_InstallUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) ForgetPortalConsent(ctx context.Context, in *ForgetPortalConsentRequest, opts ...grpc.CallOption) (*ForgetPortalConsentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ForgetPortalConsentResponse)
@@ -893,6 +960,10 @@ type ControlServiceServer interface {
 	// so a shell that crashed with screens being read leaves them running,
 	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error)
+	// What this install knows about the release published beside it.
+	// Answers without reaching the network:
+	// CheckUpdate is what asks the release service, and this reads what it last landed.
+	GetUpdateState(context.Context, *GetUpdateStateRequest) (*UpdateState, error)
 	// Persists the settings the shell holds.
 	// Touches no running stream:
 	// what reaches a live pipeline is asked for separately, by ApplyToStream,
@@ -1035,6 +1106,36 @@ type ControlServiceServer interface {
 	// and it is asked in its own protocol because an open socket proves nothing
 	// (backend/internal/reach, docs/network-architecture.md).
 	CheckRelay(context.Context, *CheckRelayRequest) (*CheckRelayResponse, error)
+	// Reads the published release, and fetches it where this install replaces its own files.
+	//
+	// An effect on the test the measurements meet:
+	// it reaches the network and it leaves a result a later read answers from.
+	// The call returns at once and the work outlives it,
+	// as StartMonitorPreview's does: a download runs for as long as a download runs,
+	// and every step of it reaches every shell on the event stream.
+	//
+	// One call for both steps because they are one thing asked for.
+	// A reader pressing this wants the newer build running,
+	// and a separate fetch would be a second press for a step with no decision in it.
+	// Where UpdateState.uninstallable stands, it stops at UPDATE_STAGE_AVAILABLE
+	// and downloads nothing.
+	//
+	// Idempotent: a check over a staged release checks again,
+	// and a release already on disk and verified is not fetched twice.
+	// Refused with FAILED_PRECONDITION where UpdateState.unchecked stands,
+	// this install asking the service nothing at all.
+	CheckUpdate(context.Context, *CheckUpdateRequest) (*CheckUpdateResponse, error)
+	// Starts the staged release and leaves the running one to close.
+	//
+	// The applier is a process of its own, outliving both halves of the app:
+	// it waits for the control endpoint to go quiet,
+	// puts the staged files in place and starts the app again (docs/updates.md).
+	// So this call answers while the running app is still up,
+	// and the shell that asked closes itself afterwards.
+	//
+	// Refused with FAILED_PRECONDITION below UPDATE_STAGE_READY:
+	// nothing is installed that has not been fetched and verified.
+	InstallUpdate(context.Context, *InstallUpdateRequest) (*InstallUpdateResponse, error)
 	// Drops the stored screen-capture consent,
 	// so the next capture asks the compositor to pick again.
 	// How a share aimed at the wrong window or monitor is corrected.
@@ -1165,6 +1266,9 @@ func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetRe
 func (UnimplementedControlServiceServer) GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMonitorPreviewState not implemented")
 }
+func (UnimplementedControlServiceServer) GetUpdateState(context.Context, *GetUpdateStateRequest) (*UpdateState, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUpdateState not implemented")
+}
 func (UnimplementedControlServiceServer) SaveSettings(context.Context, *SaveSettingsRequest) (*SaveSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveSettings not implemented")
 }
@@ -1224,6 +1328,12 @@ func (UnimplementedControlServiceServer) MeasureEncodeRate(context.Context, *Mea
 }
 func (UnimplementedControlServiceServer) CheckRelay(context.Context, *CheckRelayRequest) (*CheckRelayResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckRelay not implemented")
+}
+func (UnimplementedControlServiceServer) CheckUpdate(context.Context, *CheckUpdateRequest) (*CheckUpdateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckUpdate not implemented")
+}
+func (UnimplementedControlServiceServer) InstallUpdate(context.Context, *InstallUpdateRequest) (*InstallUpdateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InstallUpdate not implemented")
 }
 func (UnimplementedControlServiceServer) ForgetPortalConsent(context.Context, *ForgetPortalConsentRequest) (*ForgetPortalConsentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ForgetPortalConsent not implemented")
@@ -1503,6 +1613,24 @@ func _ControlService_GetMonitorPreviewState_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).GetMonitorPreviewState(ctx, req.(*GetMonitorPreviewStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_GetUpdateState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUpdateStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).GetUpdateState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_GetUpdateState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).GetUpdateState(ctx, req.(*GetUpdateStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1867,6 +1995,42 @@ func _ControlService_CheckRelay_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_CheckUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).CheckUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_CheckUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).CheckUpdate(ctx, req.(*CheckUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_InstallUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstallUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).InstallUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_InstallUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).InstallUpdate(ctx, req.(*InstallUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_ForgetPortalConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ForgetPortalConsentRequest)
 	if err := dec(in); err != nil {
@@ -2068,6 +2232,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_GetMonitorPreviewState_Handler,
 		},
 		{
+			MethodName: "GetUpdateState",
+			Handler:    _ControlService_GetUpdateState_Handler,
+		},
+		{
 			MethodName: "SaveSettings",
 			Handler:    _ControlService_SaveSettings_Handler,
 		},
@@ -2146,6 +2314,14 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckRelay",
 			Handler:    _ControlService_CheckRelay_Handler,
+		},
+		{
+			MethodName: "CheckUpdate",
+			Handler:    _ControlService_CheckUpdate_Handler,
+		},
+		{
+			MethodName: "InstallUpdate",
+			Handler:    _ControlService_InstallUpdate_Handler,
 		},
 		{
 			MethodName: "ForgetPortalConsent",

@@ -204,3 +204,11 @@ func (s *Server) GetMembersState(ctx context.Context, req *screensharev1.GetMemb
 func (s *Server) GetDiscordState(ctx context.Context, req *screensharev1.GetDiscordStateRequest) (*screensharev1.DiscordState, error) {
 	return wire.DiscordState(s.backend.DiscordState()), nil
 }
+
+// GetUpdateState answers what this install knows about the release published beside it.
+//
+// Reaches nothing: CheckUpdate is what asks the release service,
+// and every step of it arrives on the event stream.
+func (s *Server) GetUpdateState(ctx context.Context, req *screensharev1.GetUpdateStateRequest) (*screensharev1.UpdateState, error) {
+	return wire.UpdateState(s.backend.UpdateState()), nil
+}

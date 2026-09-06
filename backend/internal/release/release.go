@@ -52,6 +52,33 @@ type Latest struct {
 	Tag string `json:"tag_name"`
 	// URL is the page a reader reaches it at.
 	URL string `json:"html_url"`
+	// Assets are the files attached to it, one per channel this repository packages.
+	Assets []Asset `json:"assets"`
+}
+
+// Asset is one file attached to a release.
+type Asset struct {
+	// Name is the file's own, which is what a channel matches on
+	// (internal/update, the channel table).
+	Name string `json:"name"`
+	URL  string `json:"browser_download_url"`
+	// Size in bytes, as the forge recorded it on upload.
+	Size int64 `json:"size"`
+	// Digest is the forge's own hash of the file, "sha256:<hex>".
+	// Empty where the forge recorded none, which leaves a download nothing can be checked against.
+	Digest string `json:"digest"`
+}
+
+// Named answers the attached file of that name.
+func (l Latest) Named(name string) (Asset, bool) {
+	assert.Assert(name != "", "an asset is looked up under a name")
+
+	for _, a := range l.Assets {
+		if a.Name == name {
+			return a, true
+		}
+	}
+	return Asset{}, false
 }
 
 // Fetch reads the published release off the project's forge.
@@ -120,6 +147,14 @@ func Compare(current, latest string) State {
 		}
 	}
 	return StateCurrent
+}
+
+// Comparable answers whether a version string carries three numbers to compare a tag against.
+// What separates a released build from every other, no file in the tree holding the number
+// (docs/packaging.md, "The build stamp").
+func Comparable(version string) bool {
+	_, ok := parse(version)
+	return ok
 }
 
 // parse reads a release into its three fields, and false where the string carries no version.

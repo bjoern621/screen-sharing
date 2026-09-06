@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/release"
+	"bjoernblessin.de/screenshare/internal/update"
 )
 
 // version is the build stamp the control handshake answers with (docs/ipc-api.md, "Versioning").
@@ -24,6 +25,11 @@ import (
 // In main because that is what the linker writes into: -ldflags "-X main.version=...".
 // "dev" answers for a build nobody stamped.
 var version = "dev"
+
+// channel is where this copy of the app came from, written by the recipe that packaged it:
+// -ldflags "-X main.channel=..." (docs/updates.md).
+// Empty for a build nobody packaged, which replaces nothing.
+var channel = ""
 
 // main runs the backend, a process with no window: serves the control socket,
 // supervises what the shells ask it to run, and stays up until stopped (docs/ipc-api.md).
@@ -54,10 +60,17 @@ func main() {
 		os.Exit(runCheck())
 	}
 
+	// Replaces this install with the release staged beside it, out of a copy of this binary.
+	// The run that started it is exiting, and this one waits for that before it touches a file
+	// (internal/update, the applier).
+	if len(os.Args) > 1 && os.Args[1] == update.Subcommand {
+		os.Exit(update.Main(os.Args[2:]))
+	}
+
 	// Before anything logs: a shell starts this process with no console (log.go).
 	openLog()
 
-	a := app.New(version)
+	a := app.New(version, channel)
 	a.Start()
 
 	// Off the startup path, as the release read is:
@@ -141,7 +154,15 @@ func runPipeline(elements []string) int {
 // Every outcome is a log line and none of them stops anything.
 // A machine behind a firewall, offline, or running a build nobody stamped is told
 // what it is running and nothing about what it is not.
+//
+// The environment switches it off with the app's own check,
+// so an install whose packager delivers updates reaches the forge on no path at all.
 func logRelease() {
+	if os.Getenv(update.EnvCheck) == "0" {
+		logger.Infof("running %s; %s is off, so no release was read", version, update.EnvCheck)
+		return
+	}
+
 	latest, err := release.Fetch(context.Background())
 	if err != nil {
 		logger.Infof("running %s; the published release could not be read: %v", version, err)

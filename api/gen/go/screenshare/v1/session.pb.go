@@ -21,6 +21,88 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// UpdateStage is how far one install has got towards the published release.
+//
+// Linear, and every stage reachable from every other:
+// a check runs again over a stage that already landed,
+// and what it finds replaces what stood.
+type UpdateStage int32
+
+const (
+	UpdateStage_UPDATE_STAGE_UNSPECIFIED UpdateStage = 0
+	// Nothing is asked on this install, and UpdateState.unchecked says why.
+	UpdateStage_UPDATE_STAGE_OFF UpdateStage = 1
+	// Nothing has been asked yet.
+	UpdateStage_UPDATE_STAGE_UNCHECKED UpdateStage = 2
+	// A check is in flight.
+	UpdateStage_UPDATE_STAGE_CHECKING UpdateStage = 3
+	// The running build is at or ahead of the published one.
+	UpdateStage_UPDATE_STAGE_CURRENT UpdateStage = 4
+	// A newer release is published.
+	// Where the install replaces itself this is the stage a download follows,
+	// and where it does not it is the last one.
+	UpdateStage_UPDATE_STAGE_AVAILABLE UpdateStage = 5
+	// The release is arriving, and percent says how much of it has.
+	UpdateStage_UPDATE_STAGE_FETCHING UpdateStage = 6
+	// The release is on disk and verified, and a restart runs it.
+	UpdateStage_UPDATE_STAGE_READY UpdateStage = 7
+	// The check or the download did not finish, and failure says which.
+	UpdateStage_UPDATE_STAGE_FAILED UpdateStage = 8
+)
+
+// Enum value maps for UpdateStage.
+var (
+	UpdateStage_name = map[int32]string{
+		0: "UPDATE_STAGE_UNSPECIFIED",
+		1: "UPDATE_STAGE_OFF",
+		2: "UPDATE_STAGE_UNCHECKED",
+		3: "UPDATE_STAGE_CHECKING",
+		4: "UPDATE_STAGE_CURRENT",
+		5: "UPDATE_STAGE_AVAILABLE",
+		6: "UPDATE_STAGE_FETCHING",
+		7: "UPDATE_STAGE_READY",
+		8: "UPDATE_STAGE_FAILED",
+	}
+	UpdateStage_value = map[string]int32{
+		"UPDATE_STAGE_UNSPECIFIED": 0,
+		"UPDATE_STAGE_OFF":         1,
+		"UPDATE_STAGE_UNCHECKED":   2,
+		"UPDATE_STAGE_CHECKING":    3,
+		"UPDATE_STAGE_CURRENT":     4,
+		"UPDATE_STAGE_AVAILABLE":   5,
+		"UPDATE_STAGE_FETCHING":    6,
+		"UPDATE_STAGE_READY":       7,
+		"UPDATE_STAGE_FAILED":      8,
+	}
+)
+
+func (x UpdateStage) Enum() *UpdateStage {
+	p := new(UpdateStage)
+	*p = x
+	return p
+}
+
+func (x UpdateStage) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (UpdateStage) Descriptor() protoreflect.EnumDescriptor {
+	return file_screenshare_v1_session_proto_enumTypes[0].Descriptor()
+}
+
+func (UpdateStage) Type() protoreflect.EnumType {
+	return &file_screenshare_v1_session_proto_enumTypes[0]
+}
+
+func (x UpdateStage) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use UpdateStage.Descriptor instead.
+func (UpdateStage) EnumDescriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{0}
+}
+
 // PublishState is whether a stream is in force, what it carries,
 // and whether that still matches the settings the backend holds.
 //
@@ -820,6 +902,140 @@ func (x *EncodeRate) GetHighBounded() bool {
 	return false
 }
 
+// UpdateState is what this install knows about the release published beside it,
+// and how far it has got towards running that one instead.
+//
+// The whole answer in one message, like every state here.
+// Which build is running, which is published, how much of it has arrived,
+// and the two facts that decide what a reader may be offered at all:
+// whether this install asks, and whether it replaces itself.
+//
+// Both of those are the channel's rather than the moment's (docs/updates.md).
+// An install a package manager owns reports the published release and refuses to fetch it,
+// which is a different sentence from one that could not reach the service.
+type UpdateState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How far the app has got.
+	Stage UpdateStage `protobuf:"varint,1,opt,name=stage,proto3,enum=screenshare.v1.UpdateStage" json:"stage,omitempty"`
+	// The build serving this connection, as the handshake spells it.
+	Running string `protobuf:"bytes,2,opt,name=running,proto3" json:"running,omitempty"`
+	// The published release's tag, empty until a check answers.
+	Latest string `protobuf:"bytes,3,opt,name=latest,proto3" json:"latest,omitempty"`
+	// Page the release is reached at, for a reader who installs it by hand.
+	Page string `protobuf:"bytes,4,opt,name=page,proto3" json:"page,omitempty"`
+	// How much of the download has arrived, 0 to 100.
+	// Meaningful under UPDATE_STAGE_FETCHING and zero everywhere else.
+	Percent int32 `protobuf:"varint,5,opt,name=percent,proto3" json:"percent,omitempty"`
+	// Why this install asks nothing, present exactly under UPDATE_STAGE_OFF.
+	// A shell reads it before drawing a control:
+	// an install that never checks offers no button to check with.
+	Unchecked *Text `protobuf:"bytes,6,opt,name=unchecked,proto3" json:"unchecked,omitempty"`
+	// Why this install does not replace itself, absent where it does.
+	// The channel's property, so it stands whatever the stage:
+	// a shell knows before the check whether a found release ends in a restart
+	// or in a page to open.
+	Uninstallable *Text `protobuf:"bytes,7,opt,name=uninstallable,proto3" json:"uninstallable,omitempty"`
+	// What went wrong, present exactly under UPDATE_STAGE_FAILED.
+	Failure *Text `protobuf:"bytes,8,opt,name=failure,proto3" json:"failure,omitempty"`
+	// The service's own words behind that failure, raw and drawn as they stand (text.proto).
+	Detail        string `protobuf:"bytes,9,opt,name=detail,proto3" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateState) Reset() {
+	*x = UpdateState{}
+	mi := &file_screenshare_v1_session_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateState) ProtoMessage() {}
+
+func (x *UpdateState) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_session_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateState.ProtoReflect.Descriptor instead.
+func (*UpdateState) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UpdateState) GetStage() UpdateStage {
+	if x != nil {
+		return x.Stage
+	}
+	return UpdateStage_UPDATE_STAGE_UNSPECIFIED
+}
+
+func (x *UpdateState) GetRunning() string {
+	if x != nil {
+		return x.Running
+	}
+	return ""
+}
+
+func (x *UpdateState) GetLatest() string {
+	if x != nil {
+		return x.Latest
+	}
+	return ""
+}
+
+func (x *UpdateState) GetPage() string {
+	if x != nil {
+		return x.Page
+	}
+	return ""
+}
+
+func (x *UpdateState) GetPercent() int32 {
+	if x != nil {
+		return x.Percent
+	}
+	return 0
+}
+
+func (x *UpdateState) GetUnchecked() *Text {
+	if x != nil {
+		return x.Unchecked
+	}
+	return nil
+}
+
+func (x *UpdateState) GetUninstallable() *Text {
+	if x != nil {
+		return x.Uninstallable
+	}
+	return nil
+}
+
+func (x *UpdateState) GetFailure() *Text {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+func (x *UpdateState) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
 // Retry is a relaunch waiting out a backoff, after a pipeline died on its own.
 type PublishState_Retry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -841,7 +1057,7 @@ type PublishState_Retry struct {
 
 func (x *PublishState_Retry) Reset() {
 	*x = PublishState_Retry{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[9]
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -853,7 +1069,7 @@ func (x *PublishState_Retry) String() string {
 func (*PublishState_Retry) ProtoMessage() {}
 
 func (x *PublishState_Retry) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[9]
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -931,7 +1147,7 @@ type PublishState_Preview struct {
 
 func (x *PublishState_Preview) Reset() {
 	*x = PublishState_Preview{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	mi := &file_screenshare_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +1159,7 @@ func (x *PublishState_Preview) String() string {
 func (*PublishState_Preview) ProtoMessage() {}
 
 func (x *PublishState_Preview) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	mi := &file_screenshare_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1264,7 @@ type PublishState_Live struct {
 
 func (x *PublishState_Live) Reset() {
 	*x = PublishState_Live{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[11]
+	mi := &file_screenshare_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1060,7 +1276,7 @@ func (x *PublishState_Live) String() string {
 func (*PublishState_Live) ProtoMessage() {}
 
 func (x *PublishState_Live) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[11]
+	mi := &file_screenshare_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1452,27 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\bhigh_fps\x18\x02 \x01(\x01R\ahighFps\x12\x1f\n" +
 	"\vlow_bounded\x18\x03 \x01(\bR\n" +
 	"lowBounded\x12!\n" +
-	"\fhigh_bounded\x18\x04 \x01(\bR\vhighBoundedB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\fhigh_bounded\x18\x04 \x01(\bR\vhighBounded\"\xd8\x02\n" +
+	"\vUpdateState\x121\n" +
+	"\x05stage\x18\x01 \x01(\x0e2\x1b.screenshare.v1.UpdateStageR\x05stage\x12\x18\n" +
+	"\arunning\x18\x02 \x01(\tR\arunning\x12\x16\n" +
+	"\x06latest\x18\x03 \x01(\tR\x06latest\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\tR\x04page\x12\x18\n" +
+	"\apercent\x18\x05 \x01(\x05R\apercent\x122\n" +
+	"\tunchecked\x18\x06 \x01(\v2\x14.screenshare.v1.TextR\tunchecked\x12:\n" +
+	"\runinstallable\x18\a \x01(\v2\x14.screenshare.v1.TextR\runinstallable\x12.\n" +
+	"\afailure\x18\b \x01(\v2\x14.screenshare.v1.TextR\afailure\x12\x16\n" +
+	"\x06detail\x18\t \x01(\tR\x06detail*\xfa\x01\n" +
+	"\vUpdateStage\x12\x1c\n" +
+	"\x18UPDATE_STAGE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10UPDATE_STAGE_OFF\x10\x01\x12\x1a\n" +
+	"\x16UPDATE_STAGE_UNCHECKED\x10\x02\x12\x19\n" +
+	"\x15UPDATE_STAGE_CHECKING\x10\x03\x12\x18\n" +
+	"\x14UPDATE_STAGE_CURRENT\x10\x04\x12\x1a\n" +
+	"\x16UPDATE_STAGE_AVAILABLE\x10\x05\x12\x19\n" +
+	"\x15UPDATE_STAGE_FETCHING\x10\x06\x12\x16\n" +
+	"\x12UPDATE_STAGE_READY\x10\a\x12\x17\n" +
+	"\x13UPDATE_STAGE_FAILED\x10\bB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_session_proto_rawDescOnce sync.Once
@@ -1250,40 +1486,47 @@ func file_screenshare_v1_session_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_session_proto_rawDescData
 }
 
-var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_screenshare_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_screenshare_v1_session_proto_goTypes = []any{
-	(*PublishState)(nil),         // 0: screenshare.v1.PublishState
-	(*PublishStats)(nil),         // 1: screenshare.v1.PublishStats
-	(*RelayReader)(nil),          // 2: screenshare.v1.RelayReader
-	(*RelayPath)(nil),            // 3: screenshare.v1.RelayPath
-	(*RelayStatus)(nil),          // 4: screenshare.v1.RelayStatus
-	(*StreamRef)(nil),            // 5: screenshare.v1.StreamRef
-	(*AudioLevel)(nil),           // 6: screenshare.v1.AudioLevel
-	(*AudioLevels)(nil),          // 7: screenshare.v1.AudioLevels
-	(*EncodeRate)(nil),           // 8: screenshare.v1.EncodeRate
-	(*PublishState_Retry)(nil),   // 9: screenshare.v1.PublishState.Retry
-	(*PublishState_Preview)(nil), // 10: screenshare.v1.PublishState.Preview
-	(*PublishState_Live)(nil),    // 11: screenshare.v1.PublishState.Live
-	(*Text)(nil),                 // 12: screenshare.v1.Text
-	(*PublishSettings)(nil),      // 13: screenshare.v1.PublishSettings
-	(*RelaySettings)(nil),        // 14: screenshare.v1.RelaySettings
+	(UpdateStage)(0),             // 0: screenshare.v1.UpdateStage
+	(*PublishState)(nil),         // 1: screenshare.v1.PublishState
+	(*PublishStats)(nil),         // 2: screenshare.v1.PublishStats
+	(*RelayReader)(nil),          // 3: screenshare.v1.RelayReader
+	(*RelayPath)(nil),            // 4: screenshare.v1.RelayPath
+	(*RelayStatus)(nil),          // 5: screenshare.v1.RelayStatus
+	(*StreamRef)(nil),            // 6: screenshare.v1.StreamRef
+	(*AudioLevel)(nil),           // 7: screenshare.v1.AudioLevel
+	(*AudioLevels)(nil),          // 8: screenshare.v1.AudioLevels
+	(*EncodeRate)(nil),           // 9: screenshare.v1.EncodeRate
+	(*UpdateState)(nil),          // 10: screenshare.v1.UpdateState
+	(*PublishState_Retry)(nil),   // 11: screenshare.v1.PublishState.Retry
+	(*PublishState_Preview)(nil), // 12: screenshare.v1.PublishState.Preview
+	(*PublishState_Live)(nil),    // 13: screenshare.v1.PublishState.Live
+	(*Text)(nil),                 // 14: screenshare.v1.Text
+	(*PublishSettings)(nil),      // 15: screenshare.v1.PublishSettings
+	(*RelaySettings)(nil),        // 16: screenshare.v1.RelaySettings
 }
 var file_screenshare_v1_session_proto_depIdxs = []int32{
-	11, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
-	2,  // 1: screenshare.v1.RelayPath.reader_roster:type_name -> screenshare.v1.RelayReader
-	3,  // 2: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
-	5,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.StreamRef
-	6,  // 4: screenshare.v1.AudioLevels.levels:type_name -> screenshare.v1.AudioLevel
-	12, // 5: screenshare.v1.PublishState.Retry.cause:type_name -> screenshare.v1.Text
-	13, // 6: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
-	14, // 7: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
-	9,  // 8: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
-	10, // 9: screenshare.v1.PublishState.Live.preview:type_name -> screenshare.v1.PublishState.Preview
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	13, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
+	3,  // 1: screenshare.v1.RelayPath.reader_roster:type_name -> screenshare.v1.RelayReader
+	4,  // 2: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
+	6,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.StreamRef
+	7,  // 4: screenshare.v1.AudioLevels.levels:type_name -> screenshare.v1.AudioLevel
+	0,  // 5: screenshare.v1.UpdateState.stage:type_name -> screenshare.v1.UpdateStage
+	14, // 6: screenshare.v1.UpdateState.unchecked:type_name -> screenshare.v1.Text
+	14, // 7: screenshare.v1.UpdateState.uninstallable:type_name -> screenshare.v1.Text
+	14, // 8: screenshare.v1.UpdateState.failure:type_name -> screenshare.v1.Text
+	14, // 9: screenshare.v1.PublishState.Retry.cause:type_name -> screenshare.v1.Text
+	15, // 10: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
+	16, // 11: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
+	11, // 12: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
+	12, // 13: screenshare.v1.PublishState.Live.preview:type_name -> screenshare.v1.PublishState.Preview
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_session_proto_init() }
@@ -1295,19 +1538,20 @@ func file_screenshare_v1_session_proto_init() {
 	file_screenshare_v1_text_proto_init()
 	file_screenshare_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
 	file_screenshare_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
-	file_screenshare_v1_session_proto_msgTypes[11].OneofWrappers = []any{}
+	file_screenshare_v1_session_proto_msgTypes[12].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_session_proto_rawDesc), len(file_screenshare_v1_session_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   12,
+			NumEnums:      1,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_screenshare_v1_session_proto_goTypes,
 		DependencyIndexes: file_screenshare_v1_session_proto_depIdxs,
+		EnumInfos:         file_screenshare_v1_session_proto_enumTypes,
 		MessageInfos:      file_screenshare_v1_session_proto_msgTypes,
 	}.Build()
 	File_screenshare_v1_session_proto = out.File

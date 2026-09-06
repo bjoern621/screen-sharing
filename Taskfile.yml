@@ -201,7 +201,7 @@ tasks:
       # the mark of a binary nobody released (backend/cmd/backend/main.go).
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
-          go build -ldflags "-X main.version={{default "dev" .STAMP}}"
+          go build -ldflags "-X main.version={{default "dev" .STAMP}} -X main.channel={{default "" .CHANNEL}}"
           -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
       # so both executables go into build/windows/redist first (docs/packaging.md, "Windows").
@@ -278,6 +278,9 @@ tasks:
         vars:
           STAMP:
             sh: echo "${VERSION:-dev}"
+          # One channel for the zip and the installer, both being these files:
+          # which of the two a copy is settles on the machine it runs on (docs/updates.md).
+          CHANNEL: windows
     cmds:
       - powershell -NoProfile -File packaging/windows/package.ps1
 
@@ -298,6 +301,7 @@ tasks:
       - task: build:windows
         vars:
           STAMP: '{{.STAMP}}'
+          CHANNEL: '{{.CHANNEL}}'
     # MSYS2's own sh runs the script and MINGW_PREFIX names the prefix to copy out of,
     # both having to be MSYS2's:
     # Git Bash ships an ldd and a cygpath of its own

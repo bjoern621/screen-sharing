@@ -48,6 +48,7 @@ const (
 	EventKind_EVENT_KIND_RECEIVE_STATS         EventKind = 15
 	EventKind_EVENT_KIND_MEMBERS_STATE         EventKind = 16
 	EventKind_EVENT_KIND_DISCORD_STATE         EventKind = 17
+	EventKind_EVENT_KIND_UPDATE_STATE          EventKind = 18
 )
 
 // Enum value maps for EventKind.
@@ -70,6 +71,7 @@ var (
 		15: "EVENT_KIND_RECEIVE_STATS",
 		16: "EVENT_KIND_MEMBERS_STATE",
 		17: "EVENT_KIND_DISCORD_STATE",
+		18: "EVENT_KIND_UPDATE_STATE",
 	}
 	EventKind_value = map[string]int32{
 		"EVENT_KIND_UNSPECIFIED":           0,
@@ -89,6 +91,7 @@ var (
 		"EVENT_KIND_RECEIVE_STATS":         15,
 		"EVENT_KIND_MEMBERS_STATE":         16,
 		"EVENT_KIND_DISCORD_STATE":         17,
+		"EVENT_KIND_UPDATE_STATE":          18,
 	}
 )
 
@@ -2031,6 +2034,7 @@ type Event struct {
 	//	*Event_MembersState
 	//	*Event_DiscordState
 	//	*Event_Catalog
+	//	*Event_UpdateState
 	//	*Event_SettingsChanged
 	Payload       isEvent_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
@@ -2216,6 +2220,15 @@ func (x *Event) GetCatalog() *Catalog {
 	return nil
 }
 
+func (x *Event) GetUpdateState() *UpdateState {
+	if x != nil {
+		if x, ok := x.Payload.(*Event_UpdateState); ok {
+			return x.UpdateState
+		}
+	}
+	return nil
+}
+
 func (x *Event) GetSettingsChanged() *SettingsChanged {
 	if x != nil {
 		if x, ok := x.Payload.(*Event_SettingsChanged); ok {
@@ -2331,6 +2344,14 @@ type Event_Catalog struct {
 	Catalog *Catalog `protobuf:"bytes,14,opt,name=catalog,proto3,oneof"`
 }
 
+type Event_UpdateState struct {
+	// What this install knows about the release published beside it,
+	// on every step of a check and as a download fills in.
+	// Pushed like every other state,
+	// so a second window learns that a release is staged without having asked for one.
+	UpdateState *UpdateState `protobuf:"bytes,21,opt,name=update_state,json=updateState,proto3,oneof"`
+}
+
 type Event_SettingsChanged struct {
 	SettingsChanged *SettingsChanged `protobuf:"bytes,10,opt,name=settings_changed,json=settingsChanged,proto3,oneof"`
 }
@@ -2364,6 +2385,8 @@ func (*Event_MembersState) isEvent_Payload() {}
 func (*Event_DiscordState) isEvent_Payload() {}
 
 func (*Event_Catalog) isEvent_Payload() {}
+
+func (*Event_UpdateState) isEvent_Payload() {}
 
 func (*Event_SettingsChanged) isEvent_Payload() {}
 
@@ -2541,7 +2564,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\n" +
 	"publishing\x18\x03 \x01(\bR\n" +
 	"publishing\x12\x12\n" +
-	"\x04self\x18\x04 \x01(\bR\x04self\"\xbb\t\n" +
+	"\x04self\x18\x04 \x01(\bR\x04self\"\xfd\t\n" +
 	"\x05Event\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12C\n" +
 	"\rpublish_state\x18\x02 \x01(\v2\x1c.screenshare.v1.PublishStateH\x00R\fpublishState\x12C\n" +
@@ -2559,11 +2582,12 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x10test_stream_exit\x18\t \x01(\v2\x18.screenshare.v1.ExitInfoH\x00R\x0etestStreamExit\x12C\n" +
 	"\rmembers_state\x18\x13 \x01(\v2\x1c.screenshare.v1.MembersStateH\x00R\fmembersState\x12C\n" +
 	"\rdiscord_state\x18\x14 \x01(\v2\x1c.screenshare.v1.DiscordStateH\x00R\fdiscordState\x123\n" +
-	"\acatalog\x18\x0e \x01(\v2\x17.screenshare.v1.CatalogH\x00R\acatalog\x12L\n" +
+	"\acatalog\x18\x0e \x01(\v2\x17.screenshare.v1.CatalogH\x00R\acatalog\x12@\n" +
+	"\fupdate_state\x18\x15 \x01(\v2\x1b.screenshare.v1.UpdateStateH\x00R\vupdateState\x12L\n" +
 	"\x10settings_changed\x18\n" +
 	" \x01(\v2\x1f.screenshare.v1.SettingsChangedH\x00R\x0fsettingsChangedB\t\n" +
 	"\apayloadJ\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\n" +
-	"grid_stateR\tgrid_exitR\rshow_settings*\xad\x04\n" +
+	"grid_stateR\tgrid_exitR\rshow_settings*\xca\x04\n" +
 	"\tEventKind\x12\x1a\n" +
 	"\x16EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18EVENT_KIND_PUBLISH_STATE\x10\x01\x12\x1c\n" +
@@ -2582,7 +2606,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	" EVENT_KIND_MONITOR_PREVIEW_STATE\x10\x0e\x12\x1c\n" +
 	"\x18EVENT_KIND_RECEIVE_STATS\x10\x0f\x12\x1c\n" +
 	"\x18EVENT_KIND_MEMBERS_STATE\x10\x10\x12\x1c\n" +
-	"\x18EVENT_KIND_DISCORD_STATE\x10\x11\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\x18EVENT_KIND_DISCORD_STATE\x10\x11\x12\x1b\n" +
+	"\x17EVENT_KIND_UPDATE_STATE\x10\x12\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_events_proto_rawDescOnce sync.Once
@@ -2626,6 +2651,7 @@ var file_screenshare_v1_events_proto_goTypes = []any{
 	(*PublishStats)(nil),        // 24: screenshare.v1.PublishStats
 	(*RelayStatus)(nil),         // 25: screenshare.v1.RelayStatus
 	(*Catalog)(nil),             // 26: screenshare.v1.Catalog
+	(*UpdateState)(nil),         // 27: screenshare.v1.UpdateState
 }
 var file_screenshare_v1_events_proto_depIdxs = []int32{
 	21, // 0: screenshare.v1.ExitInfo.cause:type_name -> screenshare.v1.Text
@@ -2662,12 +2688,13 @@ var file_screenshare_v1_events_proto_depIdxs = []int32{
 	17, // 31: screenshare.v1.Event.members_state:type_name -> screenshare.v1.MembersState
 	18, // 32: screenshare.v1.Event.discord_state:type_name -> screenshare.v1.DiscordState
 	26, // 33: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
-	6,  // 34: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
-	35, // [35:35] is the sub-list for method output_type
-	35, // [35:35] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	27, // 34: screenshare.v1.Event.update_state:type_name -> screenshare.v1.UpdateState
+	6,  // 35: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_events_proto_init() }
@@ -2696,6 +2723,7 @@ func file_screenshare_v1_events_proto_init() {
 		(*Event_MembersState)(nil),
 		(*Event_DiscordState)(nil),
 		(*Event_Catalog)(nil),
+		(*Event_UpdateState)(nil),
 		(*Event_SettingsChanged)(nil),
 	}
 	type x struct{}

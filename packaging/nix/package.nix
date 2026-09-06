@@ -188,7 +188,13 @@ let
 
     # Unstamped the binary answers "dev" to the handshake, which is what a window then shows
     # (backend/cmd/backend/main.go).
-    ldflags = [ "-X main.version=${version}" ];
+    #
+    # The channel is what a copy says about who owns its files.
+    # Nix owns these, so nothing here replaces them (docs/updates.md).
+    ldflags = [
+      "-X main.version=${version}"
+      "-X main.channel=nix"
+    ];
 
     # backend/internal/receive is cgo throughout:
     # it builds GStreamer pipelines in-process and imports the decoded frames through EGL,
@@ -210,6 +216,10 @@ let
     # and the rest of the repository names it mirrorme-backend.
     # The rename comes before the wrapper, so the wrapper is written against the final name.
     #
+    # A flake input is updated by updating the flake, so the app asks the forge nothing here
+    # and the version in the band is a label rather than a control (docs/updates.md).
+    # A default rather than a set, so a checkout can still turn the check on to try it.
+    #
     # GLib carries no TLS of its own and takes it from a GIO module,
     # so without glib-networking every rtsps:// and https:// leg fails at the connect.
     # rtspclientsink reports "Failed to connect. (Generic error)" there,
@@ -230,6 +240,7 @@ let
         } \
         --set-default GST_PLUGIN_SYSTEM_PATH_1_0 "${gstPluginPath}" \
         --prefix GIO_EXTRA_MODULES : "${glib-networking}/lib/gio/modules" \
+        --set-default MIRRORME_UPDATE_CHECK 0 \
         ${hardwareRuntimeArgs}
     '';
 

@@ -89,7 +89,7 @@ build() {
   export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw -buildvcs=false"
   export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
-  go build -C backend -ldflags "-X main.version=$pkgver" \
+  go build -C backend -ldflags "-X main.version=$pkgver -X main.channel=pacman" \
     -o ../dist/mirrorme-backend ./cmd/backend
 
   # Framework-dependent: the runtime is a dependency of this package,

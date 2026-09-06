@@ -162,6 +162,13 @@ const (
 	// The transport a pending relaunch runs, beside TEXT_ARG_NAME_TRANSPORT carrying the one
 	// given up (TEXT_CODE_TRANSPORT_FALLING_BACK).
 	TextArgName_TEXT_ARG_NAME_NEXT_TRANSPORT TextArgName = 65
+	// Where this copy of the app came from, as docs/updates.md names the channels:
+	// "pacman", "dnf", "flatpak", "nix", "windows-zip".
+	// What decides whether the app may replace its own files,
+	// and what a reader is pointed at where it may not.
+	TextArgName_TEXT_ARG_NAME_CHANNEL TextArgName = 66
+	// A release, spelled as the tag spells it: "v0.5.1".
+	TextArgName_TEXT_ARG_NAME_VERSION TextArgName = 67
 )
 
 // Enum value maps for TextArgName.
@@ -228,6 +235,8 @@ var (
 		63: "TEXT_ARG_NAME_REACH",
 		64: "TEXT_ARG_NAME_GOP_LIMIT_FRAMES",
 		65: "TEXT_ARG_NAME_NEXT_TRANSPORT",
+		66: "TEXT_ARG_NAME_CHANNEL",
+		67: "TEXT_ARG_NAME_VERSION",
 	}
 	TextArgName_value = map[string]int32{
 		"TEXT_ARG_NAME_UNSPECIFIED":        0,
@@ -291,6 +300,8 @@ var (
 		"TEXT_ARG_NAME_REACH":              63,
 		"TEXT_ARG_NAME_GOP_LIMIT_FRAMES":   64,
 		"TEXT_ARG_NAME_NEXT_TRANSPORT":     65,
+		"TEXT_ARG_NAME_CHANNEL":            66,
+		"TEXT_ARG_NAME_VERSION":            67,
 	}
 )
 
@@ -763,6 +774,36 @@ const (
 	// No relay is named in the settings, so no leg has an address at all.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY TextCode = 166
+	// MIRRORME_UPDATE_CHECK is off in this environment.
+	// No arguments.
+	TextCode_TEXT_CODE_UPDATE_CHECK_OFF TextCode = 180
+	// The running build carries no version, so nothing compares against a tag.
+	// Every build outside the release pipeline is one (docs/packaging.md, "The build stamp").
+	// No arguments.
+	TextCode_TEXT_CODE_UPDATE_BUILD_UNSTAMPED TextCode = 181
+	// A package manager owns this copy's files, so the app leaves them alone.
+	// TEXT_ARG_NAME_CHANNEL names which one.
+	TextCode_TEXT_CODE_UPDATE_CHANNEL_MANAGED TextCode = 182
+	// The release service did not answer, or answered something that is not a release.
+	// No arguments; UpdateState.detail carries what it said.
+	TextCode_TEXT_CODE_UPDATE_SERVICE_UNREADABLE TextCode = 183
+	// The published release carries no download this channel can install.
+	// TEXT_ARG_NAME_CHANNEL and TEXT_ARG_NAME_VERSION.
+	TextCode_TEXT_CODE_UPDATE_NO_DOWNLOAD TextCode = 184
+	// The download did not finish.
+	// No arguments; UpdateState.detail carries what the transfer reported.
+	TextCode_TEXT_CODE_UPDATE_DOWNLOAD_FAILED TextCode = 185
+	// What arrived is not what the release names, so it is deleted rather than installed.
+	// No arguments.
+	TextCode_TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT TextCode = 186
+	// The staged release could not be started.
+	// No arguments; UpdateState.detail carries what the attempt reported.
+	TextCode_TEXT_CODE_UPDATE_INSTALL_FAILED TextCode = 187
+	// The release names no hash for that download,
+	// so nothing here can tell what arrived from what was published.
+	// The download is refused rather than trusted, and the page stays open to a reader.
+	// TEXT_ARG_NAME_VERSION.
+	TextCode_TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE TextCode = 188
 )
 
 // Enum value maps for TextCode.
@@ -901,6 +942,15 @@ var (
 		150: "TEXT_CODE_SETTINGS_STORE_UNREADABLE",
 		151: "TEXT_CODE_PRESET_STORE_UNREADABLE",
 		166: "TEXT_CODE_RELAY_LEG_NO_RELAY",
+		180: "TEXT_CODE_UPDATE_CHECK_OFF",
+		181: "TEXT_CODE_UPDATE_BUILD_UNSTAMPED",
+		182: "TEXT_CODE_UPDATE_CHANNEL_MANAGED",
+		183: "TEXT_CODE_UPDATE_SERVICE_UNREADABLE",
+		184: "TEXT_CODE_UPDATE_NO_DOWNLOAD",
+		185: "TEXT_CODE_UPDATE_DOWNLOAD_FAILED",
+		186: "TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT",
+		187: "TEXT_CODE_UPDATE_INSTALL_FAILED",
+		188: "TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE",
 	}
 	TextCode_value = map[string]int32{
 		"TEXT_CODE_UNSPECIFIED":                               0,
@@ -1036,6 +1086,15 @@ var (
 		"TEXT_CODE_SETTINGS_STORE_UNREADABLE":                 150,
 		"TEXT_CODE_PRESET_STORE_UNREADABLE":                   151,
 		"TEXT_CODE_RELAY_LEG_NO_RELAY":                        166,
+		"TEXT_CODE_UPDATE_CHECK_OFF":                          180,
+		"TEXT_CODE_UPDATE_BUILD_UNSTAMPED":                    181,
+		"TEXT_CODE_UPDATE_CHANNEL_MANAGED":                    182,
+		"TEXT_CODE_UPDATE_SERVICE_UNREADABLE":                 183,
+		"TEXT_CODE_UPDATE_NO_DOWNLOAD":                        184,
+		"TEXT_CODE_UPDATE_DOWNLOAD_FAILED":                    185,
+		"TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT":                   186,
+		"TEXT_CODE_UPDATE_INSTALL_FAILED":                     187,
+		"TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE":              188,
 	}
 )
 
@@ -1327,7 +1386,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x81\x0e\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xb7\x0e\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1390,7 +1449,9 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
 	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
-	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xcd,\n" +
+	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\x12\x19\n" +
+	"\x15TEXT_ARG_NAME_CHANNEL\x10B\x12\x19\n" +
+	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xab/\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1525,7 +1586,16 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\x12!\n" +
-	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8a\x01\x10\x8a\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO*\x1aTEXT_CODE_STREAM_IS_PUBLIC**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\x1cTEXT_CODE_RELAY_LEG_NO_RELAY\x10\xa6\x01\x12\x1f\n" +
+	"\x1aTEXT_CODE_UPDATE_CHECK_OFF\x10\xb4\x01\x12%\n" +
+	" TEXT_CODE_UPDATE_BUILD_UNSTAMPED\x10\xb5\x01\x12%\n" +
+	" TEXT_CODE_UPDATE_CHANNEL_MANAGED\x10\xb6\x01\x12(\n" +
+	"#TEXT_CODE_UPDATE_SERVICE_UNREADABLE\x10\xb7\x01\x12!\n" +
+	"\x1cTEXT_CODE_UPDATE_NO_DOWNLOAD\x10\xb8\x01\x12%\n" +
+	" TEXT_CODE_UPDATE_DOWNLOAD_FAILED\x10\xb9\x01\x12&\n" +
+	"!TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT\x10\xba\x01\x12$\n" +
+	"\x1fTEXT_CODE_UPDATE_INSTALL_FAILED\x10\xbb\x01\x12+\n" +
+	"&TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE\x10\xbc\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8a\x01\x10\x8a\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO*\x1aTEXT_CODE_STREAM_IS_PUBLIC**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once
