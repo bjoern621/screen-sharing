@@ -79,4 +79,21 @@ public sealed class CreateGroupTests
         // The refusal is the button's and not the field's: a key pasted before the relay is named is still a key.
         Assert.True(GroupKey(flow).IsEnabled);
     }
+
+    /// <summary>
+    /// A group following the voice channel is joined by standing in the channel,
+    /// so the box takes no key and the button that fills it goes with it:
+    /// a drawn key would land nowhere.
+    /// The box's own reason states why, so the button carries no second copy of it.
+    /// </summary>
+    [Fact]
+    public async Task AGroupFollowingDiscordDrawsNoKeyByHand()
+    {
+        var flow = await FlowAsync(new SeededBackend("linux") { FollowDiscord = true });
+
+        Assert.False(GroupKey(flow).IsEnabled);
+        Assert.True(GroupKey(flow).HasAction);
+        Assert.False(GroupKey(flow).Action!.Command.CanExecute(null));
+        Assert.False(GroupKey(flow).HasActionNotice);
+    }
 }

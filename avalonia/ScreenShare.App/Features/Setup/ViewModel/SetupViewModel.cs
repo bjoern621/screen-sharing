@@ -214,10 +214,11 @@ public sealed class SetupViewModel : Observable
         // Drawing a key is an effect too, and one nothing else can do on the reader's behalf:
         // a key adopted by this app alone would put the stream in a group nobody else holds.
         // Pressable once a relay is named, every named one carrying the service that draws a key
-        // (backend/internal/settings, Relay.GroupService).
+        // (backend/internal/settings, Relay.GroupService),
+        // and once the box the key lands in takes one.
         _createGroup = new PendingCommand(
             CreateGroupAsync, dispatch, () => _form.Draft is not null && _form.Draft.Relay is not null
-                && _form.Draft.Relay.Host.Length > 0);
+                && _form.Draft.Relay.Host.Length > 0 && GroupKeyTakesAKey());
 
         // Linking runs against the manager beside the relay, so it is pressable on the same ground.
         _linkDiscord = new PendingCommand(
@@ -703,6 +704,16 @@ public sealed class SetupViewModel : Observable
         => _form.Draft?.Relay is { Host.Length: > 0 }
             ? ""
             : "Set the relay address first. A group is drawn by the relay this machine is pointed at.";
+
+    /// <summary>
+    /// Whether the box a drawn key lands in takes one.
+    /// The backend's resolved field is the answer, the shell deciding no availability of its own
+    /// (<c>docs/ipc-api.md</c>).
+    /// A key drawn into a greyed box changes nothing, and the box states why it is greyed,
+    /// so the button greys beside it carrying no second sentence.
+    /// </summary>
+    private bool GroupKeyTakesAKey()
+        => FieldOf(GroupOf(Drawn(_form.Form), RelayLayout.GroupKey), RelayLayout.GroupKeyKey) is { Enabled: true };
 
     /// <summary>
     /// What the group button carries beside it: why it is greyed where it is, what the last attempt answered otherwise.

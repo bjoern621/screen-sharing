@@ -341,6 +341,7 @@ internal sealed class SeededBackend : IBackend
         Relay = new RelaySettings
         {
             Host = RelayHost,
+            DiscordMode = FollowDiscord,
             SrtPort = 8890,
             RtspPort = 8322,
             WebrtcPort = 8889,
@@ -934,6 +935,12 @@ internal sealed class SeededBackend : IBackend
     /// </summary>
     public string RelayHost { get; set; } = "127.0.0.1";
 
+    /// <summary>
+    /// Whether the group follows the voice channel (<c>Relay.DiscordMode</c>),
+    /// which greys the manual group controls.
+    /// </summary>
+    public bool FollowDiscord { get; set; }
+
     /// <summary>Whole resolve, with no wire in front of it.</summary>
     private Form Resolve(Settings draft)
     {
@@ -1156,6 +1163,13 @@ internal sealed class SeededBackend : IBackend
                 return settings.Publish.Mode == "crf"
                     ? (true, true, null, null)
                     : (true, false, Say(TextCode.CqOnlyInConstantQuality), null);
+
+            // Disabled from a mode owning the value: the group follows the voice channel,
+            // so a key set here is read by nobody (backend/internal/form/availability.go).
+            case "relay.group_key":
+                return settings.Relay.DiscordMode
+                    ? (true, false, Say(TextCode.GroupFollowsDiscord), null)
+                    : (true, true, null, null);
 
             // Live with a note: the value reaches the encoder and means something the heading does not say.
             case "publish.monitor":
