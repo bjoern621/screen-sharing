@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Viewer.Members.Model"
              xmlns:vm="using:ScreenShare.App.Features.Viewer.Members.ViewModel"
              x:Class="ScreenShare.App.Features.Viewer.Members.View.MembersView"
@@ -20,23 +21,31 @@
     <TextBlock Classes="caption" Text="{Binding Title}" Margin="7,0,0,0" />
 
     <!--
-      A row per member: the name, whether the relay carries a stream from them, and which row is this machine.
+      A row per member: the picture Discord draws them under, the name, whether the relay carries a
+      stream from them, and which row is this machine.
+      The picture's column is Auto and stamped onto every row at once,
+      so a group nobody has one in draws its names where it always did.
       Nothing about what anybody is watching, which the group does not state.
     -->
     <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="model:MemberRow">
           <StackPanel>
-            <Grid ColumnDefinitions="*,Auto"
+            <Grid ColumnDefinitions="Auto,*,Auto"
                   ColumnSpacing="{StaticResource GapTight}"
                   MinHeight="{StaticResource TextRowHeight}"
                   Margin="7,0">
-              <TextBlock Grid.Column="0" Classes="ident member" Classes.own="{Binding IsSelf}"
+              <controls:Avatar Grid.Column="0"
+                               Picture="{Binding Avatar}"
+                               IsVisible="{Binding ShowsAvatar}"
+                               VerticalAlignment="Center" />
+
+              <TextBlock Grid.Column="1" Classes="ident member" Classes.own="{Binding IsSelf}"
                          Text="{Binding Name}"
                          TextTrimming="CharacterEllipsis"
                          VerticalAlignment="Center" />
 
-              <TextBlock Grid.Column="1" Classes="hint"
+              <TextBlock Grid.Column="2" Classes="hint"
                          Text="{Binding Detail}"
                          IsVisible="{Binding HasDetail}"
                          VerticalAlignment="Center" />

@@ -302,3 +302,40 @@ func TestANickChangeKeepsTheClaimedName(t *testing.T) {
 		t.Fatalf("the first claim holds until the group retires, got %q", answer.Group.DisplayName)
 	}
 }
+
+// A picture is the roster's, and a member id is this broker's own derivation,
+// so the two meet here and nowhere else.
+func TestEveryMemberCarriesThePictureTheRosterHolds(t *testing.T) {
+	r := newRig(t)
+	bob := r.link(t, "u-bob")
+	ann := r.link(t, "u-ann")
+	r.roster.Apply(voiceroster.Presence{
+		UserID: "u-bob", GuildID: "g1", ChannelID: "c1", DisplayName: "Bob",
+		GuildName: "Guild", ChannelName: "General",
+		AvatarURL: "https://cdn.discordapp.com/avatars/u-bob/h1.png?size=64",
+	})
+	r.roster.Apply(voiceroster.Presence{
+		UserID: "u-ann", GuildID: "g1", ChannelID: "c1", DisplayName: "Ann",
+		GuildName: "Guild", ChannelName: "General",
+		AvatarURL: "https://cdn.discordapp.com/avatars/u-ann/h2.png?size=64",
+	})
+
+	if _, err := r.broker.Presence(bob); err != nil {
+		t.Fatalf("stating Bob's presence: %v", err)
+	}
+	answer, err := r.broker.Presence(ann)
+	if err != nil {
+		t.Fatalf("stating Ann's presence: %v", err)
+	}
+
+	pictures := map[string]string{}
+	for _, m := range answer.Group.Members {
+		pictures[m.DisplayName] = m.AvatarURL
+	}
+	if pictures["Bob"] != "https://cdn.discordapp.com/avatars/u-bob/h1.png?size=64" {
+		t.Fatalf("Bob's row carries %q, want the picture the roster holds", pictures["Bob"])
+	}
+	if pictures["Ann"] != "https://cdn.discordapp.com/avatars/u-ann/h2.png?size=64" {
+		t.Fatalf("Ann's row carries %q, want the picture the roster holds", pictures["Ann"])
+	}
+}

@@ -117,11 +117,21 @@
 
             <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DiscordHeading}" />
-              <SelectableTextBlock Classes="hint"
-                                   Classes.danger="{Binding DiscordLineIsFailure}"
-                                   TextWrapping="Wrap"
-                                   TextTrimming="None"
-                                   Text="{Binding DiscordLine}" />
+
+              <!-- The account's picture in front of the sentence naming it, and no column before a link exists. -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapTight}">
+                <controls:Avatar Grid.Column="0"
+                                 Picture="{Binding DiscordAvatar}"
+                                 IsVisible="{Binding HasDiscordAvatar}"
+                                 VerticalAlignment="Top" />
+
+                <SelectableTextBlock Grid.Column="1"
+                                     Classes="hint"
+                                     Classes.danger="{Binding DiscordLineIsFailure}"
+                                     TextWrapping="Wrap"
+                                     TextTrimming="None"
+                                     Text="{Binding DiscordLine}" />
+              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="{StaticResource GapTight}">

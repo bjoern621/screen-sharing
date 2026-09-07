@@ -9,6 +9,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/avatars"
 	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/decode"
 	"bjoernblessin.de/screenshare/internal/discordclient"
@@ -62,6 +63,8 @@ type App struct {
 	// This app's side of the Discord manager, asked instead of groups while Discord mode is on
 	// (discord.go).
 	discord discordService
+	// The pictures a shell draws people with, read once per address (pictures.go).
+	avatars pictureSource
 	// What the last Discord pass landed, nil until one has run.
 	// Atomic like relayLast: written whole per pass, read on every command build.
 	discordLast atomic.Pointer[discordSnapshot]
@@ -212,8 +215,9 @@ func New(version, channel string) *App {
 		testStreams:      map[int]*testStream{},
 	}
 
-	// After the struct, the manager announcing through the broker it is built beside.
+	// After the struct, the two that announce through the broker they are built beside.
 	a.updates = newUpdates(version, channel, a.emitUpdateState)
+	a.avatars = avatars.New(a.announcePictures)
 	return a
 }
 

@@ -201,7 +201,7 @@ func (b *Broker) Presence(linkSecret string) (Answer, error) {
 			MemberID:         stated.MemberID,
 			DisplayName:      m.displayName,
 			LeaseSeconds:     stated.LeaseSeconds,
-			Members:          stated.Members,
+			Members:          b.pictures(s, stated.Members),
 			PublishingUnread: stated.PublishingUnread,
 			Streams:          streams,
 		},

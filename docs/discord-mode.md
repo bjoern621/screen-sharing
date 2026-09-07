@@ -36,7 +36,7 @@ sequenceDiagram
     O->>B: redirect to GET /link/callback, code attached
     B->>D: GET /link/callback
     D->>O: trade code, read the account
-    D->>B: redirect to 127.0.0.1:n, link secret and account attached
+    D->>B: redirect to 127.0.0.1:n, link secret, account and picture attached
     B->>A: link secret
 ```
 
@@ -46,10 +46,12 @@ whoever reads the file watches this user's channels.
 It stays on the backend: the flow above is its one writer, the control contract carries it in neither direction,
 and every draft arriving from a shell gets it put back (`ipc-api.md`).
 The account that consented rides back with the secret and is stored beside it, a label on the link.
+Its picture rides with it as an address on Discord's CDN.
+The backend reads that address and a shell draws the bytes, the app being the side that reaches the network.
 The pass that would answer it runs in Discord mode alone, and a link stands in either mode,
 so the label is what names the account on screen.
 A rename on Discord reaches the app on the next link.
-What a shell learns is `DiscordState.linked` and `DiscordState.account_name`.
+What a shell learns is `DiscordState.linked`, `DiscordState.account_name` and `DiscordState.avatar`.
 
 Holding a link and the manager resolving it are two facts, and `DiscordState.link_refused` carries the second.
 A refused link stays stored and stays linked, so the mode moves neither field:
@@ -83,6 +85,9 @@ it names the state the app wants true and the answer is the whole of it.
 Presence reaches `groupd` only on a pass the bot confirms,
 so a lease means in the channel and the app running, both.
 A member outside any channel gets an empty answer and states nothing.
+
+Every member's row carries the picture that member is drawn under in the channel.
+The manager holds a member id and the Discord account it was drawn for, so the two meet there and nowhere else.
 
 Tokens ride the same trust: `POST /tokens` at `discordd` takes the link secret,
 checks the voice state, and brokers the trade `groupd` answers.
@@ -144,12 +149,12 @@ The next occupancy draws a fresh group, so a prefix outlives no session.
 
 | Fact | Owner |
 | --- | --- |
-| who is in which channel | the bot's voice state |
+| who is in which channel, and the picture each is drawn under | the bot's voice state |
 | channel to group, keys, member secrets | `discordd`, in memory |
 | link secret to Discord user | `discordd`, on disk |
 | the Discord application every app draws an activity under | `discordd`, from the credentials it links through |
 | leases, tokens, enforcement | `groupd`, as ever |
-| mode toggle, link secret, the account it was drawn for | the app's settings |
+| mode toggle, link secret, the account it was drawn for and its picture | the app's settings |
 
 A `discordd` restart forgets every session:
 leases lapse, streams close, and the next pass rebuilds fresh groups.

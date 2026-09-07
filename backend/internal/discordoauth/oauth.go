@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/internal/discordavatar"
 )
 
 // authBase is where a person's browser is sent to consent.
@@ -42,6 +44,9 @@ type Config struct {
 type Identity struct {
 	UserID   string
 	Username string
+	// AvatarURL addresses that account's picture on Discord's CDN.
+	// Empty where the id is one nothing can be addressed under.
+	AvatarURL string
 }
 
 // Application is the Discord application this manager speaks for.
@@ -122,10 +127,16 @@ func (c Config) Identify(code string) (Identity, error) {
 	var user struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
+		// Avatar is the hash, empty for an account that set no picture.
+		Avatar string `json:"avatar"`
 	}
 	if err := json.NewDecoder(account.Body).Decode(&user); err != nil || user.ID == "" {
 		return Identity{}, fmt.Errorf("Discord's account answer names no user")
 	}
 
-	return Identity{UserID: user.ID, Username: user.Username}, nil
+	return Identity{
+		UserID:    user.ID,
+		Username:  user.Username,
+		AvatarURL: discordavatar.User(user.ID, user.Avatar),
+	}, nil
 }

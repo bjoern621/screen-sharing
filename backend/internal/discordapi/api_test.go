@@ -63,7 +63,10 @@ func (f *fakeOAuth) Identify(code string) (discordoauth.Identity, error) {
 	if code != "good-code" {
 		return discordoauth.Identity{}, errors.New("Discord refused the code trade")
 	}
-	return discordoauth.Identity{UserID: "u1", Username: "bob"}, nil
+	return discordoauth.Identity{
+		UserID: "u1", Username: "bob",
+		AvatarURL: "https://cdn.discordapp.com/avatars/u1/hash1.png?size=64",
+	}, nil
 }
 
 func serve(t *testing.T, links *fakeLinks) (*httptest.Server, *fakeLinks, *fakeOAuth) {
@@ -208,11 +211,13 @@ func TestLinkFlowLandsTheSecretOnLoopback(t *testing.T) {
 	if links.drawnFor != "u1" {
 		t.Fatalf("the link is drawn for the identified user, drawn for %q", links.drawnFor)
 	}
-	// The account rides along because the app names it beside the link,
-	// and this trade is the one read of it (internal/app, storeDiscordLink).
+	// The account and its picture ride along because the app names both beside the link,
+	// and this trade is the one read of them (internal/app, storeDiscordLink).
 	location := resp.Header.Get("Location")
-	if location != "http://127.0.0.1:8123/?linkSecret=drawn-secret&account=bob" {
-		t.Fatalf("the secret and the account land on the port the start named, got %s", location)
+	want := "http://127.0.0.1:8123/?linkSecret=drawn-secret&account=bob" +
+		"&avatar=https%3A%2F%2Fcdn.discordapp.com%2Favatars%2Fu1%2Fhash1.png%3Fsize%3D64"
+	if location != want {
+		t.Fatalf("the secret, the account and its picture land on the port the start named, got %s", location)
 	}
 }
 

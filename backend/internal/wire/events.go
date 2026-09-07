@@ -189,6 +189,8 @@ func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
 type DiscordSnapshot struct {
 	Linked      bool
 	AccountName string
+	// Avatar is the linked account's picture, empty until a read lands (internal/avatars).
+	Avatar      []byte
 	Refused     bool
 	InChannel   bool
 	GuildName   string
@@ -201,6 +203,7 @@ func DiscordState(d DiscordSnapshot) *screensharev1.DiscordState {
 	return &screensharev1.DiscordState{
 		Linked:      d.Linked,
 		AccountName: d.AccountName,
+		Avatar:      d.Avatar,
 		LinkRefused: d.Refused,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,

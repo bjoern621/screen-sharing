@@ -245,11 +245,12 @@ func (s *Service) finishLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The account rides back with the secret, this trade being the one read of who consented.
-	// The app labels its stored link with it and this side keeps no copy.
+	// The account and its picture ride back with the secret, this trade being the one read of who consented.
+	// The app labels its stored link with them and this side keeps no copy.
 	http.Redirect(w, r,
-		fmt.Sprintf("http://127.0.0.1:%d/?linkSecret=%s&account=%s",
-			link.port, url.QueryEscape(secret), url.QueryEscape(identity.Username)),
+		fmt.Sprintf("http://127.0.0.1:%d/?linkSecret=%s&account=%s&avatar=%s",
+			link.port, url.QueryEscape(secret), url.QueryEscape(identity.Username),
+			url.QueryEscape(identity.AvatarURL)),
 		http.StatusFound)
 }
 

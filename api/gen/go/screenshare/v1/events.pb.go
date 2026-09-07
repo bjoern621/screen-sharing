@@ -1895,7 +1895,11 @@ type DiscordState struct {
 	// The manager declines to resolve the link this install holds, so no group follows the channel.
 	// Linking again is what clears it, and polling never does.
 	// Stands with discord_mode off, the toggle drawing no link and resolving none.
-	LinkRefused   bool `protobuf:"varint,7,opt,name=link_refused,json=linkRefused,proto3" json:"link_refused,omitempty"`
+	LinkRefused bool `protobuf:"varint,7,opt,name=link_refused,json=linkRefused,proto3" json:"link_refused,omitempty"`
+	// The linked account's Discord picture, PNG bytes, empty until one is read.
+	// Bytes and not an address: a shell draws what the backend hands it,
+	// and the backend is the side that reaches Discord's network (docs/ipc-api.md).
+	Avatar        []byte `protobuf:"bytes,8,opt,name=avatar,proto3" json:"avatar,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1979,6 +1983,13 @@ func (x *DiscordState) GetLinkRefused() bool {
 	return false
 }
 
+func (x *DiscordState) GetAvatar() []byte {
+	if x != nil {
+		return x.Avatar
+	}
+	return nil
+}
+
 // One member of the group.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1991,7 +2002,11 @@ type Member struct {
 	// The relay is carrying a stream from this member.
 	Publishing bool `protobuf:"varint,3,opt,name=publishing,proto3" json:"publishing,omitempty"`
 	// This machine's own row.
-	Self          bool `protobuf:"varint,4,opt,name=self,proto3" json:"self,omitempty"`
+	Self bool `protobuf:"varint,4,opt,name=self,proto3" json:"self,omitempty"`
+	// That member's Discord picture, PNG bytes.
+	// Empty outside Discord mode, which is the one mode a group knows Discord accounts in,
+	// and until one is read.
+	Avatar        []byte `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2052,6 +2067,13 @@ func (x *Member) GetSelf() bool {
 		return x.Self
 	}
 	return false
+}
+
+func (x *Member) GetAvatar() []byte {
+	if x != nil {
+		return x.Avatar
+	}
+	return nil
 }
 
 type Event struct {
@@ -2601,7 +2623,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\amembers\x18\x01 \x03(\v2\x16.screenshare.v1.MemberR\amembers\x12.\n" +
 	"\arefusal\x18\x02 \x01(\v2\x14.screenshare.v1.TextR\arefusal\x12\x16\n" +
 	"\x06joined\x18\x03 \x01(\bR\x06joined\x12+\n" +
-	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\xe3\x01\n" +
+	"\x11publishing_unread\x18\x04 \x01(\bR\x10publishingUnread\"\xfb\x01\n" +
 	"\fDiscordState\x12\x16\n" +
 	"\x06linked\x18\x01 \x01(\bR\x06linked\x12\x1d\n" +
 	"\n" +
@@ -2611,14 +2633,16 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\fchannel_name\x18\x04 \x01(\tR\vchannelName\x12\x14\n" +
 	"\x05stale\x18\x05 \x01(\bR\x05stale\x12!\n" +
 	"\faccount_name\x18\x06 \x01(\tR\vaccountName\x12!\n" +
-	"\flink_refused\x18\a \x01(\bR\vlinkRefused\"|\n" +
+	"\flink_refused\x18\a \x01(\bR\vlinkRefused\x12\x16\n" +
+	"\x06avatar\x18\b \x01(\fR\x06avatar\"\x94\x01\n" +
 	"\x06Member\x12\x1b\n" +
 	"\tmember_id\x18\x01 \x01(\tR\bmemberId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1e\n" +
 	"\n" +
 	"publishing\x18\x03 \x01(\bR\n" +
 	"publishing\x12\x12\n" +
-	"\x04self\x18\x04 \x01(\bR\x04self\"\xfd\t\n" +
+	"\x04self\x18\x04 \x01(\bR\x04self\x12\x16\n" +
+	"\x06avatar\x18\x05 \x01(\fR\x06avatar\"\xfd\t\n" +
 	"\x05Event\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12C\n" +
 	"\rpublish_state\x18\x02 \x01(\v2\x1c.screenshare.v1.PublishStateH\x00R\fpublishState\x12C\n" +

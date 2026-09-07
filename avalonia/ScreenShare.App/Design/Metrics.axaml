@@ -19,6 +19,8 @@
   <sys:Double x:Key="RadiusTileValue">9</sys:Double>
   <!-- The one capsule: a stream chip. -->
   <CornerRadius x:Key="RadiusChip">14</CornerRadius>
+  <!-- Half the portrait, which is what makes it a circle. -->
+  <CornerRadius x:Key="RadiusAvatar">10</CornerRadius>
 
   <!--
     Two widgets glued at a shared edge, carrying the control radius with the inner corners taken off.
@@ -51,6 +53,8 @@
   <sys:Double x:Key="ChipHeight">30</sys:Double>
   <!-- Pinned rather than sized to its text, so a column of rows keeps one rhythm whatever a row holds. -->
   <sys:Double x:Key="TextRowHeight">26</sys:Double>
+  <!-- Inside the text row, so a picture beside a name adds no height to the row it sits in. -->
+  <sys:Double x:Key="AvatarSize">20</sys:Double>
   <sys:Double x:Key="MenuItemHeight">32</sys:Double>
   <sys:Double x:Key="ActionHeight">32</sys:Double>
   <sys:Double x:Key="FooterButtonHeight">38</sys:Double>

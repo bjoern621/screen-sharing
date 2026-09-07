@@ -27,6 +27,17 @@ func TestALinkRoundTrips(t *testing.T) {
 	}
 }
 
+func TestAWatchPathCarriesTheLinkWithoutItsScheme(t *testing.T) {
+	path := WatchPath("G1", "bob/monitor-0")
+
+	if path != "watch/G1/bob/monitor-0" {
+		t.Errorf("the path is %q, and it names the group and the stream in segments", path)
+	}
+	if link := FormatWatch("G1", "bob/monitor-0"); link != Scheme+"://"+path {
+		t.Errorf("the link is %q, and a browser reaching that path is sent to it", link)
+	}
+}
+
 func TestALinkNamesThisApp(t *testing.T) {
 	refused := []struct {
 		name string

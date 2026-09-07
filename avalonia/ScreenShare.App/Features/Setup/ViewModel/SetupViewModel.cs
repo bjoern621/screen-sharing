@@ -1082,7 +1082,8 @@ public sealed class SetupViewModel : Observable
             LinkTip(),
             LinkNotice(),
             _linkDiscord,
-            LinkNoticeIsFailure()),
+            LinkNoticeIsFailure(),
+            _session.Discord?.Avatar),
         _ => null,
     };
 

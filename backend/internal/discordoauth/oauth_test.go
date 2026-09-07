@@ -43,7 +43,7 @@ func TestIdentifyTradesTheCodeAndReadsTheUser(t *testing.T) {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			json.NewEncoder(w).Encode(map[string]string{"id": "u1", "username": "bob"})
+			json.NewEncoder(w).Encode(map[string]string{"id": "u1", "username": "bob", "avatar": "hash1"})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -61,6 +61,9 @@ func TestIdentifyTradesTheCodeAndReadsTheUser(t *testing.T) {
 	}
 	if identity.UserID != "u1" || identity.Username != "bob" {
 		t.Fatalf("the identity is the user Discord answered, got %+v", identity)
+	}
+	if identity.AvatarURL != "https://cdn.discordapp.com/avatars/u1/hash1.png?size=64" {
+		t.Fatalf("the identity carries the account's picture, got %+v", identity)
 	}
 	if tokenForm.Get("code") != "code-1" || tokenForm.Get("grant_type") != "authorization_code" {
 		t.Fatalf("the trade names the code, got %v", tokenForm)

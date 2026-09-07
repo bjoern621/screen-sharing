@@ -35,6 +35,8 @@ type discordService interface {
 type storedLink struct {
 	Linked  bool
 	Account string
+	// Avatar is that account's picture, as the cache holds it. Empty until a read lands.
+	Avatar []byte
 }
 
 // discordSnapshot is what the last Discord pass landed, the zero value before one has run.
@@ -107,7 +109,7 @@ func (a *App) discordPass() {
 
 	// Out here because settingsMu is not held while membersMu is taken (app.go),
 	// and every landing below announces the link beside the channel.
-	held := storedLink{Linked: s.Relay.DiscordLink != "", Account: s.Relay.DiscordAccount}
+	held := a.storedLink(s.Relay)
 
 	a.membersMu.Lock()
 	defer a.membersMu.Unlock()
@@ -206,7 +208,7 @@ func (a *App) discordWire() wire.DiscordSnapshot {
 	r := a.settings.Relay
 	a.settingsMu.Unlock()
 
-	held := storedLink{Linked: r.DiscordLink != "", Account: r.DiscordAccount}
+	held := a.storedLink(r)
 	d := a.discordState()
 	if !r.DiscordMode {
 		d = discordSnapshot{Refused: d.Refused}
@@ -230,6 +232,7 @@ func (d discordSnapshot) wire(held storedLink) wire.DiscordSnapshot {
 	return wire.DiscordSnapshot{
 		Linked:      held.Linked,
 		AccountName: held.Account,
+		Avatar:      held.Avatar,
 		Refused:     d.Refused,
 		InChannel:   d.InChannel,
 		GuildName:   d.GuildName,
@@ -249,6 +252,7 @@ func (a *App) withStoredLink(s settings.Settings) settings.Settings {
 
 	s.Relay.DiscordLink = a.settings.Relay.DiscordLink
 	s.Relay.DiscordAccount = a.settings.Relay.DiscordAccount
+	s.Relay.DiscordAvatar = a.settings.Relay.DiscordAvatar
 	return s
 }
 

@@ -73,18 +73,26 @@ public sealed class MembersViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Stamps the separator onto every row but the last and leaves the bound list alone where nothing differs,
-    /// rows being records.
+    /// Stamps the separator onto every row but the last, the picture column onto all of them or none,
+    /// and leaves the bound list alone where nothing differs, rows being records.
     /// </summary>
     public void Apply()
     {
         var state = Reported;
         var members = state?.Members ?? (IReadOnlyList<Member>)[];
 
+        // One member's picture gives the whole list its column: pictures land one by one, and a column
+        // per row would walk the names sideways as they do.
+        var showsAvatars = members.Any(member => member.Avatar.Length > 0);
+
         var rendered = new MemberRow[members.Count];
         for (var i = 0; i < members.Count; i++)
         {
-            rendered[i] = MemberRow.Of(members[i]) with { IsLast = i == members.Count - 1 };
+            rendered[i] = MemberRow.Of(members[i]) with
+            {
+                IsLast = i == members.Count - 1,
+                ShowsAvatar = showsAvatars,
+            };
         }
 
         Reconcile.Onto(Rows, rendered);
@@ -99,6 +107,8 @@ public sealed class MembersViewModel : Observable
         HasRefusal = Refusal.Length > 0;
 
         Assert.That(Rows.Count == members.Count, "a row per member the group named", Rows.Count, members.Count);
+        Assert.That(Rows.All(row => row.ShowsAvatar == showsAvatars),
+            "every row of a list keeps the same column for a picture", showsAvatars);
         Assert.That(Rows.Count(row => row.IsLast) == (Rows.Count == 0 ? 0 : 1),
             "exactly one row ends the list", Rows.Count);
         Assert.That(HasRows == (Notice.Length == 0),

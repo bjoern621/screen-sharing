@@ -736,6 +736,12 @@ type Member struct {
 	// and Self marks this machine's own row.
 	Publishing bool
 	Self       bool
+	// AvatarURL addresses that member's picture, and stays on this side of the contract.
+	// Named by the Discord manager alone, a group outside Discord mode knowing no accounts.
+	AvatarURL string
+	// Avatar is that picture as the cache holds it, and is what crosses.
+	// Empty until a read lands (internal/avatars).
+	Avatar []byte
 }
 
 // MembersSnapshot is who this machine shares a group with, at one instant,
@@ -767,6 +773,7 @@ func MembersState(m MembersSnapshot) *screensharev1.MembersState {
 			DisplayName: member.DisplayName,
 			Publishing:  member.Publishing,
 			Self:        member.Self,
+			Avatar:      member.Avatar,
 		})
 	}
 

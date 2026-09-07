@@ -114,6 +114,11 @@ type Relay struct {
 	// It labels one credential and the link flow rewrites it with every draw,
 	// so a rename on Discord shows here after the next link.
 	DiscordAccount string `json:"discordAccount,omitempty"`
+	// DiscordAvatar addresses that account's picture on Discord's CDN (internal/discordavatar).
+	// Stored beside the name and drawn with it, so both label one credential
+	// and both move on the next link.
+	// Empty for a manager that named no picture.
+	DiscordAvatar string `json:"discordAvatar,omitempty"`
 	// DiscordRichPresence has a share state itself on the Discord client running beside this app
 	// (internal/discordrpc).
 	// Read only while DiscordMode is set, which is what answers the channel and the audience,

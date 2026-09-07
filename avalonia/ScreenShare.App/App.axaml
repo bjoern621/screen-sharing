@@ -25,6 +25,7 @@
         <ResourceInclude Source="/Controls/Chip/Chip.axaml" />
         <ResourceInclude Source="/Controls/Spinner/Spinner.axaml" />
         <ResourceInclude Source="/Controls/StatusPill/StatusPill.axaml" />
+        <ResourceInclude Source="/Controls/Avatar/Avatar.axaml" />
         <ResourceInclude Source="/Controls/CheckItem/CheckItem.axaml" />
         <ResourceInclude Source="/Controls/Segmented/Segmented.axaml" />
         <ResourceInclude Source="/Controls/Select/Select.axaml" />

@@ -143,12 +143,12 @@ func (a *App) setMembership(m membership) {
 // the one path a shell learns the group over.
 func (a *App) landMembership(m membership) {
 	a.setMembership(m)
-	a.emit(wire.MembersStateEvent(m.snapshot()))
+	a.emit(wire.MembersStateEvent(a.membersWire(m)))
 }
 
 // MembersState is who this machine shares a group with, as the presence loop last read it.
 func (a *App) MembersState() wire.MembersSnapshot {
-	return a.membership().snapshot()
+	return a.membersWire(a.membership())
 }
 
 // statePresence states this machine's presence and announces the group the service answered with.
@@ -284,6 +284,7 @@ func presenceTaken(id string, answer groupclient.Membership) membership {
 			DisplayName: m.DisplayName,
 			Publishing:  m.Publishing,
 			Self:        m.MemberID == answer.MemberID,
+			AvatarURL:   m.AvatarURL,
 		})
 	}
 

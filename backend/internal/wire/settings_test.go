@@ -33,6 +33,7 @@ func populatedSettings() settings.Settings {
 			DiscordMode:    true,
 			DiscordLink:    "fixture-discord-link",
 			DiscordAccount: "fixture-discord-account",
+			DiscordAvatar:  "https://cdn.discordapp.com/avatars/u1/h1.png?size=64",
 
 			DiscordRichPresence: true,
 		},
@@ -128,12 +129,15 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 // back on every copy coming in (internal/app, withStoredLink).
 // The account that link was drawn for is written by the same flow,
 // and it reaches a shell as DiscordState.account_name.
+// Its picture goes the same way, as bytes: the address is the backend's to read
+// (internal/avatars).
 var offContract = map[string]bool{
 	"Publish.FlatAudio":    true,
 	"Publish.FlatCodec":    true,
 	"Relay.Token":          true,
 	"Relay.DiscordLink":    true,
 	"Relay.DiscordAccount": true,
+	"Relay.DiscordAvatar":  true,
 }
 
 // A settings draft crosses to a shell and comes back edited on every keystroke,

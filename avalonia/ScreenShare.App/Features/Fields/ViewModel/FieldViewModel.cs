@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Avalonia.Collections;
+using Google.Protobuf;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
@@ -277,6 +278,8 @@ public sealed class FieldViewModel : Observable
     private bool _hasAction;
     private string _actionNotice = "";
     private bool _hasActionNotice;
+    private ByteString _actionAvatar = ByteString.Empty;
+    private bool _hasActionAvatar;
     private bool _actionNoticeIsFailure;
     private bool _hasRefused;
     private string _refusedCount = "";
@@ -328,6 +331,14 @@ public sealed class FieldViewModel : Observable
     public string ActionNotice { get => _actionNotice; private set => Set(ref _actionNotice, value); }
 
     public bool HasActionNotice { get => _hasActionNotice; private set => Set(ref _hasActionNotice, value); }
+
+    /// <summary>
+    /// Picture of whoever <see cref="ActionNotice"/> names, empty where it names nobody.
+    /// Lifted off the action for the reason the sentence is.
+    /// </summary>
+    public ByteString ActionAvatar { get => _actionAvatar; private set => Set(ref _actionAvatar, value); }
+
+    public bool HasActionAvatar { get => _hasActionAvatar; private set => Set(ref _hasActionAvatar, value); }
 
     /// <summary>
     /// Whether that sentence reports something broken, which draws it in the failure hue
@@ -545,6 +556,8 @@ public sealed class FieldViewModel : Observable
         HasAction = action is not null;
         ActionNotice = action?.Notice ?? "";
         HasActionNotice = ActionNotice.Length > 0;
+        ActionAvatar = action?.Avatar ?? ByteString.Empty;
+        HasActionAvatar = ActionAvatar.Length > 0;
         ActionNoticeIsFailure = action?.NoticeIsFailure ?? false;
 
         // Heading and paragraph are keyed by the field the backend named; the reason and the note are codes it sent,

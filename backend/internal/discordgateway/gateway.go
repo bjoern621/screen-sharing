@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/discordavatar"
 	"bjoernblessin.de/screenshare/internal/voiceroster"
 )
 
@@ -88,32 +89,58 @@ func presenceFor(s *discordgo.Session, guild *discordgo.Guild, vs *discordgo.Voi
 	if channel, err := s.State.Channel(vs.ChannelID); err == nil {
 		channelName = channel.Name
 	}
+	member := memberOf(s, guild.ID, vs)
 
 	return voiceroster.Presence{
 		UserID:      vs.UserID,
 		GuildID:     guild.ID,
 		ChannelID:   vs.ChannelID,
-		DisplayName: displayName(s, guild.ID, vs),
+		DisplayName: displayName(member, vs.UserID),
+		AvatarURL:   avatarURL(member, guild.ID, vs.UserID),
 		GuildName:   guild.Name,
 		ChannelName: channelName,
 	}
 }
 
+// avatarURL addresses the picture the channel shows beside that name:
+// the guild picture where the member set one, the account's own behind it,
+// and the default Discord draws for an account holding neither.
+//
+// Guild before account, as a nick comes before a username: a member showing one face in this guild
+// shows it here too.
+func avatarURL(member *discordgo.Member, guildID, userID string) string {
+	if member == nil {
+		return discordavatar.User(userID, "")
+	}
+	if member.Avatar != "" {
+		return discordavatar.GuildMember(guildID, userID, member.Avatar)
+	}
+	if member.User == nil {
+		return discordavatar.User(userID, "")
+	}
+	return discordavatar.User(userID, member.User.Avatar)
+}
+
+// memberOf is the guild member behind a voice state, nil where nothing on hand holds one.
+//
+// The member rides most voice states; where it does not, the state cache answers.
+// Nothing here reaches Discord's REST API: what a miss costs is a label and a default picture.
+func memberOf(s *discordgo.Session, guildID string, vs *discordgo.VoiceState) *discordgo.Member {
+	if vs.Member != nil {
+		return vs.Member
+	}
+	if cached, err := s.State.Member(guildID, vs.UserID); err == nil {
+		return cached
+	}
+	return nil
+}
+
 // displayName is the user's name as the channel shows it: nick, global name, username,
 // the first of those the member carries.
-//
-// The member rides most voice states; where it does not, the state cache answers,
-// and a user neither holds is named by id until a later event carries more.
-// A wrong name costs a label, so nothing here reaches Discord's REST API for one.
-func displayName(s *discordgo.Session, guildID string, vs *discordgo.VoiceState) string {
-	member := vs.Member
-	if member == nil {
-		if cached, err := s.State.Member(guildID, vs.UserID); err == nil {
-			member = cached
-		}
-	}
+// A member nothing on hand names is named by id until a later event carries more.
+func displayName(member *discordgo.Member, userID string) string {
 	if member == nil || member.User == nil {
-		return vs.UserID
+		return userID
 	}
 	switch {
 	case member.Nick != "":

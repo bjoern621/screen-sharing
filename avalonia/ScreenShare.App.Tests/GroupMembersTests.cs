@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Viewer.Members.ViewModel;
@@ -27,6 +28,48 @@ public sealed class GroupMembersTests
         var state = new MembersState { Joined = joined };
         state.Members.AddRange(members);
         return state;
+    }
+
+    /// <summary>
+    /// The picture arrives read, so a row draws bytes and asks nobody for them.
+    /// A group outside Discord mode names none, and the row is the same row without one.
+    /// </summary>
+    [Fact]
+    public void AMembersPictureRidesOnTheRowThatNamesThem()
+    {
+        var card = Card();
+        var drawn = Member("Björn");
+        drawn.Avatar = ByteString.CopyFromUtf8("png-bytes");
+
+        card.Reported = Group(joined: true, drawn, Member("Ada"));
+        card.Apply();
+
+        Assert.True(card.Rows[0].HasAvatar);
+        Assert.Equal("png-bytes", card.Rows[0].Avatar.ToStringUtf8());
+        Assert.False(card.Rows[1].HasAvatar);
+    }
+
+    /// <summary>
+    /// Pictures land one at a time, so the column one member's gives the list is every member's:
+    /// names that walk sideways as reads land are worse than a column standing empty.
+    /// </summary>
+    [Fact]
+    public void OneMembersPictureGivesTheWholeListItsColumn()
+    {
+        var card = Card();
+        var drawn = Member("Björn");
+        drawn.Avatar = ByteString.CopyFromUtf8("png-bytes");
+
+        card.Reported = Group(joined: true, drawn, Member("Ada"));
+        card.Apply();
+
+        Assert.True(card.Rows[0].ShowsAvatar);
+        Assert.True(card.Rows[1].ShowsAvatar);
+
+        card.Reported = Group(joined: true, Member("Ada"));
+        card.Apply();
+
+        Assert.False(card.Rows[0].ShowsAvatar);
     }
 
     [Fact]

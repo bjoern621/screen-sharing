@@ -180,8 +180,9 @@ func inGroupApp(t *testing.T, groups groupService) *App {
 	isolateConfig(t)
 
 	return &App{
-		events: events.New(),
-		groups: groups,
+		events:  events.New(),
+		groups:  groups,
+		avatars: fakePictures{},
 		settings: settings.Settings{Relay: settings.Relay{
 			Host:        "127.0.0.1",
 			GroupKey:    aGroupKey,
@@ -495,7 +496,7 @@ func TestATileSaysNothingWhileTheRelayHasNotAnswered(t *testing.T) {
 // What it lands is the empty group rather than what was there before,
 // so a group key taken out of the settings empties the list a shell draws.
 func TestAPassOverNoGroupStatesNothing(t *testing.T) {
-	a := &App{events: events.New()}
+	a := &App{events: events.New(), avatars: fakePictures{}}
 	a.setMembership(membership{Group: aGroupID, Joined: true, Members: []wire.Member{{MemberID: aMemberID}}})
 
 	a.statePresence()

@@ -536,6 +536,10 @@ message DiscordState {
   // Linking again is what clears it, and polling never does.
   // Stands with discord_mode off, the toggle drawing no link and resolving none.
   bool link_refused = 7;
+  // The linked account's Discord picture, PNG bytes, empty until one is read.
+  // Bytes and not an address: a shell draws what the backend hands it,
+  // and the backend is the side that reaches Discord's network (docs/ipc-api.md).
+  bytes avatar = 8;
 }
 
 // One member of the group.
@@ -550,6 +554,10 @@ message Member {
   bool publishing = 3;
   // This machine's own row.
   bool self = 4;
+  // That member's Discord picture, PNG bytes.
+  // Empty outside Discord mode, which is the one mode a group knows Discord accounts in,
+  // and until one is read.
+  bytes avatar = 5;
 }
 
 // Names one Event payload, for a shell after a subset.

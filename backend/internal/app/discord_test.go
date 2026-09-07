@@ -66,6 +66,7 @@ func discordApp(fake *fakeDiscord) *App {
 	return &App{
 		events:  events.New(),
 		discord: fake,
+		avatars: fakePictures{},
 		settings: settings.Settings{Relay: settings.Relay{
 			Host:           "127.0.0.1",
 			DiscordMode:    true,

@@ -68,10 +68,12 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 
 // landedLink is what the browser leg brings back:
 // the secret this install proves its identity with, and the account it was drawn for.
-// The account is empty from a manager that names none.
+// The account and its picture are empty from a manager that names neither.
 type landedLink struct {
 	secret  string
 	account string
+	// avatar addresses that account's picture, which the app reads and a shell draws.
+	avatar string
 }
 
 // linkHandler answers the browser leg and passes on what it carried, one link at most.
@@ -86,7 +88,11 @@ func linkHandler(landed chan<- landedLink) http.HandlerFunc {
 		}
 		linkPage(w, http.StatusOK, "Discord is linked. You can close this tab and return to the app.")
 		select {
-		case landed <- landedLink{secret: secret, account: r.URL.Query().Get("account")}:
+		case landed <- landedLink{
+			secret:  secret,
+			account: r.URL.Query().Get("account"),
+			avatar:  r.URL.Query().Get("avatar"),
+		}:
 		default:
 		}
 	}
@@ -104,6 +110,7 @@ func (a *App) storeDiscordLink(link landedLink) {
 	a.settingsMu.Lock()
 	a.settings.Relay.DiscordLink = link.secret
 	a.settings.Relay.DiscordAccount = link.account
+	a.settings.Relay.DiscordAvatar = link.avatar
 	s := a.settings
 	a.settingsMu.Unlock()
 

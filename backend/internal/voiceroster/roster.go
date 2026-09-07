@@ -24,6 +24,10 @@ type Presence struct {
 	ChannelID string
 	// DisplayName is the user's name as the channel shows it: nick, or global name behind it.
 	DisplayName string
+	// AvatarURL addresses the user's picture as the channel shows it,
+	// a guild picture where the member carries one (internal/discordavatar).
+	// Empty for a user the gateway named by id alone.
+	AvatarURL string
 	// GuildName and ChannelName label the place for an answer a person reads.
 	// Carried beside the ids rather than resolved per read,
 	// the gateway holding them at the moment it feeds a presence.

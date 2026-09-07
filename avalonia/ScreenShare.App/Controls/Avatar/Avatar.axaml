@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:ScreenShare.App.Controls">
+
+  <ControlTheme x:Key="{x:Type controls:Avatar}" TargetType="controls:Avatar">
+    <Setter Property="Width" Value="{StaticResource AvatarSize}" />
+    <Setter Property="Height" Value="{StaticResource AvatarSize}" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusAvatar}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <!-- Clipped to the round rather than masked: the picture arrives square whatever it shows. -->
+        <Border CornerRadius="{TemplateBinding CornerRadius}"
+                ClipToBounds="True"
+                Background="{StaticResource ControlBrush}">
+          <Image Source="{TemplateBinding Drawn}" Stretch="UniformToFill" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

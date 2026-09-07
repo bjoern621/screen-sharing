@@ -92,6 +92,11 @@ type Member struct {
 	MemberID    string `json:"memberId"`
 	DisplayName string `json:"displayName"`
 	Publishing  bool   `json:"publishing"`
+	// AvatarURL addresses that member's picture.
+	// The group service names none, knowing members by id and by claimed name alone;
+	// the Discord manager fills it,
+	// being the one side that knows which account a member id is (internal/channelgroup).
+	AvatarURL string `json:"avatarUrl,omitempty"`
 }
 
 // Refusal is the group service's own answer to a request it would not take.

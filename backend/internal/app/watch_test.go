@@ -55,6 +55,7 @@ func backendAt(host string) *App {
 	return &App{
 		events:    events.New(),
 		groups:    groupclient.New(),
+		avatars:   fakePictures{},
 		relayStop: make(chan struct{}),
 		// A listing is a group's, so the machine asking for one holds a key.
 		settings: settings.Settings{Relay: settings.Relay{Host: host, GroupKey: aGroupKey}},
