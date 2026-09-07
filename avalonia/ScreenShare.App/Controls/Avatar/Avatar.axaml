@@ -22,6 +22,7 @@
       <Setter Property="Width" Value="{StaticResource AvatarSizeInline}" />
       <Setter Property="Height" Value="{StaticResource AvatarSizeInline}" />
       <Setter Property="CornerRadius" Value="{StaticResource RadiusAvatarInline}" />
+      <Setter Property="Margin" Value="{StaticResource AvatarInlineGap}" />
     </Style>
   </ControlTheme>
 

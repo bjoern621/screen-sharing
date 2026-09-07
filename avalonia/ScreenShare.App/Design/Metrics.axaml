@@ -58,6 +58,8 @@
   <sys:Double x:Key="AvatarSize">20</sys:Double>
   <!-- Inside a sentence, where the line box is the text's own. -->
   <sys:Double x:Key="AvatarSizeInline">16</sys:Double>
+  <!-- The word space after a picture, the one in front of it being the sentence's own. -->
+  <Thickness x:Key="AvatarInlineGap">0,0,4,0</Thickness>
   <sys:Double x:Key="MenuItemHeight">32</sys:Double>
   <sys:Double x:Key="ActionHeight">32</sys:Double>
   <sys:Double x:Key="FooterButtonHeight">38</sys:Double>
