@@ -12,6 +12,7 @@ func TestALinkRoundTrips(t *testing.T) {
 		{"a display name carrying a space", "abc123", "Bob's desk/monitor-0"},
 		{"a display name carrying a separator", "abc123", "bob/two/monitor-0"},
 		{"a stream with no display name", "abc123", "monitor-0"},
+		{"a display name outside the alphabet a path carries", "abc123", "Björn/monitor-0"},
 	}
 
 	for _, tc := range cases {

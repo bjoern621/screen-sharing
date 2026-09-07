@@ -36,6 +36,20 @@ func TestAWatchPageSendsTheBrowserToTheApp(t *testing.T) {
 	}
 }
 
+// A member goes by the name they claimed, and a stream is listed under it,
+// so a link carries what the alphabet of an address cannot: "Björn/monitor-0" (internal/group).
+func TestAWatchPageCarriesANameThroughItsEscapes(t *testing.T) {
+	server, _, _ := serve(t, nil)
+
+	resp := get(t, server.URL+"/watch/G1/Bj%C3%B6rn/monitor-0")
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if !strings.Contains(string(body), `href="mirrorme://watch/G1/Bj%C3%B6rn/monitor-0"`) {
+		t.Errorf("the link spells the name the way the app reads it back, carried %s", body)
+	}
+}
+
 func TestAWatchPageNamingNoStreamIsRefused(t *testing.T) {
 	server, _, _ := serve(t, nil)
 

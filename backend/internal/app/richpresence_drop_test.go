@@ -44,6 +44,18 @@ func sharingApp(t *testing.T) (*App, *fakePresence) {
 	return a, held
 }
 
+// The name a share carries is the one the group's index lists it under,
+// which is what the reader count is looked up by and what a link opens (link.go, ResolveLink).
+func TestAShareCarriesTheNameTheIndexListsItUnder(t *testing.T) {
+	a := discordApp(&fakeDiscord{answer: inChannel()})
+	a.settings.Relay.DisplayName = "Björn"
+	a.run = &publishRun{settings: a.settings, handle: liveHandle{}}
+
+	if got, want := a.sharingNow().name, "Björn/monitor-0"; got != want {
+		t.Errorf("the share is named %q, and the index lists it as %q", got, want)
+	}
+}
+
 func TestSharingStatesAnActivity(t *testing.T) {
 	a, held := sharingApp(t)
 	a.run = &publishRun{settings: a.settings, handle: liveHandle{}}

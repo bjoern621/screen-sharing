@@ -52,7 +52,9 @@ type richPresence struct {
 // sharing is the publish an activity is drawn from.
 // The zero value is a machine sharing nothing, which states no activity.
 type sharing struct {
-	live      bool
+	live bool
+	// name is the stream as the group's index lists it, "Björn/monitor-0",
+	// which the reader count is looked up by and the button's link opens.
 	name      string
 	startedAt time.Time
 }
@@ -166,7 +168,7 @@ func (a *App) sharingNow() sharing {
 	if a.run == nil || !a.run.handle.Running() {
 		return sharing{}
 	}
-	return sharing{live: true, name: a.run.settings.Publish.Name(), startedAt: a.run.startedAt}
+	return sharing{live: true, name: a.run.settings.StreamName(), startedAt: a.run.startedAt}
 }
 
 // discordClient is the connection this pass states on, opening one where none is held.
