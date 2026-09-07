@@ -2,10 +2,12 @@ package app
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/applink"
 	"bjoernblessin.de/screenshare/internal/discordrpc"
 	"bjoernblessin.de/screenshare/internal/relay"
 )
@@ -26,10 +28,13 @@ import (
 // richPresenceDetails is the first line Discord draws, under this app's own name.
 const richPresenceDetails = "Sharing a screen"
 
-// richPresenceJoin labels the button under the activity.
-// A reader who joins the channel is a member of the group,
-// which is what their own app needs to open the stream (docs/discord-mode.md).
-const richPresenceJoin = "Join the voice channel"
+// The buttons under the activity, in the order Discord draws them.
+// Watch opens the stream in the reader's own app, join the voice channel it is shared in,
+// which is what a group is in this mode (docs/discord-mode.md).
+const (
+	richPresenceWatch = "Watch stream"
+	richPresenceJoin  = "Join the voice channel"
+)
 
 // presenceClient is the connection a pass states on,
 // held as an interface at the caller so a test states a pass with no Discord running.
@@ -75,7 +80,8 @@ func (a *App) statePresenceOnDiscord() {
 	}
 
 	d := a.discordState()
-	activity, stating := richPresenceActivity(d, a.sharingNow(), a.lastRelayStatus(), a.membership())
+	manager, _ := r.DiscordService()
+	activity, stating := richPresenceActivity(d, a.sharingNow(), a.lastRelayStatus(), a.membership(), manager)
 	if !stating && a.presence.client == nil {
 		// Nothing to state, and no connection stating anything.
 		return
@@ -106,7 +112,10 @@ func (a *App) statePresenceOnDiscord() {
 // so a machine publishing nothing states none at all.
 // The timer dates the child carrying the stream, which a relaunch after a failure restarts:
 // what it measures is the picture a viewer is watching.
-func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, m membership) (discordrpc.Activity, bool) {
+//
+// manager is where discordd answers, which is also where a reader's browser is sent to be
+// carried on to the stream (internal/discordapi, watch.go).
+func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, m membership, manager string) (discordrpc.Activity, bool) {
 	if !d.InChannel || !live.live {
 		return discordrpc.Activity{}, false
 	}
@@ -118,10 +127,25 @@ func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, 
 		Members: len(m.Members),
 		Start:   live.startedAt,
 	}
+	if address := watchAddress(manager, m.Group, live.name); address != "" {
+		activity.Buttons = append(activity.Buttons, discordrpc.Button{Label: richPresenceWatch, URL: address})
+	}
 	if address := channelAddress(d); address != "" {
-		activity.Buttons = []discordrpc.Button{{Label: richPresenceJoin, URL: address}}
+		activity.Buttons = append(activity.Buttons, discordrpc.Button{Label: richPresenceJoin, URL: address})
 	}
 	return activity, true
+}
+
+// watchAddress is where a browser is sent to be carried on to this stream,
+// and empty where no such address can be built.
+//
+// Discord opens an https address alone,
+// so a manager on this network, answered on its own port over plain HTTP, carries no button.
+func watchAddress(manager, group, stream string) string {
+	if !strings.HasPrefix(manager, "https://") || group == "" || stream == "" {
+		return ""
+	}
+	return manager + "/" + applink.WatchPath(group, stream)
 }
 
 // channelAddress is where Discord opens the voice channel this pass landed,

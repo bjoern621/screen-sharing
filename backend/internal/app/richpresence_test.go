@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"bjoernblessin.de/screenshare/internal/discordrpc"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -38,6 +39,19 @@ func watchedBy(readers int) relay.Status {
 	}
 }
 
+// aManager is where the manager answers, as a public deployment addresses it.
+const aManager = "https://relay.example/discord"
+
+// buttonLabelled is the button on the activity carrying that label, and false where none does.
+func buttonLabelled(activity discordrpc.Activity, label string) (discordrpc.Button, bool) {
+	for _, button := range activity.Buttons {
+		if button.Label == label {
+			return button, true
+		}
+	}
+	return discordrpc.Button{}, false
+}
+
 // ofMembers is a group of that many members.
 func ofMembers(count int) membership {
 	m := membership{Group: aGroupID, Joined: true}
@@ -48,7 +62,7 @@ func ofMembers(count int) membership {
 }
 
 func TestAnActivityCountsTheReadersOfTheMembers(t *testing.T) {
-	activity, stating := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(1), ofMembers(4))
+	activity, stating := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(1), ofMembers(4), aManager)
 
 	if !stating {
 		t.Fatal("a machine sharing in a voice channel states an activity")
@@ -59,7 +73,7 @@ func TestAnActivityCountsTheReadersOfTheMembers(t *testing.T) {
 }
 
 func TestAnActivityNamesTheVoiceChannel(t *testing.T) {
-	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2))
+	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2), aManager)
 
 	if activity.State != "General" {
 		t.Errorf("the activity states %q, and the channel is General", activity.State)
@@ -71,24 +85,45 @@ func TestAnActivityNamesTheVoiceChannel(t *testing.T) {
 
 func TestAnActivityDatesTheShare(t *testing.T) {
 	share := aShare()
-	activity, _ := richPresenceActivity(inChannelSnapshot(), share, watchedBy(0), ofMembers(2))
+	activity, _ := richPresenceActivity(inChannelSnapshot(), share, watchedBy(0), ofMembers(2), aManager)
 
 	if !activity.Start.Equal(share.startedAt) {
 		t.Errorf("the activity starts at %s, and the share started at %s", activity.Start, share.startedAt)
 	}
 }
 
-func TestAnActivityOpensTheVoiceChannel(t *testing.T) {
-	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2))
+func TestAnActivityOpensTheStreamInTheApp(t *testing.T) {
+	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2), aManager)
 
-	if len(activity.Buttons) != 1 {
-		t.Fatalf("%d buttons on the activity, and a stated share carries the way into the channel", len(activity.Buttons))
+	button, ok := buttonLabelled(activity, richPresenceWatch)
+	if !ok {
+		t.Fatalf("a stated share carries the way into it, carried %+v", activity.Buttons)
 	}
-	if activity.Buttons[0].URL != "https://discord.com/channels/g1/c1" {
-		t.Errorf("the button opens %q, and the channel is c1 of guild g1", activity.Buttons[0].URL)
+	want := aManager + "/watch/" + aGroupID + "/bob/monitor-0"
+	if button.URL != want {
+		t.Errorf("the button opens %q, and the manager sends a browser on from %q", button.URL, want)
 	}
-	if activity.Buttons[0].Label == "" {
-		t.Error("the button says what it opens")
+}
+
+func TestAManagerOffTheOpenInternetCarriesNoWatchButton(t *testing.T) {
+	// A relay this network reaches directly is asked on discordd's own port, over plain HTTP,
+	// which Discord follows from no button.
+	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2), "http://relay.lan:9444")
+
+	if _, ok := buttonLabelled(activity, richPresenceWatch); ok {
+		t.Errorf("a manager reached over plain HTTP carries no button, carried %+v", activity.Buttons)
+	}
+}
+
+func TestAnActivityOpensTheVoiceChannel(t *testing.T) {
+	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2), aManager)
+
+	button, ok := buttonLabelled(activity, richPresenceJoin)
+	if !ok {
+		t.Fatalf("a stated share carries the way into the channel, carried %+v", activity.Buttons)
+	}
+	if button.URL != "https://discord.com/channels/g1/c1" {
+		t.Errorf("the button opens %q, and the channel is c1 of guild g1", button.URL)
 	}
 }
 
@@ -96,18 +131,18 @@ func TestAChannelWithNoAddressCarriesNoButton(t *testing.T) {
 	d := inChannelSnapshot()
 	d.GuildID, d.ChannelID = "", ""
 
-	activity, stating := richPresenceActivity(d, aShare(), watchedBy(0), ofMembers(2))
+	activity, stating := richPresenceActivity(d, aShare(), watchedBy(0), ofMembers(2), aManager)
 
 	if !stating {
 		t.Fatal("a manager answering no address does not stop a share from being stated")
 	}
-	if activity.Buttons != nil {
+	if _, ok := buttonLabelled(activity, richPresenceJoin); ok {
 		t.Errorf("a channel with no address carries no button, carried %+v", activity.Buttons)
 	}
 }
 
 func TestAMachineSharingNothingStatesNoActivity(t *testing.T) {
-	_, stating := richPresenceActivity(inChannelSnapshot(), sharing{}, watchedBy(0), ofMembers(4))
+	_, stating := richPresenceActivity(inChannelSnapshot(), sharing{}, watchedBy(0), ofMembers(4), aManager)
 
 	if stating {
 		t.Error("an activity says this machine is sharing, so a machine sharing nothing states none")
@@ -115,7 +150,7 @@ func TestAMachineSharingNothingStatesNoActivity(t *testing.T) {
 }
 
 func TestAMachineOutsideAChannelStatesNoActivity(t *testing.T) {
-	_, stating := richPresenceActivity(discordSnapshot{Application: "an-application"}, aShare(), watchedBy(1), ofMembers(4))
+	_, stating := richPresenceActivity(discordSnapshot{Application: "an-application"}, aShare(), watchedBy(1), ofMembers(4), aManager)
 
 	if stating {
 		t.Error("an activity names a voice channel, so a machine standing in none states no activity")
@@ -123,7 +158,7 @@ func TestAMachineOutsideAChannelStatesNoActivity(t *testing.T) {
 }
 
 func TestAnUnlistedStreamIsWatchedByNobody(t *testing.T) {
-	activity, stating := richPresenceActivity(inChannelSnapshot(), aShare(), relay.Status{}, ofMembers(4))
+	activity, stating := richPresenceActivity(inChannelSnapshot(), aShare(), relay.Status{}, ofMembers(4), aManager)
 
 	if !stating {
 		t.Fatal("a relay that answered nothing does not stop a share from being stated")

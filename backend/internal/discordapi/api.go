@@ -92,6 +92,8 @@ func (s *Service) Handler(version string) http.Handler {
 	mux.HandleFunc("POST /tokens", s.issueToken)
 	mux.HandleFunc("GET /link", s.startLink)
 	mux.HandleFunc("GET /link/callback", s.finishLink)
+	// Where a button on a stated activity lands a browser (watch.go).
+	mux.HandleFunc("GET /watch/{group}/{stream...}", s.serveWatch)
 	// What a relay check dials (internal/reach).
 	// A route of its own because every other one here takes a credential or starts a consent flow,
 	// so a check on one would either be refused or leave a pending link behind.

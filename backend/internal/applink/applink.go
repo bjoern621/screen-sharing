@@ -32,18 +32,25 @@ type Watch struct {
 	Stream string
 }
 
-// FormatWatch is the link naming one stream of one group.
-func FormatWatch(group, stream string) string {
-	assert.Assert(group != "", "a link names the group its stream lives in", stream)
-	assert.Assert(stream != "", "a link names the stream it opens", group)
+// WatchPath is the link without its scheme, "watch/<group id>/<stream>".
+//
+// Shared with the manager's route, which serves that path to a browser
+// and sends it on to the link below (internal/discordapi).
+func WatchPath(group, stream string) string {
+	assert.Assert(group != "", "a path names the group its stream lives in", stream)
+	assert.Assert(stream != "", "a path names the stream it opens", group)
 
 	segments := make([]string, 0, 3)
 	segments = append(segments, url.PathEscape(group))
 	for _, part := range strings.Split(stream, "/") {
 		segments = append(segments, url.PathEscape(part))
 	}
+	return watchHost + "/" + strings.Join(segments, "/")
+}
 
-	link := Scheme + "://" + watchHost + "/" + strings.Join(segments, "/")
+// FormatWatch is the link naming one stream of one group.
+func FormatWatch(group, stream string) string {
+	link := Scheme + "://" + WatchPath(group, stream)
 
 	// The producing side fails where the pair cannot be read back,
 	// rather than the machine that was handed the link.
