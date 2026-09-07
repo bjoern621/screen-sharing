@@ -28,24 +28,11 @@ type watchLink struct {
 var watchPage = template.Must(template.New("watch").Parse(`<!DOCTYPE html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Watch on MirrorMe</title>
-<style>
-body { margin: 0; display: grid; place-items: center; min-height: 100vh;
-       font: 16px/1.5 system-ui, sans-serif; background: #17181c; color: #e6e7ea; }
-main { max-width: 30rem; padding: 2rem; text-align: center; }
-h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
-p { margin: 0 0 1.5rem; color: #b4b7bf; }
-p.fine { margin: 1.5rem 0 0; font-size: 0.875rem; }
-a.open { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 0.5rem;
-         background: #3ba55d; color: #fff; font-weight: 600; text-decoration: none; }
-</style>
-<main>
 <h1>Watch on MirrorMe</h1>
-<p>The stream opens in the MirrorMe window on this machine.</p>
-<a class="open" href="{{.Link}}">Open MirrorMe</a>
-<p class="fine">Watching needs MirrorMe installed, and a seat in the voice channel the stream is shared in.</p>
-</main>
+<p><a href="{{.Link}}">Open MirrorMe</a></p>
+<p>The stream opens in the MirrorMe window on this machine.
+Watching needs MirrorMe installed, and a seat in the voice channel the stream is shared in.</p>
 <script>location.replace({{.Link}})</script>
 `))
 
