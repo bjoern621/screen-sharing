@@ -113,7 +113,11 @@ The purple streaming badge is type 1, which Discord grants a Twitch or YouTube a
 The channel and the audience are this mode's answers,
 so the setting asking for the activity turns the mode on with it (`internal/app`, `SaveSettings`).
 Switching it off closes the connection, which is what takes the activity off the profile.
-The activity carries no address, so nothing on it opens a browser.
+
+A button under the activity opens the voice channel, addressed by the guild and channel ids the same pass answered.
+Discord follows an https address and opens it in a browser, so the address is Discord's own for that channel.
+The button is drawn on the profiles other people look at, the sharer's own card carrying the activity alone.
+A manager answering no ids leaves the button off.
 
 ## Leaving
 

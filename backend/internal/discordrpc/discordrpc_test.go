@@ -205,6 +205,39 @@ func TestAnActivityIsWatchedRatherThanStreamed(t *testing.T) {
 	}
 }
 
+func TestAButtonRidesTheActivity(t *testing.T) {
+	client, fake := connected(t)
+	address := "https://discord.com/channels/g1/c1"
+
+	err := client.SetActivity(Activity{
+		Details: "Sharing a screen",
+		Buttons: []Button{{Label: "Join the voice channel", URL: address}},
+	})
+	if err != nil {
+		t.Fatalf("stating: %v", err)
+	}
+
+	buttons := fake.stated()[0].Buttons
+	if len(buttons) != 1 {
+		t.Fatalf("%d buttons stated, and the activity names one", len(buttons))
+	}
+	if buttons[0].Label != "Join the voice channel" || buttons[0].URL != address {
+		t.Errorf("the button is %+v, and the activity names the channel's address", buttons[0])
+	}
+}
+
+func TestAnActivityWithNoButtonCarriesNone(t *testing.T) {
+	client, fake := connected(t)
+
+	if err := client.SetActivity(Activity{Details: "Sharing a screen"}); err != nil {
+		t.Fatalf("stating: %v", err)
+	}
+
+	if buttons := fake.stated()[0].Buttons; buttons != nil {
+		t.Errorf("an activity naming no button carries none, carried %+v", buttons)
+	}
+}
+
 func TestARefusedActivityIsReported(t *testing.T) {
 	here, there := net.Pipe()
 	fake := &fakeDiscord{

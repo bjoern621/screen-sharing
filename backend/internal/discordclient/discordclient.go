@@ -25,10 +25,13 @@ import (
 // each sits in front of something a user asked for.
 const Timeout = 5 * time.Second
 
-// Channel labels where the linked account stands.
+// Channel labels where the linked account stands, and addresses it on Discord.
+// The two ids are empty from a manager that answers neither.
 type Channel struct {
-	Guild string `json:"guild"`
-	Name  string `json:"name"`
+	Guild     string `json:"guild"`
+	Name      string `json:"name"`
+	GuildID   string `json:"guildId"`
+	ChannelID string `json:"channelId"`
 }
 
 // Group is the manager's stand-in for everything a group key would derive locally,

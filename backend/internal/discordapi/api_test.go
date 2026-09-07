@@ -21,7 +21,7 @@ func (fakeBroker) Presence(linkSecret string) (channelgroup.Answer, error) {
 		return channelgroup.Answer{}, channelgroup.ErrUnlinked
 	}
 	return channelgroup.Answer{
-		Channel: &channelgroup.Channel{Guild: "Guild", Name: "General"},
+		Channel: &channelgroup.Channel{Guild: "Guild", Name: "General", GuildID: "g1", ChannelID: "c1"},
 		Group:   &channelgroup.Group{Prefix: "PFX/", SrtPassphrase: "pass", MemberID: "m1", DisplayName: "Bob", LeaseSeconds: 20},
 	}, nil
 }
@@ -98,8 +98,12 @@ func TestPresenceAnswersTheGroup(t *testing.T) {
 		t.Fatalf("a known secret is answered, got %s", resp.Status)
 	}
 	var answer struct {
-		Channel *struct{ Guild, Name string } `json:"channel"`
-		Group   *struct {
+		Channel *struct {
+			Guild, Name string
+			GuildID     string `json:"guildId"`
+			ChannelID   string `json:"channelId"`
+		} `json:"channel"`
+		Group *struct {
 			Prefix        string `json:"prefix"`
 			SrtPassphrase string `json:"srtPassphrase"`
 			MemberID      string `json:"memberId"`
@@ -108,6 +112,9 @@ func TestPresenceAnswersTheGroup(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&answer)
 	if answer.Channel == nil || answer.Channel.Name != "General" {
 		t.Fatalf("the answer names the channel, got %+v", answer.Channel)
+	}
+	if answer.Channel.GuildID != "g1" || answer.Channel.ChannelID != "c1" {
+		t.Fatalf("the answer carries the ids Discord addresses the channel by, got %+v", answer.Channel)
 	}
 	if answer.Group == nil || answer.Group.Prefix != "PFX/" || answer.Group.SrtPassphrase != "pass" {
 		t.Fatalf("the answer carries the derived facts, got %+v", answer.Group)

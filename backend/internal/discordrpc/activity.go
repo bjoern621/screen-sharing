@@ -1,6 +1,7 @@
 package discordrpc
 
 import (
+	"strings"
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
@@ -19,7 +20,24 @@ type Activity struct {
 	Members int
 	// Start dates the timer Discord counts up from, zero for an activity with none.
 	Start time.Time
+	// Buttons are the links drawn under the activity, none for an activity carrying no address.
+	// Discord draws them on the profiles other people look at.
+	// This member's own card carries the activity alone.
+	Buttons []Button
 }
+
+// Button is a link under the activity, which Discord opens in a browser.
+type Button struct {
+	Label string
+	URL   string
+}
+
+// What Discord takes on an activity: two buttons, a label of 32 characters, an address of 512.
+const (
+	buttonsPerActivity = 2
+	buttonLabelLimit   = 32
+	buttonURLLimit     = 512
+)
 
 // activityWatching is the type Discord draws as "Watching".
 //
@@ -34,6 +52,13 @@ type activityMessage struct {
 	State      string             `json:"state,omitempty"`
 	Party      *partyMessage      `json:"party,omitempty"`
 	Timestamps *timestampsMessage `json:"timestamps,omitempty"`
+	Buttons    []buttonMessage    `json:"buttons,omitempty"`
+}
+
+// buttonMessage is one link under the activity.
+type buttonMessage struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
 }
 
 // partyMessage is the audience. Size is the pair Discord draws, current first.
@@ -68,6 +93,7 @@ type setActivityArgs struct {
 // every pass (client.go).
 func (a Activity) message() activityMessage {
 	assert.Assert(a.Readers >= 0 && a.Members >= 0, "a party counts nobody twice over", a.Readers, a.Members)
+	assert.Assert(len(a.Buttons) <= buttonsPerActivity, "an activity carries the buttons Discord draws", len(a.Buttons))
 
 	msg := activityMessage{
 		Type:    activityWatching,
@@ -79,6 +105,13 @@ func (a Activity) message() activityMessage {
 	}
 	if !a.Start.IsZero() {
 		msg.Timestamps = &timestampsMessage{Start: a.Start.Unix()}
+	}
+	for _, button := range a.Buttons {
+		assert.Assert(button.Label != "" && len(button.Label) <= buttonLabelLimit,
+			"a button is labelled inside what Discord draws", button.Label)
+		assert.Assert(strings.HasPrefix(button.URL, "https://") && len(button.URL) <= buttonURLLimit,
+			"a button opens an https address, which is the whole of what Discord follows", button.URL)
+		msg.Buttons = append(msg.Buttons, buttonMessage{Label: button.Label, URL: button.URL})
 	}
 	return msg
 }

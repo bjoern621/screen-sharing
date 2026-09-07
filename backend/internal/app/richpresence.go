@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net/url"
 	"time"
 
 	"bjoernblessin.de/go-utils/util/logger"
@@ -24,6 +25,11 @@ import (
 
 // richPresenceDetails is the first line Discord draws, under this app's own name.
 const richPresenceDetails = "Sharing a screen"
+
+// richPresenceJoin labels the button under the activity.
+// A reader who joins the channel is a member of the group,
+// which is what their own app needs to open the stream (docs/discord-mode.md).
+const richPresenceJoin = "Join the voice channel"
 
 // presenceClient is the connection a pass states on,
 // held as an interface at the caller so a test states a pass with no Discord running.
@@ -105,13 +111,26 @@ func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, 
 		return discordrpc.Activity{}, false
 	}
 
-	return discordrpc.Activity{
+	activity := discordrpc.Activity{
 		Details: richPresenceDetails,
 		State:   d.ChannelName,
 		Readers: readersOf(status, live.name),
 		Members: len(m.Members),
 		Start:   live.startedAt,
-	}, true
+	}
+	if address := channelAddress(d); address != "" {
+		activity.Buttons = []discordrpc.Button{{Label: richPresenceJoin, URL: address}}
+	}
+	return activity, true
+}
+
+// channelAddress is where Discord opens the voice channel this pass landed,
+// and empty where the manager answered no ids for it.
+func channelAddress(d discordSnapshot) string {
+	if d.GuildID == "" || d.ChannelID == "" {
+		return ""
+	}
+	return "https://discord.com/channels/" + url.PathEscape(d.GuildID) + "/" + url.PathEscape(d.ChannelID)
 }
 
 // readersOf is how many the relay serves this machine's own stream to.

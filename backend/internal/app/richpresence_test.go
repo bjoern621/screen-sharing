@@ -18,6 +18,8 @@ func inChannelSnapshot() discordSnapshot {
 		InChannel:   true,
 		GuildName:   "Guild",
 		ChannelName: "General",
+		GuildID:     "g1",
+		ChannelID:   "c1",
 		Prefix:      aPrefix,
 		Application: "an-application",
 	}
@@ -73,6 +75,34 @@ func TestAnActivityDatesTheShare(t *testing.T) {
 
 	if !activity.Start.Equal(share.startedAt) {
 		t.Errorf("the activity starts at %s, and the share started at %s", activity.Start, share.startedAt)
+	}
+}
+
+func TestAnActivityOpensTheVoiceChannel(t *testing.T) {
+	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2))
+
+	if len(activity.Buttons) != 1 {
+		t.Fatalf("%d buttons on the activity, and a stated share carries the way into the channel", len(activity.Buttons))
+	}
+	if activity.Buttons[0].URL != "https://discord.com/channels/g1/c1" {
+		t.Errorf("the button opens %q, and the channel is c1 of guild g1", activity.Buttons[0].URL)
+	}
+	if activity.Buttons[0].Label == "" {
+		t.Error("the button says what it opens")
+	}
+}
+
+func TestAChannelWithNoAddressCarriesNoButton(t *testing.T) {
+	d := inChannelSnapshot()
+	d.GuildID, d.ChannelID = "", ""
+
+	activity, stating := richPresenceActivity(d, aShare(), watchedBy(0), ofMembers(2))
+
+	if !stating {
+		t.Fatal("a manager answering no address does not stop a share from being stated")
+	}
+	if activity.Buttons != nil {
+		t.Errorf("a channel with no address carries no button, carried %+v", activity.Buttons)
 	}
 }
 
