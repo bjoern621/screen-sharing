@@ -390,12 +390,9 @@ public sealed class ShellViewModel : Observable
         // a dialog rendered only while open comes back holding what it last drew.
         AppSettings.Apply();
 
-        // After the bodies, so the strip's pill and the band's figures are what the destinations derived
-        // on this pass rather than what they held before it.
-        //
-        // Both facts are read back off the insights screen's reading instead of being composed again, so
-        // the pill in the chrome and the pill in the header cannot disagree.
-        Nav.Show(_current, Insights.Snapshot.IsLive, Insights.Snapshot.Elapsed);
+        // After the bodies, so the band's figures are what the destinations derived on this pass
+        // rather than what they held before it.
+        Nav.Show(_current);
         RenderStatusBar();
         RenderChrome();
 

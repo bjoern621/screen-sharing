@@ -119,7 +119,7 @@ The lane arrives with the bar, and a view whose content fits keeps the full widt
 The bar is a thin line with no step buttons at its ends, and a pointer over it thickens the thumb inside the lane it already holds.
 
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
-Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the sharing pill, the settings gear and the strip commit.
+Beneath it a nav strip holds the same two regions on every screen: three destinations left, and on the right the settings gear and the strip commit.
 The gear sits in the strip because what it opens belongs to no destination.
 The strip commit is the terminal step's own start-sharing press, glued to a chevron whose menu holds the commit with the settings it applies, the presets, a stop row while live, and a row into the wizard.
 A stream running the settings the draft builds hands that press to `Stop sharing`, both halves taking the way-out hue, and a value moved hands it back to the commit: restarting a pipeline into itself costs every viewer the picture for nothing, and stopping is what the strip is reached for from any destination.
@@ -300,7 +300,7 @@ Broadcast television has a term of art for most of these and every one loses to 
 The test is whether a reader would have to be taught it: `program`, `on air`, `bug`, `lower third` and `take` all fail, and not one names something this product cannot already say.
 The machine the app runs on is `this computer` wherever a surface names it.
 
-`Sharing` is the state's name on every surface that has one: the pill in the nav strip, the pill on the insights header, the badge over the preview.
+`Sharing` is the state's name on every surface that has one: the pill on the insights header, the badge over the preview.
 The controls that enter and leave it are `Start sharing` and `Stop sharing`, so button and state say one word rather than one saying `Go live` and the other answering `On air`.
 The wizard's terminal step is `Summary`, after the settings it lists.
 `Insights` names the destination reporting a stream: the preview, the figures, the log and the live-safe actions.

@@ -65,29 +65,6 @@ public sealed class InsightsFiguresTests
         Assert.Equal(Figure.NoValue, reading.Elapsed);
     }
 
-    [Fact]
-    public void TheStripsPillShowsTheTimerItWasTold()
-    {
-        var strip = new NavStripViewModel(static _ => { });
-
-        strip.Show(Destination.Setup, sharing: true, "00:00:07");
-
-        Assert.True(strip.ShowsSharing);
-        Assert.Equal("00:00:07", strip.SharingTimer);
-    }
-
-    [Fact]
-    public void TheStripsPillGoesWithTheStreamItReported()
-    {
-        var strip = new NavStripViewModel(static _ => { });
-
-        strip.Show(Destination.Setup, sharing: true, "00:00:07");
-        strip.Show(Destination.Setup, sharing: false, Figure.NoValue);
-
-        Assert.False(strip.ShowsSharing);
-        Assert.Equal("", strip.SharingTimer);
-    }
-
     /// <summary>
     /// The screen reports the stream that has ended as well as the running one,
     /// so the segment that opens it is not a control the running state takes away.
@@ -98,7 +75,7 @@ public sealed class InsightsFiguresTests
         var asked = new List<Destination>();
         var strip = new NavStripViewModel(asked.Add);
 
-        strip.Show(Destination.Setup, sharing: false, Figure.NoValue);
+        strip.Show(Destination.Setup);
         strip.SelectedTab = strip.Tabs.Single(tab => tab.Value == Destination.Insights);
 
         Assert.Equal(Destination.Insights, Assert.Single(asked));
