@@ -19,8 +19,6 @@ func inChannelSnapshot() discordSnapshot {
 		InChannel:   true,
 		GuildName:   "Guild",
 		ChannelName: "General",
-		GuildID:     "g1",
-		ChannelID:   "c1",
 		Prefix:      aPrefix,
 		Application: "an-application",
 	}
@@ -112,32 +110,6 @@ func TestAManagerOffTheOpenInternetCarriesNoWatchButton(t *testing.T) {
 
 	if _, ok := buttonLabelled(activity, richPresenceWatch); ok {
 		t.Errorf("a manager reached over plain HTTP carries no button, carried %+v", activity.Buttons)
-	}
-}
-
-func TestAnActivityOpensTheVoiceChannel(t *testing.T) {
-	activity, _ := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(0), ofMembers(2), aManager)
-
-	button, ok := buttonLabelled(activity, richPresenceJoin)
-	if !ok {
-		t.Fatalf("a stated share carries the way into the channel, carried %+v", activity.Buttons)
-	}
-	if button.URL != "https://discord.com/channels/g1/c1" {
-		t.Errorf("the button opens %q, and the channel is c1 of guild g1", button.URL)
-	}
-}
-
-func TestAChannelWithNoAddressCarriesNoButton(t *testing.T) {
-	d := inChannelSnapshot()
-	d.GuildID, d.ChannelID = "", ""
-
-	activity, stating := richPresenceActivity(d, aShare(), watchedBy(0), ofMembers(2), aManager)
-
-	if !stating {
-		t.Fatal("a manager answering no address does not stop a share from being stated")
-	}
-	if _, ok := buttonLabelled(activity, richPresenceJoin); ok {
-		t.Errorf("a channel with no address carries no button, carried %+v", activity.Buttons)
 	}
 }
 

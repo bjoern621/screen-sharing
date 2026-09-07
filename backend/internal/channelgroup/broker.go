@@ -67,13 +67,10 @@ type Answer struct {
 	Group   *Group
 }
 
-// Channel labels where the account stands, for a person to read,
-// and carries the ids Discord addresses that channel by.
+// Channel labels where the account stands, for a person to read.
 type Channel struct {
-	Guild     string
-	Name      string
-	GuildID   string
-	ChannelID string
+	Guild string
+	Name  string
 }
 
 // Group carries every fact the app derives from a group key in manual mode,
@@ -191,10 +188,7 @@ func (b *Broker) Presence(linkSecret string) (Answer, error) {
 	}
 
 	answer := Answer{
-		Channel: &Channel{
-			Guild: where.GuildName, Name: where.ChannelName,
-			GuildID: where.GuildID, ChannelID: where.ChannelID,
-		},
+		Channel: &Channel{Guild: where.GuildName, Name: where.ChannelName},
 		Group: &Group{
 			Prefix:           s.key.Prefix(),
 			SrtPassphrase:    s.key.SrtPassphrase(),

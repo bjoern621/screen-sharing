@@ -119,19 +119,17 @@ The channel and the audience are this mode's answers,
 so the setting asking for the activity turns the mode on with it (`internal/app`, `SaveSettings`).
 Switching it off closes the connection, which is what takes the activity off the profile.
 
-Two buttons ride under the activity, and Discord opens what either carries in a browser.
+One button rides under the activity, "Watch stream", which Discord opens in a browser.
 
-"Watch stream" lands on `GET /watch/<group id>/<stream>` at the manager, which serves a page carrying the browser on to `mirrorme://watch/<group id>/<stream>`.
-The desktop hands that to the app, which opens the stream the way a press does.
+It lands on `GET /watch/<group id>/<stream>` at the manager, which serves a page whose one press hands `mirrorme://watch/<group id>/<stream>` to the desktop.
+A browser passes a link to an application on a gesture, so the press is what the page is for, the redirect it also fires being dropped without one.
+The app opens the stream the way a press inside it does, and answers a reader standing outside that group with the way in.
+
 The page takes no credential and states no secret: the group id is the public digest every path already carries,
 and an app holding no seat in that group refuses what the link names.
 
-"Join the voice channel" opens Discord's own address for the channel, built from the guild and channel ids the same pass answered.
-A reader who joins is a member of the group, which is the seat the other button needs.
-
-Discord opens an https address, so a manager reached on its own port over plain HTTP carries no watch button,
-and a manager answering no ids carries no join button.
-Both are drawn on the profiles other people look at, the sharer's own card carrying the activity alone.
+Discord opens an https address, so a manager reached on its own port over plain HTTP carries no button at all.
+The button is drawn on the profiles other people look at, the sharer's own card carrying the activity alone.
 
 ## Leaving
 

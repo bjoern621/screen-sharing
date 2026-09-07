@@ -1,7 +1,6 @@
 package app
 
 import (
-	"net/url"
 	"strings"
 	"time"
 
@@ -28,13 +27,10 @@ import (
 // richPresenceDetails is the first line Discord draws, under this app's own name.
 const richPresenceDetails = "Sharing a screen"
 
-// The buttons under the activity, in the order Discord draws them.
-// Watch opens the stream in the reader's own app, join the voice channel it is shared in,
-// which is what a group is in this mode (docs/discord-mode.md).
-const (
-	richPresenceWatch = "Watch stream"
-	richPresenceJoin  = "Join the voice channel"
-)
+// richPresenceWatch labels the button under the activity, which opens the stream
+// in the reader's own app (docs/discord-mode.md).
+// What a reader outside the voice channel is told is the app's own answer, on the link it followed.
+const richPresenceWatch = "Watch stream"
 
 // presenceClient is the connection a pass states on,
 // held as an interface at the caller so a test states a pass with no Discord running.
@@ -130,9 +126,6 @@ func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, 
 	if address := watchAddress(manager, m.Group, live.name); address != "" {
 		activity.Buttons = append(activity.Buttons, discordrpc.Button{Label: richPresenceWatch, URL: address})
 	}
-	if address := channelAddress(d); address != "" {
-		activity.Buttons = append(activity.Buttons, discordrpc.Button{Label: richPresenceJoin, URL: address})
-	}
 	return activity, true
 }
 
@@ -146,15 +139,6 @@ func watchAddress(manager, group, stream string) string {
 		return ""
 	}
 	return manager + "/" + applink.WatchPath(group, stream)
-}
-
-// channelAddress is where Discord opens the voice channel this pass landed,
-// and empty where the manager answered no ids for it.
-func channelAddress(d discordSnapshot) string {
-	if d.GuildID == "" || d.ChannelID == "" {
-		return ""
-	}
-	return "https://discord.com/channels/" + url.PathEscape(d.GuildID) + "/" + url.PathEscape(d.ChannelID)
 }
 
 // readersOf is how many the relay serves this machine's own stream to.

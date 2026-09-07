@@ -49,11 +49,6 @@ type discordSnapshot struct {
 	// GuildName and ChannelName label the channel for a reader, empty outside one.
 	GuildName   string
 	ChannelName string
-	// GuildID and ChannelID address that channel on Discord,
-	// which is what the button under a stated activity opens (richpresence.go).
-	// Empty outside a channel, and where the manager answers neither.
-	GuildID   string
-	ChannelID string
 	// Prefix, SrtPassphrase and DisplayName are the brokered facts commands build with,
 	// empty outside a channel.
 	Prefix        string
@@ -135,7 +130,6 @@ func (a *App) discordPass() {
 	snap := discordSnapshot{
 		InChannel: true,
 		GuildName: answer.Channel.Guild, ChannelName: answer.Channel.Name,
-		GuildID: answer.Channel.GuildID, ChannelID: answer.Channel.ChannelID,
 		Prefix:        answer.Group.Prefix,
 		SrtPassphrase: answer.Group.SrtPassphrase,
 		DisplayName:   answer.Group.DisplayName,

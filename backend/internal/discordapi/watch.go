@@ -23,6 +23,8 @@ type watchLink struct {
 	Link template.URL
 }
 
+// The press is the page's own work: a browser hands a link to an app on a gesture,
+// and a navigation the page starts by itself is dropped without one.
 var watchPage = template.Must(template.New("watch").Parse(`<!DOCTYPE html>
 <html lang="en">
 <meta charset="utf-8">
@@ -31,15 +33,18 @@ var watchPage = template.Must(template.New("watch").Parse(`<!DOCTYPE html>
 <style>
 body { margin: 0; display: grid; place-items: center; min-height: 100vh;
        font: 16px/1.5 system-ui, sans-serif; background: #17181c; color: #e6e7ea; }
-main { max-width: 32rem; padding: 2rem; }
-h1 { font-size: 1.5rem; margin: 0 0 1rem; }
-p { margin: 0 0 0.75rem; color: #b4b7bf; }
-a { color: #7cc4ff; }
+main { max-width: 30rem; padding: 2rem; text-align: center; }
+h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+p { margin: 0 0 1.5rem; color: #b4b7bf; }
+p.fine { margin: 1.5rem 0 0; font-size: 0.875rem; }
+a.open { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 0.5rem;
+         background: #3ba55d; color: #fff; font-weight: 600; text-decoration: none; }
 </style>
 <main>
 <h1>Watch on MirrorMe</h1>
-<p>The stream opens in MirrorMe. <a href="{{.Link}}">Open it now</a> if nothing happens.</p>
-<p>Watching needs MirrorMe on this machine, and a seat in the voice channel the stream is shared in.</p>
+<p>The stream opens in the MirrorMe window on this machine.</p>
+<a class="open" href="{{.Link}}">Open MirrorMe</a>
+<p class="fine">Watching needs MirrorMe installed, and a seat in the voice channel the stream is shared in.</p>
 </main>
 <script>location.replace({{.Link}})</script>
 `))

@@ -176,21 +176,6 @@ func TestPresenceOutsideAnyChannelIsEmpty(t *testing.T) {
 	}
 }
 
-func TestAnAnswerAddressesTheChannel(t *testing.T) {
-	r := newRig(t)
-	secret := r.link(t, "u1")
-	r.enter("u1", "c1", "Bob")
-
-	answer, err := r.broker.Presence(secret)
-	if err != nil {
-		t.Fatalf("stating presence: %v", err)
-	}
-
-	if answer.Channel == nil || answer.Channel.GuildID != "g1" || answer.Channel.ChannelID != "c1" {
-		t.Fatalf("the answer carries the ids Discord addresses the channel by, got %+v", answer.Channel)
-	}
-}
-
 func TestPresenceInAChannelJoinsItsGroup(t *testing.T) {
 	r := newRig(t)
 	secret := r.link(t, "u1")
