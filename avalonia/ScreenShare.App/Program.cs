@@ -1,4 +1,5 @@
 using Avalonia;
+using ScreenShare.App.Features.Shell.Model;
 
 namespace ScreenShare.App;
 
@@ -9,8 +10,19 @@ internal static class Program
     /// The clipboard, drag and drop and the file dialogs all go through it.
     /// </summary>
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        // A link the desktop handed over goes to the window already open, and this launch is over.
+        // Before Avalonia, so the process that carried the link draws nothing at all
+        // (Features/Shell/Model/LinkRelay.cs).
+        var link = LaunchLink.In(args);
+        if (link.Length > 0 && LinkRelay.TryHandOver(link))
+        {
+            return;
+        }
+
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     /// <summary>Entry point for the XAML previewer and any headless test host as well as for Main.</summary>
     ///

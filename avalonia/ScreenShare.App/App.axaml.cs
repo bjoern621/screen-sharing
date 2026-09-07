@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Threading;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.Update.View;
@@ -112,19 +113,22 @@ public sealed partial class App : Application
             // Raised once the quit's own stops are over.
             shell.Tray.QuitRequested += () => desktop.Shutdown();
 
+            // Brings the window forward from wherever the reader left it,
+            // which the tray's open and a link arriving from a later launch both do.
+            void Raise()
+            {
+                window.Show();
+                if (window.WindowState == WindowState.Minimized)
+                {
+                    window.WindowState = WindowState.Normal;
+                }
+
+                window.Activate();
+            }
+
             if (tray is not null)
             {
-                shell.Tray.OpenRequested += () =>
-                {
-                    window.Show();
-                    if (window.WindowState == WindowState.Minimized)
-                    {
-                        window.WindowState = WindowState.Normal;
-                    }
-
-                    window.Activate();
-                };
-
+                shell.Tray.OpenRequested += Raise;
                 desktop.Exit += (_, _) => tray.Dispose();
             }
 
@@ -141,6 +145,17 @@ public sealed partial class App : Application
             {
                 _ = shell.FollowAsync(link);
             }
+
+            // Every later launch's link,
+            // which this window follows in place of the process that carried it in
+            // (Features/Shell/Model/LinkRelay.cs).
+            // The window comes forward with it:
+            // a stream drawn behind whatever the reader was looking at is a link that did nothing.
+            LinkRelay.Listen(later => Dispatcher.UIThread.Post(() =>
+            {
+                Raise();
+                _ = shell.FollowAsync(later);
+            }));
         }
 
         base.OnFrameworkInitializationCompleted();

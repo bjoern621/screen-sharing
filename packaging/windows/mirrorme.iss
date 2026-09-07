@@ -76,5 +76,16 @@ Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 Name: "{group}\MirrorMe"; Filename: "{app}\mirrorme.exe"
 Name: "{autodesktop}\MirrorMe"; Filename: "{app}\mirrorme.exe"; Tasks: desktopicon
 
+[Registry]
+; The scheme a link to a stream carries, so a browser hands one to this app
+; (backend/internal/applink, packaging/linux/mirrorme.desktop).
+; HKA is the current user's hive under PrivilegesRequired=lowest, which is where this install lives.
+; The key goes on uninstall, and the entries under it with it.
+Root: HKA; Subkey: "Software\Classes\mirrorme"; ValueType: string; ValueName: ""; ValueData: "URL:MirrorMe"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\mirrorme"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\mirrorme\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\mirrorme.exe,0"
+; %1 is the whole link, quoted: a stream name carries characters a bare argument would split on.
+Root: HKA; Subkey: "Software\Classes\mirrorme\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\mirrorme.exe"" ""%1"""
+
 [Run]
 Filename: "{app}\mirrorme.exe"; Description: "{cm:LaunchProgram,MirrorMe}"; Flags: nowait postinstall skipifsilent

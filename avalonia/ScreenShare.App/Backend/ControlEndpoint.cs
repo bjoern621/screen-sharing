@@ -159,6 +159,13 @@ internal static class ControlEndpoint
     private static string PipeName() => PipeStem + InstanceSuffix();
 
     private static string SocketPath()
+        => Path.Combine(RuntimeDir(), SocketFileStem + InstanceSuffix() + SocketFileExtension);
+
+    /// <summary>
+    /// Where this app's sockets live, the session's runtime directory or the configuration one behind it.
+    /// Shared with the endpoint the windows meet on (<c>Features/Shell/Model/LinkRelay.cs</c>).
+    /// </summary>
+    internal static string RuntimeDir()
     {
         var dir = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
         if (string.IsNullOrEmpty(dir))
@@ -166,14 +173,14 @@ internal static class ControlEndpoint
             dir = ConfigDir();
         }
 
-        return Path.Combine(dir, SocketDirName, SocketFileStem + InstanceSuffix() + SocketFileExtension);
+        return Path.Combine(dir, SocketDirName);
     }
 
     /// <summary>
     /// What <see cref="EnvInstance"/> appends to the pipe name and to the socket file name.
     /// The value travels verbatim: a repair here would address a backend that bound what it was given.
     /// </summary>
-    private static string InstanceSuffix()
+    internal static string InstanceSuffix()
     {
         var instance = Environment.GetEnvironmentVariable(EnvInstance);
         return string.IsNullOrEmpty(instance) ? "" : "-" + instance;

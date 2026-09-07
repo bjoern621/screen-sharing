@@ -93,7 +93,13 @@ Both are a member possibly still watching, so neither is folded into the count o
 
 A stream has an address outside the app: `mirrorme://watch/<group id>/<stream>` (`backend/internal/applink`).
 The desktop hands one to the app rather than to a browser, the app being registered as the handler for that scheme
-(`packaging/linux/mirrorme.desktop`).
+(`packaging/linux/mirrorme.desktop`, `packaging/windows/mirrorme.iss`).
+
+A desktop starts a process per link it hands over.
+That process offers the link to the window already open and exits where the window takes it,
+so a reader who followed a link watches in the window they had.
+The two meet on an endpoint of the shell's own beside the backend's, a tile in a window being the shell's alone.
+A launch that reaches no window draws one and follows the link there.
 
 Holding a link opens nothing.
 The group id in it is the public digest every path already carries, and what a link names is refused unless the
