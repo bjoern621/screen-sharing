@@ -35,6 +35,16 @@
     <Style Selector="^:copied /template/ ti|TablerIcon#Done">
       <Setter Property="IsVisible" Value="True" />
     </Style>
+
+    <!--
+      The glyph greys with the box it sits in: a control the reader cannot press says so
+      (docs/design-language.md, "Palette").
+      Stated on the brush, a glyph taking no Foreground to follow the button's own.
+      The box carries the reason in words, so the button states none.
+    -->
+    <Style Selector="^:disabled /template/ ti|TablerIcon">
+      <Setter Property="Brush" Value="{StaticResource DisabledBrush}" />
+    </Style>
   </ControlTheme>
 
 </ResourceDictionary>
