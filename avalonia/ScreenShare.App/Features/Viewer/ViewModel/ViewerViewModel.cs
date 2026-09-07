@@ -486,11 +486,16 @@ public sealed class ViewerViewModel : Observable
         FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
         HasFullscreen = FullscreenTile is not null;
 
+        // The way into a group, which the card and the grid each name in their own sentence.
+        var discordMode = _form.Stored?.Relay?.DiscordMode == true;
+
         Members.Reported = _session.Members;
+        Members.Discord = _session.Discord;
+        Members.DiscordMode = discordMode;
         Members.Apply();
 
         GridEmptyLine = GridEmpty.For(
-            _session.Members, _session.Discord, _form.Stored?.Relay?.DiscordMode == true,
+            _session.Members, _session.Discord, discordMode,
             Streams.Count, _tiles.Count, relay?.Reachable == true);
         ShowsGridEmpty = GridEmptyLine.Length > 0;
 

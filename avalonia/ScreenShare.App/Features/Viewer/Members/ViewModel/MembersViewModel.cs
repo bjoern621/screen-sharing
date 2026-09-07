@@ -14,8 +14,9 @@ namespace ScreenShare.App.Features.Viewer.Members.ViewModel;
 /// where it stops being stated, and a member who left drops out by not appearing,
 /// so this renders the last answer whole and merges nothing into it (<c>docs/ipc-api.md</c>, "Events").
 ///
-/// <b>No action of its own.</b> The group key and the name for this machine are what put it in a group,
-/// and both are settings, so this card has nothing to press: it says what the group is and what is missing.
+/// <b>No action of its own.</b> A group key and a name, or a Discord link and a voice channel, are what put
+/// this machine in a group, and the way in lives elsewhere either way,
+/// so this card has nothing to press: it says what the group is and what is missing.
 /// Nothing in a self-served group removes another member either, so no row affords anything.
 ///
 /// <b>One sentence for a refusal.</b> The presence loop carries whatever the group service or this machine's
@@ -32,6 +33,8 @@ public sealed class MembersViewModel : Observable
     // --- Inputs -------------------------------------------------------------------
 
     private MembersState? _reported;
+    private DiscordState? _discord;
+    private bool _discordMode;
 
     /// <summary>
     /// Group as the presence loop last read it, null before the first read lands.
@@ -43,6 +46,32 @@ public sealed class MembersViewModel : Observable
         set
         {
             if (Set(ref _reported, value))
+            {
+                Apply();
+            }
+        }
+    }
+
+    /// <summary>Discord as the manager last answered, null before the first read lands.</summary>
+    public DiscordState? Discord
+    {
+        get => _discord;
+        set
+        {
+            if (Set(ref _discord, value))
+            {
+                Apply();
+            }
+        }
+    }
+
+    /// <summary>Whether the group follows a voice channel, which decides what an empty list names as the way in.</summary>
+    public bool DiscordMode
+    {
+        get => _discordMode;
+        set
+        {
+            if (Set(ref _discordMode, value))
             {
                 Apply();
             }
@@ -98,10 +127,7 @@ public sealed class MembersViewModel : Observable
         Reconcile.Onto(Rows, rendered);
         HasRows = Rows.Count > 0;
 
-        Notice = HasRows ? ""
-            : state is null ? Cards.MembersUnread
-            : !state.Joined ? Cards.MembersOutside
-            : Cards.MembersNone;
+        Notice = MembersEmpty.For(state, Discord, DiscordMode, Rows.Count);
 
         Refusal = Statements.Of(state?.Refusal);
         HasRefusal = Refusal.Length > 0;

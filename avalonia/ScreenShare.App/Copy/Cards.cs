@@ -158,14 +158,19 @@ public static class Cards
     public static string MemberDetail(bool isSelf) => isSelf ? MemberSelf : "";
 
     /// <summary>
-    /// What the member list says in place of rows.
-    /// One sentence per state, each leaving the reader a different thing to do:
-    /// wait, set a group key, or hand somebody the one that is set.
+    /// What the member list says in place of rows, one sentence per state and each naming the next step.
+    /// In Discord mode the way into a group is Discord's rather than a key, so two of them name that one.
     /// </summary>
     public const string MembersUnread = "Reading who is in this group.";
 
     public const string MembersOutside =
         "This computer is not in a group. Set a group key and a name on the Relay step to join one.";
+
+    public const string MembersUnlinked =
+        "Not linked to Discord. Link Discord on the Relay step, and everyone in the voice channel is listed here.";
+
+    public const string MembersNoChannel =
+        "Not in a voice channel. Join one in Discord, and everyone in it is listed here.";
 
     public const string MembersNone = "Nobody is listed in this group.";
 
