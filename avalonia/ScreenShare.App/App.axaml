@@ -31,6 +31,7 @@
         <ResourceInclude Source="/Controls/Select/Select.axaml" />
         <ResourceInclude Source="/Controls/NumberSelect/NumberSelect.axaml" />
         <ResourceInclude Source="/Controls/Toggle/Toggle.axaml" />
+        <ResourceInclude Source="/Controls/CopyButton/CopyButton.axaml" />
         <!--
           The form's option row rather than design.
           A resource a DataTemplate instantiates against has to sit above every view that

@@ -63,7 +63,18 @@
       -->
       <TextBox IsVisible="{Binding IsText}"
                IsEnabled="{Binding IsEnabled}"
-               Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+               Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}">
+        <!--
+          Inside the box, over the value it carries away.
+          Under it stands what a screen offers for the setting, so a button there would read as a second
+          effect on it (Features/Fields/Model/ClipboardPlacement.cs).
+        -->
+        <TextBox.InnerRightContent>
+          <controls:CopyButton IsVisible="{Binding CanCopy}"
+                               Value="{Binding Text}"
+                               ToolTip.Tip="Copy to clipboard" />
+        </TextBox.InnerRightContent>
+      </TextBox>
 
       <NumericUpDown IsVisible="{Binding IsNumber}"
                      IsEnabled="{Binding IsEnabled}"

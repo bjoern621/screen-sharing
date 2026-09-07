@@ -66,6 +66,10 @@
   <sys:Double x:Key="RoundButtonSize">40</sys:Double>
   <!-- The control height less the two borders a glyph-only button does not carry. -->
   <sys:Double x:Key="IconButtonSize">28</sys:Double>
+  <!-- The same button inside a control rather than beside one: the box's borders, and 3px of air either side. -->
+  <sys:Double x:Key="InlineButtonSize">22</sys:Double>
+  <!-- The air around that button: the text runs up to it, and it clears the box's own edge. -->
+  <Thickness x:Key="InnerContentGap">6,0,4,0</Thickness>
   <!-- Taller than a control: the row is the target, not a control at the end of it. -->
   <sys:Double x:Key="RowButtonHeight">36</sys:Double>
 

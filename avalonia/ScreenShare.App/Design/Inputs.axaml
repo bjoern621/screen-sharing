@@ -37,32 +37,45 @@
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="{TemplateBinding BorderThickness}"
                 CornerRadius="{TemplateBinding CornerRadius}">
-          <ScrollViewer Name="PART_ScrollViewer"
-                        HorizontalScrollBarVisibility="Hidden"
-                        VerticalScrollBarVisibility="Hidden"
-                        Padding="{TemplateBinding Padding}">
-            <Panel>
-              <TextBlock Name="PART_Watermark"
-                         Text="{TemplateBinding PlaceholderText}"
-                         FontFamily="{StaticResource UiFont}"
-                         Foreground="{StaticResource HintBrush}"
-                         IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-              <TextPresenter Name="PART_TextPresenter"
-                           Text="{TemplateBinding Text, Mode=TwoWay}"
-                           CaretIndex="{TemplateBinding CaretIndex}"
-                           SelectionStart="{TemplateBinding SelectionStart}"
-                           SelectionEnd="{TemplateBinding SelectionEnd}"
-                           CaretBrush="{TemplateBinding CaretBrush}"
-                           SelectionBrush="{TemplateBinding SelectionBrush}"
-                           SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
-                           PasswordChar="{TemplateBinding PasswordChar}"
-                           RevealPassword="{TemplateBinding RevealPassword}"
-                           TextAlignment="{TemplateBinding TextAlignment}"
-                           TextWrapping="{TemplateBinding TextWrapping}"
+          <!--
+            The trailing slot a control drawn inside the box lands in, the text keeping the column left of it
+            (Controls/CopyButton).
+            Stated in the box rather than laid over it, an overlay covering the characters under it.
+          -->
+          <Grid ColumnDefinitions="*,Auto">
+            <ScrollViewer Name="PART_ScrollViewer"
+                          Grid.Column="0"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden"
+                          Padding="{TemplateBinding Padding}">
+              <Panel>
+                <TextBlock Name="PART_Watermark"
+                           Text="{TemplateBinding PlaceholderText}"
+                           FontFamily="{StaticResource UiFont}"
+                           Foreground="{StaticResource HintBrush}"
+                           IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-            </Panel>
-          </ScrollViewer>
+                <TextPresenter Name="PART_TextPresenter"
+                             Text="{TemplateBinding Text, Mode=TwoWay}"
+                             CaretIndex="{TemplateBinding CaretIndex}"
+                             SelectionStart="{TemplateBinding SelectionStart}"
+                             SelectionEnd="{TemplateBinding SelectionEnd}"
+                             CaretBrush="{TemplateBinding CaretBrush}"
+                             SelectionBrush="{TemplateBinding SelectionBrush}"
+                             SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                             PasswordChar="{TemplateBinding PasswordChar}"
+                             RevealPassword="{TemplateBinding RevealPassword}"
+                             TextAlignment="{TemplateBinding TextAlignment}"
+                             TextWrapping="{TemplateBinding TextWrapping}"
+                             VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Panel>
+            </ScrollViewer>
+            <ContentPresenter Name="PART_InnerRightContent"
+                              Grid.Column="1"
+                              Content="{TemplateBinding InnerRightContent}"
+                              Margin="{StaticResource InnerContentGap}"
+                              VerticalAlignment="Center" />
+          </Grid>
         </Border>
       </ControlTemplate>
     </Setter>

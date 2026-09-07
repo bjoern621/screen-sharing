@@ -267,6 +267,7 @@ public sealed class FieldViewModel : Observable
     private bool _isRadio;
     private bool _isChoice;
     private bool _isReadonly;
+    private bool _canCopy;
     private double _minimum;
     private double _maximum;
     private double _step = 1;
@@ -432,6 +433,13 @@ public sealed class FieldViewModel : Observable
 
     public bool IsText { get => _isText; private set => Set(ref _isText, value); }
 
+    /// <summary>
+    /// Whether the box carries the button putting its value on the clipboard
+    /// (<see cref="ClipboardPlacement"/>).
+    /// Off over an empty box, a press there carrying nothing.
+    /// </summary>
+    public bool CanCopy { get => _canCopy; private set => Set(ref _canCopy, value); }
+
     public bool IsNumber { get => _isNumber; private set => Set(ref _isNumber, value); }
 
     /// <summary>
@@ -583,6 +591,7 @@ public sealed class FieldViewModel : Observable
         IsRadio = field.Control == ControlKind.Radio;
         IsChoice = IsSelect || IsRadio;
         IsReadonly = field.Control == ControlKind.Readonly;
+        CanCopy = IsText && ClipboardPlacement.Offered(Key) && field.Value.Text.Length > 0;
 
         // No range means unbounded, not zero,
         // so a field carrying none takes the widest bounds the widget holds instead of being pinned at nothing.

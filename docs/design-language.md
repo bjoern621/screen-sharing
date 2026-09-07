@@ -49,6 +49,7 @@ The design states no text field, number field or slider either.
 The module's choice is recorded with the input roles and again spends nothing new.
 A typed value wears the same raised control a button does, in tabular figures because it is typed digit by digit.
 A number field is that box without a stepper.
+A button that acts on the value a box holds is drawn inside it, at the trailing edge, and the text stops in front of it.
 A slider is a 6px track whose travelled half takes the one light surface.
 A flag is the switch: one domain concept, one control.
 
