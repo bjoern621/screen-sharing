@@ -117,8 +117,9 @@ type wireAnswer struct {
 }
 
 type wireChannel struct {
-	Guild string `json:"guild"`
-	Name  string `json:"name"`
+	Guild     string `json:"guild"`
+	Name      string `json:"name"`
+	Occupants int    `json:"occupants"`
 }
 
 type wireGroup struct {
@@ -147,7 +148,10 @@ func (s *Service) statePresence(w http.ResponseWriter, r *http.Request) {
 
 	wire := wireAnswer{Application: s.oauth.Application()}
 	if answer.Channel != nil {
-		wire.Channel = &wireChannel{Guild: answer.Channel.Guild, Name: answer.Channel.Name}
+		wire.Channel = &wireChannel{
+			Guild: answer.Channel.Guild, Name: answer.Channel.Name,
+			Occupants: answer.Channel.Occupants,
+		}
 	}
 	if answer.Group != nil {
 		wire.Group = &wireGroup{

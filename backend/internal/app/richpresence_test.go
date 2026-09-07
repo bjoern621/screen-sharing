@@ -59,14 +59,20 @@ func ofMembers(count int) membership {
 	return m
 }
 
-func TestAnActivityCountsTheReadersOfTheMembers(t *testing.T) {
-	activity, stating := richPresenceActivity(inChannelSnapshot(), aShare(), watchedBy(1), ofMembers(4), aManager)
+func TestAnActivityCountsTheReadersAgainstTheChannel(t *testing.T) {
+	// Four sit in the channel and two of them run the app,
+	// so a reader on Discord's card is counted against the four they can see.
+	d := inChannelSnapshot()
+	d.Occupants = 4
+
+	activity, stating := richPresenceActivity(d, aShare(), watchedBy(1), ofMembers(2), aManager)
 
 	if !stating {
 		t.Fatal("a machine sharing in a voice channel states an activity")
 	}
-	if activity.Readers != 1 || activity.Members != 4 {
-		t.Errorf("the party is %d of %d, and one of four are watching", activity.Readers, activity.Members)
+	if activity.Readers != 1 || activity.Occupants != 4 {
+		t.Errorf("the party is %d of %d, and one of the channel's four is watching",
+			activity.Readers, activity.Occupants)
 	}
 }
 

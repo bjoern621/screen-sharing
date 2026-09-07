@@ -29,6 +29,9 @@ const Timeout = 5 * time.Second
 type Channel struct {
 	Guild string `json:"guild"`
 	Name  string `json:"name"`
+	// Occupants is everybody sitting in the channel, whatever they run,
+	// which is wider than the members the group lists.
+	Occupants int `json:"occupants"`
 }
 
 // Group is the manager's stand-in for everything a group key would derive locally,

@@ -207,6 +207,27 @@ func TestPresenceInAChannelJoinsItsGroup(t *testing.T) {
 	}
 }
 
+func TestTheChannelCountsEverybodyStandingInIt(t *testing.T) {
+	r := newRig(t)
+	secret := r.link(t, "u1")
+	r.enter("u1", "c1", "Bob")
+	// Two more in the channel, neither running an app, so neither states presence.
+	r.enter("u2", "c1", "Eve")
+	r.enter("u3", "c1", "Cy")
+
+	answer, err := r.broker.Presence(secret)
+	if err != nil {
+		t.Fatalf("stating presence: %v", err)
+	}
+
+	if answer.Channel.Occupants != 3 {
+		t.Fatalf("three stand in the channel, counted %d", answer.Channel.Occupants)
+	}
+	if len(answer.Group.Members) != 1 {
+		t.Fatalf("one of the three states presence, and the group lists %d", len(answer.Group.Members))
+	}
+}
+
 func TestASecondPassRefreshesTheSameMember(t *testing.T) {
 	r := newRig(t)
 	secret := r.link(t, "u1")

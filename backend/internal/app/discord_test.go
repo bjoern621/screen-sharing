@@ -46,7 +46,7 @@ func (f *fakeDiscord) Token(base, linkSecret string) (string, string, error) {
 // inChannel is the manager's answer for a member standing in a channel with one stream live.
 func inChannel() discordclient.Answer {
 	return discordclient.Answer{
-		Channel: &discordclient.Channel{Guild: "Guild", Name: "General"},
+		Channel: &discordclient.Channel{Guild: "Guild", Name: "General", Occupants: 3},
 		Group: &discordclient.Group{
 			Prefix:        aPrefix,
 			SrtPassphrase: "passphrase",
@@ -97,6 +97,9 @@ func TestADiscordPassLandsEverything(t *testing.T) {
 	d := a.discordState()
 	if !d.InChannel || d.Prefix != aPrefix || d.ChannelName != "General" {
 		t.Fatalf("the pass lands the brokered facts, got %+v", d)
+	}
+	if d.Occupants != 3 {
+		t.Fatalf("three sit in the channel where one is a member, landed %d", d.Occupants)
 	}
 }
 

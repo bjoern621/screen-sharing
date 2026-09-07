@@ -14,10 +14,10 @@ type Activity struct {
 	// Details is the first line Discord draws, State the second.
 	Details string
 	State   string
-	// Readers and Members are the party, which Discord draws as "1 of 4".
+	// Readers and Occupants are the party, which Discord draws as "1 of 4".
 	// Both zero leaves the party off, a party of nobody being a figure about nothing.
-	Readers int
-	Members int
+	Readers   int
+	Occupants int
 	// Start dates the timer Discord counts up from, zero for an activity with none.
 	Start time.Time
 	// Buttons are the links drawn under the activity, none for an activity carrying no address.
@@ -92,7 +92,7 @@ type setActivityArgs struct {
 // what the connection states is the JSON, and a nonce differing per command would compare unequal
 // every pass (client.go).
 func (a Activity) message() activityMessage {
-	assert.Assert(a.Readers >= 0 && a.Members >= 0, "a party counts nobody twice over", a.Readers, a.Members)
+	assert.Assert(a.Readers >= 0 && a.Occupants >= 0, "a party counts nobody twice over", a.Readers, a.Occupants)
 	assert.Assert(len(a.Buttons) <= buttonsPerActivity, "an activity carries the buttons Discord draws", len(a.Buttons))
 
 	msg := activityMessage{
@@ -100,8 +100,8 @@ func (a Activity) message() activityMessage {
 		Details: a.Details,
 		State:   a.State,
 	}
-	if a.Members > 0 {
-		msg.Party = &partyMessage{Size: [2]int{a.Readers, a.Members}}
+	if a.Occupants > 0 {
+		msg.Party = &partyMessage{Size: [2]int{a.Readers, a.Occupants}}
 	}
 	if !a.Start.IsZero() {
 		msg.Timestamps = &timestampsMessage{Start: a.Start.Unix()}

@@ -71,6 +71,9 @@ type Answer struct {
 type Channel struct {
 	Guild string
 	Name  string
+	// Occupants is everybody sitting in the channel, whatever they run.
+	// Wider than the group, which holds the ones whose app states presence.
+	Occupants int
 }
 
 // Group carries every fact the app derives from a group key in manual mode,
@@ -188,7 +191,10 @@ func (b *Broker) Presence(linkSecret string) (Answer, error) {
 	}
 
 	answer := Answer{
-		Channel: &Channel{Guild: where.GuildName, Name: where.ChannelName},
+		Channel: &Channel{
+			Guild: where.GuildName, Name: where.ChannelName,
+			Occupants: b.occupancy.Occupants(where.GuildID, where.ChannelID),
+		},
 		Group: &Group{
 			Prefix:           s.key.Prefix(),
 			SrtPassphrase:    s.key.SrtPassphrase(),
@@ -202,6 +208,8 @@ func (b *Broker) Presence(linkSecret string) (Answer, error) {
 	}
 	assert.Assert(answer.Group.Prefix != "" && answer.Group.MemberID != "",
 		"an answer inside a channel carries the derived facts")
+	assert.Assert(answer.Channel.Occupants >= 1,
+		"the account this answer is for is one of the channel's occupants", answer.Channel.Occupants)
 	return answer, nil
 }
 

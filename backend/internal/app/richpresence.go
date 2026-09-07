@@ -14,8 +14,8 @@ import (
 // What this machine states on the Discord client running beside it (docs/discord-mode.md).
 //
 // One pass of the relay poll states one activity, off what that pass landed:
-// the channel from the Discord snapshot, the audience from the group's index and its members,
-// and the timer from the child carrying the stream.
+// the channel from the Discord snapshot, the audience from the group's index and the channel's
+// occupancy, and the timer from the child carrying the stream.
 // Nothing is kept between passes,
 // the connection alone holding what it last stated so an unchanged pass sends nothing
 // (internal/discordrpc).
@@ -119,11 +119,11 @@ func richPresenceActivity(d discordSnapshot, live sharing, status relay.Status, 
 	}
 
 	activity := discordrpc.Activity{
-		Details: richPresenceDetails,
-		State:   d.ChannelName,
-		Readers: readersOf(status, live.name),
-		Members: len(m.Members),
-		Start:   live.startedAt,
+		Details:   richPresenceDetails,
+		State:     d.ChannelName,
+		Readers:   readersOf(status, live.name),
+		Occupants: d.Occupants,
+		Start:     live.startedAt,
 	}
 	if address := watchAddress(manager, m.Group, live.name); address != "" {
 		activity.Buttons = append(activity.Buttons, discordrpc.Button{Label: richPresenceWatch, URL: address})

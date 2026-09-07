@@ -49,6 +49,10 @@ type discordSnapshot struct {
 	// GuildName and ChannelName label the channel for a reader, empty outside one.
 	GuildName   string
 	ChannelName string
+	// Occupants is everybody sitting in the voice channel, whatever they run,
+	// which the stated activity counts its readers against (richpresence.go).
+	// Wider than the group's members, the ones whose app states presence.
+	Occupants int
 	// Prefix, SrtPassphrase and DisplayName are the brokered facts commands build with,
 	// empty outside a channel.
 	Prefix        string
@@ -137,6 +141,7 @@ func (a *App) discordPass() {
 	snap := discordSnapshot{
 		InChannel: true,
 		GuildName: answer.Channel.Guild, ChannelName: answer.Channel.Name,
+		Occupants:     answer.Channel.Occupants,
 		Prefix:        answer.Group.Prefix,
 		SrtPassphrase: answer.Group.SrtPassphrase,
 		DisplayName:   answer.Group.DisplayName,

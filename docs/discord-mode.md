@@ -98,11 +98,11 @@ checks the voice state, and brokers the trade `groupd` answers.
 
 A share states itself on the Discord client running beside the app.
 The activity says that this machine is sharing, names the voice channel,
-and counts the channel's members watching against the members in it, which Discord draws as "1 of 4".
+and counts the channel's members watching against everybody sitting in it, which Discord draws as "1 of 4".
 Its timer runs from the start of the child carrying the stream.
 
 Every figure is the pass that landed it:
-the channel from the manager, the audience from the group's index and its members,
+the channel from the manager, the audience from the group's index and the channel's occupancy,
 and the timer from the publish in force.
 A machine sharing nothing states no activity.
 

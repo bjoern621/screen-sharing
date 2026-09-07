@@ -129,7 +129,7 @@ func TestTheHandshakeNamesTheApplication(t *testing.T) {
 
 func TestOneActivityIsStatedOnce(t *testing.T) {
 	client, fake := connected(t)
-	activity := Activity{Details: "Sharing a screen", State: "General", Readers: 1, Members: 4}
+	activity := Activity{Details: "Sharing a screen", State: "General", Readers: 1, Occupants: 4}
 
 	for range 3 {
 		if err := client.SetActivity(activity); err != nil {
@@ -145,10 +145,10 @@ func TestOneActivityIsStatedOnce(t *testing.T) {
 func TestAChangedActivityIsStatedAgain(t *testing.T) {
 	client, fake := connected(t)
 
-	if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: 1, Members: 4}); err != nil {
+	if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: 1, Occupants: 4}); err != nil {
 		t.Fatalf("stating: %v", err)
 	}
-	if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: 2, Members: 4}); err != nil {
+	if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: 2, Occupants: 4}); err != nil {
 		t.Fatalf("stating again: %v", err)
 	}
 
@@ -302,7 +302,7 @@ func TestAStatedActivityOutlastsASpentWindow(t *testing.T) {
 
 	// Every state differs, so each one asks for a send and the window is what stops them.
 	for i := range sendsPerWindow + 3 {
-		if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: i, Members: 9}); err != nil {
+		if err := client.SetActivity(Activity{Details: "Sharing a screen", Readers: i, Occupants: 9}); err != nil {
 			t.Fatalf("stating: %v", err)
 		}
 	}
