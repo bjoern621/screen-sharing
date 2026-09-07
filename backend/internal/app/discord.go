@@ -57,6 +57,10 @@ type discordSnapshot struct {
 	// Application is the Discord application the manager links through,
 	// which an activity on this machine's own Discord client is drawn under (richpresence.go).
 	Application string
+	// AccountAvatar addresses the picture on this install's own row, empty outside a channel.
+	// What the settings are filled from where the link was drawn before pictures were answered
+	// (pictures.go).
+	AccountAvatar string
 	// Refused marks a manager that will not resolve the link the settings hold.
 	// Polling again cannot clear it; linking again is what does.
 	Refused bool
@@ -80,6 +84,9 @@ func (a *App) pollPass() {
 
 	if mode {
 		a.discordPass()
+		// After the pass and outside membersMu, a settings write taking settingsMu second
+		// being the lock order every other path takes (app.go).
+		a.rememberAccountPicture()
 	} else {
 		a.fetchRelay()
 		a.statePresence()
@@ -134,6 +141,7 @@ func (a *App) discordPass() {
 		SrtPassphrase: answer.Group.SrtPassphrase,
 		DisplayName:   answer.Group.DisplayName,
 		Application:   answer.Application,
+		AccountAvatar: ownPicture(answer.Group),
 	}
 
 	last := a.discordState()

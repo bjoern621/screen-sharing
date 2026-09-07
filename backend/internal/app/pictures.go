@@ -2,7 +2,9 @@ package app
 
 import (
 	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/discordclient"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -53,5 +55,49 @@ func (a *App) membersWire(m membership) wire.MembersSnapshot {
 // so the landing is what puts a picture in front of a reader rather than the pass after it.
 func (a *App) announcePictures() {
 	a.emit(wire.MembersStateEvent(a.MembersState()))
+	a.emit(wire.DiscordStateEvent(a.discordWire()))
+}
+
+// ownPicture addresses the picture on this install's own row of a brokered group.
+// Empty where the manager named none, which is every manager answering a group before pictures.
+func ownPicture(g *discordclient.Group) string {
+	assert.IsNotNil(g, "an own row is read off a group")
+
+	for _, m := range g.Members {
+		if m.MemberID == g.MemberID {
+			return m.AvatarURL
+		}
+	}
+	return ""
+}
+
+// rememberAccountPicture stores the picture the last pass answered for this install's own row.
+//
+// The link flow lands one where it draws the link, and a link drawn before the manager answered
+// pictures carries none, so the pass is what fills it in.
+// Stored rather than read per pass: a link stands with Discord mode off, where no pass runs
+// (docs/discord-mode.md).
+//
+// Idempotent: an address already stored is written again by no pass,
+// which is what keeps the poll off the settings file.
+func (a *App) rememberAccountPicture() {
+	address := a.discordState().AccountAvatar
+	if address == "" {
+		return
+	}
+
+	a.settingsMu.Lock()
+	if a.settings.Relay.DiscordAvatar == address {
+		a.settingsMu.Unlock()
+		return
+	}
+	a.settings.Relay.DiscordAvatar = address
+	s := a.settings
+	a.settingsMu.Unlock()
+
+	if err := settings.Save(s); err != nil {
+		logger.Warnf("the account's picture is not persisted, so it is read again on the next pass: %v", err)
+	}
+	a.emit(wire.SettingsChangedEvent())
 	a.emit(wire.DiscordStateEvent(a.discordWire()))
 }

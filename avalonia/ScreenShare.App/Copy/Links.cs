@@ -1,4 +1,5 @@
 using ScreenShare.Api.V1;
+using ScreenShare.App.Controls;
 
 namespace ScreenShare.App.Copy;
 
@@ -14,9 +15,12 @@ public static class Links
     /// <summary>
     /// The link, carrying the account it was drawn for.
     /// A clause the caller ends, and the bare word for a manager that named no account.
+    ///
+    /// The account's picture goes in front of the name it belongs to,
+    /// marked for whoever draws the sentence (<see cref="AccountLine"/>).
     /// </summary>
     public static string Linked(DiscordState state) =>
-        state.AccountName.Length > 0 ? $"Linked as {state.AccountName}" : "Linked";
+        state.AccountName.Length > 0 ? $"Linked as {AccountLine.Mark}{state.AccountName}" : "Linked";
 
     /// <summary>
     /// Where this install stands with Discord, in one sentence.

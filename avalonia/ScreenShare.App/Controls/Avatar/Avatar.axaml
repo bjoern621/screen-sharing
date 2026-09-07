@@ -16,6 +16,13 @@
         </Border>
       </ControlTemplate>
     </Setter>
+
+    <!-- In a sentence: smaller, the line box being the text's rather than the picture's. -->
+    <Style Selector="^.inline">
+      <Setter Property="Width" Value="{StaticResource AvatarSizeInline}" />
+      <Setter Property="Height" Value="{StaticResource AvatarSizeInline}" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusAvatarInline}" />
+    </Style>
   </ControlTheme>
 
 </ResourceDictionary>

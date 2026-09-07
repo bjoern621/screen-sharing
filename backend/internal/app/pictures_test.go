@@ -80,3 +80,30 @@ func TestTheLinkedAccountsPictureCrossesAsBytes(t *testing.T) {
 		t.Fatalf("the link carries the picture %q, want the one the cache holds", got.Avatar)
 	}
 }
+
+// A link drawn before the manager answered pictures has none stored,
+// and the pass this install's own row rides on is what fills it in.
+func TestAPassRemembersTheAccountsPicture(t *testing.T) {
+	isolateConfig(t)
+	a := discordApp(&fakeDiscord{answer: inChannel()})
+	a.settings.Relay.DiscordAvatar = ""
+
+	a.pollPass()
+
+	if got := a.settings.Relay.DiscordAvatar; got != aPictureAddress {
+		t.Fatalf("the pass stored %q, want the picture on this install's own row", got)
+	}
+}
+
+// Idempotent: a picture already stored is written again by no pass.
+func TestAStoredPictureIsLeftWhereItIs(t *testing.T) {
+	isolateConfig(t)
+	a := discordApp(&fakeDiscord{answer: inChannel()})
+	a.settings.Relay.DiscordAvatar = aPictureAddress
+
+	a.pollPass()
+
+	if got := a.settings.Relay.DiscordAvatar; got != aPictureAddress {
+		t.Fatalf("the pass moved the stored picture to %q", got)
+	}
+}

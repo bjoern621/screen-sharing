@@ -209,22 +209,14 @@
                 controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
                 ToolTip.Tip="{Binding Action.Tip}" />
 
-        <!-- The picture in front of the sentence naming whoever it belongs to, and no column where none landed. -->
-        <Grid ColumnDefinitions="Auto,*"
-              ColumnSpacing="{StaticResource GapTight}"
-              IsVisible="{Binding HasActionNotice}">
-          <controls:Avatar Grid.Column="0"
-                           Picture="{Binding ActionAvatar}"
-                           IsVisible="{Binding HasActionAvatar}"
-                           VerticalAlignment="Top" />
-
-          <SelectableTextBlock Grid.Column="1"
-                               Classes="hint"
-                               Classes.danger="{Binding ActionNoticeIsFailure}"
-                               TextWrapping="Wrap"
-                               TextTrimming="None"
-                               Text="{Binding ActionNotice}" />
-        </Grid>
+        <!-- The picture stands where the sentence names whoever it belongs to. -->
+        <controls:AccountLine Classes="hint"
+                              Classes.danger="{Binding ActionNoticeIsFailure}"
+                              TextWrapping="Wrap"
+                              TextTrimming="None"
+                              IsVisible="{Binding HasActionNotice}"
+                              Sentence="{Binding ActionNotice}"
+                              Picture="{Binding ActionAvatar}" />
       </StackPanel>
 
       <SelectableTextBlock Classes="reason"

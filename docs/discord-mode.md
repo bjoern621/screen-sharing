@@ -48,6 +48,8 @@ and every draft arriving from a shell gets it put back (`ipc-api.md`).
 The account that consented rides back with the secret and is stored beside it, a label on the link.
 Its picture rides with it as an address on Discord's CDN.
 The backend reads that address and a shell draws the bytes, the app being the side that reaches the network.
+A link holding no picture takes one off this install's own row on the next pass, and stores it there,
+so a link drawn before the manager answered pictures needs no second consent.
 The pass that would answer it runs in Discord mode alone, and a link stands in either mode,
 so the label is what names the account on screen.
 A rename on Discord reaches the app on the next link.

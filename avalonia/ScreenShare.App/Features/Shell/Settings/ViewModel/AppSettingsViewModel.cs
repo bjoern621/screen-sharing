@@ -88,7 +88,6 @@ public sealed class AppSettingsViewModel : Observable
     private bool _isDiscordLinked;
     private bool _discordLineIsFailure;
     private ByteString _discordAvatar = ByteString.Empty;
-    private bool _hasDiscordAvatar;
 
     /// <summary>Whether the dialog stands over the window.</summary>
     public bool IsOpen { get => _isOpen; private set => Set(ref _isOpen, value); }
@@ -152,8 +151,6 @@ public sealed class AppSettingsViewModel : Observable
     /// </summary>
     public ByteString DiscordAvatar { get => _discordAvatar; private set => Set(ref _discordAvatar, value); }
 
-    public bool HasDiscordAvatar { get => _hasDiscordAvatar; private set => Set(ref _hasDiscordAvatar, value); }
-
     /// <summary>Names the state the press asks for, so pressing twice changes nothing the second time.</summary>
     public void Show(bool open) => IsOpen = open;
 
@@ -179,7 +176,6 @@ public sealed class AppSettingsViewModel : Observable
         DiscordLine = AppSettingsCopy.DiscordLine(discord);
         DiscordLineIsFailure = Links.StateIsFailure(discord);
         DiscordAvatar = discord?.Avatar ?? ByteString.Empty;
-        HasDiscordAvatar = DiscordAvatar.Length > 0;
 
         Assert.That(
             Group.IsResolved || Group.Fields.Count == 0,

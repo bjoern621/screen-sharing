@@ -54,7 +54,7 @@ func inChannel() discordclient.Answer {
 			DisplayName:   "Bob",
 			LeaseSeconds:  20,
 			Members: []groupclient.Member{
-				{MemberID: aMemberID, DisplayName: "Bob", Publishing: true},
+				{MemberID: aMemberID, DisplayName: "Bob", Publishing: true, AvatarURL: aPictureAddress},
 			},
 			Streams: []groupclient.Stream{{Name: "bob/monitor-0", Ready: true}},
 		},

@@ -279,7 +279,6 @@ public sealed class FieldViewModel : Observable
     private string _actionNotice = "";
     private bool _hasActionNotice;
     private ByteString _actionAvatar = ByteString.Empty;
-    private bool _hasActionAvatar;
     private bool _actionNoticeIsFailure;
     private bool _hasRefused;
     private string _refusedCount = "";
@@ -337,8 +336,6 @@ public sealed class FieldViewModel : Observable
     /// Lifted off the action for the reason the sentence is.
     /// </summary>
     public ByteString ActionAvatar { get => _actionAvatar; private set => Set(ref _actionAvatar, value); }
-
-    public bool HasActionAvatar { get => _hasActionAvatar; private set => Set(ref _hasActionAvatar, value); }
 
     /// <summary>
     /// Whether that sentence reports something broken, which draws it in the failure hue
@@ -557,7 +554,6 @@ public sealed class FieldViewModel : Observable
         ActionNotice = action?.Notice ?? "";
         HasActionNotice = ActionNotice.Length > 0;
         ActionAvatar = action?.Avatar ?? ByteString.Empty;
-        HasActionAvatar = ActionAvatar.Length > 0;
         ActionNoticeIsFailure = action?.NoticeIsFailure ?? false;
 
         // Heading and paragraph are keyed by the field the backend named; the reason and the note are codes it sent,
