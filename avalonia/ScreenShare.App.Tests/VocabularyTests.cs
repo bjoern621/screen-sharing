@@ -154,4 +154,46 @@ public sealed class VocabularyTests
         Assert.Contains("quality 18", summary);
         Assert.DoesNotContain("45", summary);
     }
+
+    /// <summary>Transport step, with every leg either offered or refused.</summary>
+    private static FieldGroup TransportGroup(bool anyOffered)
+    {
+        var group = new FieldGroup { Key = "transport" };
+        var field = new Field { Key = "publish.publish_transport", Enabled = true, Visible = true };
+        foreach (var leg in new[] { "srt", "rtsp", "webrtc", "rtmp" })
+        {
+            field.Options.Add(new FieldOption { Value = leg, Enabled = anyOffered });
+        }
+
+        group.Fields.Add(field);
+        return group;
+    }
+
+    private static Settings Over(string transport) => new()
+    {
+        Publish = new PublishSettings { PublishTransport = transport },
+    };
+
+    /// <summary>
+    /// A leg the same evaluation refuses is no choice, whatever the settings still hold.
+    /// The chip saying "SRT" over a computer that cannot send SRT is a settled answer to a question
+    /// nothing here can answer.
+    /// </summary>
+    [Fact]
+    public void AStepWhoseEveryEntryIsRefusedNamesNoValue()
+    {
+        var summary = Words().Shorthand(TransportGroup(anyOffered: false), Over("srt"));
+
+        Assert.DoesNotContain("SRT", summary);
+        Assert.Equal(Fields.NothingLeft, summary);
+    }
+
+    /// <summary>And a leg that is offered reads as itself.</summary>
+    [Fact]
+    public void AStepWithAnEntryLeftNamesItsValue()
+    {
+        var summary = Words().Shorthand(TransportGroup(anyOffered: true), Over("srt"));
+
+        Assert.Equal("SRT", summary);
+    }
 }

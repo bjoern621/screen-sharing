@@ -699,6 +699,11 @@ enum TextCode {
   // TEXT_ARG_NAME_TRANSPORT carries the leg given up,
   // TEXT_ARG_NAME_NEXT_TRANSPORT the one the relaunch runs.
   TEXT_CODE_TRANSPORT_FALLING_BACK = 175;
+  // Every entry of one control is ruled out,
+  // so the dimension has no legal value and the one the settings hold is greyed with the rest.
+  // Each entry carries its own reason, and this states only that none is left.
+  // TEXT_ARG_NAME_OPTION names the settings field, as a gap does.
+  TEXT_CODE_NOTHING_LEFT_TO_PICK = 176;
 
   // --- The audience and the wire -------------------------------------------------
 

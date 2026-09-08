@@ -765,6 +765,11 @@ const (
 	// TEXT_ARG_NAME_TRANSPORT carries the leg given up,
 	// TEXT_ARG_NAME_NEXT_TRANSPORT the one the relaunch runs.
 	TextCode_TEXT_CODE_TRANSPORT_FALLING_BACK TextCode = 175
+	// Every entry of one control is ruled out,
+	// so the dimension has no legal value and the one the settings hold is greyed with the rest.
+	// Each entry carries its own reason, and this states only that none is left.
+	// TEXT_ARG_NAME_OPTION names the settings field, as a gap does.
+	TextCode_TEXT_CODE_NOTHING_LEFT_TO_PICK TextCode = 176
 	// A stream lives in a group and the settings name none,
 	// so nothing can be published until one is joined.
 	// The group key is the control that joins one.
@@ -988,6 +993,7 @@ var (
 		147: "TEXT_CODE_GROUP_SERVICE_REFUSED",
 		148: "TEXT_CODE_STREAM_LEFT_THE_RELAY",
 		175: "TEXT_CODE_TRANSPORT_FALLING_BACK",
+		176: "TEXT_CODE_NOTHING_LEFT_TO_PICK",
 		171: "TEXT_CODE_GROUP_REQUIRED",
 		172: "TEXT_CODE_GROUP_FOLLOWS_DISCORD",
 		173: "TEXT_CODE_DISCORD_NOT_LINKED",
@@ -1142,6 +1148,7 @@ var (
 		"TEXT_CODE_GROUP_SERVICE_REFUSED":                     147,
 		"TEXT_CODE_STREAM_LEFT_THE_RELAY":                     148,
 		"TEXT_CODE_TRANSPORT_FALLING_BACK":                    175,
+		"TEXT_CODE_NOTHING_LEFT_TO_PICK":                      176,
 		"TEXT_CODE_GROUP_REQUIRED":                            171,
 		"TEXT_CODE_GROUP_FOLLOWS_DISCORD":                     172,
 		"TEXT_CODE_DISCORD_NOT_LINKED":                        173,
@@ -1523,7 +1530,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
 	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CHANNEL\x10B\x12\x19\n" +
-	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x912\n" +
+	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xb62\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1655,7 +1662,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_SERVICE_REFUSED\x10\x93\x01\x12$\n" +
 	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12%\n" +
-	" TEXT_CODE_TRANSPORT_FALLING_BACK\x10\xaf\x01\x12\x1d\n" +
+	" TEXT_CODE_TRANSPORT_FALLING_BACK\x10\xaf\x01\x12#\n" +
+	"\x1eTEXT_CODE_NOTHING_LEFT_TO_PICK\x10\xb0\x01\x12\x1d\n" +
 	"\x18TEXT_CODE_GROUP_REQUIRED\x10\xab\x01\x12$\n" +
 	"\x1fTEXT_CODE_GROUP_FOLLOWS_DISCORD\x10\xac\x01\x12!\n" +
 	"\x1cTEXT_CODE_DISCORD_NOT_LINKED\x10\xad\x01\x12'\n" +

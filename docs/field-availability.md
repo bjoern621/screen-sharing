@@ -180,6 +180,27 @@ It is decided in Go with everything else, because the enabled flag is decided th
 A shell that re-sorted on it would be a second place deciding what the list looks like,
 and one the repair walking a stranded value to the first legal entry cannot see (`ipc-api.md`, "The rule").
 
+## A control with nothing left
+
+Every entry of one control can be refused at once.
+A machine with no GStreamer greys every video format and every encoder under one statement,
+and one whose install carries no publish sinks greys every leg.
+
+**The value stands and the list keeps its reasons.**
+The repair has nowhere to walk it, and each entry still names the thing to change,
+which a control greyed whole would take away.
+
+**Nothing is selected.**
+A closed dropdown reads that nothing is available rather than naming the held value,
+and so does the step's chip.
+The value is refused along with the entries, so drawing it as the answer would state a choice nothing here can run.
+
+**The gap is a diagnostic anchored on the control.**
+It refuses the publish where a start reads the group, the source, what is shared, the encode, the audio, the leg and the relay.
+Elsewhere it is a warning: the watch leg and the render route cost a tile, and grounding a working stream over the viewer's gap would be the wrong price.
+Without it the start button stays lit over a pipeline built from refused values,
+and the failure arrives as a launch that dies on a missing element.
+
 ## A figure with no measurement
 
 Everything above is about a *setting* the current combination rules out.
@@ -259,6 +280,6 @@ A hidden field removes noise that would teach nothing.
 
 The availability pass produces the greyings and the notes from the capability table, the domain tables and the engine rules,
 which is the same source the repair works from, so a disabled option and its replacement cannot disagree.
-Where a dimension has nothing legal left, the repair picks nothing and the field stays disabled with its reason,
-rather than holding a value the same evaluation greys.
+Where a dimension has nothing legal left, the repair picks nothing: there is nowhere to walk to, so the held value stands.
+What the screen then says is "A control with nothing left" above.
 See `domain-model.md` for the capability and domain tables, and `ipc-api.md` for why the reason crosses as a code and the sentence is the shell's.

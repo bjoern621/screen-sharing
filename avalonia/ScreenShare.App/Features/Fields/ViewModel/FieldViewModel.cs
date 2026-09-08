@@ -259,6 +259,7 @@ public sealed class FieldViewModel : Observable
     private string _pickedLabel = "";
     private string _pickedNote = "";
     private bool _hasPickedNote;
+    private bool _hasNothingLeft;
     private bool _isVisible;
     private bool _isEnabled;
     private bool _appliesLive;
@@ -386,6 +387,7 @@ public sealed class FieldViewModel : Observable
     /// <summary>
     /// Picked entry's label, drawn on a closed dropdown.
     /// Falls back to the raw value for the case the contract allows: a legal value that is none of the entries offered.
+    /// Reads <see cref="Copy.Fields.NothingLeft"/> where every entry is greyed, the held value being greyed too.
     /// </summary>
     public string PickedLabel { get => _pickedLabel; private set => Set(ref _pickedLabel, value); }
 
@@ -393,6 +395,13 @@ public sealed class FieldViewModel : Observable
     public string PickedNote { get => _pickedNote; private set => Set(ref _pickedNote, value); }
 
     public bool HasPickedNote { get => _hasPickedNote; private set => Set(ref _hasPickedNote, value); }
+
+    /// <summary>
+    /// Whether this combination leaves the control nothing to pick: every entry greyed, the held value with them.
+    /// The face reads <see cref="Copy.Fields.NothingLeft"/> rather than the stranded value,
+    /// and the reason each entry is out is on the entry.
+    /// </summary>
+    public bool HasNothingLeft { get => _hasNothingLeft; private set => Set(ref _hasNothingLeft, value); }
 
     /// <summary>False for a knob with no meaning outside one selection. The control is not drawn at all.</summary>
     public bool IsVisible { get => _isVisible; private set => Set(ref _isVisible, value); }
@@ -639,11 +648,17 @@ public sealed class FieldViewModel : Observable
         RefusedGlyph = RefusedShown ? Icons.IconChevronDown : Icons.IconChevronRight;
         Reconcile.Onto(MenuRows, MenuRowsOf());
 
+        // A control the same evaluation left nothing to pick on:
+        // the value the settings hold is greyed along with every entry,
+        // and the repair had nowhere to walk it (docs/field-availability.md).
+        // The backend states the gap as a line anchored here, and this is its face.
+        HasNothingLeft = IsEnabled && Options.Count > 0 && Offered.Count == 0;
+
         // The closed dropdown's face, written on every pass including the branch where nothing is picked,
         // so a field whose entry went away cannot go on showing the last one it had.
         var picked = Options.FirstOrDefault(option => option.IsSelected);
-        PickedLabel = picked?.Label ?? Readback;
-        PickedNote = picked?.Note ?? "";
+        PickedLabel = HasNothingLeft ? Copy.Fields.NothingLeft : picked?.Label ?? Readback;
+        PickedNote = HasNothingLeft ? "" : picked?.Note ?? "";
         HasPickedNote = PickedNote.Length > 0;
 
         Assert.That(

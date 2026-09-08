@@ -53,7 +53,7 @@ func TestADraftOutsideAGroupIsRefused(t *testing.T) {
 	s := diagnosticTestStream()
 	s.Relay.GroupKey = ""
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if publishable(diags) {
 		t.Error("a machine in no group reaches no path, and this draft was publishable")
 	}
@@ -77,7 +77,7 @@ func TestADraftWithNoNameToJoinUnderIsRefused(t *testing.T) {
 	s := diagnosticTestStream()
 	s.Relay.DisplayName = ""
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if publishable(diags) {
 		t.Error("a machine that has claimed no name is in no group, and this draft was publishable")
 	}
@@ -176,7 +176,7 @@ func TestAnUnbuildableCombinationRefusesAndSaysWhy(t *testing.T) {
 	s.Publish.Chroma = "gbrp"
 
 	est := estimate(d, s)
-	diags := diagnostics(d, s, est)
+	diags := diagnostics(d, s, est, nil)
 	errors := diagnosticTestOfRank(diags, screensharev1.Severity_SEVERITY_ERROR)
 	if len(errors) != 1 {
 		t.Fatalf("errors = %d, and settings that cannot be published are refused once: %v", len(errors), diags)
@@ -216,7 +216,7 @@ func TestAHealthyConfigurationRefusesNothing(t *testing.T) {
 		t.Error("a summary that refuses nothing carries the command it would run")
 	}
 
-	diags := diagnostics(d, s, est)
+	diags := diagnostics(d, s, est, nil)
 	if errors := diagnosticTestOfRank(diags, screensharev1.Severity_SEVERITY_ERROR); len(errors) != 0 {
 		t.Errorf("errors = %v, and these settings publish as they stand", errors)
 	}
@@ -231,7 +231,7 @@ func TestEveryDiagnosticAnchorsOnADeclaredKey(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
 		t.Run(name, func(t *testing.T) {
-			for _, w := range diagnostics(d, s, estimate(d, s)) {
+			for _, w := range diagnostics(d, s, estimate(d, s), nil) {
 				if w.GetFieldKey() == "" {
 					continue
 				}
@@ -250,7 +250,7 @@ func TestEveryDiagnosticIsRankedAndSaysSomething(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
 		t.Run(name, func(t *testing.T) {
-			for _, w := range diagnostics(d, s, estimate(d, s)) {
+			for _, w := range diagnostics(d, s, estimate(d, s), nil) {
 				if w.GetSeverity() == screensharev1.Severity_SEVERITY_UNSPECIFIED {
 					t.Errorf("diagnostic %v carries no rank", codeOf(w.GetText()))
 				}
@@ -269,7 +269,7 @@ func TestTheListIsRankedByWhatIgnoringItCosts(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
 		t.Run(name, func(t *testing.T) {
-			diags := diagnostics(d, s, estimate(d, s))
+			diags := diagnostics(d, s, estimate(d, s), nil)
 			for i := 1; i < len(diags); i++ {
 				if diags[i-1].GetSeverity() < diags[i].GetSeverity() {
 					t.Errorf("diagnostic %d ranks %v and the one before it %v",
@@ -288,7 +288,7 @@ func TestALineUnderThePredictionWarnsWithoutRefusing(t *testing.T) {
 	s := diagnosticTestStream()
 	s.Publish.UplinkMbps = 5
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if !publishable(diags) {
 		t.Error("a line too narrow for the stream does not make the settings unbuildable")
 	}
@@ -328,7 +328,7 @@ func TestAPixelFormatNoGpuDecodesCostsRatherThanRefuses(t *testing.T) {
 	// so this pair has no hardware decoder anywhere.
 	s.Publish.Chroma = "yuv444p"
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if !publishable(diags) {
 		t.Errorf("a software decode at the viewer is a cost and not a refusal: %v", diags)
 	}
@@ -375,7 +375,7 @@ func TestTheSameDraftWarnsTheSameWayTwice(t *testing.T) {
 	d, s := diagnosticTestDeps(), diagnosticTestStream()
 	est := estimate(d, s)
 
-	first, second := diagnostics(d, s, est), diagnostics(d, s, est)
+	first, second := diagnostics(d, s, est, nil), diagnostics(d, s, est, nil)
 	if len(first) != len(second) {
 		t.Fatalf("one draft warned %d times and then %d", len(first), len(second))
 	}
@@ -412,7 +412,7 @@ func TestAQualityTargetHeldByTheCeilingIsStated(t *testing.T) {
 	s.Publish.MaxrateM = 20
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 
-	held := diagnostics(d, s, estimate(d, s))
+	held := diagnostics(d, s, estimate(d, s), nil)
 	said := diagnosticTestSaid(held, ceilingHoldsQuality)
 	if said == nil {
 		t.Fatalf("diagnostics = %v, and a 20 Mbit/s ceiling holds a target priced at 69.7", held)
@@ -426,7 +426,7 @@ func TestAQualityTargetHeldByTheCeilingIsStated(t *testing.T) {
 
 	// The same draft under a ceiling it fits, where the target buys what it asks for.
 	s.Publish.MaxrateM = 200
-	if free := diagnostics(d, s, estimate(d, s)); diagnosticTestSaid(free, ceilingHoldsQuality) != nil {
+	if free := diagnostics(d, s, estimate(d, s), nil); diagnosticTestSaid(free, ceilingHoldsQuality) != nil {
 		t.Errorf("diagnostics = %v, and a 200 Mbit/s ceiling holds nothing back", free)
 	}
 }

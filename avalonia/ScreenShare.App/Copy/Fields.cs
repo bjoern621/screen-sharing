@@ -33,6 +33,14 @@ public static class Fields
     /// </summary>
     public const string AdvancedTitle = "Advanced options";
 
+    /// <summary>
+    /// Face of a control whose every entry the backend greyed, and the same word on the step's chip.
+    /// The value the settings still carry is greyed with the entries,
+    /// so naming it would put a settled choice on screen that nothing here can run.
+    /// Why the list is empty is the statement anchored on the control (<c>Statements.NothingLeftToPick</c>).
+    /// </summary>
+    public const string NothingLeft = "Nothing available";
+
     /// <summary>Entries held back, beside a disclosure: the figure says whether opening it is worth the trip.</summary>
     public static string OptionCount(int count) => count == 1 ? "1 option" : $"{count} options";
 

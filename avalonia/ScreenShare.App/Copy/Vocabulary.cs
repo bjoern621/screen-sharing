@@ -118,16 +118,42 @@ public sealed class Vocabulary
         var publish = settings.Publish;
         return group.Key switch
         {
-            "source" => Join(Words.Capture(publish.Capture), Picture(publish)),
-            "quality" => Join(Words.Format(publish.Format), Quality(publish, CeilingOf(group))),
+            "source" => Join(Chosen(group, "publish.capture", Capture(publish.Capture)), Picture(publish)),
+            "quality" => Join(
+                Chosen(group, "publish.format", Words.Format(publish.Format)),
+                Quality(publish, CeilingOf(group))),
             "audio" => AudioShorthand(publish),
-            "transport" => Words.Transport(publish.PublishTransport),
+            "transport" => Chosen(group, "publish.publish_transport", Words.Transport(publish.PublishTransport)),
             // The tile's leg, the group's only one:
             // a player and a browser page take theirs from the roster, per press.
-            "watch" => Words.Transport(settings.Viewer.TileWatchTransport),
+            "watch" => Chosen(
+                group, "viewer.tile_watch_transport", Words.Transport(settings.Viewer.TileWatchTransport)),
             "relay" => settings.Relay.Host,
             _ => "",
         };
+    }
+
+    /// <summary>
+    /// A value one control settled on, or the word for a control that settled on nothing.
+    /// Read off the entries the backend sent rather than judged here:
+    /// where it greys every one, the value the settings still carry is greyed with them,
+    /// and a chip naming it would repeat a settled choice nothing on this computer can run
+    /// (<c>docs/field-availability.md</c>).
+    /// A control the form withheld or drew with no entries says nothing about its value, so the value stands.
+    /// </summary>
+    private static string Chosen(FieldGroup group, string key, string word)
+    {
+        foreach (var field in group.Fields)
+        {
+            if (field.Key != key || !field.Enabled || field.Options.Count == 0)
+            {
+                continue;
+            }
+
+            return field.Options.Any(option => option.Enabled) ? word : Fields.NothingLeft;
+        }
+
+        return word;
     }
 
     /// <summary>

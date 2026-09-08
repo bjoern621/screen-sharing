@@ -144,6 +144,10 @@ type group struct {
 	// A fact about what the fields mean,
 	// so it is a column of this table rather than a rule each consumer restates.
 	applied bool
+	// publishReads marks a group a start is handed, so a control here with nothing left to pick
+	// refuses the publish rather than describing it (stranded.go).
+	// False where the same gap costs a tile instead of the stream.
+	publishReads bool
 }
 
 // Resolve answers what may be done with these settings and what the screen says about it.
@@ -179,15 +183,6 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	}
 
 	est := estimate(d, s)
-	diags := diagnostics(d, s, est)
-	if unreached {
-		diags = append([]*screensharev1.Diagnostic{diagnosticFor(
-			screensharev1.Severity_SEVERITY_ERROR, "",
-			text.Of(screensharev1.TextCode_TEXT_CODE_PRESET_UNREACHABLE,
-				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_PRESET, s.Publish.Preset),
-				text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, s.Publish.Transport)))}, diags...)
-	}
-
 	// What a fresh installation holds, which every field states beside its own value.
 	// Read once and handed down: the row functions that read the draft read this too,
 	// and Defaults asks the machine for its hostname.
@@ -199,10 +194,19 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	// of milliseconds where a shell resolves on a keystroke.
 	av := availabilityOf(d, s)
 
+	// The groups before the diagnostics, one of which reads them:
+	// a control with nothing left to pick is read off the flags a shell draws
+	// rather than evaluated a second time (stranded.go).
+	resolved := resolveGroups(av, d, s, fresh)
+	diags := diagnostics(d, s, est, resolved)
+	if unreached {
+		diags = append([]*screensharev1.Diagnostic{presetUnreached(s)}, diags...)
+	}
+
 	form := &screensharev1.Form{
 		Settings:          wire.Settings(s),
 		RepairedFieldKeys: repaired,
-		Groups:            resolveGroups(av, d, s, fresh),
+		Groups:            resolved,
 		Diagnostics:       diags,
 		Summary:           summarize(d, s, est),
 		Presets:           resolvePresets(d, s),
@@ -218,6 +222,15 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	assert.IsNotNil(form.GetSettings(), "a resolved form carries the draft it describes")
 	assert.Assert(len(form.GetGroups()) > 0, "a resolved form has something to draw", len(form.GetGroups()))
 	return form
+}
+
+// presetUnreached states that nothing this machine runs delivers what the followed preset promises.
+// It leads the list, being the verdict that stops the start on a draft the fields show as its seed.
+func presetUnreached(s settings.Settings) *screensharev1.Diagnostic {
+	return diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, "",
+		text.Of(screensharev1.TextCode_TEXT_CODE_PRESET_UNREACHABLE,
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_PRESET, s.Publish.Preset),
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, s.Publish.Transport)))
 }
 
 // resolveGroups renders the groups in table order, each holding the rows of fieldTable that name

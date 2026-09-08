@@ -46,6 +46,12 @@ package form
 // and it is drawn where a surface asks about the app rather than about what this machine sends
 // (docs/settings-editing.md).
 //
+// Which effect reads a group is a second column, publishReads.
+// A start is handed the source, what is shared, the encode, the audio, the leg and the relay,
+// so a control there with nothing left to pick is a stream that cannot go out.
+// The watch group is the viewer's, where the same gap costs one tile.
+// The app group describes no stream and waits on nothing.
+//
 // A group the backend reads without being handed it is applied rather than staged,
 // which form.proto states in full.
 // The relay poll dials the address for as long as the process runs,
@@ -55,12 +61,12 @@ package form
 // Such a group is written as it is edited, or a corrected address reaches the backend
 // only through a publish that is refused for not reaching the relay it would replace.
 var groups = []group{
-	{key: GroupSource},
-	{key: GroupShare},
-	{key: GroupQuality},
-	{key: GroupAudio},
-	{key: GroupTransport},
+	{key: GroupSource, publishReads: true},
+	{key: GroupShare, publishReads: true},
+	{key: GroupQuality, publishReads: true},
+	{key: GroupAudio, publishReads: true},
+	{key: GroupTransport, publishReads: true},
 	{key: GroupWatch},
-	{key: GroupRelay, applied: true},
+	{key: GroupRelay, applied: true, publishReads: true},
 	{key: GroupApp, applied: true},
 }

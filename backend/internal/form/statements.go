@@ -113,6 +113,7 @@ const (
 	monitorNotPriced       = screensharev1.TextCode_TEXT_CODE_MONITOR_NOT_PRICED
 	noPictureToPrice       = screensharev1.TextCode_TEXT_CODE_NO_PICTURE_TO_PRICE
 	ceilingHoldsQuality    = screensharev1.TextCode_TEXT_CODE_CEILING_HOLDS_QUALITY
+	nothingLeftToPick      = screensharev1.TextCode_TEXT_CODE_NOTHING_LEFT_TO_PICK
 	settingsStoreUnreadble = screensharev1.TextCode_TEXT_CODE_SETTINGS_STORE_UNREADABLE
 	presetStoreUnreadable  = screensharev1.TextCode_TEXT_CODE_PRESET_STORE_UNREADABLE
 )
@@ -144,6 +145,12 @@ func argTransport(v string) *screensharev1.TextArg {
 // or a transport, and giving it one of those names would say it was.
 func argValue(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_VALUE, v)
+}
+
+// argOption is the settings field a statement is about, spelled as a field key:
+// "publish.publish_transport", which is what a statement about a whole list names.
+func argOption(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_OPTION, v)
 }
 
 // argElement is a GStreamer element factory, which nobody picks:

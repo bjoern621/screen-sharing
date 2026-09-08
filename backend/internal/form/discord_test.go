@@ -91,7 +91,7 @@ func TestAnUnlinkedDiscordDraftIsRefused(t *testing.T) {
 	s.Relay.GroupSource = groupdomain.SourceDiscord
 	s.Relay.DiscordLink = ""
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if publishable(diags) {
 		t.Error("an unlinked install has no account to read a channel off, and this draft was publishable")
 	}
@@ -111,7 +111,7 @@ func TestALinkedDraftOutsideAnyChannelIsRefused(t *testing.T) {
 	s.Relay.GroupSource = groupdomain.SourceDiscord
 	s.Relay.DiscordLink = "link-secret"
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if publishable(diags) {
 		t.Error("outside any voice channel there is no group, and this draft was publishable")
 	}
@@ -134,7 +134,7 @@ func TestARefusedDiscordLinkIsRefusedByName(t *testing.T) {
 	s.Relay.GroupSource = groupdomain.SourceDiscord
 	s.Relay.DiscordLink = "link-secret"
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if publishable(diags) {
 		t.Error("a link the manager declines draws no group, and this draft was publishable")
 	}
@@ -155,7 +155,7 @@ func TestABrokeredDraftInsideAChannelPublishes(t *testing.T) {
 	s.Relay.DiscordLink = "link-secret"
 	s.Relay = s.Relay.WithBrokeredGroup("PREFIX/", "passphrase", "Bob")
 
-	diags := diagnostics(d, s, estimate(d, s))
+	diags := diagnostics(d, s, estimate(d, s), nil)
 	if !publishable(diags) {
 		t.Errorf("a brokered group is membership, and this draft was refused: %v", diags)
 	}

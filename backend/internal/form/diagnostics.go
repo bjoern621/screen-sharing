@@ -17,6 +17,10 @@ import (
 //
 // An anchor no shell has a widget for renders the diagnostic nowhere and reports nothing,
 // so every anchor a rule below writes is held against this list.
+//
+// Every control that offers entries is here.
+// Any one of them can be left with nothing to pick, and that statement anchors on the control
+// (stranded.go).
 var warningAnchors = []string{
 	KeyRelayHost, KeyRelayTls, KeyGroupSource, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
@@ -24,6 +28,7 @@ var warningAnchors = []string{
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
 	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyShareKind, KeyShareWindow, KeyShareRegion, KeyCaptureMemory,
+	KeyCursor, KeyTileWatchTransport, KeyRenderChain,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps,
@@ -45,8 +50,16 @@ var warningAnchors = []string{
 // capture backend, so its failure is the one authority on whether these settings can run.
 // A second evaluation here would enable the start button on settings the publish refuses,
 // the first time an engine gained a check this package did not know about.
-func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*screensharev1.Diagnostic {
+func diagnostics(
+	d Deps,
+	s settings.Settings,
+	est *screensharev1.Estimate,
+	groups []*screensharev1.FieldGroup,
+) []*screensharev1.Diagnostic {
 	out := make([]*screensharev1.Diagnostic, 0, 8)
+
+	// A refusal that names the control to open, so it leads.
+	out = append(out, diagnosticsAboutStrandedControls(groups)...)
 
 	// The refusal itself is prose and rides on Summary.command_error;
 	// the diagnostic states only that there is one.

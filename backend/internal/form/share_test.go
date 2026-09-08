@@ -132,7 +132,7 @@ func TestAnUnpickedTargetBlocksThePublish(t *testing.T) {
 	d := shareDeps()
 	for _, kind := range []string{share.Window, share.Region} {
 		s := shareDraft(kind)
-		if publishable(diagnostics(d, s, nil)) {
+		if publishable(diagnostics(d, s, nil, nil)) {
 			t.Errorf("a %s capture with nothing picked is publishable", kind)
 		}
 	}

@@ -593,6 +593,34 @@ public static class Statements
             TextCode.NoPictureToPrice =>
                 "No prediction is possible from these settings.",
 
+            // Every entry of one control is out, so the value the settings hold is out with them.
+            // The control names itself, the entries carry the reasons,
+            // and this says which of them is empty and what it cost.
+            TextCode.NothingLeftToPick => a.Option switch
+            {
+                "publish.capture" =>
+                    "Every capture method is unavailable on this computer, so nothing here can capture a screen. "
+                    + "Each entry says what it needs.",
+                "publish.format" =>
+                    "Every video format is unavailable on this computer, so nothing here can encode the picture. "
+                    + "Each entry says what it needs.",
+                "publish.encoder" =>
+                    "Every encoder is unavailable on this computer, so nothing here can produce this format. "
+                    + "Each entry says what it needs.",
+                "publish.publish_transport" =>
+                    "Every protocol is unavailable on this computer, so nothing here can carry the stream. "
+                    + "Each entry says what it needs.",
+                "viewer.tile_watch_transport" =>
+                    "Every protocol is unavailable on this computer, so nothing here can receive a stream. "
+                    + "Each entry says what it needs.",
+                "viewer.render_chain" =>
+                    "Every route is unavailable on this computer, so nothing here can draw a received picture. "
+                    + "Each entry says what it needs.",
+                _ =>
+                    $"Every entry of {Fields.Of(a.Option).Label} is unavailable on this computer, so there is "
+                    + "nothing to pick. Each one says what it needs.",
+            },
+
             TextCode.CeilingHoldsQuality =>
                 $"This quality target is predicted to need about {Decimal(a.BitrateMbps)} Mbit/s, above the "
                 + $"{Number(a.MaxrateMbps)} Mbit/s ceiling. The encoder stops at the ceiling and softens the "
@@ -798,6 +826,9 @@ public static class Statements
         public string Path => Id(TextArgName.Path);
 
         public string Value => Id(TextArgName.Value);
+
+        /// <summary>Settings field a statement is about, as a field key: <c>publish.publish_transport</c>.</summary>
+        public string Option => Id(TextArgName.Option);
 
         /// <summary>Where this copy of the app came from, e.g. "nix", "pacman".</summary>
         public string Channel => Id(TextArgName.Channel);
