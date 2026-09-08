@@ -182,6 +182,17 @@ No `git branch`, no `git checkout -b`, no `git switch -c`, including as a step t
 Either one takes an explicit instruction in the message asking for it, and that permission covers the one branch or worktree it named.
 A task that looks like it wants isolation is one to say so about, and the user decides.
 
+# Each finished change is committed
+
+A change that is done is committed before the reply reporting it.
+Done means the edit does what was asked, the build passes, and the tests covering it pass.
+
+One commit per coherent change.
+Edits that only make sense together land in one commit, and an edit that stands on its own gets its own.
+Unrelated work already sitting in the tree stays out of it.
+
+The message is prose under the `writing-style` skill.
+
 # Commits name no Claude author
 
 **Never add a `Co-Authored-By: Claude` trailer, or any other Claude or Anthropic co-author attribution, to a commit.**
