@@ -12,11 +12,12 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // A link the desktop handed over goes to the window already open, and this launch is over.
-        // Before Avalonia, so the process that carried the link draws nothing at all
-        // (Features/Shell/Model/LinkRelay.cs).
-        var link = LaunchLink.In(args);
-        if (link.Length > 0 && LinkRelay.TryHandOver(link))
+        // The window already open takes this launch, and the launch is over: one window per user, and one tray
+        // icon with it (Features/Shell/Model/LinkRelay.cs).
+        // Every launch: one carrying a link,
+        // and one a reader started off the desktop's icon over a window closed to the tray.
+        // Before Avalonia, so the process handed over draws nothing at all.
+        if (LinkRelay.TryHandOver(LaunchLink.In(args)))
         {
             return;
         }

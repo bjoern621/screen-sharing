@@ -83,6 +83,10 @@ tasks:
       # No icon in the tray: a checkout run ends on its close button,
       # and a second icon beside the installed app's says nothing about which window it opens.
       MIRRORME_TRAY: "0"
+      # Out of the hand-over a launch reaches the window already open through,
+      # the checkout and an installed app sharing that endpoint the way they share the backend's.
+      # On, this run exits into the installed window rather than drawing the build being worked on.
+      MIRRORME_ONE_WINDOW: "0"
     # No toolchain variable: this project links nothing through cgo, so MSYS2 stays out,
     # and the .NET SDK is on PATH either way,
     # system-wide on Windows and from the flake's dev shell on Linux and macOS,

@@ -8,13 +8,20 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
-/// The window already open, reached by a launch carrying a link.
+/// The window already open, reached by every later launch.
 ///
+/// One window per user, and one tray icon with it.
+/// A second shell draws a second grid and a second menu over the backend the first one is already using,
+/// and whichever of the two started that backend takes it down for both on its quit
+/// (<c>Backend/BackendProcess.cs</c>).
+/// A launch offers itself here first and exits where a window takes it,
+/// leaving the reader with the window they already had, which is the tray's open reached from outside.
+///
+/// A link rides the same hand-over.
 /// The desktop starts a process per link it hands over,
-/// so following one would draw a second window over the first
+/// so a link arrives as the launch carrying it,
+/// and the window follows it in place of drawing a second one
 /// (<c>packaging/linux/mirrorme.desktop</c>, <c>packaging/windows/mirrorme.iss</c>).
-/// A launch offers its link here first and exits where a window takes it, leaving the reader with the window
-/// they already had.
 ///
 /// Shell to shell rather than over the control contract: what a link opens is a tile in a window, and the grid
 /// is the shell's alone (<c>docs/ipc-api.md</c>, "The rule").
@@ -36,27 +43,51 @@ internal static class LinkRelay
     private const string SocketFileExtension = ".sock";
 
     /// <summary>
+    /// <c>0</c> leaves this shell out of the hand-over: it offers no launch of its own and takes no endpoint,
+    /// so a window already open keeps both.
+    ///
+    /// For a checkout run beside an installed app,
+    /// the two sharing this endpoint the way they share the backend's (<c>Backend/ControlEndpoint.cs</c>).
+    /// Off, a checkout run started second exits into the installed window without drawing,
+    /// and one started first swallows the launches the installed app was to answer.
+    /// </summary>
+    internal const string EnvOneWindow = "MIRRORME_ONE_WINDOW";
+
+    /// <summary>
     /// How long a launch waits on a window.
     /// Short: what the wait buys is one process exiting rather than drawing,
     /// and a machine with no window open pays it before every link it opens.
     /// </summary>
     private static readonly TimeSpan Deadline = TimeSpan.FromMilliseconds(500);
 
-    /// <summary>What a window answers once the link is its own. Anything else is a launch that draws.</summary>
+    /// <summary>What a window answers once the launch is its own. Anything else is a launch that draws.</summary>
     private const string Taken = "taken";
 
     /// <summary>
-    /// Offers a link to the window already open, and answers whether it took it.
+    /// What a launch carrying no link sends, a link being the only other thing written on this wire.
+    /// A line rather than nothing: a connection that writes nothing is a probe for a window
+    /// and gets no answer (<see cref="Answers"/>).
+    /// </summary>
+    private const string Raise = "raise";
+
+    /// <summary>
+    /// Offers this launch to the window already open, and answers whether it took it.
+    /// An empty <paramref name="link"/> is a launch that carried none, asking for the window alone.
     /// Blocking, and bounded by <see cref="Deadline"/>: what waits on it is the launch, before a window exists.
     /// </summary>
     public static bool TryHandOver(string link)
     {
-        Assert.That(link.Length > 0, "a hand-over carries a link");
+        Assert.NotNull(link, "a hand-over names what its launch carried");
+
+        if (!OneWindow() || !Exists())
+        {
+            return false;
+        }
 
         try
         {
             using var deadline = new CancellationTokenSource(Deadline);
-            return OfferAsync(link, deadline.Token).GetAwaiter().GetResult();
+            return OfferAsync(link.Length > 0 ? link : Raise, deadline.Token).GetAwaiter().GetResult();
         }
         catch (Exception)
         {
@@ -65,14 +96,33 @@ internal static class LinkRelay
     }
 
     /// <summary>
+    /// Whether the endpoint is there at all, asked before a connection is opened.
+    /// Every launch offers itself now, so the cold case is the common one, and a named pipe that is not there
+    /// reads as one not created yet: given the connection alone, a first launch waits out <see cref="Deadline"/>
+    /// before it draws anything (<c>Backend/ControlEndpoint.cs</c> bounds the same wait on the backend's pipe).
+    /// A path that exists and answers nothing still fails at the connection, and that launch draws its own window.
+    /// </summary>
+    private static bool Exists()
+        => File.Exists(OperatingSystem.IsWindows() ? @"\\.\pipe\" + PipeName() : SocketPath());
+
+    /// <summary>Whether this shell is in the hand-over at all (<see cref="EnvOneWindow"/>).</summary>
+    private static bool OneWindow() => Environment.GetEnvironmentVariable(EnvOneWindow) != "0";
+
+    /// <summary>
     /// Takes the endpoint,
-    /// so a later launch's link lands in <paramref name="take"/> rather than in a window of its own.
-    /// Idempotent, and silent where another window holds the endpoint: the links are that window's.
-    /// <paramref name="take"/> runs off the UI thread.
+    /// so a later launch lands in <paramref name="take"/> rather than in a window of its own.
+    /// <paramref name="take"/> gets the link that launch carried, empty where it carried none,
+    /// and runs off the UI thread.
+    /// Idempotent, and silent where another window holds the endpoint: the launches are that window's.
     /// </summary>
     public static void Listen(Action<string> take)
     {
-        Assert.NotNull(take, "a listener names what a link lands in");
+        Assert.NotNull(take, "a listener names what a launch lands in");
+
+        if (!OneWindow())
+        {
+            return;
+        }
 
         if (OperatingSystem.IsWindows())
         {
@@ -84,11 +134,11 @@ internal static class LinkRelay
         }
     }
 
-    private static async Task<bool> OfferAsync(string link, CancellationToken cancellation)
+    private static async Task<bool> OfferAsync(string carried, CancellationToken cancellation)
     {
         await using var stream = await OpenAsync(cancellation).ConfigureAwait(false);
 
-        var offer = Encoding.UTF8.GetBytes(link + "\n");
+        var offer = Encoding.UTF8.GetBytes(carried + "\n");
         await stream.WriteAsync(offer, cancellation).ConfigureAwait(false);
         await stream.FlushAsync(cancellation).ConfigureAwait(false);
 
@@ -121,7 +171,7 @@ internal static class LinkRelay
     }
 
     /// <summary>
-    /// A pipe of one instance, so the second window's creation fails and leaves the links to the first.
+    /// A pipe of one instance, so the second window's creation fails and leaves the launches to the first.
     /// </summary>
     private static void ListenOnPipe(Action<string> take)
     {
@@ -242,19 +292,19 @@ internal static class LinkRelay
     }
 
     /// <summary>
-    /// Reads one link off a connection, hands it over, and says so.
+    /// Reads what one launch carried off a connection, hands it over, and says so.
     /// The answer goes after the hand-over, it being what the launch waits for before it exits.
     /// </summary>
     private static async Task TakeAsync(Stream stream, Action<string> take)
     {
         using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
-        var link = await reader.ReadLineAsync().ConfigureAwait(false);
-        if (string.IsNullOrEmpty(link))
+        var carried = await reader.ReadLineAsync().ConfigureAwait(false);
+        if (string.IsNullOrEmpty(carried))
         {
             return;
         }
 
-        take(link);
+        take(carried == Raise ? "" : carried);
 
         await stream.WriteAsync(Encoding.UTF8.GetBytes(Taken + "\n")).ConfigureAwait(false);
         await stream.FlushAsync().ConfigureAwait(false);

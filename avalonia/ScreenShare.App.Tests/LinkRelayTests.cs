@@ -8,9 +8,7 @@ namespace ScreenShare.App.Tests;
 /// A launch carrying a link, and the window already open it offers the link to.
 /// Each test names an instance of its own, so a run never reaches the app running on this machine
 /// (<c>Backend/ControlEndpoint.cs</c>).
-/// That name is the process environment, so it runs alone (<see cref="ProcessEnvironment"/>).
 /// </summary>
-[Collection(ProcessEnvironment.Name)]
 public sealed class LinkRelayTests : IDisposable
 {
     private const string Link = "mirrorme://watch/G1/bob/monitor-0";
@@ -26,7 +24,11 @@ public sealed class LinkRelayTests : IDisposable
     public LinkRelayTests() => Environment.SetEnvironmentVariable(
         ControlEndpoint.EnvInstance, "test-" + Guid.NewGuid().ToString("n"));
 
-    public void Dispose() => Environment.SetEnvironmentVariable(ControlEndpoint.EnvInstance, _held);
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable(ControlEndpoint.EnvInstance, _held);
+        Environment.SetEnvironmentVariable(LinkRelay.EnvOneWindow, null);
+    }
 
     /// <summary>Whether the link landed inside the span given.</summary>
     private static async Task<bool> LandedAsync(Task<string> landing, TimeSpan within)
@@ -61,5 +63,46 @@ public sealed class LinkRelayTests : IDisposable
 
         Assert.True(await LandedAsync(first.Task, Crossing), "the window that took the endpoint takes the link");
         Assert.False(await LandedAsync(second.Task, Quiet), "one endpoint carries the links");
+    }
+
+    [Fact]
+    public async Task AWindowTakesALaunchCarryingNoLink()
+    {
+        var landed = new TaskCompletionSource<string>();
+        LinkRelay.Listen(link => landed.TrySetResult(link));
+
+        var handed = LinkRelay.TryHandOver("");
+
+        Assert.True(handed, "a window that is listening takes a launch carrying nothing");
+        Assert.True(await LandedAsync(landed.Task, Crossing), "the launch reaches the window");
+        Assert.Equal("", await landed.Task);
+    }
+
+    [Fact]
+    public void ALaunchWithNoWindowListeningDrawsItsOwn()
+        => Assert.False(LinkRelay.TryHandOver(""), "a launch nothing answers draws its own window");
+
+    [Fact]
+    public void AShellLeftOutOfTheHandOverTakesNoEndpoint()
+    {
+        Environment.SetEnvironmentVariable(LinkRelay.EnvOneWindow, "0");
+        LinkRelay.Listen(_ => { });
+        Environment.SetEnvironmentVariable(LinkRelay.EnvOneWindow, null);
+
+        Assert.False(LinkRelay.TryHandOver(Link), "an endpoint nothing took answers no launch");
+    }
+
+    [Fact]
+    public async Task AShellLeftOutOfTheHandOverOffersNoLaunch()
+    {
+        var landed = new TaskCompletionSource<string>();
+        LinkRelay.Listen(link => landed.TrySetResult(link));
+
+        Environment.SetEnvironmentVariable(LinkRelay.EnvOneWindow, "0");
+        var handed = LinkRelay.TryHandOver(Link);
+        Environment.SetEnvironmentVariable(LinkRelay.EnvOneWindow, null);
+
+        Assert.False(handed, "a shell left out draws its own window");
+        Assert.False(await LandedAsync(landed.Task, Quiet), "the window already open sees nothing of it");
     }
 }

@@ -146,15 +146,19 @@ public sealed partial class App : Application
                 _ = shell.FollowAsync(link);
             }
 
-            // Every later launch's link,
-            // which this window follows in place of the process that carried it in
-            // (Features/Shell/Model/LinkRelay.cs).
-            // The window comes forward with it:
+            // Every later launch (Features/Shell/Model/LinkRelay.cs),
+            // served here in place of the process that carried it in.
+            // Coming forward is the whole of a launch that carried nothing,
+            // the reader having pressed the desktop's icon over a window closed to the tray.
+            // A launch that carried a link comes forward too:
             // a stream drawn behind whatever the reader was looking at is a link that did nothing.
             LinkRelay.Listen(later => Dispatcher.UIThread.Post(() =>
             {
                 Raise();
-                _ = shell.FollowAsync(later);
+                if (later.Length > 0)
+                {
+                    _ = shell.FollowAsync(later);
+                }
             }));
         }
 

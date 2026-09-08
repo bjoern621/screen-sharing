@@ -371,6 +371,13 @@ The release line and the build are the same view models the status band draws, s
 
 The window closes to the tray, and the tray's quit is the one full shutdown, which a close runs where there is no tray.
 
+A launch while a window is open is that window, brought forward.
+The desktop's icon and a `mirrorme:` link both reach the shell already running, which raises its window and follows whatever the launch carried, and the process handed over exits before it draws anything (`Features/Shell/Model/LinkRelay.cs`).
+One window is one tray icon and one owner for the backend:
+a second shell draws a second grid and a second menu over the backend the first is already using, and the quit of whichever started that backend takes it down under both.
+`MIRRORME_ONE_WINDOW=0` leaves a shell out of that hand-over, offering no launch and taking no endpoint.
+`task avalonia` sets it, a checkout run and an installed app sharing this endpoint the way they share the backend's.
+
 The menu decides nothing.
 Its commit row presses the review's commit and the insights screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
 The preset rows are the rail card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
