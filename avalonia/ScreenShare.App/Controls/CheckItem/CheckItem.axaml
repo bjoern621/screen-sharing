@@ -14,68 +14,67 @@
   <ControlTheme x:Key="{x:Type controls:CheckItem}" TargetType="controls:CheckItem">
     <Setter Property="Template">
       <ControlTemplate>
-        <Grid ColumnDefinitions="Auto,*">
-          <!-- The badge is even, so the 12px glyph's slack splits into whole pixels and the ink lands centred. -->
-          <Border Name="Badge"
-                  Grid.Column="0"
-                  Width="16" Height="16"
-                  CornerRadius="{StaticResource RadiusSegment}"
-                  Background="{StaticResource ChipBorderBrush}"
-                  BorderThickness="1"
-                  BorderBrush="Transparent"
-                  VerticalAlignment="Top"
-                  Margin="0,1,0,0">
-            <ti:TablerIcon Name="Glyph"
-                           Classes="badge"
-                           Icon="{Binding $parent[controls:CheckItem].State, Converter={x:Static controls:CheckGlyphConverter.Instance}}"
-                           Brush="{StaticResource OnHueBrush}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-          </Border>
+        <!--
+          The whole line is the press to the step that fixes it (CheckItem.OnTapped),
+          so the fill covers the sentence as well as the label under it.
+          Transparent rather than unset, an unfilled border taking no pointer.
+          The padding is the room that fill needs, and the margin takes it back off the layout:
+          the badge keeps its column and the rows keep their gap.
+        -->
+        <Border Name="Row"
+                Background="Transparent"
+                CornerRadius="{StaticResource RadiusControl}"
+                Padding="6,4"
+                Margin="-6,-4">
+          <Grid ColumnDefinitions="Auto,*">
+            <!-- The badge is even, so the 12px glyph's slack splits into whole pixels and the ink lands centred. -->
+            <Border Name="Badge"
+                    Grid.Column="0"
+                    Width="16" Height="16"
+                    CornerRadius="{StaticResource RadiusSegment}"
+                    Background="{StaticResource ChipBorderBrush}"
+                    BorderThickness="1"
+                    BorderBrush="Transparent"
+                    VerticalAlignment="Top"
+                    Margin="0,1,0,0">
+              <ti:TablerIcon Name="Glyph"
+                             Classes="badge"
+                             Icon="{Binding $parent[controls:CheckItem].State, Converter={x:Static controls:CheckGlyphConverter.Instance}}"
+                             Brush="{StaticResource OnHueBrush}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+            </Border>
 
-          <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
-            <SelectableTextBlock Name="Body"
-                                 Text="{TemplateBinding Text}"
-                                 Classes="muted"
-                                 LineHeight="{StaticResource LineHeightSmall}" />
+            <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="5">
+              <SelectableTextBlock Name="Body"
+                                   Text="{TemplateBinding Text}"
+                                   Classes="muted"
+                                   LineHeight="{StaticResource LineHeightSmall}" />
 
-            <!--
-              The way to the control at fault, pressable where the list carries one.
-              The padding is the room a hover fill needs, and the margins take it back off the layout:
-              the label keeps the body's left edge, and the row below keeps its own gap.
-            -->
-            <Button Name="FixIn"
-                    Theme="{StaticResource LinkButton}"
-                    HorizontalAlignment="Left"
-                    Padding="7,3"
-                    Margin="-7,0,0,-3"
-                    Command="{TemplateBinding Fix}"
-                    IsVisible="{Binding $parent[controls:CheckItem].Fix, Converter={x:Static ObjectConverters.IsNotNull}}">
-              <TextBlock Classes="hint"
+              <!-- Where the fault is fixed. Text rather than a control, the press being the line around it. -->
+              <TextBlock Name="FixIn"
                          Text="{TemplateBinding FixedInStep}"
+                         Classes="hint"
                          TextWrapping="Wrap"
-                         TextTrimming="None" />
-            </Button>
-
-            <!-- Named step with no way to it: a hint, the list still saying where the fault is fixed. -->
-            <TextBlock Name="FixHint"
-                       Text="{TemplateBinding FixedInStep}"
-                       Classes="hint"
-                       TextWrapping="Wrap"
-                       TextTrimming="None">
-              <TextBlock.IsVisible>
-                <MultiBinding Converter="{x:Static BoolConverters.And}">
-                  <Binding Path="$parent[controls:CheckItem].FixedInStep"
-                           Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
-                  <Binding Path="$parent[controls:CheckItem].Fix"
-                           Converter="{x:Static ObjectConverters.IsNull}" />
-                </MultiBinding>
-              </TextBlock.IsVisible>
-            </TextBlock>
-          </StackPanel>
-        </Grid>
+                         TextTrimming="None"
+                         IsVisible="{Binding $parent[controls:CheckItem].FixedInStep,
+                                             Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+          </Grid>
+        </Border>
       </ControlTemplate>
     </Setter>
+
+    <!-- A line leading nowhere draws as text: no cursor, no fill, and the label still says where the fault is fixed. -->
+    <Style Selector="^:leads">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="^:leads:pointerover /template/ Border#Row">
+      <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
+    </Style>
+    <Style Selector="^:leads:pointerover /template/ TextBlock#FixIn">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
 
     <Style Selector="^[State=Passed] /template/ Border#Badge">
       <Setter Property="Background" Value="{StaticResource GoBrush}" />

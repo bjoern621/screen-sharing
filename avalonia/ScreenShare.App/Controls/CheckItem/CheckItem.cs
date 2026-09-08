@@ -1,6 +1,9 @@
 using System.Windows.Input;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using ScreenShare.App.Contracts;
 using TablerIcons;
 
@@ -32,9 +35,23 @@ public enum CheckState
 /// One line of the preflight list.
 /// Same list on every setup step and on the review, so a fault shows while a step can still fix it rather
 /// than at the end.
+/// The line itself is the press to the step that fixes it (<see cref="OnTapped"/>).
 /// </summary>
 public sealed class CheckItem : TemplatedControl
 {
+    /// <summary>Pseudo-class the hover fill and the hand cursor hang off (<c>CheckItem.axaml</c>).</summary>
+    private const string LeadsPseudoClass = ":leads";
+
+    /// <summary>How far a press may travel and still count as one. px.</summary>
+    private const double PressSlack = 3;
+
+    /// <summary>Where the pointer went down, in this control's pixels. Null outside a left press.</summary>
+    private Point? _pressedAt;
+
+    public CheckItem()
+        // Tunnelled: the sentence takes its own press for the selection, so the bubble never arrives here.
+        => AddHandler(PointerPressedEvent, RecordPress, RoutingStrategies.Tunnel);
+
     public static readonly StyledProperty<string> TextProperty =
         AvaloniaProperty.Register<CheckItem, string>(nameof(Text), "");
 
@@ -71,6 +88,48 @@ public sealed class CheckItem : TemplatedControl
     {
         get => GetValue(FixProperty);
         set => SetValue(FixProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == FixProperty)
+        {
+            PseudoClasses.Set(LeadsPseudoClass, change.GetNewValue<ICommand?>() is not null);
+        }
+    }
+
+    private void RecordPress(object? sender, PointerPressedEventArgs e)
+        => _pressedAt = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ? e.GetPosition(this) : null;
+
+    /// <summary>
+    /// A press anywhere on the line stands on the step that fixes it.
+    /// The sentence naming the fault is what a reader points at, so the label under it is not the target,
+    /// the line around it is.
+    /// A press that travelled was dragging over that sentence, which is left to select
+    /// (<c>CLAUDE.md</c>, "Every error message is selectable and copyable").
+    /// </summary>
+    protected override void OnTapped(TappedEventArgs e)
+    {
+        base.OnTapped(e);
+
+        var from = _pressedAt;
+        _pressedAt = null;
+
+        if (from is null || Fix?.CanExecute(null) != true)
+        {
+            return;
+        }
+
+        var travel = e.GetPosition(this) - from.Value;
+        if (Math.Abs(travel.X) > PressSlack || Math.Abs(travel.Y) > PressSlack)
+        {
+            return;
+        }
+
+        Fix.Execute(null);
+        e.Handled = true;
     }
 
     /// <summary>
