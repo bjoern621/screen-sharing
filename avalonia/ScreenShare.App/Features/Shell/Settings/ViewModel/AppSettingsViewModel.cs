@@ -42,9 +42,20 @@ public sealed class AppSettingsViewModel : Observable
     private readonly FormSession _form;
     private readonly Session _session;
     private readonly UpdateViewModel _updates;
+    private readonly Action<Action> _dispatch;
 
     /// <summary>One reset command per group key, kept so a pass produces an action equal to the last.</summary>
     private readonly Dictionary<string, DelegateCommand> _reset = [];
+
+    /// <summary>
+    /// Links this install to a Discord account.
+    /// The round trip holds while the person clicks through the browser leg,
+    /// so the button waits it out rather than sitting still.
+    /// </summary>
+    private readonly PendingCommand _linkDiscord;
+
+    /// <summary>What the last link attempt answered where it failed, empty otherwise.</summary>
+    private string _linkFailed = "";
 
     /// <param name="backend">Reaches the log directory, which is the backend's own (<c>docs/ipc-api.md</c>).</param>
     /// <param name="form">Draft this window holds, and where a write leaves through.</param>
@@ -65,6 +76,7 @@ public sealed class AppSettingsViewModel : Observable
         _form = form;
         _session = session;
         _updates = updates;
+        _dispatch = dispatch;
 
         Group = new FieldGroupViewModel(_form.Write, groupActionOf: ResetOf);
 
@@ -77,6 +89,14 @@ public sealed class AppSettingsViewModel : Observable
         // which still exist.
         OpenLogsFolder = new PendingCommand(() => backend.OpenLogsFolderAsync(), dispatch);
 
+        // The manager runs beside the relay, so a machine pointed at none has nothing to link against.
+        _linkDiscord = new PendingCommand(
+            () => LinkDiscordAsync(backend), dispatch, () => LinkRefusal().Length == 0);
+
+        // News that the draft, or the form behind it, moved.
+        // The button's own ground is in the draft, so a relay typed on a wizard step reaches this pass.
+        _form.Changed += Apply;
+
         Apply();
     }
 
@@ -88,6 +108,9 @@ public sealed class AppSettingsViewModel : Observable
     private bool _isDiscordLinked;
     private bool _discordLineIsFailure;
     private ByteString _discordAvatar = ByteString.Empty;
+    private string _linkLabel = "";
+    private string _linkTip = "";
+    private string _linkHint = "";
 
     /// <summary>Whether the dialog stands over the window.</summary>
     public bool IsOpen { get => _isOpen; private set => Set(ref _isOpen, value); }
@@ -129,8 +152,27 @@ public sealed class AppSettingsViewModel : Observable
     /// <summary>Build the backend answered with, empty until the first read lands.</summary>
     public string Version { get => _version; private set => Set(ref _version, value); }
 
-    /// <summary>Where this install stands with Discord, in one sentence.</summary>
+    /// <summary>
+    /// Where this install stands with Discord, in one sentence:
+    /// what the last link attempt answered where it failed, and the state the backend read otherwise.
+    /// </summary>
     public string DiscordLine { get => _discordLine; private set => Set(ref _discordLine, value); }
+
+    /// <summary>
+    /// Links this install to a Discord account, the browser leg running on the press.
+    /// Nothing is written here: the secret lands in the stored settings on the backend's side,
+    /// and the settings-changed announcement is what moves the draft.
+    /// </summary>
+    public PendingCommand LinkDiscord => _linkDiscord;
+
+    /// <summary>What the link button says, which follows the state it is pressed from.</summary>
+    public string LinkLabel { get => _linkLabel; private set => Set(ref _linkLabel, value); }
+
+    /// <summary>What the press does, since the label is three words.</summary>
+    public string LinkTip { get => _linkTip; private set => Set(ref _linkTip, value); }
+
+    /// <summary>Why the press is refused, empty while it is offered.</summary>
+    public string LinkHint { get => _linkHint; private set => Set(ref _linkHint, value); }
 
     /// <summary>
     /// Whether that sentence reports something broken, which draws it in the failure hue
@@ -173,9 +215,13 @@ public sealed class AppSettingsViewModel : Observable
 
         var discord = _session.Discord;
         IsDiscordLinked = discord?.Linked ?? false;
-        DiscordLine = AppSettingsCopy.DiscordLine(discord);
-        DiscordLineIsFailure = Links.StateIsFailure(discord);
+        DiscordLine = _linkFailed.Length > 0 ? _linkFailed : AppSettingsCopy.DiscordLine(discord);
+        DiscordLineIsFailure = _linkFailed.Length > 0 || Links.StateIsFailure(discord);
         DiscordAvatar = discord?.Avatar ?? ByteString.Empty;
+        LinkLabel = Links.Label(discord);
+        LinkTip = Links.Tip(discord);
+        LinkHint = LinkRefusal();
+        _linkDiscord.Refresh();
 
         Assert.That(
             Group.IsResolved || Group.Fields.Count == 0,
@@ -189,6 +235,54 @@ public sealed class AppSettingsViewModel : Observable
         Assert.That(
             !Group.IsResolved || TestStreams is not null,
             "a resolved app group always carries the test-stream toggle");
+    }
+
+    /// <summary>
+    /// Why no link can be drawn, empty while one can.
+    /// The manager runs beside the relay, so an unnamed relay leaves nothing to ask
+    /// (<c>docs/discord-mode.md</c>, "The manager").
+    /// </summary>
+    private string LinkRefusal()
+        => _form.Draft?.Relay is { Host.Length: > 0 }
+            ? ""
+            : "Set the relay address under Relay in Setup first. The Discord manager runs beside the relay.";
+
+    /// <summary>
+    /// Runs the link.
+    /// Nothing is written back: the secret lands in the stored settings on the backend's side,
+    /// and the settings-changed announcement is what moves the draft.
+    /// </summary>
+    private async Task LinkDiscordAsync(IBackend backend)
+    {
+        _linkFailed = "";
+        Apply();
+
+        var relay = _form.Draft?.Relay;
+        if (relay is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await backend.LinkDiscordAsync(relay).ConfigureAwait(false);
+            _dispatch(Apply);
+        }
+        catch (BackendUnavailableException e)
+        {
+            _dispatch(() => LinkFailed(e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+            _dispatch(() => LinkFailed(""));
+        }
+    }
+
+    /// <summary>Takes a link that did not land, on the UI loop.</summary>
+    private void LinkFailed(string reason)
+    {
+        _linkFailed = reason;
+        Apply();
     }
 
     /// <summary>

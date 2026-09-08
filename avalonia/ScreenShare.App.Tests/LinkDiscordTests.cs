@@ -1,230 +1,71 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Fields.ViewModel;
-using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
-using ScreenShare.App.Features.Shell.Settings.Model;
+using ScreenShare.App.Features.Shell.Settings.ViewModel;
+using ScreenShare.App.Features.Shell.Update.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The Discord toggle carries the button that links this install,
-/// so tying the group to a voice channel is reachable where the mode is switched on.
+/// The settings dialog carries the button that links this install.
+/// A link is one per computer and configures no stream, so it stands with the settings about the app
+/// rather than on the wizard step where a stream picks its group.
 /// The secret lands in the stored settings on the backend's side,
-/// which is why the press writes nothing here and the notice reads the session's Discord state.
+/// which is why the press writes nothing here and the line reads the session's Discord state.
 /// </summary>
 public sealed class LinkDiscordTests
 {
-    private static async Task<SetupViewModel> FlowAsync(SeededBackend backend)
+    private static readonly Action<Action> Inline = action => action();
+
+    /// <summary>Waits for a press that crossed the backend, the call answering off this thread.</summary>
+    private static async Task Eventually(Func<bool> landed)
     {
-        var flow = Flows.Setup(backend);
-        await flow.Settled;
-        return flow;
+        for (var i = 0; i < 200 && !landed(); i++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(landed());
     }
 
-    /// <summary>Toggle control, reached by moving the flow to the step the form puts the relay on.</summary>
-    private static FieldViewModel DiscordMode(SetupViewModel flow)
+    /// <summary>The dialog on its own draft, built the way the window builds it.</summary>
+    private static async Task<AppSettingsViewModel> DialogAsync(SeededBackend backend)
     {
-        flow.CurrentStep = "relay";
-        return flow.CurrentGroup!.Fields.Single(field => field.Key == RelayLayout.DiscordModeKey);
+        var session = new Session(backend, Inline);
+        var form = new FormSession(backend, session, Inline);
+        var updates = new UpdateViewModel(backend, session, Inline);
+        var settings = new AppSettingsViewModel(backend, form, session, updates, Inline);
+
+        // Stands in for the shell's own render pass (Features/Shell/ViewModel/ShellViewModel.cs).
+        session.Changed += settings.Apply;
+
+        _ = session.Start();
+        session.Stop();
+
+        await form.Settled;
+        return settings;
     }
 
     [Fact]
-    public async Task TheToggleCarriesTheButtonThatLinks()
+    public async Task TheDialogCarriesTheButtonThatLinks()
     {
-        var flow = await FlowAsync(new SeededBackend("linux"));
+        var settings = await DialogAsync(new SeededBackend("linux"));
 
-        Assert.True(DiscordMode(flow).HasAction);
-        Assert.Equal("Link Discord", DiscordMode(flow).Action!.Label);
-        Assert.True(DiscordMode(flow).Action!.Command.CanExecute(null));
+        Assert.Equal("Link Discord", settings.LinkLabel);
+        Assert.True(settings.LinkDiscord.CanExecute(null));
     }
 
     [Fact]
     public async Task APressRunsTheLinkAgainstTheDraftsRelay()
     {
         var backend = new SeededBackend("linux");
-        var flow = await FlowAsync(backend);
+        var settings = await DialogAsync(backend);
 
-        DiscordMode(flow).Action!.Command.Execute(null);
-        await flow.Settled;
+        settings.LinkDiscord.Execute(null);
 
-        var linked = Assert.Single(backend.DiscordLinks);
-        Assert.Equal(backend.RelayHost, linked.Host);
-    }
-
-    /// <summary>
-    /// The notice beside the button is the session's Discord state,
-    /// so what the reader stands in is readable without pressing anything.
-    /// </summary>
-    [Fact]
-    public async Task TheNoticeNamesTheChannelTheGroupFollows()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState
-            {
-                Linked = true, InChannel = true,
-                GuildName = "Guild", ChannelName = "General",
-            },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        // The notice reads the session's Discord state, so the session has to have loaded it,
-        // and the pass after that load is what composes the action row again.
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        // The channel is what the mode follows, so the draft holds it on for the notice to name one.
-        DiscordMode(flow).Flag = true;
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.True(DiscordMode(flow).HasActionNotice);
-        Assert.Contains("General", DiscordMode(flow).ActionNotice);
-        Assert.Contains("Guild", DiscordMode(flow).ActionNotice);
-    }
-
-    /// <summary>
-    /// The toggle decides what follows a voice channel and decides nothing about the link,
-    /// so the sentence beside the button reads the same on either side of it.
-    /// </summary>
-    [Fact]
-    public async Task TheNoticeReadsTheSameOnEitherSideOfTheToggle()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
-        var off = DiscordMode(flow).ActionNotice;
-
-        DiscordMode(flow).Flag = true;
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.Equal(off, DiscordMode(flow).ActionNotice);
-    }
-
-    /// <summary>
-    /// One fact, one sentence: the dialog and the button's notice draw the link from one place,
-    /// so neither ends the clause its own way.
-    /// </summary>
-    [Fact]
-    public async Task TheNoticeIsTheSentenceTheSettingsDialogDraws()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState
-            {
-                Linked = true, AccountName = "bjoern", InChannel = true,
-                GuildName = "Guild", ChannelName = "General",
-            },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.Equal(AppSettingsCopy.DiscordLine(backend.Discord), DiscordMode(flow).ActionNotice);
-    }
-
-    /// <summary>
-    /// A refused link is held by this install and declined by the manager, two facts,
-    /// so the notice states both rather than reading as an install that never linked.
-    /// </summary>
-    [Fact]
-    public async Task ARefusedLinkReadsAsLinkedAndRefused()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState { Linked = true, AccountName = "bjoern", LinkRefused = true },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.Contains("bjoern", DiscordMode(flow).ActionNotice);
-        Assert.Contains("does not recognize this link", DiscordMode(flow).ActionNotice);
-        Assert.DoesNotContain("Not linked yet", DiscordMode(flow).ActionNotice);
-        Assert.Equal("Link Discord again", DiscordMode(flow).Action!.Label);
-        // A refusal blocks sharing, so the sentence is drawn in the failure hue
-        // (docs/design-language.md, "Palette").
-        Assert.True(DiscordMode(flow).ActionNoticeIsFailure);
-    }
-
-    /// <summary>
-    /// A link the manager resolves says where sharing stands, which no hue answers,
-    /// so the notice keeps the hint it carries everywhere else.
-    /// </summary>
-    [Fact]
-    public async Task AResolvedLinkReadsAsAPlainNotice()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState
-            {
-                Linked = true, AccountName = "bjoern", InChannel = true,
-                GuildName = "Guild", ChannelName = "General",
-            },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.False(DiscordMode(flow).ActionNoticeIsFailure);
-    }
-
-    /// <summary>
-    /// The account labels the link the settings hold, so it reads with the mode off,
-    /// where no pass answers anything else about Discord.
-    /// </summary>
-    [Fact]
-    public async Task TheNoticeNamesTheLinkedAccount()
-    {
-        var backend = new SeededBackend("linux")
-        {
-            Discord = new DiscordState { Linked = true, AccountName = "bjoern" },
-        };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
-
-        Assert.Contains("bjoern", DiscordMode(flow).ActionNotice);
+        await Eventually(() => backend.DiscordLinks.Count == 1);
+        Assert.Equal(backend.RelayHost, backend.DiscordLinks[0].Host);
     }
 
     /// <summary>
@@ -235,25 +76,52 @@ public sealed class LinkDiscordTests
     public async Task ALinkedInstallIsOfferedAnotherAccount()
     {
         var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
-        var session = new Session(backend, action => action());
-        var flow = Flows.Setup(backend, session);
-        _ = session.Start();
-        while (!session.IsLoaded)
-        {
-            await Task.Delay(1);
-        }
-        await flow.Settled;
-        flow.Apply();
 
-        Assert.Equal("Link a different account", DiscordMode(flow).Action!.Label);
+        var settings = await DialogAsync(backend);
+
+        Assert.Equal("Link a different account", settings.LinkLabel);
     }
 
+    /// <summary>
+    /// A refused link is held by this install and declined by the manager, so the press it offers
+    /// draws a fresh secret for the account already named.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedLinkIsOfferedALinkAgain()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Discord = new DiscordState { Linked = true, AccountName = "bjoern", LinkRefused = true },
+        };
+
+        var settings = await DialogAsync(backend);
+
+        Assert.Equal("Link Discord again", settings.LinkLabel);
+    }
+
+    /// <summary>The manager sits beside the relay, so a machine pointed at none has nothing to link against.</summary>
     [Fact]
     public async Task AMachineWithNoRelayCannotLink()
     {
-        var flow = await FlowAsync(new SeededBackend("linux") { RelayHost = "" });
+        var settings = await DialogAsync(new SeededBackend("linux") { RelayHost = "" });
 
-        Assert.True(DiscordMode(flow).HasAction);
-        Assert.False(DiscordMode(flow).Action!.Command.CanExecute(null));
+        Assert.False(settings.LinkDiscord.CanExecute(null));
+        Assert.NotEmpty(settings.LinkHint);
+    }
+
+    /// <summary>
+    /// The relay step decides which group a stream goes to, and the link is neither that nor per stream,
+    /// so the toggle following a voice channel carries no button of its own.
+    /// </summary>
+    [Fact]
+    public async Task TheRelayStepCarriesNoLinkButton()
+    {
+        var flow = Flows.Setup(new SeededBackend("linux"));
+        await flow.Settled;
+        flow.CurrentStep = "relay";
+
+        var toggle = flow.CurrentGroup!.Fields.Single(field => field.Key == "relay.discord_mode");
+
+        Assert.False(toggle.HasAction);
     }
 }

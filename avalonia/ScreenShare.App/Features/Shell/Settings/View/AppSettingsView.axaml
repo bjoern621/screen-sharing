@@ -125,6 +125,24 @@
                                     TextTrimming="None"
                                     Sentence="{Binding DiscordLine}"
                                     Picture="{Binding DiscordAvatar}" />
+
+              <!--
+                A link is one per computer and configures no stream, so it stands here rather than on the
+                wizard step where a stream picks its group (docs/discord-mode.md, "Linking, once per install").
+                The press opens the browser and takes as long as the person does, so the button waits on it.
+              -->
+              <Button HorizontalAlignment="Left"
+                      Content="{Binding LinkLabel}"
+                      Command="{Binding LinkDiscord}"
+                      controls:Pending.IsActive="{Binding LinkDiscord.IsRunning}"
+                      ToolTip.Tip="{Binding LinkTip}" />
+
+              <!-- Beside the button rather than only on its hover, as the update check's reason is. -->
+              <SelectableTextBlock Classes="reason"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="None"
+                                   IsVisible="{Binding LinkHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding LinkHint}" />
             </StackPanel>
 
             <StackPanel Spacing="{StaticResource GapTight}">
