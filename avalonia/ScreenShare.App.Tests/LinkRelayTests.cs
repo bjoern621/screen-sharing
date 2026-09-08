@@ -8,7 +8,9 @@ namespace ScreenShare.App.Tests;
 /// A launch carrying a link, and the window already open it offers the link to.
 /// Each test names an instance of its own, so a run never reaches the app running on this machine
 /// (<c>Backend/ControlEndpoint.cs</c>).
+/// That name is the process environment, so it runs alone (<see cref="ProcessEnvironment"/>).
 /// </summary>
+[Collection(ProcessEnvironment.Name)]
 public sealed class LinkRelayTests : IDisposable
 {
     private const string Link = "mirrorme://watch/G1/bob/monitor-0";

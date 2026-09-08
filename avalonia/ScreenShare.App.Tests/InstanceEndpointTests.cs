@@ -6,10 +6,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Endpoint an instance serves, and the switch that leaves starting a backend to whoever started this shell.
-///
-/// One class, xunit running a class's tests in sequence and separate classes at once:
-/// the environment these write is the process's, so a second class touching it would read the first one's value.
+/// Writes the process environment, so it runs alone (<see cref="ProcessEnvironment"/>).
 /// </summary>
+[Collection(ProcessEnvironment.Name)]
 public sealed class InstanceEndpointTests : IDisposable
 {
     private readonly string? _instance = Environment.GetEnvironmentVariable(ControlEndpoint.EnvInstance);
