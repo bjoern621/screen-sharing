@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Setup.RegionPicker.Model"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.RegionPicker.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.RegionPicker.View.RegionPickerView"
+             x:DataType="vm:RegionPickerViewModel">
+
+  <!--
+    The drawn rectangle, in place of the text control the form's own would otherwise be drawn as.
+    A rectangle is dragged over the desktop, so the drag is the way in and the value reads back beside it.
+  -->
+
+  <controls:CardColumn Spacing="{StaticResource GapTight}" IsVisible="{Binding IsVisible}">
+
+    <!-- Selectable: the numbers are what a reader carries into a bug report. -->
+    <SelectableTextBlock Classes="figure"
+                         IsVisible="{Binding HasRegion}"
+                         Text="{Binding Region}" />
+
+    <TextBlock Classes="hint"
+               TextWrapping="Wrap"
+               TextTrimming="None"
+               IsVisible="{Binding !HasRegion}"
+               Text="{Binding Region}" />
+
+    <Button HorizontalAlignment="Left"
+            Command="{Binding DrawCommand}"
+            controls:Pending.IsActive="{Binding DrawCommand.IsRunning}"
+            ToolTip.Tip="{x:Static model:RegionCopy.DrawTip}">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ti:TablerIcon Classes="button" Icon="IconCrop" />
+        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+  </controls:CardColumn>
+</UserControl>

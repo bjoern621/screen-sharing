@@ -13,7 +13,7 @@ using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 using ScreenShare.App.Features.Setup.RelayCheck.ViewModel;
-using ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
+using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.ViewModel;
@@ -70,6 +70,12 @@ public sealed class SetupViewModel : Observable
         /// so copy naming a control is written once rather than once per entry.
         /// </summary>
         Audio,
+
+        /// <summary>
+        /// Group holding one question with three answers, drawn as the kind and the chooser it names.
+        /// The same model the dialog at the start press draws (Setup/ShareStep).
+        /// </summary>
+        Share,
 
         /// <summary>Terminal step: what blocks the publish, rather than a setting to edit.</summary>
         Review,
@@ -244,13 +250,6 @@ public sealed class SetupViewModel : Observable
         // and the copy over them is written once (Model/AudioLayout.cs).
         Audio = new AudioStepViewModel(Group(AudioLayout.GroupKey));
 
-        // The pictures over the source step's controls.
-        // The screen it is told to pick goes through the boundary every control writes through, so the grid
-        // and the list beneath it are two ways to one value rather than two values.
-        Screens = new ScreenPickerViewModel(
-            backend, session, dispatch,
-            monitor => Write(ShareLayout.MonitorKey, new FieldValue { Number = monitor }));
-
         // What answers on the relay, under the address and the ports it is read off.
         // The draft goes in as a function rather than a value: it is dialled at the press,
         // and the reader may have typed another address since the pass that drew the button (Setup/RelayCheck).
@@ -321,6 +320,7 @@ public sealed class SetupViewModel : Observable
 
     private bool _showsFields;
     private bool _showsQuality;
+    private bool _showsShare;
     private bool _showsAudio;
     private bool _showsReview;
     private bool _canGoBack;
@@ -343,11 +343,11 @@ public sealed class SetupViewModel : Observable
     public AudioStepViewModel Audio { get; }
 
     /// <summary>
-    /// Screens on offer, drawn from what is on them.
-    /// Above the source step's controls and nowhere else,
-    /// drawing nothing where this machine cannot show what one screen holds.
+    /// What the stream shares: the kind, then the chooser it names.
+    /// The dialog at the start press draws this same model, so the question looks the same in both places
+    /// (<see cref="ShareStep.ViewModel.ShareStepViewModel"/>).
     /// </summary>
-    public ScreenPickerViewModel Screens { get; }
+    public ShareStepViewModel Share => _picker.Step;
 
     /// <summary>What answers on the relay, under the connection step's controls and nowhere else.</summary>
     public RelayCheckViewModel RelayCheck { get; }
@@ -395,6 +395,11 @@ public sealed class SetupViewModel : Observable
     public bool ShowsQuality { get => _showsQuality; private set => Set(ref _showsQuality, value); }
 
     public bool ShowsAudio { get => _showsAudio; private set => Set(ref _showsAudio, value); }
+
+    /// <summary>
+    /// The share group, in the layout that puts the kind above the chooser it names.
+    /// </summary>
+    public bool ShowsShare { get => _showsShare; private set => Set(ref _showsShare, value); }
 
     /// <summary>
     /// Terminal step, drawing its read-back in the step column and its commit at the foot of the rail,
@@ -524,17 +529,15 @@ public sealed class SetupViewModel : Observable
         var content = ContentOf(current);
         ShowsFields = content == StepContent.Fields;
         ShowsQuality = content == StepContent.Quality;
+        ShowsShare = content == StepContent.Share;
         ShowsAudio = content == StepContent.Audio;
         ShowsReview = content == StepContent.Review;
         CurrentGroup = ShowsFields && current.Length > 0 ? Group(current) : null;
 
-        // The pictures over the source step.
-        // Which screen setting they are about is read out of the form like every other control,
-        // and whether they are drawn at all is the picker's own converge: it opens a screen capture per monitor,
-        // so it is told which step the reader stands on rather than left to draw whenever the flow renders.
-        Screens.Apply(
-            FieldOf(GroupOf(drawn, ShareLayout.GroupKey), ShareLayout.MonitorKey),
-            current == ShareLayout.GroupKey);
+        // The share question reads the form for itself.
+        // What it takes from here is which step the reader stands on: its screen chooser opens a capture
+        // per monitor, so it is told rather than left to draw whenever the flow renders.
+        Share.SetOnStep(current == ShareLayout.GroupKey);
 
         // The relay check, on the step holding the relay's own settings.
         // What it last found is its own to hold: a check reads the moment it was asked for,
@@ -567,12 +570,14 @@ public sealed class SetupViewModel : Observable
         _measure.Refresh();
         _createGroup.Refresh();
 
-        var forms = (ShowsFields ? 1 : 0) + (ShowsQuality ? 1 : 0) + (ShowsAudio ? 1 : 0) + (ShowsReview ? 1 : 0);
+        var forms = (ShowsFields ? 1 : 0) + (ShowsQuality ? 1 : 0) + (ShowsShare ? 1 : 0)
+            + (ShowsAudio ? 1 : 0) + (ShowsReview ? 1 : 0);
 
         Assert.That(Steps.Count == _steps.Count, "a chip per step", Steps.Count, _steps.Count);
         Assert.That(
             forms == 1,
-            "the main column draws exactly one step form", ShowsFields, ShowsQuality, ShowsAudio, ShowsReview);
+            "the main column draws exactly one step form",
+            ShowsFields, ShowsQuality, ShowsShare, ShowsAudio, ShowsReview);
         Assert.That(
             !ShowsFields || CurrentGroup is not null || _steps.Count == 0,
             "a fields step on a resolved form has a group to draw", current);
@@ -921,6 +926,7 @@ public sealed class SetupViewModel : Observable
     private static StepContent ContentOf(string key) => key switch
     {
         QualityLayout.GroupKey => StepContent.Quality,
+        ShareLayout.GroupKey => StepContent.Share,
         AudioLayout.GroupKey => StepContent.Audio,
         SetupSteps.SummaryKey => StepContent.Review,
         _ => StepContent.Fields,

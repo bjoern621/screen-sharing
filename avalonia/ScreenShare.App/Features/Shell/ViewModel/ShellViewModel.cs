@@ -3,8 +3,9 @@ using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Insights.ViewModel;
-using ScreenShare.App.Features.Setup.SharePicker.View;
+using ScreenShare.App.Features.Setup.RegionPicker.View;
 using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
+using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
@@ -126,10 +127,13 @@ public sealed class ShellViewModel : Observable
         // It reads the same draft and the same release answer the rest of the window does.
         AppSettings = new AppSettingsViewModel(backend, _form, _session, Update, dispatch);
 
-        // What the stream shares, asked at the press that starts one.
-        // Over the window like the app settings, the question belonging to the press rather than to a screen,
-        // and built before the flow that opens it (Features/Setup/SharePicker/ViewModel/SharePickerViewModel.cs).
-        SharePicker = new SharePickerViewModel(backend, _form, _session, RegionOverlay.DrawAsync, dispatch);
+        // What the stream shares, drawn on the wizard's own step and again over the window at the press
+        // that starts one. One model behind both placements, so the reader meets one question
+        // (Features/Setup/ShareStep/ViewModel/ShareStepViewModel.cs).
+        ShareStep = new ShareStepViewModel(backend, _form, _session, RegionOverlay.DrawAsync, dispatch);
+
+        // The dialog around it, built before the flow that opens it.
+        SharePicker = new SharePickerViewModel(ShareStep, _form);
 
         Setup = new SetupViewModel(backend, _form, _session, SharePicker, dispatch);
         Insights = new InsightsViewModel(backend, _form, _session, dispatch);
@@ -222,7 +226,13 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     public AppSettingsViewModel AppSettings { get; }
 
-    /// <summary>What the stream shares, drawn over the window at the press that starts one.</summary>
+    /// <summary>
+    /// What the stream shares, one question drawn on the wizard's step and inside the dialog below.
+    /// Held here because both placements take the one model.
+    /// </summary>
+    public ShareStepViewModel ShareStep { get; }
+
+    /// <summary>The dialog putting that question over the window at the press that starts a stream.</summary>
     public SharePickerViewModel SharePicker { get; }
 
     // --- The destinations ----------------------------------------------------------

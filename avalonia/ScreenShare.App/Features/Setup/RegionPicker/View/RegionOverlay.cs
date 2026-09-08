@@ -6,9 +6,10 @@ using Avalonia.Platform;
 using Avalonia.Input;
 using Avalonia.Media;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Setup.RegionPicker.Model;
 using ScreenShare.App.Features.Shell.Model;
 
-namespace ScreenShare.App.Features.Setup.SharePicker.View;
+namespace ScreenShare.App.Features.Setup.RegionPicker.View;
 
 /// <summary>
 /// Draws a rectangle on the desktop and answers what was drawn.
@@ -197,6 +198,6 @@ internal static class RegionOverlay
         var width = (int)Math.Round(Math.Abs(to.X - from.X) * screen.Scaling);
         var height = (int)Math.Round(Math.Abs(to.Y - from.Y) * screen.Scaling);
 
-        return width < SmallestSide || height < SmallestSide ? "" : $"{x},{y},{width}x{height}";
+        return width < SmallestSide || height < SmallestSide ? "" : ShareRegion.Format(x, y, width, height);
     }
 }

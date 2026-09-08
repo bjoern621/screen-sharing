@@ -9,7 +9,7 @@
              xmlns:advanced="using:ScreenShare.App.Features.Setup.AdvancedGroup.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
-             xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
+             xmlns:sharestep="using:ScreenShare.App.Features.Setup.ShareStep.View"
              xmlns:relaycheck="using:ScreenShare.App.Features.Setup.RelayCheck.View"
              xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              xmlns:ti="using:TablerIcons"
@@ -133,6 +133,16 @@
           </Panel>
 
           <!--
+            The share group's own layout: the kind above the chooser it names,
+            rather than a grid of screens over a question that has not been asked yet (Setup/ShareStep).
+            The dialog at the start press draws this same model.
+            The wrapper is load-bearing, as on the review step below.
+          -->
+          <Panel IsVisible="{Binding ShowsShare}">
+            <sharestep:ShareStepView DataContext="{Binding Share}" />
+          </Panel>
+
+          <!--
             Terminal step's read-back, in the same column every other step's form draws in,
             so the rail beside it is one column rather than a second one per step.
             The wrapper is load-bearing: IsVisible reads this view's model,
@@ -151,15 +161,6 @@
             (CostRail/View/CostRailView.axaml).
           -->
           <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsFields}">
-
-            <!--
-              Placed unconditionally and visible on its own terms:
-              it draws only on the step holding the screen setting,
-              and only where one screen can be read apart from another (Setup/ScreenPicker/ViewModel).
-              Above the group rather than in it, the renderer drawing a group in the backend's own order,
-              and a picture wedged mid-list would reach into a rendering this view does not own.
-            -->
-            <screens:ScreenPickerView DataContext="{Binding Screens}" />
 
             <!--
               No group, no card:

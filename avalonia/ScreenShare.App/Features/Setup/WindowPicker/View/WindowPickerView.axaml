@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Setup.WindowPicker.Model"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.WindowPicker.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.WindowPicker.View.WindowPickerView"
+             x:DataType="vm:WindowPickerViewModel">
+
+  <!--
+    One row per open window, in place of the dropdown the form's control would otherwise be drawn as.
+    Picking one writes what that control writes, so the two are one value rather than two.
+
+    The size rides on the right of the row: it is what tells two windows of one application apart,
+    and it sits where a reader compares one row against the next.
+  -->
+
+  <controls:CardColumn Spacing="{StaticResource GapTight}" IsVisible="{Binding IsVisible}">
+
+    <ItemsControl ItemsSource="{Binding Windows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="model:WindowChoice">
+          <Button Theme="{StaticResource OptionCard}"
+                  Classes.picked="{Binding IsSelected}"
+                  Margin="0,0,0,4"
+                  IsEnabled="{Binding IsEnabled}"
+                  Command="{Binding Select}">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Classes="optiontitle"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding Label}" />
+                <TextBlock Grid.Column="1"
+                           Classes="figure"
+                           Margin="10,0,0,0"
+                           IsVisible="{Binding HasSize}"
+                           Text="{Binding Size}" />
+              </Grid>
+
+              <!-- On the card and not a tip: a window that cannot be picked takes no pointer. -->
+              <SelectableTextBlock Classes="reason"
+                                   IsVisible="{Binding HasReason}"
+                                   Text="{Binding Reason}" />
+            </StackPanel>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="hint"
+               TextWrapping="Wrap"
+               TextTrimming="None"
+               IsVisible="{Binding IsEmpty}"
+               Text="{x:Static model:WindowCopy.Nothing}" />
+
+    <!--
+      The list is read when the question comes up, and the machine changes under it,
+      so a window opened since then is one press away.
+    -->
+    <Button HorizontalAlignment="Left"
+            Command="{Binding RefreshCommand}"
+            controls:Pending.IsActive="{Binding RefreshCommand.IsRunning}"
+            ToolTip.Tip="{x:Static model:WindowCopy.RefreshTip}">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ti:TablerIcon Classes="button" Icon="IconRefresh" />
+        <TextBlock Text="{x:Static model:WindowCopy.Refresh}" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+  </controls:CardColumn>
+</UserControl>

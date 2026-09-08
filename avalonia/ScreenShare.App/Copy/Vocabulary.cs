@@ -344,6 +344,23 @@ public sealed class Vocabulary
     }
 
     /// <summary>
+    /// The captured area of one window, at the width of a second line under its name.
+    /// Empty for a handle the last read does not carry, which is a window that closed.
+    /// </summary>
+    public string WindowSize(string handle)
+    {
+        foreach (var open in _windows)
+        {
+            if (open.Handle == handle)
+            {
+                return $"{open.Width} × {open.Height}";
+            }
+        }
+
+        return "";
+    }
+
+    /// <summary>
     /// A window, named by its title with the application beside it.
     /// A handle the last read does not carry answers with itself:
     /// the window was closed, and the number is what the settings still name.

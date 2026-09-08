@@ -1,6 +1,7 @@
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
+using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
 
@@ -26,7 +27,8 @@ public class SharePickerTests
     {
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
-        picker = new SharePickerViewModel(backend, form, session, () => Task.FromResult(region), Inline);
+        var step = new ShareStepViewModel(backend, form, session, () => Task.FromResult(region), Inline);
+        picker = new SharePickerViewModel(step, form);
 
         var flow = new SetupViewModel(backend, form, session, picker, Inline);
         session.Start();
@@ -35,9 +37,9 @@ public class SharePickerTests
         return flow;
     }
 
-    /// <summary>One control of the dialog, by the key the backend named it with.</summary>
+    /// <summary>One control of the question, by the key the backend named it with.</summary>
     private static FieldViewModel Control(SharePickerViewModel picker, string key)
-        => picker.Group.Fields.Single(control => control.Key == key);
+        => picker.Step.Group.Fields.Single(control => control.Key == key);
 
     /// <summary>Picks one entry of a control, the way a press on its row does.</summary>
     private static void Pick(SharePickerViewModel picker, string key, string value)
@@ -99,7 +101,7 @@ public class SharePickerTests
 
         flow.Review.StartSharingCommand.Execute(null);
         Pick(picker, "publish.share_kind", "window");
-        Pick(picker, "publish.share_window", "5150");
+        picker.Step.Windows.Windows.Single(row => row.Handle == "5150").Select.Execute(null);
         picker.ConfirmCommand.Execute(null);
 
         Assert.False(picker.IsOpen);
@@ -121,8 +123,8 @@ public class SharePickerTests
         flow.Review.StartSharingCommand.Execute(null);
         Pick(picker, "publish.share_kind", "region");
 
-        Assert.True(picker.DrawsRegion);
-        picker.DrawRegionCommand.Execute(null);
+        Assert.True(picker.Step.Region.IsVisible);
+        picker.Step.Region.DrawCommand.Execute(null);
         picker.ConfirmCommand.Execute(null);
 
         var started = Assert.Single(backend.Started);
@@ -144,29 +146,8 @@ public class SharePickerTests
         Pick(picker, "publish.share_kind", "region");
         Control(picker, "publish.share_region").Text = "0,0,640x480";
 
-        picker.DrawRegionCommand.Execute(null);
+        picker.Step.Region.DrawCommand.Execute(null);
 
-        Assert.Equal(
-            "0,0,640x480",
-            Control(picker, "publish.share_region").Text);
-    }
-
-    /// <summary>
-    /// The window control offers the handles the backend named,
-    /// and reads their titles off the list the dialog asked for,
-    /// so a reader picks by what the window is called.
-    /// </summary>
-    [Fact]
-    public void TheWindowListNamesEveryHandleItOffers()
-    {
-        var backend = new PublishingBackend(asksWhatToShare: true);
-        var flow = Flow(backend, out var picker);
-
-        flow.Review.StartSharingCommand.Execute(null);
-        Pick(picker, "publish.share_kind", "window");
-
-        var windows = Control(picker, "publish.share_window");
-        Assert.Equal(["4242", "5150"], windows.Options.Select(option => option.Value));
-        Assert.Equal(["Notes · notepad", "Build log · code"], windows.Options.Select(option => option.Label));
+        Assert.Equal("640 × 480 at 0, 0", picker.Step.Region.Region);
     }
 }

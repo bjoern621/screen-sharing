@@ -371,7 +371,7 @@ A window closed to the tray draws nothing, so the card's decode closes and its t
 
 ## What the screen picker draws
 
-The wizard's source step offers a picture of every monitor, so a screen is chosen by looking at it.
+The share question offers a picture of every monitor under the kind naming one, so a screen is chosen by looking at it.
 It is the third consumer of the frame channel and the only one that decodes nothing.
 
 It is the same rectangle the stream would carry, both being built from one head, a preview cropped differently being a picture that lies about what is shared.
@@ -381,7 +381,7 @@ A publish preview exists because a publish does, where a screen is read because 
 The ask is idempotent in both directions and the running set is announced to every shell.
 
 **Previews outlive the window that asked for one, exactly as decodes do**, which is what makes the set worth announcing: a shell that restarted reads it and closes what nothing is drawing.
-The shell's own rule is narrower, opening them while the reader stands on the source step with the window in front.
+The shell's own rule is narrower, opening them while the share question is on screen with the window in front.
 
 **The pacing and the size are the preview's own.**
 Five frames a second is what tells one screen from another.

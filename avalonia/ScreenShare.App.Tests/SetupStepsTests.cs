@@ -91,6 +91,13 @@ public sealed class SetupStepsTests
                 continue;
             }
 
+            if (step.Key == ShareLayout.GroupKey)
+            {
+                Assert.True(flow.ShowsShare);
+                Assert.True(flow.Share.Group.IsResolved);
+                continue;
+            }
+
             Assert.True(flow.ShowsFields);
             Assert.NotNull(flow.CurrentGroup);
             Assert.True(flow.CurrentGroup!.IsResolved);

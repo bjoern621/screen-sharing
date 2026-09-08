@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:regions="using:ScreenShare.App.Features.Setup.RegionPicker.View"
+             xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ShareStep.ViewModel"
+             xmlns:windows="using:ScreenShare.App.Features.Setup.WindowPicker.View"
+             x:Class="ScreenShare.App.Features.Setup.ShareStep.View.ShareStepView"
+             x:DataType="vm:ShareStepViewModel">
+
+  <!--
+    What the stream shares: the kind, then the one chooser that kind names.
+
+    No heading of the card's own.
+    The group holds this one question, so the kind's own row states it,
+    and a heading above it would put one question on the card twice.
+
+    The three choosers are placed unconditionally and draw on their own terms:
+    each reads the control it writes, which the backend hides under the two kinds it does not name
+    (Features/Setup/Model/ShareLayout.cs).
+  -->
+
+  <Border Classes="card" Padding="16,14" IsVisible="{Binding Group.IsResolved}">
+    <controls:CardColumn Spacing="{StaticResource GapPanel}">
+
+      <!--
+        Drawn through the shared row, so the kind keeps the greying, the refusals and the disclosure
+        every other choice control has (Features/Fields/View/FieldRow.axaml).
+      -->
+      <ContentControl Content="{Binding Kind}"
+                      ContentTemplate="{StaticResource FieldRow}"
+                      IsVisible="{Binding Kind, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+      <screens:ScreenPickerView DataContext="{Binding Screens}" />
+      <windows:WindowPickerView DataContext="{Binding Windows}" />
+      <regions:RegionPickerView DataContext="{Binding Region}" />
+
+      <!-- Anything the group grows past the question, in the backend's own order. -->
+      <ItemsControl ItemsSource="{Binding Rest}" ItemTemplate="{StaticResource FieldRow}" />
+    </controls:CardColumn>
+  </Border>
+</UserControl>

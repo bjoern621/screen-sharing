@@ -82,7 +82,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Features/Tray/` | the tray icon: its menu model, the view model pressing the destinations' own commands, and the host drawing the platform icon |
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
-| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets. Also the share picker, which draws one of those groups again in a dialog at the press that starts a stream |
+| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, the share question with a chooser per kind, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets. The share question is drawn again in a dialog at the press that starts a stream, one model behind both |
 | `Features/Insights/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and its rail: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding how this machine receives |
 

@@ -2,6 +2,7 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
+using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
 
@@ -597,12 +598,16 @@ internal static class Flows
     private static readonly Action<Action> Inline = action => action();
 
     /// <summary>
-    /// The picker the wizard asks before it starts a stream.
+    /// What the stream shares, drawn on the wizard's step and inside the dialog.
     /// Its region overlay answers empty, no test drawing a rectangle on a real desktop:
     /// what a drawn one does to the draft is the field's own write, which every other control shares.
     /// </summary>
-    public static SharePickerViewModel Picker(IBackend backend, FormSession form, Session session)
+    public static ShareStepViewModel Share(IBackend backend, FormSession form, Session session)
         => new(backend, form, session, () => Task.FromResult(""), Inline);
+
+    /// <summary>The dialog the wizard puts that question in before it starts a stream.</summary>
+    public static SharePickerViewModel Picker(IBackend backend, FormSession form, Session session)
+        => new(Share(backend, form, session), form);
 
     public static SetupViewModel Setup(IBackend backend, Session session)
     {

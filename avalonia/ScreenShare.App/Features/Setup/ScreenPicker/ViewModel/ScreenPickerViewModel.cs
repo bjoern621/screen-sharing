@@ -18,7 +18,7 @@ namespace ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
 /// both read through on every pass (<c>docs/ipc-api.md</c>).
 /// The pictures and their arrangement are what this adds.
 ///
-/// The previews are the only state owned here: up while the reader stands on this step with the window in front,
+/// The previews are the only state owned here: up while the share question is on screen with the window in front,
 /// down as soon as either stops holding.
 /// Converged rather than sequenced, so a second pass over unchanged input opens nothing and closes nothing
 /// (<see cref="Converge"/>).
@@ -64,8 +64,8 @@ public sealed class ScreenPickerViewModel : Observable
     /// <summary>Control in the tree, in a window that is in front. Written by the view.</summary>
     private bool _showing;
 
-    /// <summary>Reader standing on the step this belongs to. Written by the flow.</summary>
-    private bool _onStep;
+    /// <summary>Question this grid answers is on screen. Written by the step drawing it.</summary>
+    private bool _drawn;
 
     /// <summary><c>publish.monitor</c> as the form last resolved it. Null before a form arrives.</summary>
     private Field? _field;
@@ -120,14 +120,14 @@ public sealed class ScreenPickerViewModel : Observable
     // --- Inputs -------------------------------------------------------------------
 
     /// <summary>
-    /// Screen setting as the form resolved it, and which step the reader stands on.
-    /// Both are the flow's to say.
+    /// Screen setting as the form resolved it, and whether the question it answers is on screen.
+    /// Both are the step's to say.
     /// Neither is read off a widget.
     /// </summary>
-    public void Apply(Field? monitor, bool onStep)
+    public void Apply(Field? monitor, bool drawn)
     {
         _field = monitor;
-        _onStep = onStep;
+        _drawn = drawn;
         Render();
     }
 
@@ -209,7 +209,7 @@ public sealed class ScreenPickerViewModel : Observable
             return Cards.ScreenPickerCost;
         }
 
-        if (_onStep && _session.NoMonitorPreview is not null && Editable())
+        if (_drawn && _session.NoMonitorPreview is not null && Editable())
         {
             return Statements.Of(_session.NoMonitorPreview);
         }
@@ -218,12 +218,17 @@ public sealed class ScreenPickerViewModel : Observable
     }
 
     /// <summary>
-    /// Whether a screen is the reader's to pick: the form left the setting editable
+    /// Whether a screen is the reader's to pick: the form is offering the setting, left it editable,
     /// and something was enumerated to pick between.
-    /// Both hold before the absence of pictures is worth a word,
+    /// All three hold before the absence of pictures is worth a word,
     /// a capture backend that chooses its own source already explaining itself on the disabled control.
+    ///
+    /// The visibility read is what ties the grid to the kind:
+    /// the backend hides this control under a window and a rectangle
+    /// (<c>backend/internal/form/share.go</c>).
     /// </summary>
-    private bool Editable() => (_field?.Enabled ?? false) && _session.Monitors.Count > 0;
+    private bool Editable()
+        => (_field?.Visible ?? false) && (_field?.Enabled ?? false) && _session.Monitors.Count > 0;
 
     /// <summary>
     /// Whether the grid has anything to draw: the reader on this step with the window in front,
@@ -231,7 +236,7 @@ public sealed class ScreenPickerViewModel : Observable
     /// Every one is read through rather than remembered,
     /// so a capture backend changed on the step above takes the grid away on the next pass with nothing here to clear.
     /// </summary>
-    private bool Offered() => _onStep && _showing && _session.NoMonitorPreview is null && Editable();
+    private bool Offered() => _drawn && _showing && _session.NoMonitorPreview is null && Editable();
 
     /// <summary>
     /// Opens the previews the grid wants and closes the ones it does not.
