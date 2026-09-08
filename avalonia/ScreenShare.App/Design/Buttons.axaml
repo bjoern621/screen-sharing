@@ -290,4 +290,28 @@
   -->
   <ControlTheme x:Key="OptionCard" TargetType="Button" BasedOn="{StaticResource CardButton}" />
 
+  <!--
+    A picture is the target, so the button brings no ground and no outline of its own:
+    the tile inside draws both, and what is picked is marked on the picture
+    (Features/Setup/ScreenPicker/View).
+    Height unset, the shared skin's fixed one standing shorter than a picture and cutting it off.
+    Hover and press keep the shared skin's fills, which land beside the picture on the caption's ground.
+    Greyed, the fill goes: half a card behind a caption reads as a control drawn wrong,
+    and the sentence under the card says why the screen cannot be picked.
+  -->
+  <ControlTheme x:Key="TileButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusTile}" />
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+  </ControlTheme>
+
 </ResourceDictionary>

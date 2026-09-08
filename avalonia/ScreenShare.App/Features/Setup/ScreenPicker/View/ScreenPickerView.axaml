@@ -25,11 +25,10 @@
 
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="model:ScreenChoice">
-          <Button Classes="bare"
+          <Button Theme="{StaticResource TileButton}"
                   Command="{Binding Select}"
                   IsEnabled="{Binding IsEnabled}"
-                  Margin="0,0,10,10"
-                  Padding="0">
+                  Margin="0,0,10,10">
             <StackPanel Width="216" Spacing="5">
 
               <Panel>

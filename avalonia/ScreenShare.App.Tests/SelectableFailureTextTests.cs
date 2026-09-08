@@ -25,7 +25,7 @@ public sealed class SelectableFailureTextTests
     {
         var unselectable = new List<string>();
 
-        foreach (var view in Views())
+        foreach (var view in Markup.Views())
         {
             var markup = File.ReadAllText(view);
             foreach (Match element in Element.Matches(markup))
@@ -47,21 +47,5 @@ public sealed class SelectableFailureTextTests
 
         Assert.True(unselectable.Count == 0,
             $"a failure sentence is a SelectableTextBlock: {string.Join(", ", unselectable)}");
-    }
-
-    /// <summary>Every view in the app, off the checkout the tests were built from.</summary>
-    private static IEnumerable<string> Views()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "ScreenShare.App", "App.axaml")))
-        {
-            directory = directory.Parent;
-        }
-
-        Assert.NotNull(directory);
-        var separator = Path.DirectorySeparatorChar;
-        return Directory.EnumerateFiles(Path.Combine(directory.FullName, "ScreenShare.App"), "*.axaml",
-                SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{separator}obj{separator}") && !path.Contains($"{separator}bin{separator}"));
     }
 }
