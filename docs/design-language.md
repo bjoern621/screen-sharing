@@ -220,6 +220,7 @@ It is the one string that has to leave the app for a bug report, a search box or
 A caps negotiation or a relay address is not something anyone retypes off a screen.
 Selectable text is a `SelectableTextBlock` carrying the role of the prose beside it, drawing its selection in the pair "Selection" states.
 It wraps: an ellipsis would eat the tail of the address the reader came for.
+Selection is the whole affordance, with no right-click menu hanging off it: a one-row Copy menu repeats the drag and Ctrl+C, and it swallows the right-click the surface under it waits for.
 What decides is whether the string reports a failure: a hint saying what a relay answered is error text, one explaining what a control does is not.
 A disabled control hands its subtree no pointer, so a reason drawn inside a refused card or dropdown row is read where it stands.
 

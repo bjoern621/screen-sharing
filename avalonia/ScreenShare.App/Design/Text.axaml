@@ -2,6 +2,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
+    Fluent's theme for a selectable line, replaced by an empty one.
+    It hangs a one-row Copy menu off every SelectableTextBlock, over what the drag and Ctrl+C already do,
+    and it swallows the right-click the surface underneath waits for.
+    Its one other setter is the selection brush, which the role below states.
+    A theme setter outranks a style setter, so a Style cannot say this.
+  -->
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type SelectableTextBlock}" TargetType="SelectableTextBlock" />
+  </Styles.Resources>
+
+  <!--
     The text roles as one table: a view names the role a line plays and states no size, weight or colour.
     One family carries all of them but the transcript (Design/Typography.axaml), so a role differs from
     its neighbour by those three.
