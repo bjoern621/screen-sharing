@@ -30,6 +30,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/text"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -41,6 +42,10 @@ import (
 // because a test resolves a form for a machine it is not running on.
 type Deps struct {
 	Monitors []display.Monitor
+	// Windows is what this machine has open, enumerated once and read back (internal/window).
+	// Empty is a session that lists no windows and one where nothing is open,
+	// which the share kind tells apart by asking the session rather than counting this list.
+	Windows  []window.Window
 	Platform platform.Info
 	// Device is the video driver an encode would run through.
 	// The zero value is a machine that named no driver, which carries no defect

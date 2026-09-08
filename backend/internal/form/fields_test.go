@@ -18,6 +18,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
+	"bjoernblessin.de/screenshare/internal/window"
 )
 
 // fieldDeclaredKeys is every constant in keys.go, written out because Go has no reflection
@@ -31,7 +32,7 @@ var fieldDeclaredKeys = []string{
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
-	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
+	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyShareKind, KeyShareWindow, KeyShareRegion, KeyCaptureMemory,
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
@@ -43,7 +44,7 @@ var fieldDeclaredKeys = []string{
 
 // fieldDeclaredGroups is every group key, written out for the same reason.
 var fieldDeclaredGroups = []string{
-	GroupSource, GroupQuality, GroupAudio,
+	GroupSource, GroupShare, GroupQuality, GroupAudio,
 	GroupTransport, GroupWatch, GroupRelay, GroupApp,
 }
 
@@ -55,6 +56,8 @@ func fieldTestDeps() Deps {
 			{Index: 0, Width: 2560, Height: 1440, RefreshHz: 144, Primary: true},
 			{Index: 1, Width: 1920, Height: 1080, RefreshHz: 60},
 		},
+		// One window open, so the control offering them offers something.
+		Windows: []window.Window{{Handle: 4242, Title: "Notes", App: "notepad", Width: 800, Height: 600}},
 	}
 }
 
@@ -237,7 +240,7 @@ func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 // so a key the surface has never heard of renders as an unnamed run of fields.
 func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	declared := []string{
-		GroupSource, GroupQuality, GroupAudio,
+		GroupSource, GroupShare, GroupQuality, GroupAudio,
 		GroupTransport, GroupWatch, GroupRelay, GroupApp,
 	}
 	seen := make(map[string]bool, len(groups))
@@ -990,12 +993,13 @@ func TestACaptureBackendBehindAPrivilegeSaysSoOnItsEntry(t *testing.T) {
 }
 
 // The contract reserves the radio for a closed set whose entries carry a paragraph each,
-// which the rate-control mode is and no other field here is.
-// A second radio would be a decision about layout made in the wrong place.
-func TestTheRateControlModeIsTheOnlyRadio(t *testing.T) {
+// which the rate-control mode and the share kind are and no other field here is.
+// A radio anywhere else would be a decision about layout made in the wrong place.
+func TestTheRadioIsReservedForTheTwoClosedSets(t *testing.T) {
+	radios := []string{KeyMode, KeyShareKind}
 	for _, f := range fieldTable {
 		radio := f.control == screensharev1.ControlKind_CONTROL_KIND_RADIO
-		if radio != (f.key == KeyMode) {
+		if radio != slices.Contains(radios, f.key) {
 			t.Errorf("%s is drawn as %v", f.key, f.control)
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -142,6 +143,14 @@ func (a *App) measureEncodeRate(ctx context.Context, s settings.Settings) (encod
 // and the form behind them resolves on every keystroke (display.Recent).
 func (a *App) Monitors() []display.Monitor {
 	return display.Recent()
+}
+
+// Windows is what this machine has open, for a shell to pick a capture source from.
+// The bounded read rather than the live one, as Monitors is:
+// both callers are shell reads and the form behind them resolves on every keystroke
+// (window.Recent).
+func (a *App) Windows() []window.Window {
+	return window.Recent()
 }
 
 // Platform is what a capture backend's availability is decided against:

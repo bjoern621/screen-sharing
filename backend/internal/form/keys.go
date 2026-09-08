@@ -67,8 +67,14 @@ const (
 	KeyAudioCodec        = "publish.audio_codec"
 	KeyDrmMap            = "publish.drm_map"
 	KeyMonitor           = "publish.monitor"
-	KeyCaptureMemory     = "publish.capture_memory"
-	KeyCursor            = "publish.cursor"
+	// What of this machine is captured, and the field the picked kind names.
+	// One control decides the kind and each of the three targets has a control of its own,
+	// so the two the kind does not name are drawn nowhere (availability.go).
+	KeyShareKind     = "publish.share_kind"
+	KeyShareWindow   = "publish.share_window"
+	KeyShareRegion   = "publish.share_region"
+	KeyCaptureMemory = "publish.capture_memory"
+	KeyCursor        = "publish.cursor"
 
 	KeySrtPublishLatencyMs = "publish.srt_publish_latency_ms"
 	KeyRtspPublishProtocol = "publish.rtsp_publish_protocol"
@@ -105,6 +111,7 @@ const (
 // A screen is grouped by what the user is deciding and a message by what the value belongs to,
 // so neither list is derived from the other and one group may hold keys from several messages.
 const (
+	GroupShare     = "share"
 	GroupSource    = "source"
 	GroupQuality   = "quality"
 	GroupAudio     = "audio"

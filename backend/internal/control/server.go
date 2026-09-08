@@ -32,6 +32,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/update"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -52,6 +53,7 @@ type Backend interface {
 	// StoreNotice says why the persisted settings could not be restored, nil where they were.
 	StoreNotice() *screensharev1.Text
 	Monitors() []display.Monitor
+	Windows() []window.Window
 	// Platform names the OS and, on Linux, the display server.
 	Platform() platform.Info
 	// Device names the video driver an encode runs through,

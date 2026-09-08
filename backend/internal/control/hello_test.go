@@ -25,6 +25,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/update"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -56,6 +57,7 @@ type fakeBackend struct {
 func (f *fakeBackend) Settings() settings.Settings                    { return f.settings }
 func (f *fakeBackend) StoreNotice() *screensharev1.Text               { return nil }
 func (f *fakeBackend) Monitors() []display.Monitor                    { return nil }
+func (f *fakeBackend) Windows() []window.Window                       { return nil }
 func (f *fakeBackend) Platform() platform.Info                        { return platform.Info{} }
 func (f *fakeBackend) Device() capabilities.Device                    { return capabilities.Device{} }
 func (f *fakeBackend) Encoders(context.Context) encoders.Availability { return encoders.Availability{} }

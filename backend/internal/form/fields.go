@@ -114,12 +114,36 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Capture) },
 		options: optionCaptures,
 	},
+	// What is shared: the kind, and one control per target the kinds name.
+	// The kind leads, the two targets it does not name being drawn nowhere (availability.go).
+	{
+		key:     KeyShareKind,
+		group:   GroupShare,
+		control: screensharev1.ControlKind_CONTROL_KIND_RADIO,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.ShareKind) },
+		options: optionShareKinds,
+	},
 	{
 		key:     KeyMonitor,
-		group:   GroupSource,
+		group:   GroupShare,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Publish.Monitor) },
 		options: optionMonitors,
+	},
+	{
+		key:     KeyShareWindow,
+		group:   GroupShare,
+		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.ShareWindow) },
+		options: optionShareWindows,
+	},
+	{
+		// A rectangle is drawn on the screen rather than typed,
+		// so the control offers no entries and the surface fills it from what somebody dragged.
+		key:     KeyShareRegion,
+		group:   GroupShare,
+		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.ShareRegion) },
 	},
 	{
 		// What refuses a scaled value is the frame path rather than this field:

@@ -16,6 +16,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/screensrc"
 	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/transport"
+	"bjoernblessin.de/screenshare/internal/window"
 )
 
 // CatalogInput is the part of the catalog that is this machine's rather than the model's.
@@ -72,7 +73,8 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 		AudioSources: catalogAudioSources(in.Platform),
 		AudioDevices: catalogAudioDevices(in.AudioDevices),
 
-		NoMonitorPreview: catalogNoMonitorPreview(in.Platform),
+		NoMonitorPreview:    catalogNoMonitorPreview(in.Platform),
+		NoWindowEnumeration: window.Statement(in.Platform),
 	}
 
 	// A machine may have no monitors this enumeration reached and no encoder the probe could run,

@@ -33,7 +33,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/rules"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/share"
 	"bjoernblessin.de/screenshare/internal/transport"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -324,16 +326,31 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return availabilityLive()
 	},
+	// What is shared: one control for the kind, and one per target the kinds name (share.go).
+	KeyShareKind: shareKindState,
 	// ddagrab selects an output by index
 	// and the X backends crop the X screen to the monitor's geometry.
 	// A backend that takes no index names itself,
 	// so the surface can state what that one captures instead.
 	KeyMonitor: func(av availability) state {
+		if st := shareTargetState(av, share.Monitor); !st.visible {
+			return st
+		}
 		if slices.Contains(availabilityMonitorless, av.s.Publish.Capture) {
 			return availabilityDisabled(say(captureTakesNoMonitor, argCapture(av.s.Publish.Capture)))
 		}
 		return availabilityLive()
 	},
+	KeyShareWindow: func(av availability) state {
+		if st := shareTargetState(av, share.Window); !st.visible {
+			return st
+		}
+		if gap := window.Statement(av.deps.Platform); gap != nil {
+			return availabilityDisabled(gap)
+		}
+		return availabilityLive()
+	},
+	KeyShareRegion: func(av availability) state { return shareTargetState(av, share.Region) },
 	// The frame memory never greys as a whole: auto and the system copy are values every pair
 	// satisfies, so no combination leaves a dead control.
 	KeyCaptureMemory: func(av availability) state { return availabilityNoted(av.frameMemoryNote()) },
@@ -380,6 +397,7 @@ var availabilityRules = map[string]func(availability) state{
 // each answering why this combination rules a value out.
 // A field with no row here greys no entry.
 var availabilityOptionRules = map[string]func(availability, string) *screensharev1.Text{
+	KeyShareKind:         shareKindReason,
 	KeyCapture:           availability.captureReason,
 	KeyTransport:         availability.transportReason,
 	KeyFormat:            availability.formatReason,

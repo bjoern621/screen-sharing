@@ -125,6 +125,7 @@ func (s *Server) inForce(draft settings.Settings) bool {
 func (s *Server) formDeps() form.Deps {
 	return form.Deps{
 		Monitors:       s.backend.Monitors(),
+		Windows:        s.backend.Windows(),
 		Platform:       s.backend.Platform(),
 		Device:         s.backend.Device(),
 		Encoders:       s.backend.CachedEncoders(),
@@ -203,6 +204,17 @@ func (s *Server) GetReceiveState(ctx context.Context, req *screensharev1.GetRece
 // so a shell that crashed leaves screens captured for nobody.
 func (s *Server) GetMonitorPreviewState(ctx context.Context, req *screensharev1.GetMonitorPreviewStateRequest) (*screensharev1.MonitorPreviewState, error) {
 	return wire.MonitorPreviewState(s.backend.MonitorPreviewState()), nil
+}
+
+// ListShareWindows answers with the windows a capture can read, as they stand.
+//
+// Off the catalog because a window list has no settled state to announce:
+// somebody opens and closes windows while nobody is looking,
+// so it is asked for when a surface is about to draw it.
+// A session that enumerates none answers empty,
+// and Catalog.no_window_enumeration says so beforehand.
+func (s *Server) ListShareWindows(ctx context.Context, req *screensharev1.ListShareWindowsRequest) (*screensharev1.ListShareWindowsResponse, error) {
+	return &screensharev1.ListShareWindowsResponse{Windows: wire.ShareWindows(s.backend.Windows())}, nil
 }
 
 // GetTestStreamState counts the synthetic publishers alive:

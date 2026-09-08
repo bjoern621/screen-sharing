@@ -32,12 +32,20 @@ func say(code screensharev1.TextCode, args ...*screensharev1.TextArg) *screensha
 
 // Local names for the generated codes, so a rule states its fact on one line.
 const (
-	captureWrongOS         = screensharev1.TextCode_TEXT_CODE_CAPTURE_WRONG_OS
-	captureTakesNoMonitor  = screensharev1.TextCode_TEXT_CODE_CAPTURE_TAKES_NO_MONITOR
-	monitorNotEnumerated   = screensharev1.TextCode_TEXT_CODE_MONITOR_NOT_ENUMERATED
-	scaledFromSource       = screensharev1.TextCode_TEXT_CODE_SCALED_FROM_SOURCE
-	engineToolingMissing   = screensharev1.TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING
-	engineHasNoPublishSink = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK
+	captureWrongOS        = screensharev1.TextCode_TEXT_CODE_CAPTURE_WRONG_OS
+	captureTakesNoMonitor = screensharev1.TextCode_TEXT_CODE_CAPTURE_TAKES_NO_MONITOR
+	monitorNotEnumerated  = screensharev1.TextCode_TEXT_CODE_MONITOR_NOT_ENUMERATED
+	// What the capture backend cannot be pointed at,
+	// and what a session with no window list cannot offer.
+	captureTakesNoShareKind = screensharev1.TextCode_TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND
+	captureAsksWhatToShare  = screensharev1.TextCode_TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE
+	noWindowPicked          = screensharev1.TextCode_TEXT_CODE_NO_WINDOW_PICKED
+	windowGone              = screensharev1.TextCode_TEXT_CODE_WINDOW_GONE
+	noRegionPicked          = screensharev1.TextCode_TEXT_CODE_NO_REGION_PICKED
+	regionOffScreen         = screensharev1.TextCode_TEXT_CODE_REGION_OFF_SCREEN
+	scaledFromSource        = screensharev1.TextCode_TEXT_CODE_SCALED_FROM_SOURCE
+	engineToolingMissing    = screensharev1.TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING
+	engineHasNoPublishSink  = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK
 	// The app builds this leg and the machine cannot run what it builds,
 	// which is the encoder probe's question asked about a sink.
 	publishSinkElementMissing = screensharev1.TextCode_TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING
@@ -210,6 +218,18 @@ func argAudioCodecs(v []string) *screensharev1.TextArg {
 
 func argDecodeFamilies(v []string) *screensharev1.TextArg {
 	return text.IDs(screensharev1.TextArgName_TEXT_ARG_NAME_DECODE_FAMILIES, v)
+}
+
+func argShareKind(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_SHARE_KIND, v)
+}
+
+func argWindow(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_WINDOW, v)
+}
+
+func argRegion(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_REGION, v)
 }
 
 func argMonitor(v int) *screensharev1.TextArg {

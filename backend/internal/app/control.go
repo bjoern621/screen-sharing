@@ -22,6 +22,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/update"
+	"bjoernblessin.de/screenshare/internal/window"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -57,6 +58,7 @@ var _ control.Backend = controlBackend{}
 func (b controlBackend) Settings() settings.Settings      { return b.app.GetSettings() }
 func (b controlBackend) StoreNotice() *screensharev1.Text { return b.app.StoreNotice() }
 func (b controlBackend) Monitors() []display.Monitor      { return b.app.Monitors() }
+func (b controlBackend) Windows() []window.Window         { return b.app.Windows() }
 func (b controlBackend) Platform() platform.Info          { return b.app.Platform() }
 func (b controlBackend) Device() capabilities.Device      { return b.app.Device() }
 

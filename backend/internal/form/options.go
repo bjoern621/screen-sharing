@@ -18,6 +18,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/share"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
@@ -564,5 +565,45 @@ func optionMaxratePresets(d Deps, s settings.Settings) []*screensharev1.FieldOpt
 		out = append(out, optionEntry(strconv.Itoa(rate), nil, false))
 	}
 	assert.Assert(len(out) > 0, "the burst ceiling offers a ladder to reach", s.Publish.Mode)
+	return out
+}
+
+// optionShareKinds offers every kind share.Kinds declares.
+// Which ones the capture backend reads and which ones this session can pick from are greyings,
+// so the list is the same everywhere and each entry carries its own reason (availability.go).
+//
+// The whole screen is marked: it is what a stream shares unless somebody says otherwise,
+// and the one kind that needs nothing picked.
+func optionShareKinds(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
+	out := make([]*screensharev1.FieldOption, 0, len(share.Kinds))
+	for _, kind := range share.Kinds {
+		out = append(out, optionEntry(kind, nil, kind == share.Monitor))
+	}
+	return out
+}
+
+// optionShareWindows offers one entry per enumerated window, valued by handle.
+//
+// What each handle shows, the title and the app, is the window's own row
+// and is not repeated here (control.proto, ListShareWindows).
+//
+// The picked handle is present even where the enumeration no longer carries it,
+// as a stale monitor index is (optionMonitors):
+// a window closed since the pick is what the user has to see in order to pick another,
+// and a list that dropped it would show another window above a capture that still names the gone one.
+func optionShareWindows(d Deps, s settings.Settings) []*screensharev1.FieldOption {
+	out := make([]*screensharev1.FieldOption, 0, len(d.Windows)+1)
+	for _, w := range d.Windows {
+		out = append(out, optionEntry(strconv.FormatUint(w.Handle, 10), nil, false))
+	}
+	if s.Publish.ShareWindow == "" {
+		return out
+	}
+	if !slices.ContainsFunc(out, func(o *screensharev1.FieldOption) bool {
+		return o.GetValue() == s.Publish.ShareWindow
+	}) {
+		out = append(out, optionEntry(s.Publish.ShareWindow,
+			say(windowGone, argWindow(s.Publish.ShareWindow)), false))
+	}
 	return out
 }

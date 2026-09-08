@@ -24,6 +24,14 @@ package form
 // The address sits with the ports rather than beside the name:
 // where the relay is and how it is reached are one decision made once against one machine.
 //
+// What is shared follows the capture and precedes everything else.
+// Which of a monitor, a window and a rectangle can be read at all is the capture backend's answer,
+// so the backend is settled first, and nothing below reads the target.
+// It is a group of its own rather than three more fields under the capture,
+// the two being asked at different moments:
+// the backend is a machine's settled answer,
+// and what to share is what somebody decides each time they start a stream.
+//
 // Capture precedes encode because the capture backend fixes the publish engine,
 // and the engine decides which codecs, pixel formats and rate-control knobs the encode group
 // can offer at all (docs/glossary.md, "Publish engine").
@@ -48,6 +56,7 @@ package form
 // only through a publish that is refused for not reaching the relay it would replace.
 var groups = []group{
 	{key: GroupSource},
+	{key: GroupShare},
 	{key: GroupQuality},
 	{key: GroupAudio},
 	{key: GroupTransport},
