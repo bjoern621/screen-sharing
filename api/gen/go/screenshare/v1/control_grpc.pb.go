@@ -33,6 +33,7 @@ const (
 	ControlService_ResolveLink_FullMethodName            = "/screenshare.v1.ControlService/ResolveLink"
 	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
+	ControlService_ListShareWindows_FullMethodName       = "/screenshare.v1.ControlService/ListShareWindows"
 	ControlService_GetUpdateState_FullMethodName         = "/screenshare.v1.ControlService/GetUpdateState"
 	ControlService_SaveSettings_FullMethodName           = "/screenshare.v1.ControlService/SaveSettings"
 	ControlService_SavePreset_FullMethodName             = "/screenshare.v1.ControlService/SavePreset"
@@ -150,6 +151,17 @@ type ControlServiceClient interface {
 	// so a shell that crashed with screens being read leaves them running,
 	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(ctx context.Context, in *GetMonitorPreviewStateRequest, opts ...grpc.CallOption) (*MonitorPreviewState, error)
+	// The windows a capture can read, as they stand.
+	//
+	// Off the catalog because a window list has no settled state to announce:
+	// it moves whenever somebody opens or closes something,
+	// so it is asked for when a surface is about to draw it.
+	// The form offers the handles and greys them, as it does monitor indexes,
+	// and this carries the title and the app a reader picks by.
+	//
+	// A session that cannot enumerate windows answers with an empty list
+	// and Catalog.no_window_enumeration says so beforehand.
+	ListShareWindows(ctx context.Context, in *ListShareWindowsRequest, opts ...grpc.CallOption) (*ListShareWindowsResponse, error)
 	// What this install knows about the release published beside it.
 	// Answers without reaching the network:
 	// CheckUpdate is what asks the release service, and this reads what it last landed.
@@ -536,6 +548,16 @@ func (c *controlServiceClient) GetMonitorPreviewState(ctx context.Context, in *G
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MonitorPreviewState)
 	err := c.cc.Invoke(ctx, ControlService_GetMonitorPreviewState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) ListShareWindows(ctx context.Context, in *ListShareWindowsRequest, opts ...grpc.CallOption) (*ListShareWindowsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListShareWindowsResponse)
+	err := c.cc.Invoke(ctx, ControlService_ListShareWindows_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -963,6 +985,17 @@ type ControlServiceServer interface {
 	// so a shell that crashed with screens being read leaves them running,
 	// and the next one closes what nothing is drawing.
 	GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error)
+	// The windows a capture can read, as they stand.
+	//
+	// Off the catalog because a window list has no settled state to announce:
+	// it moves whenever somebody opens or closes something,
+	// so it is asked for when a surface is about to draw it.
+	// The form offers the handles and greys them, as it does monitor indexes,
+	// and this carries the title and the app a reader picks by.
+	//
+	// A session that cannot enumerate windows answers with an empty list
+	// and Catalog.no_window_enumeration says so beforehand.
+	ListShareWindows(context.Context, *ListShareWindowsRequest) (*ListShareWindowsResponse, error)
 	// What this install knows about the release published beside it.
 	// Answers without reaching the network:
 	// CheckUpdate is what asks the release service, and this reads what it last landed.
@@ -1256,6 +1289,9 @@ func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetRe
 }
 func (UnimplementedControlServiceServer) GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMonitorPreviewState not implemented")
+}
+func (UnimplementedControlServiceServer) ListShareWindows(context.Context, *ListShareWindowsRequest) (*ListShareWindowsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShareWindows not implemented")
 }
 func (UnimplementedControlServiceServer) GetUpdateState(context.Context, *GetUpdateStateRequest) (*UpdateState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUpdateState not implemented")
@@ -1619,6 +1655,24 @@ func _ControlService_GetMonitorPreviewState_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).GetMonitorPreviewState(ctx, req.(*GetMonitorPreviewStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_ListShareWindows_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListShareWindowsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ListShareWindows(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ListShareWindows_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ListShareWindows(ctx, req.(*ListShareWindowsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2222,6 +2276,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMonitorPreviewState",
 			Handler:    _ControlService_GetMonitorPreviewState_Handler,
+		},
+		{
+			MethodName: "ListShareWindows",
+			Handler:    _ControlService_ListShareWindows_Handler,
 		},
 		{
 			MethodName: "GetUpdateState",

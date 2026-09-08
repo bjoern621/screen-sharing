@@ -3,6 +3,7 @@
              xmlns:model="using:ScreenShare.App.Features.Insights.Preview.Model"
              xmlns:vm="using:ScreenShare.App.Features.Insights.Preview.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
+             xmlns:controls="using:ScreenShare.App.Controls"
              x:Class="ScreenShare.App.Features.Insights.Preview.View.PreviewView"
              x:DataType="vm:PreviewViewModel">
 
@@ -33,14 +34,27 @@
           A reader gets that sentence out of the app by selecting it,
           and the style wraps rather than trims so the characters they came for are still there.
         -->
-        <SelectableTextBlock Classes="hint"
-                             FontSize="{StaticResource FontSizeBody}"
-                             Text="{Binding Placeholder}"
-                             IsVisible="{Binding HasPlaceholder}"
-                             TextAlignment="Center"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             Margin="24" />
+        <StackPanel IsVisible="{Binding HasPlaceholder}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="{StaticResource GapTight}"
+                    Margin="24">
+
+          <!--
+            The one dark state a picture is still coming in, in the sentence's own grey:
+            this card draws over video, where a hue stands against an unknown background
+            (docs/design-language.md, "Video surfaces").
+          -->
+          <controls:Waiting Foreground="{StaticResource MutedBrush}"
+                            HorizontalAlignment="Center"
+                            IsVisible="{Binding IsConnecting}" />
+
+          <SelectableTextBlock Classes="hint"
+                               FontSize="{StaticResource FontSizeBody}"
+                               Text="{Binding Placeholder}"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" />
+        </StackPanel>
 
         <Border BorderBrush="{StaticResource AttentionBrush}"
                 BorderThickness="2"

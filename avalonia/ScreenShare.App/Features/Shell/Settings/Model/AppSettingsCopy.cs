@@ -22,6 +22,8 @@ public static class AppSettingsCopy
     public const string ResetHelp =
         "Puts every setting here back to the value a fresh installation starts with.";
 
+    public const string WindowHeading = "Window";
+
     public const string LogsHeading = "Logs";
 
     public const string LogsBody = "One log per run, kept on this computer.";

@@ -30,6 +30,7 @@ public sealed class TrayViewModel : Observable
 
     private readonly IBackend _backend;
     private readonly Session _session;
+    private readonly FormSession _form;
     private readonly SetupViewModel _setup;
     private readonly InsightsViewModel _insights;
     private readonly Func<bool> _ownsBackend;
@@ -38,6 +39,7 @@ public sealed class TrayViewModel : Observable
 
     private TrayMenu _menu = TrayMenu.Unread;
 
+    /// <param name="form">Draft the window holds, which is where the tray reads its own setting.</param>
     /// <param name="ownsBackend">
     /// Whether this shell has a backend of its own running, read at the press.
     /// A function rather than a value: the backend is started lazily, on the first connect that finds
@@ -51,6 +53,7 @@ public sealed class TrayViewModel : Observable
     public TrayViewModel(
         IBackend backend,
         Session session,
+        FormSession form,
         SetupViewModel setup,
         InsightsViewModel insights,
         Func<bool> ownsBackend,
@@ -59,6 +62,7 @@ public sealed class TrayViewModel : Observable
     {
         Assert.NotNull(backend, "a tray asks the backend to stop the stream a quit ends");
         Assert.NotNull(session, "a tray reads what is publishing off the session");
+        Assert.NotNull(form, "a tray reads whether an icon is wanted off the draft the window holds");
         Assert.NotNull(setup, "a tray presses the setup flow's own commit");
         Assert.NotNull(insights, "a tray presses the insights screen's own stop");
         Assert.NotNull(ownsBackend, "a tray asks whether this shell has a backend of its own to stop");
@@ -67,6 +71,7 @@ public sealed class TrayViewModel : Observable
 
         _backend = backend;
         _session = session;
+        _form = form;
         _setup = setup;
         _insights = insights;
         _ownsBackend = ownsBackend;
@@ -76,8 +81,10 @@ public sealed class TrayViewModel : Observable
         QuitCommand = new PendingCommand(QuitAsync, dispatch);
 
         // Everything the menu draws beside the session's own state, whose pass the shell drives:
-        // the review's gate and label, the stop's liveness, and the card's preset rows.
+        // the draft behind the icon, the review's gate and label, the stop's liveness,
+        // and the card's preset rows.
         // Each announces its own moves, so the menu follows them while the window is hidden.
+        _form.Changed += Apply;
         setup.Review.PropertyChanged += (_, _) => Apply();
         insights.StopCommand.Changed += Apply;
         setup.Rail.Presets.Rows.CollectionChanged += (_, _) => Apply();
@@ -155,6 +162,7 @@ public sealed class TrayViewModel : Observable
 
         Menu = new TrayMenu
         {
+            IsIconWanted = _form.Draft?.App?.TrayIcon ?? false,
             IsLive = live,
             CommitLabel = live ? InsightsViewModel.StopLabel : CommitCopy.Of(PublishCommit.Start).Label,
 

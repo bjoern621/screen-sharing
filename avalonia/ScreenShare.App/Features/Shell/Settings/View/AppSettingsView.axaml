@@ -59,17 +59,27 @@
           <StackPanel Spacing="{StaticResource GapSection}">
 
             <StackPanel Spacing="{StaticResource GapTight}">
+              <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.WindowHeading}" />
+
+              <!--
+                Pulled off the app group by key, so the write path stays the field's own (AppSettingsViewModel.Apply).
+                Margin cancels the row's own trailing 18px (FieldRow.axaml), built for an unspaced list,
+                so every pair in this dialog reads as the same GapTight.
+              -->
+              <ContentControl Content="{Binding TrayIcon}"
+                              ContentTemplate="{StaticResource FieldRow}"
+                              Margin="0,0,0,-18"
+                              IsVisible="{Binding TrayIcon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+
+            <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.LogsHeading}" />
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"
                          TextTrimming="None"
                          Text="{x:Static model:AppSettingsCopy.LogsBody}" />
 
-              <!--
-                Pulled off the app group by key, so the write path stays the field's own (AppSettingsViewModel.Apply).
-                Margin cancels the row's own trailing 18px (FieldRow.axaml), built for an unspaced list,
-                so the gap to the button below reads as the same GapTight every other pair in this dialog uses.
-              -->
+              <!-- Same cancelling margin as the row above. -->
               <ContentControl Content="{Binding CrashReports}"
                               ContentTemplate="{StaticResource FieldRow}"
                               Margin="0,0,0,-18"
@@ -148,7 +158,7 @@
             <StackPanel Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DevelopmentHeading}" />
 
-              <!-- Same cancelling margin as the two rows above. -->
+              <!-- Same cancelling margin as the rows above. -->
               <ContentControl Content="{Binding TestStreams}"
                               ContentTemplate="{StaticResource FieldRow}"
                               Margin="0,0,0,-18"

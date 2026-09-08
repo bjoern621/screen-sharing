@@ -131,7 +131,7 @@ public sealed class ShellViewModel : Observable
         // The tray presses the destinations' own commands rather than carrying a gate of its own,
         // so it is built beside them.
         // Whether this shell owns a backend is read at the press, the spawn being lazy.
-        Tray = new TrayViewModel(backend, _session, Setup, Insights, () => BackendProcess.Owns, PartAsync, dispatch);
+        Tray = new TrayViewModel(backend, _session, _form, Setup, Insights, () => BackendProcess.Owns, PartAsync, dispatch);
 
         // The strip's commit presses the destinations' own commands the way the tray does,
         // so it is built beside them and handed to the strip as its right-hand control.

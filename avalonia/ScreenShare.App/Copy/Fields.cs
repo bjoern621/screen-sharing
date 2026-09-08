@@ -257,6 +257,9 @@ public static class Fields
         ["app.check_updates_on_start"] = new(
             "Check for updates on start",
             "Reads the published release when the app starts, so the status bar says whether a newer build exists. Off leaves the reading to the check in this dialog."),
+        ["app.tray_icon"] = new(
+            "Show an icon in the tray",
+            "Puts an icon in the system tray, whose menu starts and stops sharing. Closing the window hides it there. Off ends the app when you close the window."),
         ["app.test_streams"] = new(
             "Run test streams",
             "Publishes synthetic streams from this computer to the relay, so the group has something to watch with no screen shared. Each stream runs its own encoder, so turn it on for testing only. They start as soon as this computer is in a group."),

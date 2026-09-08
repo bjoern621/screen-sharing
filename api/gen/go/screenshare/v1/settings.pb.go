@@ -142,6 +142,11 @@ type AppSettings struct {
 	// The published release is read once per start, filling the update state a shell draws.
 	// Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
 	CheckUpdatesOnStart bool `protobuf:"varint,2,opt,name=check_updates_on_start,json=checkUpdatesOnStart,proto3" json:"check_updates_on_start,omitempty"`
+	// The icon in the tray, and with it what the close button does:
+	// with an icon up a close hides the window, and off a close ends the app.
+	// Everything the menu offers is the window's own
+	// (avalonia/README.md, "The tray").
+	TrayIcon bool `protobuf:"varint,4,opt,name=tray_icon,json=trayIcon,proto3" json:"tray_icon,omitempty"`
 	// The synthetic publishers this machine exercises the viewing paths with, and an encoder per slot.
 	// A development aid: the streams carry test patterns and reach every viewer of the group
 	// (internal/app/teststreams.go).
@@ -191,6 +196,13 @@ func (x *AppSettings) GetSendCrashReports() bool {
 func (x *AppSettings) GetCheckUpdatesOnStart() bool {
 	if x != nil {
 		return x.CheckUpdatesOnStart
+	}
+	return false
+}
+
+func (x *AppSettings) GetTrayIcon() bool {
+	if x != nil {
+		return x.TrayIcon
 	}
 	return false
 }
@@ -480,8 +492,39 @@ type PublishSettings struct {
 	// A knob of the kmsgrab scanout path and of nothing else,
 	// so the form hides it rather than greying it under every other backend.
 	DrmMap string `protobuf:"bytes,26,opt,name=drm_map,json=drmMap,proto3" json:"drm_map,omitempty"`
-	// Display output to capture, as the index the monitor list carries.
+	// What of this machine the capture reads: "monitor" one whole output,
+	// "window" one window of one application, "region" a rectangle of the virtual desktop.
+	// Which of the three a capture backend serves is that backend's own fact,
+	// so the form greys the rest with what each one is missing.
+	//
+	// A backend that puts the question to the user itself serves none of them,
+	// the desktop portal being the case that exists:
+	// the compositor draws the picker and answers with whatever was chosen there,
+	// so a value stored here would describe a choice this app never makes.
+	ShareKind string `protobuf:"bytes,45,opt,name=share_kind,json=shareKind,proto3" json:"share_kind,omitempty"`
+	// Display output "monitor" reads, as the index the monitor list carries.
 	Monitor int32 `protobuf:"varint,27,opt,name=monitor,proto3" json:"monitor,omitempty"`
+	// Window "window" reads, as the decimal handle ListShareWindows carries.
+	// Empty is a machine where nothing has been picked, which no publish runs on.
+	//
+	// A handle and not a title: two windows of one application carry one title,
+	// and a capture of "the other one" is the outcome no form can show.
+	// It survives no restart of the window's own process,
+	// so a stored one is held against the enumeration before a stream is built.
+	ShareWindow string `protobuf:"bytes,46,opt,name=share_window,json=shareWindow,proto3" json:"share_window,omitempty"`
+	// Rectangle "region" reads, as "x,y,WIDTHxHEIGHT" in virtual-desktop pixels:
+	// "100,200,1280x720".
+	// The origin is the monitor enumeration's, so a screen left of or above the primary one
+	// carries negative coordinates.
+	//
+	// One string rather than four numbers, for the reason output_resolution is one:
+	// the four are legal only together, and a form has no way to say so.
+	// Empty is a machine where nothing has been picked.
+	//
+	// Desktop coordinates whichever backend reads them,
+	// one rectangle on one screen being what a user drew.
+	// A backend cropping inside a single output is handed the difference against that output's origin.
+	ShareRegion string `protobuf:"bytes,47,opt,name=share_region,json=shareRegion,proto3" json:"share_region,omitempty"`
 	// Where the frames reach the encoder: auto, gpu, gpu-encoder-color or system.
 	// The capture backend and the encoder family together decide which of them a selection may take,
 	// the one constraint neither end declares alone.
@@ -691,11 +734,32 @@ func (x *PublishSettings) GetDrmMap() string {
 	return ""
 }
 
+func (x *PublishSettings) GetShareKind() string {
+	if x != nil {
+		return x.ShareKind
+	}
+	return ""
+}
+
 func (x *PublishSettings) GetMonitor() int32 {
 	if x != nil {
 		return x.Monitor
 	}
 	return 0
+}
+
+func (x *PublishSettings) GetShareWindow() string {
+	if x != nil {
+		return x.ShareWindow
+	}
+	return ""
+}
+
+func (x *PublishSettings) GetShareRegion() string {
+	if x != nil {
+		return x.ShareRegion
+	}
+	return ""
 }
 
 func (x *PublishSettings) GetCaptureMemory() string {
@@ -1031,10 +1095,11 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\x12\x1f\n" +
 	"\vstream_name\x18\x04 \x01(\tR\n" +
 	"streamName\x12-\n" +
-	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"\x93\x01\n" +
+	"\x03app\x18\x05 \x01(\v2\x1b.screenshare.v1.AppSettingsR\x03app\"\xb0\x01\n" +
 	"\vAppSettings\x12,\n" +
 	"\x12send_crash_reports\x18\x01 \x01(\bR\x10sendCrashReports\x123\n" +
-	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\x12!\n" +
+	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\x12\x1b\n" +
+	"\ttray_icon\x18\x04 \x01(\bR\btrayIcon\x12!\n" +
 	"\ftest_streams\x18\x03 \x01(\bR\vtestStreams\"\xc1\x03\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
@@ -1052,7 +1117,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\fdiscord_mode\x18\r \x01(\bR\vdiscordMode\x12!\n" +
 	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLink\x122\n" +
 	"\x15discord_rich_presence\x18\x0f \x01(\bR\x13discordRichPresenceJ\x04\b\t\x10\n" +
-	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\x9b\t\n" +
+	"J\x04\b\x03\x10\x04R\x0esrt_passphraseR\bapi_port\"\x80\n" +
+	"\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +
 	" \x01(\tR\x10publishTransport\x12\x16\n" +
@@ -1075,8 +1141,12 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\raudio_sources\x18( \x03(\v2\x1b.screenshare.v1.AudioSourceR\faudioSources\x12\x1f\n" +
 	"\vaudio_codec\x18\x19 \x01(\tR\n" +
 	"audioCodec\x12\x17\n" +
-	"\adrm_map\x18\x1a \x01(\tR\x06drmMap\x12\x18\n" +
-	"\amonitor\x18\x1b \x01(\x05R\amonitor\x12%\n" +
+	"\adrm_map\x18\x1a \x01(\tR\x06drmMap\x12\x1d\n" +
+	"\n" +
+	"share_kind\x18- \x01(\tR\tshareKind\x12\x18\n" +
+	"\amonitor\x18\x1b \x01(\x05R\amonitor\x12!\n" +
+	"\fshare_window\x18. \x01(\tR\vshareWindow\x12!\n" +
+	"\fshare_region\x18/ \x01(\tR\vshareRegion\x12%\n" +
 	"\x0ecapture_memory\x18\x1c \x01(\tR\rcaptureMemory\x123\n" +
 	"\x16srt_publish_latency_ms\x18\x1d \x01(\x05R\x13srtPublishLatencyMs\x122\n" +
 	"\x15rtsp_publish_protocol\x18\x1f \x01(\tR\x13rtspPublishProtocol\x12\x1f\n" +

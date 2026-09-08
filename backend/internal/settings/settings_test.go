@@ -927,3 +927,21 @@ func TestAFileFromBeforeTheAppGroupKeepsBothFlags(t *testing.T) {
 		t.Errorf("app settings = %+v, want what a fresh installation holds", got.App)
 	}
 }
+
+// A file written before the tray toggle does not name it.
+// Load decodes over the defaults, so the icon an install has always had stays in the tray.
+func TestAFileFromBeforeTheTrayToggleKeepsTheIcon(t *testing.T) {
+	isolateConfig(t)
+
+	path := mustSettingsPath(t)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"app":{"sendCrashReports":false}}`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if got := mustLoad(t); !got.App.TrayIcon {
+		t.Errorf("app settings = %+v, want the tray icon a fresh installation holds", got.App)
+	}
+}

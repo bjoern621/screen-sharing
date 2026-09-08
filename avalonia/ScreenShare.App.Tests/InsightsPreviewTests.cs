@@ -556,6 +556,31 @@ public sealed class InsightsPreviewTests
     }
 
     /// <summary>
+    /// The card is dark for several reasons and one of them is a picture on its way,
+    /// which is the state carrying the arc (<c>docs/design-language.md</c>, "Status language").
+    /// A card the reader turned off waits on nothing.
+    /// </summary>
+    [Fact]
+    public void OnlyAPictureOnItsWayIsConnecting()
+    {
+        var backend = new PreviewBackend { Publish = Decoding(live: false) };
+        var (preview, session) = Card(backend);
+
+        Assert.True(preview.IsConnecting);
+
+        backend.Publish = Decoding(live: true);
+        session.Start();
+        preview.Apply();
+
+        Assert.False(preview.IsConnecting);
+
+        Choose(preview, PreviewRoute.Off);
+
+        Assert.Equal(Cards.PreviewOff, preview.Placeholder);
+        Assert.False(preview.IsConnecting);
+    }
+
+    /// <summary>
     /// The one thing a reader must not discover the hard way: the picture is what is being sent, and says
     /// nothing about what viewers receive.
     /// </summary>

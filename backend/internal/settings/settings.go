@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
@@ -27,6 +28,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/receive"
+	"bjoernblessin.de/screenshare/internal/share"
 )
 
 // audioSourceNone is the Audio value of a stream with no second track.
@@ -453,6 +455,17 @@ type Publish struct {
 	AudioCodec string `json:"audioCodec"`
 	DrmMap     string `json:"drmMap"`  // kmsgrab DRM download strategy: auto vaapi vulkan none
 	Monitor    int    `json:"monitor"` // ddagrab output_idx
+	// ShareKind is what of this machine the capture reads, one of share.Kinds.
+	// Which of them a capture backend serves is that backend's own fact,
+	// so a stored value the selected backend does not serve is repaired rather than passed on.
+	ShareKind string `json:"shareKind"`
+	// ShareWindow is the window the window kind reads,
+	// as the decimal handle the enumeration carries (internal/window).
+	// Empty is a machine where nothing was picked, which no publish runs on.
+	ShareWindow string `json:"shareWindow"`
+	// ShareRegion is the rectangle the region kind reads, "100,200,1280x720",
+	// in the virtual-desktop pixels the monitor enumeration measures in (internal/share, ParseRect).
+	ShareRegion string `json:"shareRegion"`
 	// CaptureMemory is where the frames reach the encoder:
 	// auto, gpu or system, the values gpupath.Memories names.
 	// Whether the capture chain downloads every frame and converts it on the CPU,
@@ -536,9 +549,23 @@ type Viewer struct {
 // Derived from what is captured rather than typed, so a viewer's list needs no free text kept in step
 // with what the picture actually is, and a second simultaneous stream a future capture adds gets its
 // own name from its own capture rather than one two streams could type alike.
-// Monitor is the whole of what is captured today, every backend reading captured surfaces off it
-// (publish.gstcapture.go), so it is the whole of what the name is derived from.
+// The share kind decides which field names it, each kind pointing at something different:
+// an output index, a window handle, a rectangle's size.
+// A window's title stays out of it: the title moves while the stream runs,
+// and the relay path a viewer opened would stop answering under it.
 func (p Publish) Name() string {
+	switch p.ShareKind {
+	case share.Window:
+		return "window-" + p.ShareWindow
+	case share.Region:
+		r, ok := share.ParseRect(p.ShareRegion)
+		if !ok {
+			// A rectangle nothing drew, which the form blocks the start on.
+			// Named all the same: a stream that cannot run still appears in a log line.
+			return "region"
+		}
+		return fmt.Sprintf("region-%dx%d", r.Width, r.Height)
+	}
 	return fmt.Sprintf("monitor-%d", p.Monitor)
 }
 
@@ -665,6 +692,9 @@ func Defaults() Settings {
 			Fps:        60, Cq: 19, BitrateM: 8, MaxrateM: 12, VbvMs: 0,
 			Gop: 0, Bframes: 0,
 			Capture: capture, DrmMap: "auto", Monitor: 0,
+			// The whole screen: the one target that needs nothing picked,
+			// so a fresh installation can publish before anybody has opened the picker.
+			ShareKind: share.Monitor,
 			// No source: a fresh installation publishes the picture alone,
 			// so a first stream cannot put a room on the internet nobody meant to.
 			AudioSources: nil, AudioCodec: defaultAudioCodec,
@@ -698,12 +728,13 @@ func Defaults() Settings {
 			PreviewRoute: PreviewLocal,
 		},
 		App: App{
-			// Both on, which is what the app did before either was answerable:
+			// All on, which is what the app did before any of them was answerable:
 			// a crash from the last run goes out as this one starts,
-			// and the published release is read beside it.
-			// A stored file written before the group keeps them, Load decoding over these.
+			// the published release is read beside it, and the icon sits in the tray.
+			// A stored file written before one of them keeps it, Load decoding over these.
 			SendCrashReports:    true,
 			CheckUpdatesOnStart: true,
+			TrayIcon:            true,
 		},
 	}
 
@@ -737,4 +768,35 @@ func LadderSteps(codec, mode string) (effort, tune string) {
 	effort, _ = c.Effort.StepFor(mode)
 	tune, _ = c.Tune.StepFor(mode)
 	return effort, tune
+}
+
+// Target is what these settings point a capture at, as the capture packages name one.
+//
+// The error is an Umgebungsfehler and every one of them is a target nobody picked:
+// a window kind with no handle, a region kind with no rectangle,
+// or a kind outside the set the settings name, which a hand-edited file carries.
+// The form blocks the start on each of the three before a reader can reach it,
+// so a builder asking here is the second line rather than the first.
+func (p Publish) Target() (share.Target, error) {
+	t := share.Target{Kind: p.ShareKind, Monitor: p.Monitor, Pointer: p.Cursor == cursor.Embedded}
+
+	switch p.ShareKind {
+	case share.Monitor:
+		return t, nil
+	case share.Window:
+		handle, err := strconv.ParseUint(p.ShareWindow, 10, 64)
+		if err != nil || handle == 0 {
+			return share.Target{}, fmt.Errorf("no window is picked to capture")
+		}
+		t.Window = handle
+		return t, nil
+	case share.Region:
+		r, ok := share.ParseRect(p.ShareRegion)
+		if !ok {
+			return share.Target{}, fmt.Errorf("no screen region is drawn to capture")
+		}
+		t.Region = r
+		return t, nil
+	}
+	return share.Target{}, fmt.Errorf("%q is not something this app can capture", p.ShareKind)
 }

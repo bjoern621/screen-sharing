@@ -310,6 +310,27 @@ message Monitor {
   optional int32 refresh_hz = 7;
 }
 
+// One window a capture can read, as the machine holds it at the moment it was asked.
+//
+// Here beside Monitor and off Catalog, the two answering to different clocks.
+// The reference set is fetched once and announced when it moves,
+// and a window opens and closes while nobody is looking,
+// so this crosses on a read of its own (control.proto, ListShareWindows).
+message ShareWindow {
+  // Decimal window handle, and the value PublishSettings.share_window carries.
+  // A string because the platform handle is 64 bits wide and JSON-shaped tooling reads it.
+  string handle = 1;
+  // The window's own title bar, as it stands.
+  // Empty is a window that carries none, which the surface names by app alone.
+  string title = 2;
+  // Executable behind the window, without its directory or extension: "chrome", "code".
+  // Empty where the process could not be read.
+  string app = 3;
+  // Size of the window's captured area in pixels.
+  int32 width = 4;
+  int32 height = 5;
+}
+
 // The machine the backend is running on.
 message Platform {
   // "windows", "linux", "darwin".
@@ -391,6 +412,15 @@ message Catalog {
   // and which one exists is the display server's answer,
   // the same for every monitor plugged into it.
   Text no_monitor_preview = 21;
+
+  // Why this machine cannot list its windows, absent where it can.
+  // ListShareWindows answers empty for the same reason,
+  // so a shell reads this and writes a sentence instead of drawing an empty list.
+  //
+  // One statement for the machine, as no_monitor_preview is one:
+  // enumerating windows is the display server's answer,
+  // the same for every window open on it.
+  Text no_window_enumeration = 23;
 
   // 10: engines, the Engine enum's values restated as strings.
   // 16: grid_transports, the legs a GTK4 grid window could receive over.

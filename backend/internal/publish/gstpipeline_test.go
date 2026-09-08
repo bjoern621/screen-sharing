@@ -80,7 +80,7 @@ func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
 		if !ok {
 			continue
 		}
-		elements := g.capture.Describe(s, opts)
+		elements := described(t, g.capture, s, opts)
 		if len(elements) == 0 {
 			t.Errorf("%s: capture backend describes no elements", name)
 			continue
@@ -110,11 +110,11 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 		if !ok {
 			continue
 		}
-		plain := strings.Join(g.capture.Describe(s, opts), " ")
+		plain := strings.Join(described(t, g.capture, s, opts), " ")
 		if strings.Contains(plain, probe) {
 			t.Errorf("%s: a pipeline built without instrumentation carries the rate probe: %s", name, plain)
 		}
-		probed := strings.Join(g.capture.Describe(s, gstProbed(opts)), " ")
+		probed := strings.Join(described(t, g.capture, s, gstProbed(opts)), " ")
 		if !strings.Contains(probed, probe) {
 			t.Errorf("%s: capture elements drop the rate probe: %s", name, probed)
 		}
@@ -131,7 +131,7 @@ func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(portalCapture{}.Describe(s, gstProbed(opts)), " ")
+	line := strings.Join(described(t, portalCapture{}, s, gstProbed(opts)), " ")
 	probe, pacer := strings.Index(line, gstCaptureName), strings.Index(line, "imagefreeze")
 	if probe < 0 || pacer < 0 || probe > pacer {
 		t.Errorf("the rate probe must precede imagefreeze: %s", line)
@@ -433,14 +433,14 @@ func TestTheGstD3d11GpuPathCarriesTheMemoryFeatureOnEveryCaps(t *testing.T) {
 	if !strings.Contains(opts.InCaps, feature) {
 		t.Errorf("the encoder input caps %q lack the memory feature %q", opts.InCaps, feature)
 	}
-	for _, caps := range (d3d11Capture{}).Describe(s, gstProbed(opts)) {
+	for _, caps := range described(t, d3d11Capture{}, s, gstProbed(opts)) {
 		if !strings.HasPrefix(caps, "video/x-raw") || strings.Contains(caps, feature) {
 			continue
 		}
 		t.Errorf("caps %q pin system memory on the GPU path", caps)
 	}
 	// videoconvert reads system memory, so its presence means the frames were downloaded after all.
-	line := strings.Join((d3d11Capture{}).Describe(s, opts), " ")
+	line := strings.Join(described(t, d3d11Capture{}, s, opts), " ")
 	if strings.Contains(line, gstSystemConvert) {
 		t.Errorf("the GPU path converts on the device, not with %s: %s", gstSystemConvert, line)
 	}
@@ -458,7 +458,7 @@ func TestTheGstD3d11SystemPathPinsNoDeviceMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join((d3d11Capture{}).Describe(s, opts), " ")
+	line := strings.Join(described(t, d3d11Capture{}, s, opts), " ")
 	if strings.Contains(line, "memory:") {
 		t.Errorf("the system-memory path must pin no device memory: %s", line)
 	}
@@ -491,7 +491,7 @@ func TestTheGstGpuPathCarriesTheMemoryFeatureOnEveryCaps(t *testing.T) {
 	if !strings.Contains(opts.InCaps, feature) {
 		t.Errorf("the encoder input caps %q lack the memory feature %q", opts.InCaps, feature)
 	}
-	for _, caps := range (portalCapture{}).Describe(s, opts) {
+	for _, caps := range described(t, portalCapture{}, s, opts) {
 		if !strings.HasPrefix(caps, "video/x-raw") || strings.Contains(caps, feature) {
 			continue
 		}
@@ -514,7 +514,7 @@ func TestThePortalGpuPathPinsTheSourceToDmabuf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(portalCapture{}.Describe(s, opts), " ")
+	line := strings.Join(described(t, portalCapture{}, s, opts), " ")
 	if !strings.Contains(line, "video/x-raw(memory:DMABuf)") {
 		t.Errorf("the portal source must be pinned to dmabuf on the GPU path: %s", line)
 	}
@@ -536,7 +536,7 @@ func TestTheGstSystemPathPinsNoDeviceMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(portalCapture{}.Describe(s, opts), " ")
+	line := strings.Join(described(t, portalCapture{}, s, opts), " ")
 	if strings.Contains(line, "memory:") {
 		t.Errorf("the system-memory path must pin no device memory: %s", line)
 	}
@@ -649,4 +649,16 @@ func TestTheShedIsNamedAndCounted(t *testing.T) {
 		func(arg string) bool { return strings.HasPrefix(arg, gstrun.ShedFlag) }) {
 		t.Errorf("an unmetered run counts the shed: %v", plain)
 	}
+}
+
+// described is one capture backend's source elements, failing the test where it refuses them.
+// Every fixture here points at a monitor, which every backend that takes a target reads.
+func described(t *testing.T, c gstCapture, s settings.Settings, opts gstCaptureOptions) []string {
+	t.Helper()
+
+	elements, err := c.Describe(s, opts)
+	if err != nil {
+		t.Fatalf("%s would not describe a monitor capture: %v", c.Name(), err)
+	}
+	return elements
 }

@@ -528,6 +528,12 @@ var fieldTable = []field{
 		},
 	},
 	{
+		key:     KeyTrayIcon,
+		group:   GroupApp,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.App.TrayIcon) },
+	},
+	{
 		key:     KeyTestStreams,
 		group:   GroupApp,
 		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,

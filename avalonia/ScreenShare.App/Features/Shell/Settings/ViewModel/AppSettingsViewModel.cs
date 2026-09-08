@@ -12,7 +12,8 @@ namespace ScreenShare.App.Features.Shell.Settings.ViewModel;
 
 /// <summary>
 /// What the app does for itself: what it reports, what it reads on start, where its logs are,
-/// which account it follows, which build it is, and whether the synthetic set runs beside it.
+/// whether an icon sits in the tray, which account it follows, which build it is,
+/// and whether the synthetic set runs beside it.
 ///
 /// <b>Drawn over the window rather than in a destination.</b> None of it is about a stream, so no surface
 /// configuring one owns it, and a reader who only watches reaches it all the same
@@ -37,6 +38,7 @@ public sealed class AppSettingsViewModel : Observable
     /// </summary>
     private const string CrashReportsKey = "app.send_crash_reports";
     private const string CheckUpdatesOnStartKey = "app.check_updates_on_start";
+    private const string TrayIconKey = "app.tray_icon";
     private const string TestStreamsKey = "app.test_streams";
 
     private readonly FormSession _form;
@@ -126,6 +128,7 @@ public sealed class AppSettingsViewModel : Observable
 
     private FieldViewModel? _crashReports;
     private FieldViewModel? _checkUpdatesOnStart;
+    private FieldViewModel? _trayIcon;
     private FieldViewModel? _testStreams;
 
     /// <summary>Placed under the Logs heading, beside <see cref="OpenLogsFolder"/>.</summary>
@@ -137,6 +140,14 @@ public sealed class AppSettingsViewModel : Observable
         get => _checkUpdatesOnStart;
         private set => Set(ref _checkUpdatesOnStart, value);
     }
+
+    /// <summary>
+    /// Placed under the Window heading, the icon deciding what the window's close button does
+    /// (<c>avalonia/README.md</c>, "The tray").
+    /// The shell converges the icon on this write, so it comes and goes with the toggle
+    /// (<c>Features/Tray/View/TrayIconHost.cs</c>).
+    /// </summary>
+    public FieldViewModel? TrayIcon { get => _trayIcon; private set => Set(ref _trayIcon, value); }
 
     /// <summary>
     /// Placed under the Development heading, the synthetic set being a testing aid rather than something
@@ -209,6 +220,7 @@ public sealed class AppSettingsViewModel : Observable
         Group.Apply(GroupOf(form), _session.Words, form?.Settings, _form.IsAnswered);
         CrashReports = Group.Visible(CrashReportsKey);
         CheckUpdatesOnStart = Group.Visible(CheckUpdatesOnStartKey);
+        TrayIcon = Group.Visible(TrayIconKey);
         TestStreams = Group.Visible(TestStreamsKey);
 
         Version = _session.Version;
@@ -232,6 +244,9 @@ public sealed class AppSettingsViewModel : Observable
         Assert.That(
             !Group.IsResolved || CheckUpdatesOnStart is not null,
             "a resolved app group always carries the update-on-start toggle");
+        Assert.That(
+            !Group.IsResolved || TrayIcon is not null,
+            "a resolved app group always carries the tray-icon toggle");
         Assert.That(
             !Group.IsResolved || TestStreams is not null,
             "a resolved app group always carries the test-stream toggle");

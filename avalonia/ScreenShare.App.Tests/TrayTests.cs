@@ -50,7 +50,7 @@ public sealed class TrayTests
         var setup = new SetupViewModel(backend, form, session, Inline);
         var insights = new InsightsViewModel(backend, form, session, Inline);
         var tray = new TrayViewModel(
-            backend, session, setup, insights,
+            backend, session, form, setup, insights,
             owns ?? (static () => true), part ?? (static _ => Task.CompletedTask), Inline);
 
         var opened = new Fixture(backend, session, form, setup, insights, tray);
@@ -302,6 +302,26 @@ public sealed class TrayTests
 
         await quit.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(1, opened.Backend.Stopped);
+    }
+
+    /// <summary>
+    /// The icon follows the app setting, read off the draft the window holds on every pass.
+    /// Nothing stands in the tray until the settings are read.
+    /// </summary>
+    [Fact]
+    public async Task TheIconFollowsTheAppSetting()
+    {
+        Assert.False(TrayMenu.Unread.IsIconWanted);
+
+        var opened = Open(new PublishingBackend());
+        await opened.Form.Settled;
+        opened.Tray.Apply();
+        Assert.True(opened.Tray.Menu.IsIconWanted);
+
+        opened.Form.Write("app.tray_icon", new FieldValue { Flag = false });
+        opened.Tray.Apply();
+
+        Assert.False(opened.Tray.Menu.IsIconWanted);
     }
 
     /// <summary>The pass runs on every shell render, so an unchanged menu has to notify nothing.</summary>

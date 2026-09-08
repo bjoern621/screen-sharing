@@ -110,6 +110,18 @@ service ControlService {
   // and the next one closes what nothing is drawing.
   rpc GetMonitorPreviewState(GetMonitorPreviewStateRequest) returns (MonitorPreviewState);
 
+  // The windows a capture can read, as they stand.
+  //
+  // Off the catalog because a window list has no settled state to announce:
+  // it moves whenever somebody opens or closes something,
+  // so it is asked for when a surface is about to draw it.
+  // The form offers the handles and greys them, as it does monitor indexes,
+  // and this carries the title and the app a reader picks by.
+  //
+  // A session that cannot enumerate windows answers with an empty list
+  // and Catalog.no_window_enumeration says so beforehand.
+  rpc ListShareWindows(ListShareWindowsRequest) returns (ListShareWindowsResponse);
+
   // What this install knows about the release published beside it.
   // Answers without reaching the network:
   // CheckUpdate is what asks the release service, and this reads what it last landed.
@@ -491,6 +503,14 @@ message ResolveLinkResponse {
 message GetReceiveStateRequest {}
 
 message GetMonitorPreviewStateRequest {}
+
+message ListShareWindowsRequest {}
+
+// The windows this machine holds, in the order the platform enumerates them,
+// which puts the frontmost first where the platform reports one.
+message ListShareWindowsResponse {
+  repeated ShareWindow windows = 1;
+}
 
 message GetUpdateStateRequest {}
 

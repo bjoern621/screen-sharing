@@ -36,7 +36,11 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	// Each carries a port the kernel handed out for one launch, so a rendered command showing them
 	// would differ between two renderings of one pipeline, and whether two settings build one pipeline
 	// is decided by comparing exactly that string (SamePipeline).
-	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "", PreviewLeg{})
+	source, err := g.capture.Describe(s, opts)
+	if err != nil {
+		return "", err
+	}
+	pipeline, err := buildPipeline(s, source, "", PreviewLeg{})
 	if err != nil {
 		return "", err
 	}

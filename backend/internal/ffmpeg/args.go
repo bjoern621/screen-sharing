@@ -23,7 +23,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/share"
 	"bjoernblessin.de/screenshare/internal/transport"
+	"bjoernblessin.de/screenshare/internal/window"
 )
 
 // Tap is a second output the encoded video is copied to, never a second encode.
@@ -444,19 +446,68 @@ func frameMemory(s settings.Settings) (string, error) {
 // On a device path the texture stays where Desktop Duplication put it,
 // and what follows is the family's: a map onto the encoder's device where the family converts
 // there, nothing at all where the encoder reads the texture itself (gpu.go).
+// A rectangle reaches it as the output holding it plus an offset into that output,
+// Desktop Duplication handing out one output at a time.
+// A rectangle no single output holds is refused rather than cropped out of the wrong one.
 func ddagrabArgs(s settings.Settings, fps, memory string) (captureSource, error) {
-	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s:draw_mouse=%s",
-		s.Publish.Monitor, fps, drawMouse(s))}
+	target, err := s.Publish.Target()
+	if err != nil {
+		return captureSource{}, err
+	}
+
+	source := fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s:draw_mouse=%s",
+		target.Monitor, fps, drawMouse(s))
+	if target.Kind == share.Region {
+		r := target.Region
+		m, ok := display.Containing(r.X, r.Y, r.Width, r.Height)
+		if !ok {
+			return captureSource{}, fmt.Errorf("the rectangle %s is not inside one of this machine's outputs", r)
+		}
+		local := r.Offset(m.OffsetX, m.OffsetY)
+		source = fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s:draw_mouse=%s:offset_x=%d:offset_y=%d:video_size=%dx%d",
+			m.Index, fps, drawMouse(s), local.X, local.Y, local.Width, local.Height)
+	}
+
+	filters := []string{source}
 	if !gpupath.OnDevice(memory) {
 		filters = append(filters, "hwdownload", "format=bgra")
 	}
 	return captureSource{filterFlag: "-filter_complex", filters: filters}, nil
 }
 
+// gdigrabArgs reads the whole virtual desktop, a rectangle of it, or one window.
+//
+// The desktop is what the monitor kind is here: the input takes no output to single one out,
+// so its offsets count from the desktop's own origin and the rectangle needs no conversion.
+//
+// A window is addressed by title, which is the only handle this input takes.
+// The title is read off the enumeration rather than stored,
+// so the stream follows the window a reader picked even where its title has since changed,
+// and a window that is gone is refused instead of matching whatever else carries that title.
 func gdigrabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
-	return captureSource{args: []string{
-		"-f", "gdigrab", "-framerate", fps, "-draw_mouse", drawMouse(s), "-i", "desktop",
-	}}, nil
+	target, err := s.Publish.Target()
+	if err != nil {
+		return captureSource{}, err
+	}
+
+	args := []string{"-f", "gdigrab", "-framerate", fps, "-draw_mouse", drawMouse(s)}
+	switch target.Kind {
+	case share.Window:
+		w, ok := window.At(target.Window)
+		if !ok {
+			return captureSource{}, fmt.Errorf("window %d is no longer open", target.Window)
+		}
+		return captureSource{args: append(args, "-i", "title="+w.Title)}, nil
+	case share.Region:
+		r := target.Region
+		return captureSource{args: append(args,
+			"-offset_x", strconv.Itoa(r.X),
+			"-offset_y", strconv.Itoa(r.Y),
+			"-video_size", fmt.Sprintf("%dx%d", r.Width, r.Height),
+			"-i", "desktop",
+		)}, nil
+	}
+	return captureSource{args: append(args, "-i", "desktop")}, nil
 }
 
 // drawMouse renders the pointer setting as the "1"
@@ -487,10 +538,23 @@ func x11grabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	if disp == "" {
 		return captureSource{}, fmt.Errorf("x11grab captures an X screen and DISPLAY names none")
 	}
+	target, err := s.Publish.Target()
+	if err != nil {
+		return captureSource{}, err
+	}
+
 	args := []string{"-f", "x11grab", "-framerate", fps, "-draw_mouse", drawMouse(s)}
-	m, ok := display.At(s.Publish.Monitor)
+	if target.Kind == share.Region {
+		r := target.Region
+		return captureSource{args: append(args,
+			"-video_size", fmt.Sprintf("%dx%d", r.Width, r.Height),
+			"-i", fmt.Sprintf("%s+%d,%d", disp, r.X, r.Y),
+		)}, nil
+	}
+
+	m, ok := display.At(target.Monitor)
 	if !ok {
-		return captureSource{}, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
+		return captureSource{}, fmt.Errorf("monitor %d is not one of this machine's outputs", target.Monitor)
 	}
 	if m.Width <= 0 || m.Height <= 0 {
 		return captureSource{args: append(args, "-i", disp)}, nil

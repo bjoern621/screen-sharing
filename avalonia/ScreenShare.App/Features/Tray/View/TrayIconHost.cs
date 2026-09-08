@@ -12,40 +12,43 @@ namespace ScreenShare.App.Features.Tray.View;
 /// The tray icon as the platform draws it, rendered whole from <see cref="TrayViewModel.Menu"/>.
 /// Code-behind for the reason the pop-out pass is: nothing binds a tray icon into existence.
 ///
-/// <see cref="TryCreate"/> answers null where <see cref="EnvTray"/> asks for no icon, and where the platform
-/// serves no tray, an Umgebungsfehler the caller reads the same way: quit-on-close stands, a hidden window
-/// with no icon to come back through being gone.
+/// <b>The icon comes and goes with the setting.</b> <see cref="Render"/> registers one where
+/// <see cref="IsWanted"/> asks for it and takes it out where it does not, so a toggle in the settings
+/// dialog lands without a restart. Both directions are idempotent, a second pass over an unchanged menu
+/// registering and removing nothing.
+///
+/// No icon stands until the settings have been read, an icon that flashes up and goes being worse than
+/// one arriving late.
+///
+/// A platform serving no tray is an Umgebungsfehler, and leaves <see cref="IsUp"/> false the way the
+/// setting does: quit-on-close stands, a hidden window with no icon to come back through being gone.
 /// </summary>
 public sealed class TrayIconHost : IDisposable
 {
     /// <summary>
-    /// <c>0</c> keeps the icon out of the tray for a whole run.
+    /// <c>0</c> keeps the icon out of the tray for a whole run, whatever the setting holds.
     ///
-    /// For a desktop whose panel draws no tray, and for a reader who wants the close button to end the app.
+    /// For a desktop whose panel draws no tray, and for a checkout run beside an installed app.
     /// Everything the menu offers is the window's own, so a run without the icon loses no control.
     /// </summary>
     internal const string EnvTray = "MIRRORME_TRAY";
 
     private readonly TrayViewModel _tray;
-    private readonly TrayIcon _icon;
+    private readonly string? _env;
     private readonly WindowIcon _idle;
     private readonly WindowIcon _live;
+
+    /// <summary>The registered icon while one stands, null while none does.</summary>
+    private TrayIcon? _icon;
 
     private TrayIconHost(TrayViewModel tray)
     {
         _tray = tray;
+        _env = Environment.GetEnvironmentVariable(EnvTray);
         _idle = new WindowIcon(AssetLoader.Open(new Uri("avares://mirrorme/Assets/tray.png")));
         _live = new WindowIcon(AssetLoader.Open(new Uri("avares://mirrorme/Assets/tray-live.png")));
 
-        _icon = new TrayIcon { ToolTipText = TrayCopy.Tip, Icon = _idle };
-
-        // Left-click brings the window back; the menu is the platform's right-click.
-        _icon.Clicked += (_, _) => _tray.Open();
-
-        // Registered against the application, which is what holds the platform icon alive.
-        TrayIcon.SetIcons(Application.Current!, new TrayIcons { _icon });
-
-        // Disposing the icon on quit takes down the process it is quitting (AvaloniaUI/Avalonia#21979):
+        // Disposing an icon takes down the process it is registered against (AvaloniaUI/Avalonia#21979):
         // the DBus watch loop's cancellation escapes an async void into the dispatcher.
         // Marked handled here, at the host owning the icon whose dispose arms it, until upstream catches it.
         Dispatcher.UIThread.UnhandledException += (_, thrown) =>
@@ -68,35 +71,27 @@ public sealed class TrayIconHost : IDisposable
         Render();
     }
 
-    /// <summary>
-    /// Puts the icon in the tray.
-    /// Null where <see cref="EnvTray"/> is off, and on a platform serving no tray.
-    /// </summary>
-    public static TrayIconHost? TryCreate(TrayViewModel tray)
+    /// <summary>Builds the host. The icon itself follows the menu.</summary>
+    public static TrayIconHost Create(TrayViewModel tray)
     {
         Assert.NotNull(tray, "a tray icon draws the tray's state");
 
-        if (!IsWanted(Environment.GetEnvironmentVariable(EnvTray)))
-        {
-            return null;
-        }
-
-        try
-        {
-            return new TrayIconHost(tray);
-        }
-        catch (Exception)
-        {
-            // Umgebungsfehler: a platform or a session with no tray to register against.
-            return null;
-        }
+        return new TrayIconHost(tray);
     }
 
-    /// <summary>Takes the icon out of the tray. A disposed host stays disposed.</summary>
-    public void Dispose() => _icon.Dispose();
+    /// <summary>
+    /// Whether an icon stands in the tray right now, which is what makes a window close a hide.
+    /// </summary>
+    public bool IsUp => _icon is not null;
 
-    /// <summary>Whether a run wants an icon, read off <see cref="EnvTray"/>. Every value but <c>0</c> does.</summary>
-    internal static bool IsWanted(string? setting) => setting != "0";
+    /// <summary>Takes the icon out of the tray. A disposed host stays disposed.</summary>
+    public void Dispose() => Remove();
+
+    /// <summary>
+    /// Whether a run wants an icon.
+    /// <see cref="EnvTray"/> refuses one at <c>0</c>, and the app setting decides everywhere else.
+    /// </summary>
+    internal static bool IsWanted(string? environment, bool wanted) => environment != "0" && wanted;
 
     /// <summary>
     /// Whether a dispatcher exception is the tray watch dying of its own disposal,
@@ -107,13 +102,69 @@ public sealed class TrayIconHost : IDisposable
         thrown is OperationCanceledException
         && thrown.StackTrace?.Contains("DBusTrayIconImpl.WatchAsync") == true;
 
-    /// <summary>The one render function: icon and menu, whole, from the menu state.</summary>
+    /// <summary>The one render function: whether an icon stands, and what it draws, from the menu state.</summary>
     private void Render()
     {
         var menu = _tray.Menu;
 
+        if (!IsWanted(_env, menu.IsIconWanted))
+        {
+            Remove();
+            return;
+        }
+
+        Register();
+        if (_icon is null)
+        {
+            return;
+        }
+
         _icon.Icon = menu.IsLive ? _live : _idle;
         _icon.Menu = MenuOf(menu);
+    }
+
+    /// <summary>Puts an icon in the tray, where none stands. A platform serving no tray leaves none.</summary>
+    private void Register()
+    {
+        if (_icon is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            var icon = new TrayIcon { ToolTipText = TrayCopy.Tip, Icon = _idle };
+
+            // Left-click brings the window back; the menu is the platform's right-click.
+            icon.Clicked += (_, _) => _tray.Open();
+
+            // Registered against the application, which is what holds the platform icon alive.
+            TrayIcon.SetIcons(Application.Current!, new TrayIcons { icon });
+            _icon = icon;
+        }
+        catch (Exception)
+        {
+            // Umgebungsfehler: a platform or a session with no tray to register against.
+        }
+    }
+
+    /// <summary>
+    /// Takes the icon out of the tray, where one stands.
+    /// The empty set and the dispose both: which of the two drops the platform icon is Avalonia's business,
+    /// and a second dispose is a no-op.
+    /// </summary>
+    private void Remove()
+    {
+        if (_icon is null)
+        {
+            return;
+        }
+
+        var icon = _icon;
+        _icon = null;
+
+        TrayIcon.SetIcons(Application.Current!, new TrayIcons());
+        icon.Dispose();
     }
 
     private NativeMenu MenuOf(TrayMenu menu)

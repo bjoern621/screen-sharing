@@ -15,6 +15,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/screensrc"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/share"
 )
 
 // A GStreamer capture backend is the head of the publish pipeline: the elements producing raw
@@ -100,7 +101,9 @@ type gstCapture interface {
 	Name() string
 	// Describe returns the source elements for the rendered command, with a placeholder wherever Open
 	// substitutes a value the handshake produces.
-	Describe(s settings.Settings, opts gstCaptureOptions) []string
+	// The error is what refuses these settings before anything is opened:
+	// a target this backend cannot be pointed at, which the form has already greyed.
+	Describe(s settings.Settings, opts gstCaptureOptions) ([]string, error)
 	// Open acquires the source and returns the source elements a run plays, the files the child
 	// inherits from childFdBase up, and the teardown that runs when the child exits.
 	// A backend acquiring nothing returns no files and a no-op teardown.
@@ -121,8 +124,8 @@ type portalCapture struct{ hold *portal.Hold }
 
 func (portalCapture) Name() string { return "portal" }
 
-func (portalCapture) Describe(s settings.Settings, opts gstCaptureOptions) []string {
-	return portalElements(s, fdPlaceholder, nodePlaceholder, opts)
+func (portalCapture) Describe(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
+	return portalElements(s, fdPlaceholder, nodePlaceholder, opts), nil
 }
 
 func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
@@ -267,7 +270,7 @@ type ximageCapture struct{}
 
 func (ximageCapture) Name() string { return "ximagesrc" }
 
-func (x ximageCapture) Describe(s settings.Settings, opts gstCaptureOptions) []string {
+func (x ximageCapture) Describe(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
 	return x.elements(s, opts)
 }
 
@@ -282,10 +285,16 @@ func (x ximageCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 	// to whoever is watching is the wrong way to be wrong about it.
 	// The form keeps such a selection on the list, so this is the leg that has to say no
 	// (internal/form, optionMonitors).
-	if _, ok := display.At(s.Publish.Monitor); !ok {
-		return nil, nil, nil, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
+	if s.Publish.ShareKind == share.Monitor {
+		if _, ok := display.At(s.Publish.Monitor); !ok {
+			return nil, nil, nil, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
+		}
 	}
-	return x.elements(s, opts), nil, func() {}, nil
+	elements, err := x.elements(s, opts)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return elements, nil, func() {}, nil
 }
 
 func (ximageCapture) HoldsOneDevice() error {
@@ -293,22 +302,44 @@ func (ximageCapture) HoldsOneDevice() error {
 	return nil
 }
 
-// elements reads the head from screensrc, where the crop to the selected monitor is written.
+// elements reads the head from screensrc, where the selection is written.
 // The wizard's monitor preview builds from the same table, so the picture a screen is offered
 // by is the rectangle this stream carries (internal/screensrc).
 //
 // The rate probe sits at the end of the chain, as it does on every backend.
 // Nothing here repeats a frame, so it counts what ximagesrc read off the screen: the configured
 // framerate while the source keeps up, and less where it does not.
-func (x ximageCapture) elements(s settings.Settings, opts gstCaptureOptions) []string {
-	src := screensrc.Head(x.Name(), s.Publish.Monitor, s.Publish.Cursor == cursor.Embedded)
+func (x ximageCapture) elements(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
+	src, err := captureHead(x.Name(), s)
+	if err != nil {
+		return nil, err
+	}
 	src = append(src, "!", opts.rateCaps(s.Publish.Fps))
 	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)
 	}
-	return src
+	return src, nil
+}
+
+// captureHead is the source fragment reading what these settings point at,
+// through the element the named backend runs.
+//
+// One reader for both GStreamer backends that take a target,
+// so the refusal a stored target has moved out from under is written once
+// and neither backend states it in words of its own.
+func captureHead(element string, s settings.Settings) ([]string, error) {
+	target, err := s.Publish.Target()
+	if err != nil {
+		return nil, err
+	}
+	head, err := screensrc.Head(element, target)
+	if err != nil {
+		return nil, err
+	}
+	assert.Assert(len(head) > 0, "a capture backend's element has a head to build", element)
+	return head, nil
 }
 
 // avfCapture is the macOS backend: avfvideosrc reads a screen through AVFoundation, the GStreamer
@@ -334,8 +365,8 @@ type avfCapture struct{}
 
 func (avfCapture) Name() string { return "avfvideosrc" }
 
-func (a avfCapture) Describe(s settings.Settings, opts gstCaptureOptions) []string {
-	return a.elements(s, opts)
+func (a avfCapture) Describe(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
+	return a.elements(s, opts), nil
 }
 
 func (a avfCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
@@ -376,12 +407,16 @@ type d3d11Capture struct{}
 
 func (d3d11Capture) Name() string { return "d3d11screencapturesrc" }
 
-func (d d3d11Capture) Describe(s settings.Settings, opts gstCaptureOptions) []string {
+func (d d3d11Capture) Describe(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
 	return d.elements(s, opts)
 }
 
 func (d d3d11Capture) Open(s settings.Settings, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
-	return d.elements(s, opts), nil, func() {}, nil
+	elements, err := d.elements(s, opts)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return elements, nil, func() {}, nil
 }
 
 // HoldsOneDevice refuses nothing: the condition holds on every machine this backend runs on.
@@ -403,13 +438,16 @@ func (d3d11Capture) HoldsOneDevice() error {
 // device path converts and encodes in (gstGpuMemories).
 // Pinning it keeps the frames on the device, plain video/x-raw between the two being system memory
 // and nothing else.
-func (d d3d11Capture) elements(s settings.Settings, opts gstCaptureOptions) []string {
-	src := screensrc.Head(d.Name(), s.Publish.Monitor, s.Publish.Cursor == cursor.Embedded)
+func (d d3d11Capture) elements(s settings.Settings, opts gstCaptureOptions) ([]string, error) {
+	src, err := captureHead(d.Name(), s)
+	if err != nil {
+		return nil, err
+	}
 	src = append(src, "!", opts.rateCaps(s.Publish.Fps))
 	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)
 	}
-	return src
+	return src, nil
 }

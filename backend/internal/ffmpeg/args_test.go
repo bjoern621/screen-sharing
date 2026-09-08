@@ -14,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/share"
 )
 
 // encodeTimeout bounds one test encode.
@@ -44,6 +45,7 @@ func baseStream() settings.Settings {
 			BitrateM:   150,
 			MaxrateM:   200,
 			Capture:    "x11grab",
+			ShareKind:  share.Monitor,
 			// No ladder step: every codec below is reached off this one draft,
 			// and a step is one encoder's own identifier,
 			// so naming one would carry another encoder's step into most of them.

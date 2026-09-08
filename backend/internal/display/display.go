@@ -70,3 +70,26 @@ func At(index int) (Monitor, bool) {
 	}
 	return Monitor{}, false
 }
+
+// Containing is the enumerated output the rectangle lies wholly inside,
+// and false where no single output holds it: one spanning two screens, or one off every screen.
+//
+// Coordinates are the enumeration's own, the virtual desktop measured from the primary output's
+// top-left corner.
+// Asked by every capture that crops inside one output rather than across the desktop,
+// so the rectangle a user drew reaches such a backend as an output and an offset into it.
+//
+// An output with no measured geometry holds nothing:
+// a rectangle inside a screen this machine cannot measure is a claim about pixels nobody read.
+func Containing(x, y, width, height int) (Monitor, bool) {
+	for _, m := range List() {
+		if m.Width <= 0 || m.Height <= 0 {
+			continue
+		}
+		if x >= m.OffsetX && y >= m.OffsetY &&
+			x+width <= m.OffsetX+m.Width && y+height <= m.OffsetY+m.Height {
+			return m, true
+		}
+	}
+	return Monitor{}, false
+}

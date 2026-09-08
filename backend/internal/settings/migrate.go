@@ -278,6 +278,12 @@ func migratePublish(p, d Publish) Publish {
 	// every backend but kmsgrab drawing the pointer into the frames,
 	// so filling it keeps a stored stream looking as it did.
 	fillText(&p.Cursor, d.Cursor)
+	// A file written before the capture could be pointed at a window or a rectangle names no kind,
+	// and every backend refuses a kind no table row carries.
+	// The whole screen is what those builds captured,
+	// so filling it keeps a stored stream sharing what it did.
+	// The window and the rectangle stay empty, neither having been picked.
+	fillText(&p.ShareKind, d.ShareKind)
 
 	assert.Assert(p.FlatCodec == "", "an upgraded publish carries no pre-pair codec key", p.FlatCodec)
 	assert.Assert(p.FlatAudio == "", "an upgraded publish carries no pre-list audio key", p.FlatAudio)

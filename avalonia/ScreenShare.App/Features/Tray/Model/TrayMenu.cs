@@ -33,13 +33,21 @@ public sealed record TrayPresetEntry
 }
 
 /// <summary>
-/// The tray menu's whole state: the one commit row, and a row per preset, built-ins before saved ones.
+/// The tray's whole state: whether an icon is wanted at all, the one commit row,
+/// and a row per preset, built-ins before saved ones.
 ///
 /// Equality is by content, the entry list included, so the view model's render pass can assign every pass
 /// and an unchanged menu raises nothing (<c>docs/development-principles.md</c>, "Idempotency").
 /// </summary>
 public sealed record TrayMenu
 {
+    /// <summary>
+    /// Whether an icon is wanted in the tray, as the app setting asks for it.
+    /// False until the settings are read: an icon that flashes up and goes is worse than one arriving late
+    /// (<c>Features/Tray/View/TrayIconHost.cs</c>).
+    /// </summary>
+    public required bool IsIconWanted { get; init; }
+
     /// <summary>Whether a stream is on the air, which also picks the tray icon.</summary>
     public required bool IsLive { get; init; }
 
@@ -53,6 +61,7 @@ public sealed record TrayMenu
     /// <summary>Menu before anything has been read: a start nothing has vouched for yet, and no presets.</summary>
     public static readonly TrayMenu Unread = new()
     {
+        IsIconWanted = false,
         IsLive = false,
         CommitLabel = CommitCopy.Of(PublishCommit.Start).Label,
         CanCommit = false,
@@ -61,11 +70,12 @@ public sealed record TrayMenu
 
     public bool Equals(TrayMenu? other)
         => other is not null
+           && IsIconWanted == other.IsIconWanted
            && IsLive == other.IsLive
            && CommitLabel == other.CommitLabel
            && CanCommit == other.CanCommit
            && Presets.SequenceEqual(other.Presets);
 
     public override int GetHashCode()
-        => HashCode.Combine(IsLive, CommitLabel, CanCommit, Presets.Count);
+        => HashCode.Combine(IsIconWanted, IsLive, CommitLabel, CanCommit, Presets.Count);
 }

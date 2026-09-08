@@ -58,6 +58,9 @@ func populatedSettings() settings.Settings {
 			AudioCodec:          "aac",
 			DrmMap:              "vaapi",
 			Monitor:             2,
+			ShareKind:           "region",
+			ShareWindow:         "459812",
+			ShareRegion:         "100,200,1280x720",
 			CaptureMemory:       "gpu",
 			Cursor:              "hidden",
 			SrtPublishLatencyMs: 555,
@@ -78,6 +81,7 @@ func populatedSettings() settings.Settings {
 		App: settings.App{
 			SendCrashReports:    true,
 			CheckUpdatesOnStart: true,
+			TrayIcon:            true,
 			TestStreams:         true,
 		},
 	}

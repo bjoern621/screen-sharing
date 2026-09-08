@@ -38,7 +38,7 @@ var fieldDeclaredKeys = []string{
 	KeyUplinkMbps,
 	KeyOutputResolution,
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
-	KeySendCrashReports, KeyCheckUpdatesOnStart, KeyTestStreams,
+	KeySendCrashReports, KeyCheckUpdatesOnStart, KeyTrayIcon, KeyTestStreams,
 }
 
 // fieldDeclaredGroups is every group key, written out for the same reason.

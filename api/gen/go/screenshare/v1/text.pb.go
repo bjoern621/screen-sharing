@@ -105,6 +105,13 @@ const (
 	// nobody picks a driver, and a statement about a driver defect names the one installed.
 	TextArgName_TEXT_ARG_NAME_GPU_DRIVER TextArgName = 27
 	TextArgName_TEXT_ARG_NAME_GPU_MODEL  TextArgName = 28
+	// What of the machine a capture reads, as the settings name it: "monitor", "window" or "region".
+	TextArgName_TEXT_ARG_NAME_SHARE_KIND TextArgName = 68
+	// Window a capture reads, as the decimal handle the enumeration reported,
+	// which is what a shell looks a title up by (catalog.proto, ShareWindow).
+	TextArgName_TEXT_ARG_NAME_WINDOW TextArgName = 69
+	// Rectangle a capture reads, as the settings spell one: "100,200,1280x720".
+	TextArgName_TEXT_ARG_NAME_REGION TextArgName = 70
 	// Lists of identifiers, each of the axis its name says.
 	// The backend states which ones, and the shell decides how they read together.
 	TextArgName_TEXT_ARG_NAME_FAMILIES        TextArgName = 30
@@ -204,6 +211,9 @@ var (
 		26: "TEXT_ARG_NAME_TUNE",
 		27: "TEXT_ARG_NAME_GPU_DRIVER",
 		28: "TEXT_ARG_NAME_GPU_MODEL",
+		68: "TEXT_ARG_NAME_SHARE_KIND",
+		69: "TEXT_ARG_NAME_WINDOW",
+		70: "TEXT_ARG_NAME_REGION",
 		30: "TEXT_ARG_NAME_FAMILIES",
 		38: "TEXT_ARG_NAME_FORMATS",
 		31: "TEXT_ARG_NAME_TRANSPORTS",
@@ -269,6 +279,9 @@ var (
 		"TEXT_ARG_NAME_TUNE":               26,
 		"TEXT_ARG_NAME_GPU_DRIVER":         27,
 		"TEXT_ARG_NAME_GPU_MODEL":          28,
+		"TEXT_ARG_NAME_SHARE_KIND":         68,
+		"TEXT_ARG_NAME_WINDOW":             69,
+		"TEXT_ARG_NAME_REGION":             70,
 		"TEXT_ARG_NAME_FAMILIES":           30,
 		"TEXT_ARG_NAME_FORMATS":            38,
 		"TEXT_ARG_NAME_TRANSPORTS":         31,
@@ -370,6 +383,29 @@ const (
 	// TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY:
 	// what is missing belongs to the session, whatever monitor is picked.
 	TextCode_TEXT_CODE_NO_MONITOR_PREVIEW TextCode = 7
+	// Capture backend cannot read what this share kind names.
+	// TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_SHARE_KIND.
+	TextCode_TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND TextCode = 191
+	// Capture backend puts the question to the user itself,
+	// so nothing here decides what is shared.
+	// TEXT_ARG_NAME_CAPTURE.
+	TextCode_TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE TextCode = 192
+	// Share kind names a window and none has been picked.
+	TextCode_TEXT_CODE_NO_WINDOW_PICKED TextCode = 193
+	// Picked window is not among the enumerated ones:
+	// it was closed, or its process was restarted and handed the handle back.
+	// TEXT_ARG_NAME_WINDOW.
+	TextCode_TEXT_CODE_WINDOW_GONE TextCode = 194
+	// Share kind names a rectangle and none has been drawn.
+	TextCode_TEXT_CODE_NO_REGION_PICKED TextCode = 195
+	// Drawn rectangle lies outside every enumerated output,
+	// which a screen unplugged since it was drawn leaves behind.
+	// TEXT_ARG_NAME_REGION.
+	TextCode_TEXT_CODE_REGION_OFF_SCREEN TextCode = 196
+	// This session has no way to enumerate windows, so there is no list to pick one from.
+	// TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY:
+	// what is missing belongs to the session, whatever window is open on it.
+	TextCode_TEXT_CODE_NO_WINDOW_ENUMERATION TextCode = 197
 	// Engine's own tooling is missing, so nothing on it was probed.
 	// TEXT_ARG_NAME_ENGINE.
 	TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING TextCode = 10
@@ -826,6 +862,13 @@ var (
 		5:   "TEXT_CODE_MONITOR_NOT_ENUMERATED",
 		6:   "TEXT_CODE_SCALED_FROM_SOURCE",
 		7:   "TEXT_CODE_NO_MONITOR_PREVIEW",
+		191: "TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND",
+		192: "TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE",
+		193: "TEXT_CODE_NO_WINDOW_PICKED",
+		194: "TEXT_CODE_WINDOW_GONE",
+		195: "TEXT_CODE_NO_REGION_PICKED",
+		196: "TEXT_CODE_REGION_OFF_SCREEN",
+		197: "TEXT_CODE_NO_WINDOW_ENUMERATION",
 		10:  "TEXT_CODE_ENGINE_TOOLING_MISSING",
 		11:  "TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK",
 		163: "TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING",
@@ -972,6 +1015,13 @@ var (
 		"TEXT_CODE_MONITOR_NOT_ENUMERATED":                    5,
 		"TEXT_CODE_SCALED_FROM_SOURCE":                        6,
 		"TEXT_CODE_NO_MONITOR_PREVIEW":                        7,
+		"TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND":               191,
+		"TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE":                192,
+		"TEXT_CODE_NO_WINDOW_PICKED":                          193,
+		"TEXT_CODE_WINDOW_GONE":                               194,
+		"TEXT_CODE_NO_REGION_PICKED":                          195,
+		"TEXT_CODE_REGION_OFF_SCREEN":                         196,
+		"TEXT_CODE_NO_WINDOW_ENUMERATION":                     197,
 		"TEXT_CODE_ENGINE_TOOLING_MISSING":                    10,
 		"TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK":                11,
 		"TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING":              163,
@@ -1399,7 +1449,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xb7\x0e\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x89\x0f\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1431,7 +1481,10 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_CURSOR\x10\x19\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_TUNE\x10\x1a\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_GPU_DRIVER\x10\x1b\x12\x1b\n" +
-	"\x17TEXT_ARG_NAME_GPU_MODEL\x10\x1c\x12\x1a\n" +
+	"\x17TEXT_ARG_NAME_GPU_MODEL\x10\x1c\x12\x1c\n" +
+	"\x18TEXT_ARG_NAME_SHARE_KIND\x10D\x12\x18\n" +
+	"\x14TEXT_ARG_NAME_WINDOW\x10E\x12\x18\n" +
+	"\x14TEXT_ARG_NAME_REGION\x10F\x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_FORMATS\x10&\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_TRANSPORTS\x10\x1f\x12\x1e\n" +
@@ -1464,7 +1517,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
 	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CHANNEL\x10B\x12\x19\n" +
-	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xf6/\n" +
+	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xf31\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1473,7 +1526,14 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\"TEXT_CODE_CAPTURE_TAKES_NO_MONITOR\x10\x04\x12$\n" +
 	" TEXT_CODE_MONITOR_NOT_ENUMERATED\x10\x05\x12 \n" +
 	"\x1cTEXT_CODE_SCALED_FROM_SOURCE\x10\x06\x12 \n" +
-	"\x1cTEXT_CODE_NO_MONITOR_PREVIEW\x10\a\x12$\n" +
+	"\x1cTEXT_CODE_NO_MONITOR_PREVIEW\x10\a\x12*\n" +
+	"%TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND\x10\xbf\x01\x12)\n" +
+	"$TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE\x10\xc0\x01\x12\x1f\n" +
+	"\x1aTEXT_CODE_NO_WINDOW_PICKED\x10\xc1\x01\x12\x1a\n" +
+	"\x15TEXT_CODE_WINDOW_GONE\x10\xc2\x01\x12\x1f\n" +
+	"\x1aTEXT_CODE_NO_REGION_PICKED\x10\xc3\x01\x12 \n" +
+	"\x1bTEXT_CODE_REGION_OFF_SCREEN\x10\xc4\x01\x12$\n" +
+	"\x1fTEXT_CODE_NO_WINDOW_ENUMERATION\x10\xc5\x01\x12$\n" +
 	" TEXT_CODE_ENGINE_TOOLING_MISSING\x10\n" +
 	"\x12(\n" +
 	"$TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK\x10\v\x12+\n" +

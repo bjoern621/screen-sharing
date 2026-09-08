@@ -7,6 +7,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/share"
 )
 
 // An index no machine running this test has an output for,
@@ -21,7 +22,7 @@ const unenumerated = 4096
 // and this one names the row that is wrong.
 func TestEverySessionSourceHasAHead(t *testing.T) {
 	for _, s := range sessions {
-		if len(Head(s.element, unenumerated, true)) == 0 {
+		if len(monitorHead(t, s.element)) == 0 {
 			t.Errorf("the %s/%s session reads screens with %q and nothing builds a head for it",
 				s.os, s.display, s.element)
 		}
@@ -98,7 +99,7 @@ func TestThePreviewReadsTheHeadThePublishPipelineIsBuiltFrom(t *testing.T) {
 			t.Fatalf("session %+v reads screens and would not build a preview: %v", tc.platform, err)
 		}
 
-		head := strings.Join(Head(tc.element, unenumerated, true), " ")
+		head := strings.Join(monitorHead(t, tc.element), " ")
 		if !strings.HasPrefix(source, head) {
 			t.Errorf("the preview of a screen on %+v does not begin with the head the publish pipeline uses:\n preview: %s\n head:    %s",
 				tc.platform, source, head)
@@ -134,13 +135,24 @@ func TestASessionThatReadsNoScreenBuildsNoPreview(t *testing.T) {
 // The Windows head names the index whatever the enumeration knows,
 // the index being that enumeration's own.
 func TestAnUnenumeratedIndexLeavesTheHeadUncropped(t *testing.T) {
-	x11 := strings.Join(Head(XImage, unenumerated, true), " ")
+	x11 := strings.Join(monitorHead(t, XImage), " ")
 	if strings.Contains(x11, "startx=") {
 		t.Errorf("an index no output carries produced a crop rectangle: %s", x11)
 	}
 
-	windows := strings.Join(Head(D3D11, unenumerated, true), " ")
+	windows := strings.Join(monitorHead(t, D3D11), " ")
 	if !strings.Contains(windows, "monitor-index=4096") {
 		t.Errorf("the Windows head drops the index it is given: %s", windows)
 	}
+}
+
+// monitorHead is the head reading the unenumerated index, which every element builds.
+func monitorHead(t *testing.T, element string) []string {
+	t.Helper()
+
+	head, err := Head(element, share.MonitorTarget(unenumerated))
+	if err != nil {
+		t.Fatalf("%s reads a monitor and would not build a head: %v", element, err)
+	}
+	return head
 }

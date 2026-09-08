@@ -84,11 +84,14 @@ public sealed partial class App : Application
 
             // The reader's close is the tray's hide where an icon is up, and the quit where none is:
             // a hidden window nothing can reopen is gone.
+            // Whether one is up follows the app setting and the tray the desktop serves, and moves while the
+            // app runs, so each close asks rather than reading what the start found
+            // (Features/Tray/View/TrayIconHost.cs).
             // Both take the tray's quit, so the window's decodes close and a stream on a backend this shell
             // started ends before the process does, and the exit hooks take that backend with the shell
             // (Features/Tray/ViewModel/TrayViewModel.cs, Backend/BackendProcess.cs).
             // Shutdown is explicit either way: the close is cancelled, and the quit closes the window for real.
-            var tray = TrayIconHost.TryCreate(shell.Tray);
+            var tray = TrayIconHost.Create(shell.Tray);
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             window.Closing += (_, close) =>
@@ -100,7 +103,7 @@ public sealed partial class App : Application
                 }
 
                 close.Cancel = true;
-                if (tray is not null)
+                if (tray.IsUp)
                 {
                     window.Hide();
                 }
@@ -126,11 +129,8 @@ public sealed partial class App : Application
                 window.Activate();
             }
 
-            if (tray is not null)
-            {
-                shell.Tray.OpenRequested += Raise;
-                desktop.Exit += (_, _) => tray.Dispose();
-            }
+            shell.Tray.OpenRequested += Raise;
+            desktop.Exit += (_, _) => tray.Dispose();
 
             // One render pass before the window shows.
             // Apply is idempotent, so a second one changes nothing.

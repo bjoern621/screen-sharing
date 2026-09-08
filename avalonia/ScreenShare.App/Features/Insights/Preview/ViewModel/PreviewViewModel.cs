@@ -231,6 +231,7 @@ public sealed class PreviewViewModel : Observable
 
     private string _placeholder = "";
     private bool _hasPlaceholder;
+    private bool _isConnecting;
     private string _cost = "";
     private string _encoded = "";
     private string _quality = "";
@@ -322,6 +323,12 @@ public sealed class PreviewViewModel : Observable
     public string Placeholder { get => _placeholder; private set => Set(ref _placeholder, value); }
 
     public bool HasPlaceholder { get => _hasPlaceholder; private set => Set(ref _hasPlaceholder, value); }
+
+    /// <summary>
+    /// Whether the placeholder is a picture still on its way, which is the one dark state the arc turns on.
+    /// The card is dark for reasons a reader acts on as well, and none of those is a wait.
+    /// </summary>
+    public bool IsConnecting { get => _isConnecting; private set => Set(ref _isConnecting, value); }
 
     /// <summary>
     /// What this picture is and is not, in the chosen route's own words: where it was taken, what it costs, and
@@ -452,8 +459,10 @@ public sealed class PreviewViewModel : Observable
 
         // After the tile's own pass: a tile that is drawing has no sentence,
         // and one that is not has written it by now.
-        Placeholder = PlaceholderFor();
+        var placeholder = PlaceholderFor();
+        Placeholder = placeholder.Text;
         HasPlaceholder = Placeholder.Length > 0;
+        IsConnecting = placeholder.Connecting;
         HasTile = _tile is not null;
 
         Assert.That(HasPlaceholder == (Placeholder.Length > 0), "a placeholder and its sentence agree", HasPlaceholder);
@@ -753,33 +762,37 @@ public sealed class PreviewViewModel : Observable
     /// What is left is this card's, the last of them the chosen route's, the two routes being dark for different
     /// reasons.
     /// </summary>
-    private string PlaceholderFor()
+    private (string Text, bool Connecting) PlaceholderFor()
     {
         if (Route == PreviewRoute.Off)
         {
-            return Cards.PreviewOff;
+            return (Cards.PreviewOff, false);
         }
 
         if (_refusal.Length > 0)
         {
-            return _refusal;
+            return (_refusal, false);
         }
 
+        // The tile answers for its own states, the wait among them.
         if (_tile is not null)
         {
-            return _tile.Notice;
+            return (_tile.Notice, _tile.IsConnecting);
         }
 
         if (_session.Publish?.Live is null)
         {
-            return Cards.PreviewNotPublishing;
+            return (Cards.PreviewNotPublishing, false);
         }
 
         if (Route != PreviewRoute.EndToEnd)
         {
-            return Cards.PreviewNotPreviewed;
+            return (Cards.PreviewNotPreviewed, false);
         }
 
-        return TileLeg.Of(_form.Stored).Length == 0 ? Cards.PreviewNoWatchLeg : Cards.PreviewOpening;
+        // A leg the settings do not carry is a configuration to change; a decode opening is answered by waiting.
+        return TileLeg.Of(_form.Stored).Length == 0
+            ? (Cards.PreviewNoWatchLeg, false)
+            : (Cards.PreviewOpening, true);
     }
 }

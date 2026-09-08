@@ -169,8 +169,10 @@ The Nix package sets it.
 
 The window closes to a tray icon, whose menu starts and stops a stream and whose quit ends the app.
 
-`MIRRORME_TRAY=0` puts no icon in the tray.
-Closing the window ends the app instead, and everything the menu offers stays in the window.
+Settings carries a switch for the icon.
+With it off, no icon is registered, closing the window ends the app, and everything the menu offers stays in the window.
+
+`MIRRORME_TRAY=0` puts no icon in the tray for a whole run, whatever that switch holds.
 
 ## Where settings are kept
 

@@ -58,6 +58,11 @@ message AppSettings {
   // The published release is read once per start, filling the update state a shell draws.
   // Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
   bool check_updates_on_start = 2;
+  // The icon in the tray, and with it what the close button does:
+  // with an icon up a close hides the window, and off a close ends the app.
+  // Everything the menu offers is the window's own
+  // (avalonia/README.md, "The tray").
+  bool tray_icon = 4;
   // The synthetic publishers this machine exercises the viewing paths with, and an encoder per slot.
   // A development aid: the streams carry test patterns and reach every viewer of the group
   // (internal/app/teststreams.go).
@@ -239,8 +244,39 @@ message PublishSettings {
   // A knob of the kmsgrab scanout path and of nothing else,
   // so the form hides it rather than greying it under every other backend.
   string drm_map = 26;
-  // Display output to capture, as the index the monitor list carries.
+  // What of this machine the capture reads: "monitor" one whole output,
+  // "window" one window of one application, "region" a rectangle of the virtual desktop.
+  // Which of the three a capture backend serves is that backend's own fact,
+  // so the form greys the rest with what each one is missing.
+  //
+  // A backend that puts the question to the user itself serves none of them,
+  // the desktop portal being the case that exists:
+  // the compositor draws the picker and answers with whatever was chosen there,
+  // so a value stored here would describe a choice this app never makes.
+  string share_kind = 45;
+  // Display output "monitor" reads, as the index the monitor list carries.
   int32 monitor = 27;
+  // Window "window" reads, as the decimal handle ListShareWindows carries.
+  // Empty is a machine where nothing has been picked, which no publish runs on.
+  //
+  // A handle and not a title: two windows of one application carry one title,
+  // and a capture of "the other one" is the outcome no form can show.
+  // It survives no restart of the window's own process,
+  // so a stored one is held against the enumeration before a stream is built.
+  string share_window = 46;
+  // Rectangle "region" reads, as "x,y,WIDTHxHEIGHT" in virtual-desktop pixels:
+  // "100,200,1280x720".
+  // The origin is the monitor enumeration's, so a screen left of or above the primary one
+  // carries negative coordinates.
+  //
+  // One string rather than four numbers, for the reason output_resolution is one:
+  // the four are legal only together, and a form has no way to say so.
+  // Empty is a machine where nothing has been picked.
+  //
+  // Desktop coordinates whichever backend reads them,
+  // one rectangle on one screen being what a user drew.
+  // A backend cropping inside a single output is handed the difference against that output's origin.
+  string share_region = 47;
   // Where the frames reach the encoder: auto, gpu, gpu-encoder-color or system.
   // The capture backend and the encoder family together decide which of them a selection may take,
   // the one constraint neither end declares alone.

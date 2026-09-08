@@ -40,6 +40,7 @@ func AppSettings(a settings.App) *screensharev1.AppSettings {
 	return &screensharev1.AppSettings{
 		SendCrashReports:    a.SendCrashReports,
 		CheckUpdatesOnStart: a.CheckUpdatesOnStart,
+		TrayIcon:            a.TrayIcon,
 		TestStreams:         a.TestStreams,
 	}
 }
@@ -92,6 +93,9 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		AudioCodec:    p.AudioCodec,
 		DrmMap:        p.DrmMap,
 		Monitor:       int32(p.Monitor),
+		ShareKind:     p.ShareKind,
+		ShareWindow:   p.ShareWindow,
+		ShareRegion:   p.ShareRegion,
 		CaptureMemory: p.CaptureMemory,
 		Cursor:        p.Cursor,
 
@@ -147,6 +151,7 @@ func ToApp(m *screensharev1.AppSettings) settings.App {
 	return settings.App{
 		SendCrashReports:    m.GetSendCrashReports(),
 		CheckUpdatesOnStart: m.GetCheckUpdatesOnStart(),
+		TrayIcon:            m.GetTrayIcon(),
 		TestStreams:         m.GetTestStreams(),
 	}
 }
@@ -203,6 +208,9 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		AudioCodec:    m.GetAudioCodec(),
 		DrmMap:        m.GetDrmMap(),
 		Monitor:       int(m.GetMonitor()),
+		ShareKind:     m.GetShareKind(),
+		ShareWindow:   m.GetShareWindow(),
+		ShareRegion:   m.GetShareRegion(),
 		CaptureMemory: m.GetCaptureMemory(),
 		Cursor:        m.GetCursor(),
 

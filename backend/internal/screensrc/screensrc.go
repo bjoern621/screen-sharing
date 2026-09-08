@@ -1,16 +1,16 @@
-// Package screensrc names the GStreamer elements that read one of this machine's monitors,
-// and the properties that single one out.
+// Package screensrc names the GStreamer elements that read this machine's own screen,
+// and the properties pointing one at a monitor, a window or a rectangle.
 //
 // Two consumers read the same rectangle:
 // the publish pipeline's capture head, and the setup wizard's monitor preview.
 // A preview cropped differently from the stream would be a picture that lies about what is shared,
-// so the element and its monitor selection are written once here and read by both.
+// so the element and its selection are written once here and read by both.
 //
 // Two tables, answering different questions.
-// Head answers what reads the monitor a named element captures, keyed by the element:
+// heads answers what reads a target through a named element, keyed by the element (head.go):
 // a publish pipeline is rendered from settings alone,
 // and an ximagesrc line has to render the same on a machine running Windows.
-// Session answers what reads a monitor here, keyed by the running session:
+// sessions answers what reads a monitor here, keyed by the running session:
 // a preview is opened on the machine it is shown on,
 // with no capture backend selected to derive it from.
 //
@@ -24,34 +24,23 @@ package screensrc
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
-	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/share"
 	"bjoernblessin.de/screenshare/internal/text"
 )
 
 // The elements this package builds heads for, spelled as GStreamer spells them.
-// Both take a monitor index,
-// and the constants keep the tables below and every caller on one spelling.
+// The constants keep the tables and every caller on one spelling.
 const (
 	XImage = "ximagesrc"
 	D3D11  = "d3d11screencapturesrc"
 )
-
-// heads builds one element's source fragment:
-// the element itself, the pointer properties and the monitor selection, and nothing downstream.
-// What follows differs per consumer,
-// a publish head being paced and converted for an encoder and a preview head scaled for a window.
-var heads = map[string]func(index int, pointer bool) []string{
-	XImage: ximageHead,
-	D3D11:  d3d11Head,
-}
 
 // sessionSource pairs a session with the element that reads its screens,
 // in the shape publish.captureNeeds states platform applicability in:
@@ -84,31 +73,6 @@ func init() {
 		assert.Assert(ok, "a session's screen source has a head to build", s.element, s.os)
 		assert.Assert(s.os != "", "a screen source names the operating system it runs on", s.element)
 	}
-}
-
-// Head is the fragment that reads the monitor at index through the named element,
-// nil for an element this package builds no head for.
-//
-// The index is the display enumeration's, which is what PublishSettings.monitor carries.
-// Where the enumeration holds no such output the head is built without a selection:
-// X11 then captures the whole screen rather than a guessed rectangle,
-// and Windows is handed the index whatever the enumeration knows,
-// the index being that enumeration's own.
-// x11grab does not do the same and refuses an index no output answers to (ximageHead).
-//
-// pointer draws the mouse pointer into the frames.
-// A publish passes what the settings hold and a preview passes true,
-// a preview showing the screen as it is rather than as a stream would carry it.
-func Head(element string, index int, pointer bool) []string {
-	build, ok := heads[element]
-	if !ok {
-		return nil
-	}
-
-	head := build(index, pointer)
-	assert.Assert(len(head) > 0 && head[0] == element,
-		"a head leads with the element it was built for", element)
-	return head
 }
 
 // Session is the element that reads a single monitor here,
@@ -155,8 +119,7 @@ const (
 // so a receiver built on it is opened raw and grows no decoder and no audio branch
 // (receive.Stream.Raw).
 //
-// The error is an Umgebungsfehler and the one refusal made here:
-// a session with no element that reads a single output.
+// The error is an Umgebungsfehler: a session with no element that reads a single output.
 // Which sessions those are is sessions' business,
 // and Session states the same fact as a code for the surface that writes a sentence about it.
 func PreviewSource(p platform.Info, index int) (string, error) {
@@ -165,10 +128,8 @@ func PreviewSource(p platform.Info, index int) (string, error) {
 		return "", fmt.Errorf("this session cannot read one monitor apart from another")
 	}
 
-	// The pointer is drawn whatever the publish setting holds.
-	// A preview answers what a screen looks like rather than what the stream would carry:
-	// two desktops alike but for the pointer are two pictures a reader cannot tell apart without it.
-	head := Head(element, index, true)
+	head, err := Head(element, share.MonitorTarget(index))
+	assert.Assert(err == nil, "a monitor head builds on every session that has one", element, index)
 	assert.Assert(len(head) > 0, "a session's screen source builds a head", element)
 
 	parts := append(head,
@@ -177,46 +138,4 @@ func PreviewSource(p platform.Info, index int) (string, error) {
 		"!", fmt.Sprintf("video/x-raw,width=[1,%d],height=[1,%d]", previewWidth, previewHeight),
 	)
 	return strings.Join(parts, " "), nil
-}
-
-// ximageHead reads the X screen, cropped to the selected monitor where its geometry is known.
-// An enumeration reporting no geometry leaves the crop off,
-// capturing the whole X screen rather than a guessed rectangle.
-//
-// An enumeration with no geometry is a machine that cannot measure its outputs,
-// and the whole screen is the honest answer to it.
-// An index no output answers to is a settings file naming a monitor that was unplugged.
-// It is refused before a head is ever built, where the capture answers with an error
-// (publish/gstcapture.go, ximageCapture.Open; internal/ffmpeg, x11grabArgs).
-//
-// endx and endy are inclusive: the last captured column is the offset plus the width minus one.
-func ximageHead(index int, pointer bool) []string {
-	head := []string{XImage, "use-damage=false", "show-pointer=" + boolProperty(pointer)}
-	m, ok := display.At(index)
-	if !ok || m.Width <= 0 || m.Height <= 0 {
-		return head
-	}
-	return append(head,
-		"startx="+strconv.Itoa(m.OffsetX),
-		"starty="+strconv.Itoa(m.OffsetY),
-		"endx="+strconv.Itoa(m.OffsetX+m.Width-1),
-		"endy="+strconv.Itoa(m.OffsetY+m.Height-1),
-	)
-}
-
-// d3d11Head reads one output through Desktop Duplication.
-// The index reaches the element without a lookup, as ddagrab's output_idx does:
-// both name a monitor in the Windows enumeration the index already stands for.
-func d3d11Head(index int, pointer bool) []string {
-	return []string{D3D11, "show-cursor=" + boolProperty(pointer), "monitor-index=" + strconv.Itoa(index)}
-}
-
-// boolProperty is how a GStreamer element spells a boolean property value: "true" or "false".
-// One helper: the two heads carry the same fact through differently named properties,
-// and a literal typed per site is one that can be spelled "1" at one of them.
-func boolProperty(on bool) string {
-	if on {
-		return "true"
-	}
-	return "false"
 }

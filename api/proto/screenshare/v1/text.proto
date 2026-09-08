@@ -108,6 +108,13 @@ enum TextArgName {
   // nobody picks a driver, and a statement about a driver defect names the one installed.
   TEXT_ARG_NAME_GPU_DRIVER = 27;
   TEXT_ARG_NAME_GPU_MODEL = 28;
+  // What of the machine a capture reads, as the settings name it: "monitor", "window" or "region".
+  TEXT_ARG_NAME_SHARE_KIND = 68;
+  // Window a capture reads, as the decimal handle the enumeration reported,
+  // which is what a shell looks a title up by (catalog.proto, ShareWindow).
+  TEXT_ARG_NAME_WINDOW = 69;
+  // Rectangle a capture reads, as the settings spell one: "100,200,1280x720".
+  TEXT_ARG_NAME_REGION = 70;
 
   // Lists of identifiers, each of the axis its name says.
   // The backend states which ones, and the shell decides how they read together.
@@ -256,6 +263,29 @@ enum TextCode {
   // TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY:
   // what is missing belongs to the session, whatever monitor is picked.
   TEXT_CODE_NO_MONITOR_PREVIEW = 7;
+  // Capture backend cannot read what this share kind names.
+  // TEXT_ARG_NAME_CAPTURE and TEXT_ARG_NAME_SHARE_KIND.
+  TEXT_CODE_CAPTURE_TAKES_NO_SHARE_KIND = 191;
+  // Capture backend puts the question to the user itself,
+  // so nothing here decides what is shared.
+  // TEXT_ARG_NAME_CAPTURE.
+  TEXT_CODE_CAPTURE_ASKS_WHAT_TO_SHARE = 192;
+  // Share kind names a window and none has been picked.
+  TEXT_CODE_NO_WINDOW_PICKED = 193;
+  // Picked window is not among the enumerated ones:
+  // it was closed, or its process was restarted and handed the handle back.
+  // TEXT_ARG_NAME_WINDOW.
+  TEXT_CODE_WINDOW_GONE = 194;
+  // Share kind names a rectangle and none has been drawn.
+  TEXT_CODE_NO_REGION_PICKED = 195;
+  // Drawn rectangle lies outside every enumerated output,
+  // which a screen unplugged since it was drawn leaves behind.
+  // TEXT_ARG_NAME_REGION.
+  TEXT_CODE_REGION_OFF_SCREEN = 196;
+  // This session has no way to enumerate windows, so there is no list to pick one from.
+  // TEXT_ARG_NAME_OS and, on Linux, TEXT_ARG_NAME_DISPLAY:
+  // what is missing belongs to the session, whatever window is open on it.
+  TEXT_CODE_NO_WINDOW_ENUMERATION = 197;
 
   // --- Publish engines and the encoder probe ------------------------------------
 

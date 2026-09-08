@@ -391,9 +391,10 @@ while a pop-out window stays on screen with its decode,
 and the streams the grid watched come back with the window (`docs/viewer-architecture.md`, "A decode runs while a window draws it").
 Quit is one sequence whichever control runs it: the window's decodes close and a stream running on a backend this shell started ends, side by side and bounded, then the process shuts down and the exit hooks take that backend with it (`Backend/BackendProcess.cs`).
 A backend this shell attached to keeps its stream, the arrangement a window close leaves it in.
-`TrayIconHost.TryCreate` answers null where `MIRRORME_TRAY=0` asks for no icon, and where the platform serves no tray.
-`task avalonia` sets it, so a checkout run ends on the close button and puts no second icon beside an installed app's.
-A hidden window nothing can reopen is gone, so closing the window there runs the quit.
+The icon is a setting, and the host converges on it: switching it off takes the icon out of the tray with the app running, and switching it on puts one back.
+Nothing stands in the tray until the settings have been read, and a platform serving no tray registers nothing either way.
+`MIRRORME_TRAY=0` keeps the icon out for a whole run whatever the setting holds, and `task avalonia` sets it, so a checkout run puts no second icon beside an installed app's.
+A hidden window nothing can reopen is gone, so closing the window with no icon up runs the quit.
 
 ## How the repository's principles land in C#
 

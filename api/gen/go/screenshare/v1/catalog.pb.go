@@ -1275,6 +1275,95 @@ func (x *Monitor) GetRefreshHz() int32 {
 	return 0
 }
 
+// One window a capture can read, as the machine holds it at the moment it was asked.
+//
+// Here beside Monitor and off Catalog, the two answering to different clocks.
+// The reference set is fetched once and announced when it moves,
+// and a window opens and closes while nobody is looking,
+// so this crosses on a read of its own (control.proto, ListShareWindows).
+type ShareWindow struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Decimal window handle, and the value PublishSettings.share_window carries.
+	// A string because the platform handle is 64 bits wide and JSON-shaped tooling reads it.
+	Handle string `protobuf:"bytes,1,opt,name=handle,proto3" json:"handle,omitempty"`
+	// The window's own title bar, as it stands.
+	// Empty is a window that carries none, which the surface names by app alone.
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	// Executable behind the window, without its directory or extension: "chrome", "code".
+	// Empty where the process could not be read.
+	App string `protobuf:"bytes,3,opt,name=app,proto3" json:"app,omitempty"`
+	// Size of the window's captured area in pixels.
+	Width         int32 `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int32 `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareWindow) Reset() {
+	*x = ShareWindow{}
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareWindow) ProtoMessage() {}
+
+func (x *ShareWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareWindow.ProtoReflect.Descriptor instead.
+func (*ShareWindow) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ShareWindow) GetHandle() string {
+	if x != nil {
+		return x.Handle
+	}
+	return ""
+}
+
+func (x *ShareWindow) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ShareWindow) GetApp() string {
+	if x != nil {
+		return x.App
+	}
+	return ""
+}
+
+func (x *ShareWindow) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *ShareWindow) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
 // The machine the backend is running on.
 type Platform struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1289,7 +1378,7 @@ type Platform struct {
 
 func (x *Platform) Reset() {
 	*x = Platform{}
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[13]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1301,7 +1390,7 @@ func (x *Platform) String() string {
 func (*Platform) ProtoMessage() {}
 
 func (x *Platform) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[13]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1314,7 +1403,7 @@ func (x *Platform) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Platform.ProtoReflect.Descriptor instead.
 func (*Platform) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{13}
+	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Platform) GetOs() string {
@@ -1342,7 +1431,7 @@ type TransportList struct {
 
 func (x *TransportList) Reset() {
 	*x = TransportList{}
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[14]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1354,7 +1443,7 @@ func (x *TransportList) String() string {
 func (*TransportList) ProtoMessage() {}
 
 func (x *TransportList) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[14]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1367,7 +1456,7 @@ func (x *TransportList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransportList.ProtoReflect.Descriptor instead.
 func (*TransportList) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{14}
+	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TransportList) GetTransports() []string {
@@ -1437,13 +1526,21 @@ type Catalog struct {
 	// and which one exists is the display server's answer,
 	// the same for every monitor plugged into it.
 	NoMonitorPreview *Text `protobuf:"bytes,21,opt,name=no_monitor_preview,json=noMonitorPreview,proto3" json:"no_monitor_preview,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Why this machine cannot list its windows, absent where it can.
+	// ListShareWindows answers empty for the same reason,
+	// so a shell reads this and writes a sentence instead of drawing an empty list.
+	//
+	// One statement for the machine, as no_monitor_preview is one:
+	// enumerating windows is the display server's answer,
+	// the same for every window open on it.
+	NoWindowEnumeration *Text `protobuf:"bytes,23,opt,name=no_window_enumeration,json=noWindowEnumeration,proto3" json:"no_window_enumeration,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Catalog) Reset() {
 	*x = Catalog{}
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[15]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1455,7 +1552,7 @@ func (x *Catalog) String() string {
 func (*Catalog) ProtoMessage() {}
 
 func (x *Catalog) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[15]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1468,7 +1565,7 @@ func (x *Catalog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Catalog.ProtoReflect.Descriptor instead.
 func (*Catalog) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{15}
+	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Catalog) GetPlatform() *Platform {
@@ -1604,6 +1701,13 @@ func (x *Catalog) GetNoMonitorPreview() *Text {
 	return nil
 }
 
+func (x *Catalog) GetNoWindowEnumeration() *Text {
+	if x != nil {
+		return x.NoWindowEnumeration
+	}
+	return nil
+}
+
 // One thing inside an audio capture kind:
 // a sound device, or an application whose own output is being recorded.
 //
@@ -1626,7 +1730,7 @@ type AudioDevice struct {
 
 func (x *AudioDevice) Reset() {
 	*x = AudioDevice{}
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[16]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1638,7 +1742,7 @@ func (x *AudioDevice) String() string {
 func (*AudioDevice) ProtoMessage() {}
 
 func (x *AudioDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_catalog_proto_msgTypes[16]
+	mi := &file_screenshare_v1_catalog_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1651,7 +1755,7 @@ func (x *AudioDevice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioDevice.ProtoReflect.Descriptor instead.
 func (*AudioDevice) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{16}
+	return file_screenshare_v1_catalog_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AudioDevice) GetKind() string {
@@ -1762,14 +1866,21 @@ const file_screenshare_v1_catalog_proto_rawDesc = "" +
 	"\aprimary\x18\x06 \x01(\bR\aprimary\x12\"\n" +
 	"\n" +
 	"refresh_hz\x18\a \x01(\x05H\x00R\trefreshHz\x88\x01\x01B\r\n" +
-	"\v_refresh_hz\"4\n" +
+	"\v_refresh_hz\"{\n" +
+	"\vShareWindow\x12\x16\n" +
+	"\x06handle\x18\x01 \x01(\tR\x06handle\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x10\n" +
+	"\x03app\x18\x03 \x01(\tR\x03app\x12\x14\n" +
+	"\x05width\x18\x04 \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\x05 \x01(\x05R\x06height\"4\n" +
 	"\bPlatform\x12\x0e\n" +
 	"\x02os\x18\x01 \x01(\tR\x02os\x12\x18\n" +
 	"\adisplay\x18\x02 \x01(\tR\adisplay\"/\n" +
 	"\rTransportList\x12\x1e\n" +
 	"\n" +
 	"transports\x18\x01 \x03(\tR\n" +
-	"transports\"\xbe\t\n" +
+	"transports\"\x88\n" +
+	"\n" +
 	"\aCatalog\x124\n" +
 	"\bplatform\x18\x01 \x01(\v2\x18.screenshare.v1.PlatformR\bplatform\x123\n" +
 	"\bmonitors\x18\x02 \x03(\v2\x17.screenshare.v1.MonitorR\bmonitors\x122\n" +
@@ -1789,7 +1900,8 @@ const file_screenshare_v1_catalog_proto_rawDesc = "" +
 	"\x18browser_watch_transports\x18\x14 \x03(\tR\x16browserWatchTransports\x12#\n" +
 	"\raudio_sources\x18\x12 \x03(\tR\faudioSources\x12@\n" +
 	"\raudio_devices\x18\x16 \x03(\v2\x1b.screenshare.v1.AudioDeviceR\faudioDevices\x12B\n" +
-	"\x12no_monitor_preview\x18\x15 \x01(\v2\x14.screenshare.v1.TextR\x10noMonitorPreview\x1ai\n" +
+	"\x12no_monitor_preview\x18\x15 \x01(\v2\x14.screenshare.v1.TextR\x10noMonitorPreview\x12H\n" +
+	"\x15no_window_enumeration\x18\x17 \x01(\v2\x14.screenshare.v1.TextR\x13noWindowEnumeration\x1ai\n" +
 	"\x1cWatchTransportsByFormatEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.screenshare.v1.TransportListR\x05value:\x028\x01J\x04\b\n" +
@@ -1828,7 +1940,7 @@ func file_screenshare_v1_catalog_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_catalog_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_screenshare_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_screenshare_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_screenshare_v1_catalog_proto_goTypes = []any{
 	(Engine)(0),                 // 0: screenshare.v1.Engine
 	(Leg)(0),                    // 1: screenshare.v1.Leg
@@ -1846,38 +1958,39 @@ var file_screenshare_v1_catalog_proto_goTypes = []any{
 	(*TransportCarriage)(nil),   // 13: screenshare.v1.TransportCarriage
 	(*CaptureBackend)(nil),      // 14: screenshare.v1.CaptureBackend
 	(*Monitor)(nil),             // 15: screenshare.v1.Monitor
-	(*Platform)(nil),            // 16: screenshare.v1.Platform
-	(*TransportList)(nil),       // 17: screenshare.v1.TransportList
-	(*Catalog)(nil),             // 18: screenshare.v1.Catalog
-	(*AudioDevice)(nil),         // 19: screenshare.v1.AudioDevice
-	nil,                         // 20: screenshare.v1.EngineCodecs.UsableEntry
-	nil,                         // 21: screenshare.v1.Catalog.WatchTransportsByFormatEntry
-	(*Text)(nil),                // 22: screenshare.v1.Text
+	(*ShareWindow)(nil),         // 16: screenshare.v1.ShareWindow
+	(*Platform)(nil),            // 17: screenshare.v1.Platform
+	(*TransportList)(nil),       // 18: screenshare.v1.TransportList
+	(*Catalog)(nil),             // 19: screenshare.v1.Catalog
+	(*AudioDevice)(nil),         // 20: screenshare.v1.AudioDevice
+	nil,                         // 21: screenshare.v1.EngineCodecs.UsableEntry
+	nil,                         // 22: screenshare.v1.Catalog.WatchTransportsByFormatEntry
+	(*Text)(nil),                // 23: screenshare.v1.Text
 }
 var file_screenshare_v1_catalog_proto_depIdxs = []int32{
 	0,  // 0: screenshare.v1.Gap.engine:type_name -> screenshare.v1.Engine
-	22, // 1: screenshare.v1.Gap.reason:type_name -> screenshare.v1.Text
+	23, // 1: screenshare.v1.Gap.reason:type_name -> screenshare.v1.Text
 	0,  // 2: screenshare.v1.EngineLimit.engine:type_name -> screenshare.v1.Engine
 	4,  // 3: screenshare.v1.VideoCodec.limits:type_name -> screenshare.v1.EngineLimit
 	3,  // 4: screenshare.v1.VideoCodec.gaps:type_name -> screenshare.v1.Gap
 	0,  // 5: screenshare.v1.AudioEncoder.engine:type_name -> screenshare.v1.Engine
 	7,  // 6: screenshare.v1.AudioCodec.encoders:type_name -> screenshare.v1.AudioEncoder
 	3,  // 7: screenshare.v1.AudioCodec.gaps:type_name -> screenshare.v1.Gap
-	20, // 8: screenshare.v1.EngineCodecs.usable:type_name -> screenshare.v1.EngineCodecs.UsableEntry
+	21, // 8: screenshare.v1.EngineCodecs.usable:type_name -> screenshare.v1.EngineCodecs.UsableEntry
 	0,  // 9: screenshare.v1.EngineProbe.engine:type_name -> screenshare.v1.Engine
 	9,  // 10: screenshare.v1.EngineProbe.probed:type_name -> screenshare.v1.EngineCodecs
-	22, // 11: screenshare.v1.EngineProbe.unprobed:type_name -> screenshare.v1.Text
+	23, // 11: screenshare.v1.EngineProbe.unprobed:type_name -> screenshare.v1.Text
 	10, // 12: screenshare.v1.EncoderAvailability.engines:type_name -> screenshare.v1.EngineProbe
 	0,  // 13: screenshare.v1.GpuPath.engine:type_name -> screenshare.v1.Engine
 	2,  // 14: screenshare.v1.GpuPath.colour:type_name -> screenshare.v1.PathColour
-	22, // 15: screenshare.v1.GpuPath.import:type_name -> screenshare.v1.Text
-	22, // 16: screenshare.v1.GpuPath.cost:type_name -> screenshare.v1.Text
+	23, // 15: screenshare.v1.GpuPath.import:type_name -> screenshare.v1.Text
+	23, // 16: screenshare.v1.GpuPath.cost:type_name -> screenshare.v1.Text
 	1,  // 17: screenshare.v1.TransportCarriage.leg:type_name -> screenshare.v1.Leg
 	0,  // 18: screenshare.v1.TransportCarriage.engine:type_name -> screenshare.v1.Engine
 	0,  // 19: screenshare.v1.CaptureBackend.engine:type_name -> screenshare.v1.Engine
-	22, // 20: screenshare.v1.CaptureBackend.reason:type_name -> screenshare.v1.Text
-	22, // 21: screenshare.v1.CaptureBackend.grant:type_name -> screenshare.v1.Text
-	16, // 22: screenshare.v1.Catalog.platform:type_name -> screenshare.v1.Platform
+	23, // 20: screenshare.v1.CaptureBackend.reason:type_name -> screenshare.v1.Text
+	23, // 21: screenshare.v1.CaptureBackend.grant:type_name -> screenshare.v1.Text
+	17, // 22: screenshare.v1.Catalog.platform:type_name -> screenshare.v1.Platform
 	15, // 23: screenshare.v1.Catalog.monitors:type_name -> screenshare.v1.Monitor
 	5,  // 24: screenshare.v1.Catalog.codecs:type_name -> screenshare.v1.VideoCodec
 	6,  // 25: screenshare.v1.Catalog.decoders:type_name -> screenshare.v1.Decoder
@@ -1886,15 +1999,16 @@ var file_screenshare_v1_catalog_proto_depIdxs = []int32{
 	12, // 28: screenshare.v1.Catalog.gpu_paths:type_name -> screenshare.v1.GpuPath
 	14, // 29: screenshare.v1.Catalog.captures:type_name -> screenshare.v1.CaptureBackend
 	13, // 30: screenshare.v1.Catalog.carriage:type_name -> screenshare.v1.TransportCarriage
-	21, // 31: screenshare.v1.Catalog.watch_transports_by_format:type_name -> screenshare.v1.Catalog.WatchTransportsByFormatEntry
-	19, // 32: screenshare.v1.Catalog.audio_devices:type_name -> screenshare.v1.AudioDevice
-	22, // 33: screenshare.v1.Catalog.no_monitor_preview:type_name -> screenshare.v1.Text
-	17, // 34: screenshare.v1.Catalog.WatchTransportsByFormatEntry.value:type_name -> screenshare.v1.TransportList
-	35, // [35:35] is the sub-list for method output_type
-	35, // [35:35] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	22, // 31: screenshare.v1.Catalog.watch_transports_by_format:type_name -> screenshare.v1.Catalog.WatchTransportsByFormatEntry
+	20, // 32: screenshare.v1.Catalog.audio_devices:type_name -> screenshare.v1.AudioDevice
+	23, // 33: screenshare.v1.Catalog.no_monitor_preview:type_name -> screenshare.v1.Text
+	23, // 34: screenshare.v1.Catalog.no_window_enumeration:type_name -> screenshare.v1.Text
+	18, // 35: screenshare.v1.Catalog.WatchTransportsByFormatEntry.value:type_name -> screenshare.v1.TransportList
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_catalog_proto_init() }
@@ -1915,7 +2029,7 @@ func file_screenshare_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_catalog_proto_rawDesc), len(file_screenshare_v1_catalog_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
