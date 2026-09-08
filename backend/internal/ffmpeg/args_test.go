@@ -899,3 +899,35 @@ func TestNoTapLeavesOneOutput(t *testing.T) {
 		t.Errorf("a publish with no tap tees anyway: %s", line)
 	}
 }
+
+// The X screen is one picture and a rectangle of it is an offset into that picture,
+// so the input names the display with the corner appended and the size beside it.
+func TestX11grabReadsTheRectangleDrawn(t *testing.T) {
+	t.Setenv("DISPLAY", ":0")
+	s := baseStream()
+	s.Publish.ShareKind = share.Region
+	s.Publish.ShareRegion = "100,200,1280x720"
+
+	args, err := BuildPublishArgs(s, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := flagValue(args, "-video_size"); got != "1280x720" {
+		t.Errorf("-video_size = %q", got)
+	}
+	if got := flagValue(args, "-i"); got != ":0+100,200" {
+		t.Errorf("-i = %q", got)
+	}
+}
+
+// Nothing picked names no capture, so the command is refused rather than built against
+// whatever the other fields hold.
+func TestAnUnpickedTargetBuildsNoCommand(t *testing.T) {
+	for _, kind := range []string{share.Window, share.Region} {
+		s := baseStream()
+		s.Publish.ShareKind = kind
+		if _, err := BuildPublishArgs(s, nil); err == nil {
+			t.Errorf("a %s capture with nothing picked built a command", kind)
+		}
+	}
+}
