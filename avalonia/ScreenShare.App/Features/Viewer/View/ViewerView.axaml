@@ -253,12 +253,18 @@
 
       <Panel>
 
-      <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <!--
+        The sideways bar belongs to the focus rail: the panel reports the width the rail needs, and the focused
+        tile is placed at the offset so it stands still under the reader's eye while the rail moves
+        (Features/Viewer/Model/FocusLayout.cs).
+      -->
+      <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding Tiles}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <view:TileGrid Mode="{Binding Mode}"
-                             Viewport="{Binding #GridScroll.Bounds.Height}" />
+                             Viewport="{Binding #GridScroll.Viewport}"
+                             Offset="{Binding #GridScroll.Offset.X}" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemContainerTheme>

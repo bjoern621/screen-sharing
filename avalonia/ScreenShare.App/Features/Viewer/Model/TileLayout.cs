@@ -281,6 +281,6 @@ public static class TileLayout
     /// Zero, negative and non-finite all land on <see cref="UnknownAspect"/>: a stream with no pool announced has
     /// reported nothing, and a zero or NaN dimension would divide the arrangement by zero.
     /// </summary>
-    private static double Sane(double aspect)
+    public static double Sane(double aspect)
         => double.IsFinite(aspect) && aspect > 0 ? aspect : UnknownAspect;
 }

@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Viewer.Model;
@@ -8,8 +10,9 @@ namespace ScreenShare.App.Features.Viewer.View;
 
 /// <summary>
 /// Panel that puts tiles where the arrangement says, computing nothing itself.
-/// Every rectangle comes from <see cref="TileLayout"/>, pure and tested without a window,
-/// so what is here is the two Avalonia passes and the reading of each child's shape (<c>avalonia/README.md</c>).
+/// Every rectangle comes from <see cref="TileLayout"/> or <see cref="FocusLayout"/>, both pure and tested
+/// without a window, so what is here is the two Avalonia passes and the reading of each child's shape
+/// (<c>avalonia/README.md</c>).
 ///
 /// A child declares its aspect ratio through <see cref="AspectProperty"/>
 /// and whether it is the focused one through <see cref="IsFocusedTileProperty"/>, both bound in the item template.
@@ -25,17 +28,8 @@ public sealed class TileGrid : Panel
     /// </summary>
     private const double Gap = 8;
 
-    /// <summary>
-    /// How much of the height the rail under a focused tile takes,
-    /// held between <see cref="MinRail"/> and <see cref="MaxRail"/>.
-    /// A fraction so the rail scales with the window, bounded so it neither disappears on a short one nor takes
-    /// half of a tall one.
-    /// The focused tile gets what the rail does not.
-    /// </summary>
-    private const double RailFraction = 0.18;
-
-    private const double MinRail = 110;
-    private const double MaxRail = 200;
+    /// <summary>How far one wheel notch moves the rail, in device-independent pixels.</summary>
+    private const double WheelStep = 50;
 
     /// <summary>Width over height of one tile's stream, as the tile knows it.</summary>
     public static readonly AttachedProperty<double> AspectProperty =
@@ -49,19 +43,27 @@ public sealed class TileGrid : Panel
         AvaloniaProperty.Register<TileGrid, LayoutMode>(nameof(Mode));
 
     /// <summary>
-    /// Height the arrangement is fitted into where the panel is measured with an unbounded one,
+    /// Size the arrangement is fitted into where the panel is measured with an unbounded one,
     /// which is what a scroll viewer hands it.
     /// Bound to the viewport rather than guessed: "fits the box" is the whole of what the arrangement decides,
     /// and a panel measured against infinity has no box.
-    /// Zero before anything measured the viewport, the arrangement then taking whatever finite height the pass
+    /// Empty before anything measured the viewport, the arrangement then taking whatever finite size the pass
     /// was given.
     /// </summary>
-    public static readonly StyledProperty<double> ViewportProperty =
-        AvaloniaProperty.Register<TileGrid, double>(nameof(Viewport));
+    public static readonly StyledProperty<Size> ViewportProperty =
+        AvaloniaProperty.Register<TileGrid, Size>(nameof(Viewport));
+
+    /// <summary>
+    /// How far the scroll viewer around this panel has scrolled it sideways.
+    /// The focused tile is placed at it so it stands still while the rail moves (<see cref="FocusLayout"/>).
+    /// </summary>
+    public static readonly StyledProperty<double> OffsetProperty =
+        AvaloniaProperty.Register<TileGrid, double>(nameof(Offset));
 
     static TileGrid()
     {
         AffectsMeasure<TileGrid>(ModeProperty, ViewportProperty);
+        AffectsArrange<TileGrid>(OffsetProperty);
         AffectsParentMeasure<TileGrid>(AspectProperty, IsFocusedTileProperty);
     }
 
@@ -71,10 +73,16 @@ public sealed class TileGrid : Panel
         set => SetValue(ModeProperty, value);
     }
 
-    public double Viewport
+    public Size Viewport
     {
         get => GetValue(ViewportProperty);
         set => SetValue(ViewportProperty, value);
+    }
+
+    public double Offset
+    {
+        get => GetValue(OffsetProperty);
+        set => SetValue(OffsetProperty, value);
     }
 
     public static double GetAspect(Control child) => child.GetValue(AspectProperty);
@@ -86,29 +94,28 @@ public sealed class TileGrid : Panel
     public static void SetIsFocusedTile(Control child, bool value) => child.SetValue(IsFocusedTileProperty, value);
 
     /// <summary>
-    /// Measures every child at the size it will be arranged at, and reports the height the arrangement needs.
-    /// The arrangement's own height rather than the box's,
-    /// so a grid that had to scroll comes out taller than its viewport,
-    /// and the scroll viewer around it has something to scroll.
-    /// A grid that fitted reports what it used.
+    /// Measures every child at the size it will be arranged at, and reports the size the arrangement needs.
+    /// The arrangement's own rather than the box's,
+    /// so a grid that had to scroll comes out taller than its viewport and a rail that had to scroll comes out
+    /// wider, and the scroll viewer around it has something to scroll.
+    /// An arrangement that fitted reports what it used.
     /// </summary>
     protected override Size MeasureOverride(Size availableSize)
     {
-        var box = Box(availableSize);
-        var places = Places(box);
+        var (places, width) = Solve(Box(availableSize));
 
         foreach (var (child, rect) in places)
         {
             child.Measure(new Size(rect.Width, rect.Height));
         }
 
-        var height = places.Count == 0 ? 0 : places.Max(p => p.Rect.Bottom);
-        return new Size(box.Width, height);
+        var height = places.Count == 0 ? 0 : places.Max(place => place.Rect.Bottom);
+        return new Size(width, height);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var places = Places(Box(finalSize));
+        var (places, _) = Solve(Box(finalSize));
         foreach (var (child, rect) in places)
         {
             child.Arrange(rect);
@@ -118,58 +125,60 @@ public sealed class TileGrid : Panel
     }
 
     /// <summary>
+    /// Wheel means the rail while a tile is focused.
+    /// The arrangement fits the height there, so the notch would otherwise be spent on nothing,
+    /// and a platform that sends no sideways delta would leave the rail reachable by its scrollbar alone.
+    /// </summary>
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+
+        if (e.Handled || Mode != LayoutMode.Focus || this.FindAncestorOfType<ScrollViewer>() is not { } scroll)
+        {
+            return;
+        }
+
+        var room = scroll.Extent.Width - scroll.Viewport.Width;
+        if (room <= 0)
+        {
+            return;
+        }
+
+        var delta = e.Delta.X != 0 ? e.Delta.X : e.Delta.Y;
+        scroll.Offset = scroll.Offset.WithX(Math.Clamp(scroll.Offset.X - (delta * WheelStep), 0, room));
+        e.Handled = true;
+    }
+
+    /// <summary>
     /// Box the arrangement is fitted into, one box for both passes.
     ///
     /// <see cref="Viewport"/> wins over the size a pass was handed.
-    /// Inside a scroll viewer the two passes get different heights,
-    /// measure an unbounded one and arrange the height measure returned,
+    /// Inside a scroll viewer the two passes get different sizes,
+    /// measure an unbounded one and arrange the size measure returned,
     /// so solving against what each was given solves two boxes,
     /// placing the tiles by one having measured them by the other.
     /// The viewport is the space a reader sees, what "fits the box" is about.
     ///
-    /// A non-finite width, and an unmeasured height, both count as no room: the arrangement places nothing until
-    /// a pass carries a real box.
+    /// An unmeasured side counts as no room: the arrangement places nothing until a pass carries a real box.
     /// </summary>
-    private Size Box(Size available)
-    {
-        var height = Viewport > 0
-            ? Viewport
-            : (double.IsFinite(available.Height) && available.Height > 0 ? available.Height : 0);
+    private Size Box(Size available) => new(Side(Viewport.Width, available.Width), Side(Viewport.Height, available.Height));
 
-        return new Size(
-            double.IsFinite(available.Width) ? available.Width : 0,
-            height);
-    }
+    private static double Side(double viewport, double available)
+        => viewport > 0 ? viewport : (double.IsFinite(available) && available > 0 ? available : 0);
 
-    private List<(Control Child, Rect Rect)> Places(Size box)
-        => Mode == LayoutMode.Focus ? Focused(box) : Grid(box);
+    /// <summary>Where the tiles go, and how wide the arrangement came out.</summary>
+    private (List<(Control Child, Rect Rect)> Places, double Width) Solve(Size box)
+        => Mode == LayoutMode.Focus ? Focused(box) : (Grid(box), box.Width);
 
     /// <summary>
     /// Every tile at the one height the arrangement chose, each as wide as its own shape makes it there.
-    /// A box with no room arranges nothing (<see cref="TileLayout.Solve"/>), which is the first measure pass
-    /// inside a scroll viewer: the viewport is unmeasured, so there is no height to solve against until the pass
-    /// after.
-    /// Every child is placed at an empty rectangle there rather than left out,
-    /// a child this list skips being a child the measure pass never measures.
     /// </summary>
     private List<(Control Child, Rect Rect)> Grid(Size box)
     {
         var children = Children.OfType<Control>().ToList();
         var arrangement = TileLayout.Solve(children.Select(GetAspect).ToList(), box.Width, box.Height, Gap);
 
-        Assert.That(
-            arrangement.Tiles.Count == children.Count || arrangement.Tiles.Count == 0,
-            "the arrangement places every tile or none of them",
-            arrangement.Tiles.Count,
-            children.Count);
-
-        var places = children.Select(child => (Child: child, Rect: default(Rect))).ToList();
-        foreach (var tile in arrangement.Tiles)
-        {
-            places[tile.Index] = (children[tile.Index], new Rect(tile.X, tile.Y, tile.Width, tile.Height));
-        }
-
-        return places;
+        return Place(children, arrangement.Tiles);
     }
 
     /// <summary>
@@ -178,66 +187,42 @@ public sealed class TileGrid : Panel
     /// so the mode is safe to be in while a focused stream is being chosen and after it has gone:
     /// the arrangement degrades to the other mode rather than to an empty screen.
     /// </summary>
-    private List<(Control Child, Rect Rect)> Focused(Size box)
+    private (List<(Control Child, Rect Rect)> Places, double Width) Focused(Size box)
     {
         var children = Children.OfType<Control>().ToList();
-        var focused = children.FirstOrDefault(GetIsFocusedTile);
-        if (focused is null || children.Count == 0)
+        var focused = children.FindIndex(GetIsFocusedTile);
+        if (focused < 0)
         {
-            return Grid(box);
+            return (Grid(box), box.Width);
         }
 
-        var rest = children.Where(child => child != focused).ToList();
-        var rail = rest.Count == 0 ? 0 : Math.Clamp(box.Height * RailFraction, MinRail, MaxRail);
-        var stage = new Size(box.Width, Math.Max(0, box.Height - rail - (rail > 0 ? Gap : 0)));
+        var arrangement = FocusLayout.Solve(
+            children.Select(GetAspect).ToList(), focused, box.Width, box.Height, Gap, Offset);
 
-        var places = new List<(Control, Rect)>(children.Count)
-        {
-            (focused, Letterbox(GetAspect(focused), new Rect(0, 0, stage.Width, stage.Height))),
-        };
-
-        // One row at a fixed height, tiles at their own widths.
-        // Centred while they fit, left-aligned once they do not.
-        // Not the grid arrangement: the rail's height comes off the stage above it rather than off the tiles in it.
-        var y = stage.Height + Gap;
-        var span = rest.Sum(child => rail * GetAspect(child)) + (Gap * Math.Max(0, rest.Count - 1));
-        var x = span < box.Width ? (box.Width - span) / 2 : 0;
-
-        foreach (var child in rest)
-        {
-            var width = rail * GetAspect(child);
-            places.Add((child, new Rect(x, y, width, rail)));
-            x += width + Gap;
-        }
-
-        Assert.That(places.Count == children.Count, "a place for every tile", places.Count, children.Count);
-        return places;
+        return (Place(children, arrangement.Tiles), Math.Max(box.Width, arrangement.Extent));
     }
 
     /// <summary>
-    /// Largest rectangle of the given shape that fits the box, centred in it.
-    /// The focused tile keeps its stream's shape as every other tile does, being alone turning the leftover space
-    /// into a margin rather than into another tile.
+    /// The rectangle each child was given, and an empty one for every child where the box had no room
+    /// (<see cref="TileLayout.Solve"/>), which is the first measure pass inside a scroll viewer:
+    /// the viewport is unmeasured, so there is no box to solve against until the pass after.
+    /// A child this list skips is a child the measure pass never measures.
     /// </summary>
-    private static Rect Letterbox(double aspect, Rect box)
+    private static List<(Control Child, Rect Rect)> Place(
+        List<Control> children, IReadOnlyList<TileLayout.Placement> tiles)
     {
-        if (box.Width <= 0 || box.Height <= 0)
+        Assert.That(
+            tiles.Count == children.Count || tiles.Count == 0,
+            "the arrangement places every tile or none of them",
+            tiles.Count,
+            children.Count);
+
+        var places = children.Select(child => (Child: child, Rect: default(Rect))).ToList();
+        foreach (var tile in tiles)
         {
-            return new Rect(box.X, box.Y, 0, 0);
+            places[tile.Index] = (children[tile.Index], new Rect(tile.X, tile.Y, tile.Width, tile.Height));
         }
 
-        var width = box.Width;
-        var height = width / aspect;
-        if (height > box.Height)
-        {
-            height = box.Height;
-            width = height * aspect;
-        }
-
-        return new Rect(
-            box.X + ((box.Width - width) / 2),
-            box.Y + ((box.Height - height) / 2),
-            width,
-            height);
+        return places;
     }
 }
