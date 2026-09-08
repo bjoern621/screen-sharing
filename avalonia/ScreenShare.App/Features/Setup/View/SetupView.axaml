@@ -57,18 +57,12 @@
         <!--
           The same turning arc a pressed control wears: connecting speaks one vocabulary across this app
           (docs/design-language.md, "Status language").
-          The transparent fill is the pointer target the tip opens from, the arc itself taking none.
-          Foreground stated and not inherited: an arc outside a templated control has none to inherit,
-          and the hue is the sentence's own.
+          Carries a tip, the sentence beside it saying what failed rather than that anything is still coming.
         -->
-        <Border Grid.Column="1"
-                Background="Transparent"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                IsVisible="{Binding IsDialling}"
-                ToolTip.Tip="{x:Static copy:Cards.Redialling}">
-          <controls:Spinner Foreground="{StaticResource AttentionBrush}" />
-        </Border>
+        <controls:Waiting Grid.Column="1"
+                          Margin="12,0,0,0"
+                          IsVisible="{Binding IsDialling}"
+                          ToolTip.Tip="{x:Static copy:Cards.Redialling}" />
 
         <Button Grid.Column="2"
                 Margin="12,0,0,0"
@@ -107,6 +101,20 @@
       -->
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <controls:CardColumn Spacing="{StaticResource GapPanel}">
+
+          <!--
+            What stands where the steps will, for as long as the form deciding them is out.
+            Every branch below draws from that form, so all of them are empty here and the column
+            would otherwise be a blank screen on launch.
+            The arc sits under the sentence, which already says what is being read.
+          -->
+          <StackPanel Spacing="{StaticResource GapTight}"
+                      Margin="2,0"
+                      IsVisible="{Binding IsReading}">
+            <TextBlock Classes="hint" Text="{x:Static copy:Cards.SetupUnread}" TextWrapping="Wrap" />
+            <controls:Waiting />
+          </StackPanel>
+
           <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsQuality}">
             <quality:QualityStepView DataContext="{Binding Quality}" />
             <!-- Behind the step's fold with everything else quality; the wrapper keeps the binding on this flow. -->

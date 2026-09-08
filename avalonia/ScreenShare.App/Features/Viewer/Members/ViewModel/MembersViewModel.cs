@@ -35,6 +35,18 @@ public sealed class MembersViewModel : Observable
     private MembersState? _reported;
     private DiscordState? _discord;
     private bool _discordMode;
+    private bool _isReading;
+
+    /// <summary>
+    /// Whether the first answer is still out, which is what the arc beside the sentence turns on.
+    /// Written from above off the session, so this card and the screen holding it wait on one reading
+    /// rather than each deciding from the state it happens to hold.
+    /// </summary>
+    public bool IsReading
+    {
+        get => _isReading;
+        set => Set(ref _isReading, value);
+    }
 
     /// <summary>
     /// Group as the presence loop last read it, null before the first read lands.

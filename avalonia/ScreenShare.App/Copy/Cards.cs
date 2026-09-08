@@ -163,6 +163,13 @@ public static class Cards
     /// </summary>
     public const string MembersUnread = "Reading who is in this group.";
 
+    /// <summary>
+    /// What the wizard says before the backend has described this machine.
+    /// The steps are drawn out of that answer, so this is what a launch shows in their place,
+    /// worded as the relay and group readings are.
+    /// </summary>
+    public const string SetupUnread = "Reading what this computer can send.";
+
     public const string MembersOutside =
         "This computer is not in a group. Set a group key and a name on the Relay step to join one.";
 

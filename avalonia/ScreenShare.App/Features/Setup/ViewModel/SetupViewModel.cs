@@ -320,6 +320,7 @@ public sealed class SetupViewModel : Observable
     private string _unavailable = "";
     private bool _isUnavailable;
     private bool _isDialling;
+    private bool _isReading;
     private string _unsaved = "";
     private bool _hasUnsaved;
     private FieldGroupViewModel? _currentGroup;
@@ -418,6 +419,13 @@ public sealed class SetupViewModel : Observable
     /// (<c>Features/Setup/View/SetupView.axaml</c>).
     /// </summary>
     public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
+
+    /// <summary>
+    /// Whether the first form is still out, which is every launch before the backend describes this machine.
+    /// The steps are drawn out of that form, so the arc stands where they will,
+    /// and a wizard that has not been answered reads as one that is working rather than one with no steps in it.
+    /// </summary>
+    public bool IsReading { get => _isReading; private set => Set(ref _isReading, value); }
 
     /// <summary>
     /// Why the last write to an applied group could not be stored, empty while writes land.
@@ -529,6 +537,10 @@ public sealed class SetupViewModel : Observable
         // Read off the session's verdict and not the banner's sentence:
         // a refusal the backend served is a read that failed with the socket up and nothing being dialled after it.
         IsDialling = IsUnavailable && _session.Unavailable.Length > 0;
+
+        // The wizard draws its steps out of the form, so it has no step to draw until one lands.
+        // The arc is what stands in, an empty column on launch otherwise reading as a flow with nothing in it.
+        IsReading = _session.IsReading;
 
         // A notice and not the unavailable banner, which blocks the publish:
         // unstorable settings are still settings a stream starts on.

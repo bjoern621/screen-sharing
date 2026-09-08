@@ -119,17 +119,22 @@
 
         <!--
           Left-aligned rather than centred: it belongs to the line above it and not to the empty grid.
-          The arc takes that line's hue, and the line it turns under is the failure one:
+          The line it turns under is the failure one:
           a notice about the relay has nothing being dialled behind it.
         -->
-        <Border DockPanel.Dock="Top"
-                Background="Transparent"
-                HorizontalAlignment="Left"
-                Margin="2,6,2,0"
-                IsVisible="{Binding IsDialling}"
-                ToolTip.Tip="{x:Static copy:Cards.Redialling}">
-          <controls:Spinner Foreground="{StaticResource AttentionBrush}" />
-        </Border>
+        <controls:Waiting DockPanel.Dock="Top"
+                          Margin="2,6,2,0"
+                          IsVisible="{Binding IsDialling}"
+                          ToolTip.Tip="{x:Static copy:Cards.Redialling}" />
+
+        <!--
+          The arc for the answer that is still coming, under the line naming what is being read.
+          No tip: that line already says it, and a tip repeating what stands beside it teaches nothing
+          (docs/design-language.md, "Wording").
+        -->
+        <controls:Waiting DockPanel.Dock="Top"
+                          Margin="2,6,2,0"
+                          IsVisible="{Binding IsReading}" />
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <ItemsControl ItemsSource="{Binding Streams}">

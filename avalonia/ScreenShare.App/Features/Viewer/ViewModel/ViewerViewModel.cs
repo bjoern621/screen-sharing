@@ -150,6 +150,7 @@ public sealed class ViewerViewModel : Observable
 
     private string _notice = "";
     private bool _hasNotice;
+    private bool _isReading;
     private string _gridEmptyLine = "";
     private bool _showsGridEmpty;
     private bool _noticeIsFailure;
@@ -382,6 +383,12 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
 
+    /// <summary>
+    /// Whether the first answer is still out, which is the state this screen opens in.
+    /// The sentence beside it already says what is being read, so the arc carries no tip of its own.
+    /// </summary>
+    public bool IsReading { get => _isReading; private set => Set(ref _isReading, value); }
+
     /// <summary>Backend's own sentence when it refused to open or close something, empty otherwise.</summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
 
@@ -481,6 +488,11 @@ public sealed class ViewerViewModel : Observable
         // and for no other.
         IsDialling = NoticeIsFailure;
 
+        // The other half of the same arc, and the one a launch shows: the sentence above says the relay is being
+        // read, and this is what makes it a wait rather than a screen that stopped.
+        // Off the session, the member card below waiting on the same answer.
+        IsReading = _session.IsReading;
+
         HasRefusal = Refusal.Length > 0;
 
         FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
@@ -492,6 +504,7 @@ public sealed class ViewerViewModel : Observable
         Members.Reported = _session.Members;
         Members.Discord = _session.Discord;
         Members.DiscordMode = discordMode;
+        Members.IsReading = IsReading;
         Members.Apply();
 
         GridEmptyLine = GridEmpty.For(

@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:ScreenShare.App.Controls">
+
+  <!--
+    The fill is the pointer target a tip opens from, the arc itself taking none.
+    Left and centred, the arc belonging to the line beside it rather than to the panel around it.
+  -->
+  <ControlTheme x:Key="{x:Type controls:Waiting}" TargetType="controls:Waiting">
+    <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <controls:Spinner Foreground="{TemplateBinding Foreground}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

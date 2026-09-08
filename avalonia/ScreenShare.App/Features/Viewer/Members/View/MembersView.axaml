@@ -61,6 +61,12 @@
     <SelectableTextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
                          IsVisible="{Binding !HasRows}" Margin="2,0" />
 
+    <!--
+      The arc under the unread sentence, which is the one of the three still waiting on an answer.
+      No tip: the sentence over it already says what is being read.
+    -->
+    <controls:Waiting Margin="2,2,2,0" IsVisible="{Binding IsReading}" />
+
     <!-- Why this machine is outside the group, in the words of whichever side stated it. -->
     <SelectableTextBlock Classes="hint danger" Text="{Binding Refusal}" TextWrapping="Wrap"
                          IsVisible="{Binding HasRefusal}" Margin="2,0" />

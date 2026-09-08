@@ -354,6 +354,16 @@ public sealed class Session
     /// <summary>Whether the first read of every state has landed, so a screen tells empty from unread.</summary>
     public bool IsLoaded { get; private set; }
 
+    /// <summary>
+    /// Whether a screen is waiting on an answer that is still coming: asked, unanswered, and nothing wrong yet.
+    /// The arc a screen turns off this, so an empty window on launch reads as one that is working.
+    ///
+    /// False once anything failed, a failure being carried in words and dialled behind
+    /// <see cref="Unavailable"/> instead.
+    /// Derived rather than held, the two states it reads being the ones that already say it.
+    /// </summary>
+    public bool IsReading => !IsLoaded && Unavailable.Length == 0;
+
     // --- Lifecycle ------------------------------------------------------------------
 
     /// <summary>
