@@ -46,8 +46,9 @@ sudo dnf install ./mirrorme-*.rpm
 What is missing afterwards is Fedora's packaging rather than the app's:
 
 - `x264enc`, the software H.264 encoder the GStreamer publish engine uses, lives in [RPM Fusion](https://rpmfusion.org/Configuration): `sudo dnf install gstreamer1-plugins-ugly`.
-- The WebRTC transports (WHIP to publish, WHEP to watch) need `gst-plugins-rs`, which Fedora does not package.
+- The WebRTC transports (WHIP to publish, WHEP to watch) need `whipclientsink` and `whepsrc`, which Fedora leaves out of the `gst-plugins-rs` plugins it packages.
   SRT, RTSP, RTMP and HLS are unaffected.
+- AV1 over RTSP needs `rtpav1pay` from that same set, so AV1 travels over SRT, RTMP or HLS there.
 
 ## NixOS and Nix
 
@@ -83,8 +84,9 @@ flatpak run de.bjoernblessin.MirrorMe
 Capture goes through the desktop portal, which asks for the surface in a dialog.
 The sandbox holds no privilege, so `kmsgrab` is unreachable there and nothing has to be granted.
 
-Two things are outside the bundle.
-The WebRTC transports need `gst-plugins-rs`, which the runtime does not carry, so WHIP and WHEP are absent and SRT, RTSP, RTMP and HLS are unaffected.
+Every transport is inside the bundle, the SRT, RTSP and WebRTC plugins the runtime leaves out being built into it.
+
+One thing is outside.
 The ffmpeg engine's software H.264 and HEVC rows probe as unavailable and the form greys them, the GStreamer engine encoding H.264 in software instead.
 
 ## Debian, Ubuntu and other distributions
@@ -104,7 +106,7 @@ tar xf mirrorme-<version>-linux-x86_64-portable.tar.gz
 ./mirrorme-<version>-linux-x86_64-portable/mirrorme
 ```
 
-Debian and Ubuntu package no `gst-plugins-rs` either, so the WebRTC transports are absent there too.
+Debian and Ubuntu package no `gst-plugins-rs` at all, so the WebRTC transports are absent there and an AV1 stream decodes on a GPU that carries an AV1 decoder or not at all.
 
 ## The relay
 

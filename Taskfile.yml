@@ -267,7 +267,7 @@ tasks:
     platforms: [linux]
     deps: [package:linux]
     cmds:
-      - flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+      - flatpak install --user --noninteractive flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
       - flatpak-builder --user --force-clean --repo=build/flatpak-repo build/flatpak-build packaging/flatpak/de.bjoernblessin.MirrorMe.yml
       - flatpak build-bundle build/flatpak-repo build/dist/mirrorme-{{.VERSION}}-x86_64.flatpak de.bjoernblessin.MirrorMe
     vars:

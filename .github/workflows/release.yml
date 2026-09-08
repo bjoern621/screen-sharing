@@ -99,15 +99,17 @@ jobs:
           flatpak remote-add --user --if-not-exists \
             flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user --noninteractive flathub \
-            org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+            org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       # flatpak-builder keeps each module's build state here and skips a module whose
       # definition is unchanged, which is what stops ffmpeg compiling on every run.
-      # The key is the manifest: editing the ffmpeg module is what has to rebuild it.
+      # The key is the manifest directory: a module's definition reaches beyond the manifest,
+      # the Rust plugins taking their crate set from a lock file and a sources file beside it.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .flatpak-builder
-          key: flatpak-${{ hashFiles('packaging/flatpak/de.bjoernblessin.MirrorMe.yml') }}
+          key: flatpak-${{ hashFiles('packaging/flatpak/*') }}
           restore-keys: flatpak-
 
       - name: Package Flatpak

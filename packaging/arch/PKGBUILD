@@ -31,10 +31,16 @@ depends=(
   'gstreamer'
   'gst-plugins-base'    # videoconvert, and the glupload chain a tile renders through
   'gst-plugins-good'    # rtspsrc, pulsesrc, vp8enc/vp9enc
-  'gst-plugins-bad'     # srtsrc/srtsink, mpegtsmux, nvcodec, va, qsv
+  'gst-plugins-bad'     # srtsrc/srtsink, mpegtsmux, and nvcodec through gst-plugins-bad-libs
+  # The VA and QSV families, each in a package of its own rather than inside gst-plugins-bad,
+  # so gst-plugins-bad alone leaves every hardware encoder and decoder on an Intel or AMD
+  # machine unregistered and the form greys the lot.
+  'gst-plugin-va'       # vah264enc/vah265enc/vaav1enc and the matching decoders
+  'gst-plugin-qsv'      # qsvh264enc and the rest of the QSV family
   'gst-plugins-ugly'    # x264enc, which the publish engine and the encode probe need
   'gst-rtsp-server'     # rtspclientsink: every RTSP publish and test stream
   'gst-libav'           # avdec_h264/avdec_h265: the only decoders for 4:4:4 H.264 and RGB HEVC
+  'gst-plugin-dav1d'    # dav1ddec: the AV1 decoder a tile watching an AV1 stream runs through
   'gst-plugin-rswebrtc'   # whipclientsink: the WHIP publish leg
   'gst-plugin-webrtchttp' # whepsrc: the WHEP watch leg
   'gst-plugin-rsrtp'    # rtpav1pay, which is how AV1 rides RTSP

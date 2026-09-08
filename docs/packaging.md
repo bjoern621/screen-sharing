@@ -286,6 +286,10 @@ Three sources make up what is inside it.
 The `ffmpeg-full` extension carries the codecs the runtime leaves out, libx264 and libx265 among them, and GStreamer's `x264enc` with them.
 The manifest itself compiles ffmpeg and ffplay, which no extension ships: the extension's own ffmpeg is configured `--disable-programs` and is libraries alone.
 
+The runtime builds GStreamer to a fixed plugin list, and three publish legs fall outside it: `gst-plugins-bad` is built against no libsrt, `gst-rtsp-server` is no part of the runtime, and `gst-plugins-rs` is built without `webrtchttp`.
+So the manifest builds `srtsink`, `rtspclientsink` and `whipclientsink` itself, pinned to the GStreamer version the runtime carries, and names their directory to GStreamer through `GST_PLUGIN_PATH`, which flatpak clears off the host along with every other `GST_` variable.
+The WebRTC plugin is Rust and its crates are pinned by hash beside the manifest, the way NuGet packages are pinned for the Nix package.
+
 What the app is comes in already built.
 The shell is a self-contained .NET publish whose restore reaches NuGet, and a `flatpak-builder` module builds with no network, so `packaging/linux/package.sh` runs first and the manifest assembles what it staged.
 

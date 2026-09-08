@@ -8,10 +8,11 @@
 # That rules it out of Fedora's own build system, which builds offline against bundled sources,
 # and suits a local `rpmbuild` or a CI job, where the released package comes from.
 #
-# Two things Fedora's repositories do not carry, and neither is substituted silently:
-#   x264enc lives in RPM Fusion's gstreamer1-plugins-ugly, not in the -free package.
-#   gst-plugins-rs is not packaged at all, so whipclientsink and whepsrc are absent
-#   and the WebRTC legs (WHIP publish, WHEP watch) fail at pipeline start on a stock install.
+# Two things Fedora's repositories leave out, and neither is substituted silently:
+#   x264enc lives in RPM Fusion's gstreamer1-plugins-ugly rather than the -free package.
+#   gst-plugins-rs is packaged plugin by plugin, and webrtchttp, rswebrtc, rsrtp and rav1e
+#   are outside that set, so the WebRTC legs (WHIP publish, WHEP watch), AV1 over RTSP
+#   and rav1enc fail at pipeline start on a stock install.
 # Both are Recommends where a package exists and a note in docs/install.md where none does.
 
 %global appname     mirrorme
@@ -74,7 +75,19 @@ Requires:       gstreamer1
 Requires:       gstreamer1-plugins-base
 Requires:       gstreamer1-plugins-good
 Requires:       gstreamer1-plugins-bad-free
+# srtsink and srtsrc, which Fedora keeps out of the -free package.
+# The SRT leg is the transport the app publishes over by default,
+# so the base package alone leaves every preset unusable.
+Requires:       gstreamer1-plugins-bad-free-extras
+# dav1ddec, the AV1 decoder a tile watching an AV1 stream runs through.
+# One of the gst-plugins-rs plugins Fedora does package, under a name of its own.
+Requires:       gstreamer1-plugin-dav1d
 Requires:       gstreamer1-rtsp-server
+# rtspclientsink, which Fedora ships in the -devel subpackage:
+# a plugin carries no versioned soname,
+# so the /usr/lib64/gstreamer-1.0/*.so glob falls on the development side of the split.
+# The runtime package holds the library alone, and RTSP publishing needs this one.
+Requires:       gstreamer1-rtsp-server-devel
 Requires:       gstreamer1-plugin-libav
 Requires:       pipewire-gstreamer
 Requires:       libnice
