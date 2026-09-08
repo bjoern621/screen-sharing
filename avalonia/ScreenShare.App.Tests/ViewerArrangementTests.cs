@@ -154,6 +154,9 @@ public sealed class ViewerArrangementTests
         public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
             => _seed.CatalogAsync(cancellation);
 
+        public Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+            => _seed.ShareWindowsAsync(cancellation);
+
         public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
             => _seed.PublishStateAsync(cancellation);
 

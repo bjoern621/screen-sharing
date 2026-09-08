@@ -25,13 +25,31 @@ public sealed class Vocabulary
 
     private readonly Catalog? _catalog;
 
-    public Vocabulary(Catalog? catalog) => _catalog = catalog;
+    /// <summary>
+    /// Windows this machine had open when they were last read.
+    /// Off the catalog because a window list settles at nothing,
+    /// so a surface about to draw one asks and names its entries out of the answer
+    /// (<c>docs/ipc-api.md</c>, ListShareWindows).
+    /// Empty is a machine nothing asked, where a handle answers with itself.
+    /// </summary>
+    private readonly IReadOnlyList<ShareWindow> _windows;
+
+    public Vocabulary(Catalog? catalog, IReadOnlyList<ShareWindow>? windows = null)
+    {
+        _catalog = catalog;
+        _windows = windows ?? [];
+    }
+
+    /// <summary>The same vocabulary naming windows out of a list just read.</summary>
+    public Vocabulary With(IReadOnlyList<ShareWindow> windows) => new(_catalog, windows);
 
     /// <summary>What one entry of one control is called, at the width of a dropdown row.</summary>
     public string Name(string fieldKey, string value) => Fields.Template(fieldKey) switch
     {
         "publish.capture" => Capture(value),
+        "publish.share_kind" => Words.ShareKind(value),
         "publish.monitor" => Screen(value),
+        "publish.share_window" => Window(value),
         "publish.output_resolution" => Resolution(value),
         "publish.fps" => Rate(value),
         "publish.maxrate_mbps" => Ceiling(value),
@@ -60,6 +78,7 @@ public sealed class Vocabulary
     public string Describe(string fieldKey, string value) => Fields.Template(fieldKey) switch
     {
         "publish.capture" => Descriptions.Capture(value),
+        "publish.share_kind" => Words.ShareKindNote(value),
         "publish.output_resolution" => Scaling(value),
         "publish.capture_memory" => Descriptions.Memory(value),
         "publish.drm_map" => Descriptions.DrmMap(value),
@@ -322,6 +341,31 @@ public sealed class Vocabulary
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A window, named by its title with the application beside it.
+    /// A handle the last read does not carry answers with itself:
+    /// the window was closed, and the number is what the settings still name.
+    /// </summary>
+    private string Window(string value)
+    {
+        foreach (var open in _windows)
+        {
+            if (open.Handle != value)
+            {
+                continue;
+            }
+
+            if (open.Title.Length == 0)
+            {
+                return open.App.Length > 0 ? open.App : value;
+            }
+
+            return open.App.Length > 0 ? $"{open.Title} · {open.App}" : open.Title;
+        }
+
+        return value;
     }
 
     private Api.V1.Monitor? Monitor(string value)

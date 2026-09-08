@@ -158,3 +158,18 @@ func TestAClosedWindowIsNamedRatherThanDropped(t *testing.T) {
 		t.Errorf("the note is %s", got)
 	}
 }
+
+// Every control of the group carries the same reason where the backend answers for itself:
+// nothing on the screen decides what is shared, so a control the reader could move would be a lie.
+func TestThePortalLeavesNoShareControlLive(t *testing.T) {
+	d := fieldTestDeps()
+	d.Platform = platform.Info{OS: "linux", Display: "wayland"}
+	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
+
+	for _, key := range []string{KeyShareKind, KeyMonitor, KeyShareWindow, KeyShareRegion} {
+		st := fieldState(d, s, key, noEntry)
+		if st.visible && st.enabled {
+			t.Errorf("%s is the reader's on a capture that answers for itself", key)
+		}
+	}
+}

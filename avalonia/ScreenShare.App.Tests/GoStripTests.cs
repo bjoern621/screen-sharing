@@ -45,7 +45,7 @@ public sealed class GoStripTests
     {
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
-        var setup = new SetupViewModel(backend, form, session, Inline);
+        var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
         var insights = new InsightsViewModel(backend, form, session, Inline);
         var go = new GoViewModel(session, form, setup, insights);
 

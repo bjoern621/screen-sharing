@@ -67,6 +67,37 @@ public static class Statements
                 : "This system chooses the screen itself, so a preview of a single screen "
                   + "cannot be shown.",
 
+            TextCode.CaptureTakesNoShareKind => a.ShareKind switch
+            {
+                "window" => $"{Words.Capture(a.Capture)} reads screens, not single windows. "
+                    + "Pick another capture method to share one window.",
+                "region" => $"{Words.Capture(a.Capture)} sends what it captures whole, with no way to crop it. "
+                    + "Pick another capture method to share part of a screen.",
+                _ => $"{Words.Capture(a.Capture)} cannot capture that. Pick another capture method.",
+            },
+
+            TextCode.CaptureAsksWhatToShare =>
+                "The desktop's own picker chooses what is shared, and it asks when the stream starts.",
+
+            TextCode.NoWindowPicked =>
+                "No window is picked yet. Choose one to start sharing.",
+
+            TextCode.WindowGone =>
+                "Closed since it was picked. It stays selected, so what the stream would capture stays "
+                + "visible. Pick a window that is open.",
+
+            TextCode.NoRegionPicked =>
+                "No region is drawn yet. Draw one on the screen to start sharing.",
+
+            TextCode.RegionOffScreen =>
+                "This region falls outside every screen that is connected, so there is nothing to capture. "
+                + "Draw a new one.",
+
+            TextCode.NoWindowEnumeration => a.Display == "wayland"
+                ? "Wayland keeps the list of open windows from other applications, so a window cannot be "
+                  + "picked here. The desktop's own picker offers one when the stream starts."
+                : "This system does not hand out a list of open windows, so a window cannot be picked here.",
+
             TextCode.MonitorNotEnumerated =>
                 "Not connected. It stays selected, so what the stream would capture stays visible. "
                 + "Pick a screen that is plugged in.",
@@ -741,6 +772,12 @@ public static class Statements
         public string Tune => Id(TextArgName.Tune);
 
         public string Decoder => Id(TextArgName.Decoder);
+
+        public string ShareKind => Id(TextArgName.ShareKind);
+
+        public string Window => Id(TextArgName.Window);
+
+        public string Region => Id(TextArgName.Region);
 
         public string Os => Id(TextArgName.Os);
 

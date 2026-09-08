@@ -26,7 +26,7 @@ public sealed class StartSharingTests
     {
         var opened = new Session(backend, action => action());
         var draft = new FormSession(backend, opened, action => action());
-        var flow = new SetupViewModel(backend, draft, opened, action => action());
+        var flow = new SetupViewModel(backend, draft, opened, Flows.Picker(backend, draft, opened), action => action());
 
         Load(opened);
         flow.Apply();

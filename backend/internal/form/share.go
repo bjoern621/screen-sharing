@@ -50,6 +50,11 @@ func shareKindReason(av availability, kind string) *screensharev1.Text {
 // a monitor list under a window capture decides nothing,
 // and a reader learns nothing from reading why (docs/field-availability.md).
 func shareTargetState(av availability, kind string) state {
+	// A backend that names nothing it reads leaves every control here deciding nothing,
+	// so each one carries the reason the kind carries rather than one of its own.
+	if len(publish.ShareKinds(av.s.Publish.Capture)) == 0 {
+		return availabilityDisabled(say(captureAsksWhatToShare, argCapture(av.s.Publish.Capture)))
+	}
 	if av.s.Publish.ShareKind != kind {
 		return availabilityHidden()
 	}

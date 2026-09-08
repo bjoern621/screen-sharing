@@ -39,7 +39,7 @@ public sealed class GoViewModel : Observable
     /// The publish half alone: relay and watch settings belong to this computer rather than to what it sends,
     /// the same cut the presets card states (<c>Copy/Cards.cs</c>, <c>PresetsCovers</c>).
     /// </summary>
-    private static readonly IReadOnlyList<string> SummaryGroups = ["source", "quality", "audio", "transport"];
+    private static readonly IReadOnlyList<string> SummaryGroups = ["source", "share", "quality", "audio", "transport"];
 
     private readonly Session _session;
     private readonly FormSession _form;

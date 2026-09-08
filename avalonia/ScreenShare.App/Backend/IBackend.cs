@@ -72,6 +72,20 @@ public interface IBackend
     Task<Catalog> CatalogAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// Windows a capture can be pointed at, as <c>ListShareWindows</c> answers.
+    ///
+    /// Off the catalog because a window list settles at nothing:
+    /// somebody opens and closes windows while nobody is looking,
+    /// so a surface asks when it is about to draw one.
+    ///
+    /// Read to explain, never to decide: which handles a control may offer is the form's answer,
+    /// and this carries the title and the app a reader picks by.
+    /// A session that enumerates none answers empty,
+    /// which a caller reads off <c>Catalog.NoWindowEnumeration</c> instead of discovering by asking.
+    /// </summary>
+    Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Complete description of the screen for one draft, as <c>ResolveForm</c> answers.
     /// Side-effect free and idempotent: one draft resolves to one form, so a caller skips the round trip while
     /// the draft has not moved since the one the form on screen was resolved against.

@@ -6,6 +6,7 @@
         xmlns:statusbar="using:ScreenShare.App.Features.Shell.StatusBar.View"
         xmlns:settings="using:ScreenShare.App.Features.Shell.Settings.View"
         xmlns:setup="using:ScreenShare.App.Features.Setup.View"
+        xmlns:sharepicker="using:ScreenShare.App.Features.Setup.SharePicker.View"
         xmlns:setupVm="using:ScreenShare.App.Features.Setup.ViewModel"
         xmlns:insights="using:ScreenShare.App.Features.Insights.View"
         xmlns:insightsVm="using:ScreenShare.App.Features.Insights.ViewModel"
@@ -94,5 +95,14 @@
     <settings:AppSettingsView Grid.Row="0"
                               Grid.RowSpan="4"
                               DataContext="{Binding AppSettings}" />
+
+    <!--
+      What the stream shares, over the window on the same terms as the dialog above:
+      the question belongs to the press that starts a stream rather than to a screen.
+      Last of the two, so it stands over the settings dialog where a press reaches it from there.
+    -->
+    <sharepicker:SharePickerView Grid.Row="0"
+                                 Grid.RowSpan="4"
+                                 DataContext="{Binding SharePicker}" />
   </Grid>
 </Window>

@@ -1,6 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
+using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
 
@@ -82,6 +83,9 @@ internal sealed class DeferredBackend : IBackend
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.CatalogAsync(cancellation);
+
+    public Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.ShareWindowsAsync(cancellation);
 
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.SettingsAsync(cancellation);
@@ -320,7 +324,10 @@ internal sealed class DeferredBackend : IBackend
 /// </summary>
 internal sealed class PublishingBackend : IBackend
 {
-    private readonly SeededBackend _seed = new("linux");
+    private readonly SeededBackend _seed;
+
+    public PublishingBackend(bool asksWhatToShare = false)
+        => _seed = new SeededBackend("linux") { AsksWhatToShare = asksWhatToShare };
 
     public Task<string> VersionAsync(CancellationToken cancellation = default) => _seed.VersionAsync(cancellation);
 
@@ -432,6 +439,9 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
         => _seed.CatalogAsync(cancellation);
+
+    public Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+        => _seed.ShareWindowsAsync(cancellation);
 
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => _seed.SettingsAsync(cancellation);
@@ -586,8 +596,19 @@ internal static class Flows
     /// <summary>Inline, so a render pass is over when the call is.</summary>
     private static readonly Action<Action> Inline = action => action();
 
+    /// <summary>
+    /// The picker the wizard asks before it starts a stream.
+    /// Its region overlay answers empty, no test drawing a rectangle on a real desktop:
+    /// what a drawn one does to the draft is the field's own write, which every other control shares.
+    /// </summary>
+    public static SharePickerViewModel Picker(IBackend backend, FormSession form, Session session)
+        => new(backend, form, session, () => Task.FromResult(""), Inline);
+
     public static SetupViewModel Setup(IBackend backend, Session session)
-        => new(backend, new FormSession(backend, session, Inline), session, Inline);
+    {
+        var form = new FormSession(backend, session, Inline);
+        return new SetupViewModel(backend, form, session, Picker(backend, form, session), Inline);
+    }
 
     public static SetupViewModel Setup(IBackend backend) => Setup(backend, new Session(backend, Inline));
 

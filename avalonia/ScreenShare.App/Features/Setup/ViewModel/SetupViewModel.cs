@@ -8,6 +8,7 @@ using ScreenShare.App.Features.Setup.AdvancedGroup.ViewModel;
 using ScreenShare.App.Features.Setup.AudioStep.ViewModel;
 using ScreenShare.App.Features.Setup.CostRail.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
 using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
@@ -90,6 +91,12 @@ public sealed class SetupViewModel : Observable
     private readonly Session _session;
 
     private readonly Action<Action> _dispatch;
+
+    /// <summary>
+    /// Asks what the stream shares, at the press that starts one.
+    /// Held rather than built here: the dialog stands over the window, so the shell owns it and hands it down.
+    /// </summary>
+    private readonly SharePickerViewModel _picker;
 
     /// <summary>
     /// One select command per step key, made once and reused.
@@ -178,16 +185,19 @@ public sealed class SetupViewModel : Observable
     /// an effect's answer arrives on whichever thread the transport completed on,
     /// and every property below is read by a binding tolerating a write from one thread only.
     /// </param>
-    public SetupViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
+    public SetupViewModel(
+        IBackend backend, FormSession form, Session session, SharePickerViewModel picker, Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a setup flow asks the backend to put its draft on the air");
         Assert.NotNull(form, "a setup flow draws the draft the window is holding");
         Assert.NotNull(session, "a setup flow reads the running state the commit turns on");
+        Assert.NotNull(picker, "a setup flow asks what to share before it starts a stream");
         Assert.NotNull(dispatch, "a setup flow needs a UI loop to marshal an answer back to");
 
         _backend = backend;
         _form = form;
         _session = session;
+        _picker = picker;
         _dispatch = dispatch;
 
         // Everything the render function reads exists before anything can call it,
@@ -239,7 +249,7 @@ public sealed class SetupViewModel : Observable
         // and the list beneath it are two ways to one value rather than two values.
         Screens = new ScreenPickerViewModel(
             backend, session, dispatch,
-            monitor => Write(SourceLayout.MonitorKey, new FieldValue { Number = monitor }));
+            monitor => Write(ShareLayout.MonitorKey, new FieldValue { Number = monitor }));
 
         // What answers on the relay, under the address and the ports it is read off.
         // The draft goes in as a function rather than a value: it is dialled at the press,
@@ -523,8 +533,8 @@ public sealed class SetupViewModel : Observable
         // and whether they are drawn at all is the picker's own converge: it opens a screen capture per monitor,
         // so it is told which step the reader stands on rather than left to draw whenever the flow renders.
         Screens.Apply(
-            FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
-            current == SourceLayout.GroupKey);
+            FieldOf(GroupOf(drawn, ShareLayout.GroupKey), ShareLayout.MonitorKey),
+            current == ShareLayout.GroupKey);
 
         // The relay check, on the step holding the relay's own settings.
         // What it last found is its own to hold: a check reads the moment it was asked for,
@@ -1102,6 +1112,21 @@ public sealed class SetupViewModel : Observable
         var draft = Assert.NotNull(_form.Draft, "a commit that was offered was drawn from a draft");
         var settings = draft.Clone();
         var commit = PublishGate.CommitFor(_session.Publish);
+
+        // What the stream shares is asked at the press that starts one, and never at an apply:
+        // a running stream already reads a target, and restarting it onto the same one asks nothing new.
+        // A machine whose desktop draws its own picker has nothing to ask here either,
+        // which the dialog answers for itself (SharePicker/ViewModel/SharePickerViewModel.Asks).
+        if (commit == PublishCommit.Start && _picker.Asks)
+        {
+            if (!await _picker.AskAsync().ConfigureAwait(true))
+            {
+                return;
+            }
+
+            // The picker wrote the draft, so the copy taken above is the one from before the question.
+            settings = Assert.NotNull(_form.Draft, "a picker that was answered left a draft behind").Clone();
+        }
 
         // The refusal the last attempt left goes at the press rather than at the answer:
         // it is about an attempt that is over,

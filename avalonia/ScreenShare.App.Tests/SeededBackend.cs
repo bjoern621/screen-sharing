@@ -255,6 +255,18 @@ internal sealed class SeededBackend : IBackend
     /// Settable: the one catalog fact deciding whether a whole surface is drawn,
     /// so a fixed answer would reach one of the two screens only.
     /// </summary>
+    /// <summary>
+    /// Whether this machine has anything to ask before a stream starts.
+    /// Off by default, so the commit fixtures press through to the stream:
+    /// the picker stands between the press and the publish exactly where the share group is the reader's,
+    /// which is what the picker's own tests turn on.
+    /// </summary>
+    /// <summary>Why no control of the share group is the reader's on a machine that answers for itself.</summary>
+    private static Text AnswersForItself
+        => Say(TextCode.CaptureAsksWhatToShare, Id(TextArgName.Capture, "portal"));
+
+    public bool AsksWhatToShare { get; init; }
+
     public Text? NoMonitorPreview { get; init; }
 
     /// <summary>
@@ -288,6 +300,21 @@ internal sealed class SeededBackend : IBackend
         catalog.NoMonitorPreview = NoMonitorPreview;
         return Task.FromResult(catalog);
     }
+
+    /// <summary>
+    /// Windows the picker offers, as this machine holds them.
+    /// Two, for the reason there are two screens: one entry leaves nothing to pick between.
+    /// </summary>
+    public IReadOnlyList<ShareWindow> Windows { get; init; } =
+    [
+        new ShareWindow { Handle = "4242", Title = "Notes", App = "notepad", Width = 800, Height = 600 },
+        new ShareWindow { Handle = "5150", Title = "Build log", App = "code", Width = 1200, Height = 900 },
+    ];
+
+    public Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+        => cancellation.IsCancellationRequested
+            ? Task.FromCanceled<IReadOnlyList<ShareWindow>>(cancellation)
+            : Task.FromResult(Windows);
 
     /// <summary>
     /// Catalog's browser legs, in the backend's own order,
@@ -371,6 +398,9 @@ internal sealed class SeededBackend : IBackend
             // Fresh installation carries no audio source, so the stream has no second track.
             AudioCodec = "opus",
             DrmMap = "auto",
+            // The whole screen: the one target that needs nothing picked,
+            // so a fresh installation publishes without the picker having been opened.
+            ShareKind = "monitor",
             Monitor = 0,
             CaptureMemory = "auto",
             SrtPublishLatencyMs = 300,
@@ -1094,8 +1124,13 @@ internal sealed class SeededBackend : IBackend
             });
         }
 
+        // The window control is the one select that starts on nothing.
+        // A handle is picked rather than defaulted to, no window being the obvious one to share,
+        // and the backend offers the enumeration alone until one is (backend/internal/form/options.go,
+        // optionShareWindows).
+        var unpicked = seed.Key == "publish.share_window" && picked.Length == 0;
         Assert.That(
-            field.Options.Count == 0 || field.Options.Any(option => option.Value == picked),
+            field.Options.Count == 0 || unpicked || field.Options.Any(option => option.Value == picked),
             "a select field's value is one of the options it offers", seed.Key, picked);
         return field;
     }
@@ -1132,6 +1167,39 @@ internal sealed class SeededBackend : IBackend
     {
         switch (key)
         {
+            // What the stream shares.
+            // The seeded machine answers it through the desktop's own picker unless a test says otherwise,
+            // so a commit fixture reaches the stream rather than the dialog that asks
+            // (see AsksWhatToShare).
+            case "publish.share_kind":
+                return AsksWhatToShare
+                    ? (true, true, null, null)
+                    : (true, false, AnswersForItself, null);
+
+            // Each kind names one target and the other two are drawn nowhere.
+            // Where the machine answers for itself no control here is the reader's, so each carries
+            // the reason the kind carries (backend/internal/form/share.go, shareTargetState).
+            // The note is live with the control: the value reaches the encoder and means something
+            // the heading does not say.
+            case "publish.monitor":
+                return AsksWhatToShare
+                    ? (
+                        settings.Publish.ShareKind is "" or "monitor",
+                        true,
+                        null,
+                        Say(TextCode.MonitorNotEnumerated, Num(TextArgName.Monitor, settings.Publish.Monitor)))
+                    : (true, false, AnswersForItself, null);
+
+            case "publish.share_window":
+                return AsksWhatToShare
+                    ? (settings.Publish.ShareKind == "window", true, null, null)
+                    : (true, false, AnswersForItself, null);
+
+            case "publish.share_region":
+                return AsksWhatToShare
+                    ? (settings.Publish.ShareKind == "region", true, null, null)
+                    : (true, false, AnswersForItself, null);
+
             // Hidden: a knob of the kmsgrab scanout path alone,
             // so its help text says nothing to a reader on another capture backend.
             case "publish.drm_map":
@@ -1171,10 +1239,6 @@ internal sealed class SeededBackend : IBackend
                 return settings.Relay.DiscordMode
                     ? (true, false, Say(TextCode.GroupFollowsDiscord), null)
                     : (true, true, null, null);
-
-            // Live with a note: the value reaches the encoder and means something the heading does not say.
-            case "publish.monitor":
-                return (true, true, null, Say(TextCode.MonitorNotEnumerated, Num(TextArgName.Monitor, settings.Publish.Monitor)));
 
             default:
                 return (true, true, null, null);
@@ -1453,15 +1517,6 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "none" },
                     ],
                 },
-                // A select and not a number, as the backend answers: one entry per catalog row,
-                // so a screen this machine does not have is a missing entry rather than a number typed
-                // past the end of the list (backend/internal/form/options.go, optionMonitors).
-                new()
-                {
-                    Key = "publish.monitor",
-                    Control = ControlKind.Select,
-                    Options = [new() { Value = "0" }, new() { Value = "1" }],
-                },
                 // The real form (backend/internal/form/fields.go) draws one field per audio source
                 // plus the row a reader grows the list by.
                 // Only the growing row is seeded, since no draft here records a source.
@@ -1474,6 +1529,47 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "none" },
                         new() { Value = "desktop" },
                     ],
+                },
+            ],
+        },
+        new()
+        {
+            // What the stream shares, which the shell draws in the picker over the window as well as on
+            // its own wizard step (backend/internal/form/groups.go).
+            Key = "share",
+            Fields =
+            [
+                new()
+                {
+                    Key = "publish.share_kind",
+                    Control = ControlKind.Radio,
+                    Options =
+                    [
+                        new() { Value = "monitor" },
+                        new() { Value = "window" },
+                        new() { Value = "region" },
+                    ],
+                },
+                // A select and not a number, as the backend answers: one entry per catalog row,
+                // so a screen this machine does not have is a missing entry rather than a number typed
+                // past the end of the list (backend/internal/form/options.go, optionMonitors).
+                new()
+                {
+                    Key = "publish.monitor",
+                    Control = ControlKind.Select,
+                    Options = [new() { Value = "0" }, new() { Value = "1" }],
+                },
+                new()
+                {
+                    Key = "publish.share_window",
+                    Control = ControlKind.Select,
+                    Options = [new() { Value = "4242" }, new() { Value = "5150" }],
+                },
+                // Filled by dragging on the desktop rather than picked, so it offers no entries.
+                new()
+                {
+                    Key = "publish.share_region",
+                    Control = ControlKind.Text,
                 },
             ],
         },

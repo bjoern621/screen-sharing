@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Setup.SharePicker.Model"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.SharePicker.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.SharePicker.View.SharePickerView"
+             x:DataType="vm:SharePickerViewModel"
+             Focusable="True">
+
+  <!--
+    What the stream shares, asked at the press that starts it.
+
+    The share group of the resolved form, drawn over the window rather than in a destination:
+    the question belongs to the press and not to a screen (Features/Fields/Model/GroupPlacement.cs).
+    The controls are the generic rows every other group is drawn with, so a control the backend adds
+    to the group appears here with nothing in this file to change.
+  -->
+
+  <UserControl.KeyBindings>
+    <!--
+      Escape drops the press rather than starting on whatever the draft held,
+      the event starting at the focus inside the dialog and the code-behind putting the focus here.
+    -->
+    <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+  </UserControl.KeyBindings>
+
+  <!-- Dimmed rather than covered: the window stays readable behind what is being decided over it. -->
+  <Border Background="{StaticResource ScrimBrush}"
+          IsVisible="{Binding IsOpen}"
+          PointerPressed="ScrimPressed">
+
+    <Border Classes="panel"
+            MaxWidth="520"
+            MaxHeight="640"
+            Margin="{StaticResource InsetSection}"
+            BoxShadow="{StaticResource MenuShadow}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+
+      <Grid RowDefinitions="Auto,*,Auto" Margin="{StaticResource InsetSection}">
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+          <TextBlock Classes="heading" Text="{x:Static model:SharePickerCopy.Title}" />
+          <TextBlock Classes="secondary"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     Margin="0,3,0,0"
+                     Text="{x:Static model:SharePickerCopy.Help}" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="{StaticResource GapTight}">
+
+            <!--
+              Every control of the group, in the backend's own order: the kind first, then the target
+              the picked kind names. The two it does not name arrive hidden and are drawn nowhere.
+            -->
+            <ItemsControl ItemsSource="{Binding Group.Fields}" ItemTemplate="{StaticResource FieldRow}" />
+
+            <!--
+              A rectangle is dragged on the desktop rather than typed, so the region control's own row
+              carries the value and this button is what fills it.
+              Visible with the control it fills, which the backend hides under the other two kinds.
+            -->
+            <Button HorizontalAlignment="Left"
+                    Content="{x:Static model:SharePickerCopy.DrawRegion}"
+                    Command="{Binding DrawRegionCommand}"
+                    controls:Pending.IsActive="{Binding DrawRegionCommand.IsRunning}"
+                    IsVisible="{Binding DrawsRegion}"
+                    ToolTip.Tip="{x:Static model:SharePickerCopy.DrawRegionTip}" />
+          </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="{StaticResource GapTight}"
+                    Margin="0,16,0,0">
+
+          <Button Content="{x:Static model:SharePickerCopy.Cancel}"
+                  Command="{Binding CancelCommand}"
+                  ToolTip.Tip="{x:Static model:SharePickerCopy.CancelTip}" />
+
+          <Button Theme="{StaticResource PrimaryButton}"
+                  Command="{Binding ConfirmCommand}"
+                  IsEnabled="{Binding CanConfirm}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ti:TablerIcon Classes="button" Icon="IconScreenShare" />
+              <TextBlock Text="{x:Static model:SharePickerCopy.Confirm}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Border>
+</UserControl>

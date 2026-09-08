@@ -134,6 +134,16 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+    {
+        var answer = await ReadAsync(
+            c => c.ListShareWindowsAsync(new ListShareWindowsRequest(), cancellationToken: cancellation), cancellation)
+            .ConfigureAwait(false);
+
+        return answer.Windows;
+    }
+
+    /// <inheritdoc />
     public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
         Assert.NotNull(draft, "resolving a form needs the draft it is resolved against");

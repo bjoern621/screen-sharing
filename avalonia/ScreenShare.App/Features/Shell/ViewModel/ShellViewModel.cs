@@ -3,6 +3,8 @@ using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Insights.ViewModel;
+using ScreenShare.App.Features.Setup.SharePicker.View;
+using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
@@ -124,7 +126,12 @@ public sealed class ShellViewModel : Observable
         // It reads the same draft and the same release answer the rest of the window does.
         AppSettings = new AppSettingsViewModel(backend, _form, _session, Update, dispatch);
 
-        Setup = new SetupViewModel(backend, _form, _session, dispatch);
+        // What the stream shares, asked at the press that starts one.
+        // Over the window like the app settings, the question belonging to the press rather than to a screen,
+        // and built before the flow that opens it (Features/Setup/SharePicker/ViewModel/SharePickerViewModel.cs).
+        SharePicker = new SharePickerViewModel(backend, _form, _session, RegionOverlay.DrawAsync, dispatch);
+
+        Setup = new SetupViewModel(backend, _form, _session, SharePicker, dispatch);
         Insights = new InsightsViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 
@@ -214,6 +221,9 @@ public sealed class ShellViewModel : Observable
     /// as the update dialog does.
     /// </summary>
     public AppSettingsViewModel AppSettings { get; }
+
+    /// <summary>What the stream shares, drawn over the window at the press that starts one.</summary>
+    public SharePickerViewModel SharePicker { get; }
 
     // --- The destinations ----------------------------------------------------------
 

@@ -168,6 +168,22 @@ public static class Words
         ["memory:DMABuf"] = "the GPU, dmabuf",
     };
 
+    /// <summary>What a capture is pointed at, named by the thing rather than by the mechanism.</summary>
+    private static readonly Dictionary<string, string> ShareKinds = new()
+    {
+        ["monitor"] = "A whole screen",
+        ["window"] = "One window",
+        ["region"] = "Part of a screen",
+    };
+
+    /// <summary>What picking one costs and gives, at the width of a radio card.</summary>
+    private static readonly Dictionary<string, string> ShareKindNotes = new()
+    {
+        ["monitor"] = "Everything on the screen is sent, including anything opened on top of it later.",
+        ["window"] = "Only that window is sent, wherever it is moved. Anything in front of it stays private.",
+        ["region"] = "Only the rectangle you draw is sent. A window moved into it becomes visible.",
+    };
+
     private static readonly Dictionary<string, string> Cursors = new()
     {
         ["embedded"] = "Drawn into the picture",
@@ -425,6 +441,10 @@ public static class Words
     public static string Transfer(string id) => Look(Transfers, id);
 
     public static string Cursor(string id) => Look(Cursors, id);
+
+    public static string ShareKind(string id) => Look(ShareKinds, id);
+
+    public static string ShareKindNote(string id) => ShareKindNotes.TryGetValue(id, out var note) ? note : "";
 
     public static string DrmMap(string id) => Look(DrmMaps, id);
 

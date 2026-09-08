@@ -155,6 +155,9 @@ public sealed class InsightsPreviewTests
         public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
             => _seed.CatalogAsync(cancellation);
 
+        public Task<IReadOnlyList<ShareWindow>> ShareWindowsAsync(CancellationToken cancellation = default)
+            => _seed.ShareWindowsAsync(cancellation);
+
         public async Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         {
             var settings = await _seed.SettingsAsync(cancellation).ConfigureAwait(false);

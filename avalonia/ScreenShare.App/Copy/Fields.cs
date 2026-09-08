@@ -95,9 +95,21 @@ public static class Fields
             "How to capture",
             "How frames leave the desktop. Set this first. It fixes which encoder software runs, so almost everything below follows from it. Prefer the system's own: Desktop Duplication on Windows, the screen picker on Wayland."),
 
+        ["publish.share_kind"] = new(
+            "What to share",
+            "Whether viewers see a whole screen, one application window, or a rectangle you draw. A window keeps everything else off the stream, even when it is dragged to another screen. A region is the way to share part of a screen without moving windows around."),
+
         ["publish.monitor"] = new(
             "Which screen",
             "The screen to share. Only what it shows is sent. Windows on other screens stay private."),
+
+        ["publish.share_window"] = new(
+            "Which window",
+            "The window to share. Only that window is sent, so anything in front of it stays private. Closing the window ends the capture."),
+
+        ["publish.share_region"] = new(
+            "Which region",
+            "The rectangle to share, drawn on the screen. Only what falls inside it is sent. Windows moved into it become visible, so keep it clear of anything private."),
 
         ["publish.output_resolution"] = new(
             "Size sent",
@@ -267,6 +279,10 @@ public static class Fields
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()
     {
+        ["share"] = new(
+            "What to share",
+            "The screen, window, or region viewers see. Everything outside it stays off the stream. On Wayland the desktop asks instead, with its own picker, so nothing here decides it."),
+
         ["source"] = new(
             "Capture",
             "Which screen is shared and how the frames reach the encoder. The capture method fixes which encoder software runs, so the rest of the form follows from it."),

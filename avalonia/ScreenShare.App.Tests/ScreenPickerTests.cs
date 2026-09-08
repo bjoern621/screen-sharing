@@ -23,14 +23,14 @@ public sealed class ScreenPickerTests
         session.Stop();
     }
 
-    /// <summary>Flow on the source step with the window in front, the only state the grid draws pictures in.</summary>
-    private static SetupViewModel OnSourceStep(SeededBackend backend, bool showing = true)
+    /// <summary>Flow on the share step with the window in front, the only state the grid draws pictures in.</summary>
+    private static SetupViewModel OnShareStep(SeededBackend backend, bool showing = true)
     {
         var session = new Session(backend, action => action());
         Load(session);
 
         var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = SourceLayout.GroupKey;
+        flow.CurrentStep = ShareLayout.GroupKey;
         flow.Screens.SetShowing(showing);
         return flow;
     }
@@ -38,7 +38,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void TheGridOffersEveryEnumeratedScreenAndMarksTheOneTheDraftNames()
     {
-        var flow = OnSourceStep(new SeededBackend("linux"));
+        var flow = OnShareStep(new SeededBackend("linux") { AsksWhatToShare = true });
 
         Assert.True(flow.Screens.IsVisible);
         Assert.Equal([0, 1], flow.Screens.Screens.Select(screen => screen.Monitor));
@@ -56,8 +56,8 @@ public sealed class ScreenPickerTests
     [Fact]
     public void PickingAScreenWritesTheSettingAndMovesTheMark()
     {
-        var backend = new SeededBackend("linux");
-        var flow = OnSourceStep(backend);
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
+        var flow = OnShareStep(backend);
 
         flow.Screens.Screens[1].Select.Execute(null);
 
@@ -65,7 +65,7 @@ public sealed class ScreenPickerTests
         Assert.True(flow.Screens.Screens[1].IsSelected);
 
         // Grid and list are one value read twice, not two controls kept in step.
-        var list = flow.CurrentGroup!.Fields.Single(field => field.Key == SourceLayout.MonitorKey);
+        var list = flow.CurrentGroup!.Fields.Single(field => field.Key == ShareLayout.MonitorKey);
         Assert.Equal("1", list.Options.Single(option => option.IsSelected).Value);
     }
 
@@ -76,8 +76,8 @@ public sealed class ScreenPickerTests
     [Fact]
     public void EveryScreenIsAskedForOnceWhileTheGridIsDrawn()
     {
-        var backend = new SeededBackend("linux");
-        var flow = OnSourceStep(backend);
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
+        var flow = OnShareStep(backend);
 
         Assert.Equal([0, 1], backend.Previewed);
 
@@ -91,7 +91,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void NoScreenIsReadFromAnotherStep()
     {
-        var backend = new SeededBackend("linux");
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
         var session = new Session(backend, action => action());
         Load(session);
 
@@ -112,8 +112,8 @@ public sealed class ScreenPickerTests
     [Fact]
     public void LeavingTheStepStopsReadingTheScreens()
     {
-        var backend = new SeededBackend("linux");
-        var flow = OnSourceStep(backend);
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
+        var flow = OnShareStep(backend);
 
         Assert.Equal([0, 1], backend.Previewed);
 
@@ -127,8 +127,8 @@ public sealed class ScreenPickerTests
     [Fact]
     public void AWindowThatWentBehindStopsReadingTheScreens()
     {
-        var backend = new SeededBackend("linux");
-        var flow = OnSourceStep(backend);
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
+        var flow = OnShareStep(backend);
 
         flow.Screens.SetShowing(false);
 
@@ -144,7 +144,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void AScreenLeftBeingReadByAnEarlierShellIsClosed()
     {
-        var backend = new SeededBackend("linux");
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
         backend.Previewed.Add(1);
 
         var session = new Session(backend, action => action());
@@ -164,6 +164,7 @@ public sealed class ScreenPickerTests
     {
         var backend = new SeededBackend("linux")
         {
+            AsksWhatToShare = true,
             NoMonitorPreview = new Text
             {
                 Code = TextCode.NoMonitorPreview,
@@ -175,7 +176,7 @@ public sealed class ScreenPickerTests
             },
         };
 
-        var flow = OnSourceStep(backend);
+        var flow = OnShareStep(backend);
 
         Assert.False(flow.Screens.IsVisible);
         Assert.Empty(backend.Previewed);
@@ -190,7 +191,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void AScreenThatIsNotBeingReadYetCarriesNoTile()
     {
-        var flow = OnSourceStep(new SeededBackend("linux"));
+        var flow = OnShareStep(new SeededBackend("linux") { AsksWhatToShare = true });
 
         Assert.All(flow.Screens.Screens, screen => Assert.Null(screen.Tile));
         Assert.All(flow.Screens.Screens, screen => Assert.True(screen.HasPlaceholder));
@@ -199,7 +200,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void AScreenTheBackendIsReadingCarriesATileNamingIt()
     {
-        var flow = OnSourceStep(Reading(0, 1));
+        var flow = OnShareStep(Reading(0, 1));
         var tile = flow.Screens.Screens[1].Tile;
 
         Assert.NotNull(tile);
@@ -212,7 +213,7 @@ public sealed class ScreenPickerTests
     [Fact]
     public void ARenderPassKeepsTheTilesItAlreadyHas()
     {
-        var flow = OnSourceStep(Reading(0, 1));
+        var flow = OnShareStep(Reading(0, 1));
         var before = flow.Screens.Screens.Select(screen => screen.Tile).ToList();
 
         Assert.All(before, Assert.NotNull);
@@ -225,7 +226,7 @@ public sealed class ScreenPickerTests
     /// <summary>Fixture already reading these screens, which is what puts a tile on a row.</summary>
     private static SeededBackend Reading(params int[] monitors)
     {
-        var backend = new SeededBackend("linux");
+        var backend = new SeededBackend("linux") { AsksWhatToShare = true };
         backend.Previewed.AddRange(monitors);
         return backend;
     }

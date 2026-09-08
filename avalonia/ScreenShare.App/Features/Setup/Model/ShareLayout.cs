@@ -1,7 +1,7 @@
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// What the source step places above its controls, and which control that placement is about.
+/// What the share step places above its controls, and which control that placement is about.
 ///
 /// <b>Placement and nothing else.</b>
 /// Which group holds the screen setting, which entries it offers and which can be picked are the backend's answers,
@@ -13,9 +13,9 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// a key spelled at the render function and again at the view model is one string in two places,
 /// and the second goes stale.
 /// </summary>
-public static class SourceLayout
+public static class ShareLayout
 {
-    public const string GroupKey = "source";
+    public const string GroupKey = "share";
 
     /// <summary>Control the screen picker is a second way to reach.</summary>
     public const string MonitorKey = "publish.monitor";

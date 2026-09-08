@@ -31,7 +31,7 @@ public sealed class PresetsTests
         var backend = seeded ?? new SeededBackend("linux");
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
-        var flow = new SetupViewModel(backend, form, session, Inline);
+        var flow = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
 
         await form.Settled;
         await flow.Rail.Presets.Settled;
