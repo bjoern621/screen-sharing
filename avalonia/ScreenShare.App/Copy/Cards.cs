@@ -174,7 +174,7 @@ public static class Cards
         "This computer is not in a group. Set a group key and a name on the Relay step to join one.";
 
     public const string MembersUnlinked =
-        "Not linked to Discord. Link Discord on the Relay step, and everyone in the voice channel is listed here.";
+        "Not linked to Discord. Link Discord in Settings, and everyone in the voice channel is listed here.";
 
     public const string MembersNoChannel =
         "Not in a voice channel. Join one in Discord, and everyone in it is listed here.";
@@ -193,7 +193,7 @@ public static class Cards
     public const string GridIdle = "Nobody in the group is sharing a screen.";
 
     public const string GridUnlinked =
-        "Not linked to Discord. Link Discord on the Relay step, and the group follows the voice channel.";
+        "Not linked to Discord. Link Discord in Settings, and the group follows the voice channel.";
 
     public const string GridNoChannel =
         "Not in a voice channel. Join one in Discord, and every member's stream shows here.";

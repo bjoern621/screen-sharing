@@ -38,6 +38,13 @@ public static class AppSettingsCopy
 
     public const string DiscordHeading = "Discord";
 
+    /// <summary>
+    /// Press on a check line about the Discord link, which is fixed here rather than on a wizard step
+    /// (<c>Features/Setup/Model/CheckAnchor.cs</c>).
+    /// Composed from the two names it leads to, so a rename of either carries.
+    /// </summary>
+    public static readonly string ToDiscord = $"Go to {Title} · {DiscordHeading}";
+
     public const string DevelopmentHeading = "Development";
 
     public const string AboutHeading = "About";

@@ -27,7 +27,7 @@ public sealed class AppliedWriteTests
         var backend = new SeededBackend("linux");
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
-        var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
+        var setup = Flows.Setup(backend, form, session);
 
         await form.Settled;
         return new Flow(setup, form, backend);

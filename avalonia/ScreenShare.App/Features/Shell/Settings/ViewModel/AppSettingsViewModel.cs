@@ -98,6 +98,10 @@ public sealed class AppSettingsViewModel : Observable
         OpenCommand = new DelegateCommand(() => Show(true));
         CloseCommand = new DelegateCommand(() => Show(false));
 
+        // Pressed from a check line about the link, which is drawn behind this dialog
+        // (Features/Setup/ViewModel/SetupViewModel.cs).
+        OpenAtDiscordCommand = new DelegateCommand(() => Show(true, SettingsSection.Discord));
+
         // The logs are the backend's files: it writes them, rotates them, and is the side that knows
         // which still exist.
         OpenLogsFolder = new PendingCommand(() => backend.OpenLogsFolderAsync(), dispatch);
@@ -120,6 +124,7 @@ public sealed class AppSettingsViewModel : Observable
     // --- Outputs ------------------------------------------------------------------
 
     private bool _isOpen;
+    private SettingsSection _openedAt;
     private string _version = "";
     private string _discordLine = "";
     private bool _isDiscordLinked;
@@ -134,7 +139,17 @@ public sealed class AppSettingsViewModel : Observable
     /// <summary>Whether the dialog stands over the window.</summary>
     public bool IsOpen { get => _isOpen; private set => Set(ref _isOpen, value); }
 
+    /// <summary>
+    /// Heading the last press asked to stand at, which the view scrolls to as the dialog appears
+    /// (<c>Features/Shell/Settings/View/AppSettingsView.axaml.cs</c>).
+    /// Written by every press, so a press asking for the top cannot land on the heading a press before it named.
+    /// </summary>
+    public SettingsSection OpenedAt { get => _openedAt; private set => Set(ref _openedAt, value); }
+
     public DelegateCommand OpenCommand { get; }
+
+    /// <summary>Opens at the Discord heading, where the link button stands.</summary>
+    public DelegateCommand OpenAtDiscordCommand { get; }
 
     public DelegateCommand CloseCommand { get; }
 
@@ -245,7 +260,12 @@ public sealed class AppSettingsViewModel : Observable
     public ByteString DiscordAvatar { get => _discordAvatar; private set => Set(ref _discordAvatar, value); }
 
     /// <summary>Names the state the press asks for, so pressing twice changes nothing the second time.</summary>
-    public void Show(bool open) => IsOpen = open;
+    public void Show(bool open, SettingsSection at = SettingsSection.Top)
+    {
+        // Section before the flag: the view reads it as the dialog appears.
+        OpenedAt = at;
+        IsOpen = open;
+    }
 
     /// <summary>
     /// The one render function.

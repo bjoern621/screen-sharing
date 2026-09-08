@@ -55,7 +55,7 @@
           </Button>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Name="Sections" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Spacing="{StaticResource GapSection}">
 
             <StackPanel Spacing="{StaticResource GapTight}">
@@ -130,7 +130,8 @@
                       controls:Pending.IsActive="{Binding Updates.Check.IsRunning}" />
             </StackPanel>
 
-            <StackPanel Spacing="{StaticResource GapTight}">
+            <!-- Named so a press that came to fix the link scrolls here (AppSettingsView.axaml.cs). -->
+            <StackPanel Name="DiscordSection" Spacing="{StaticResource GapTight}">
               <TextBlock Classes="caption" Text="{x:Static model:AppSettingsCopy.DiscordHeading}" />
 
               <!-- The account's picture stands where the sentence names the account. -->

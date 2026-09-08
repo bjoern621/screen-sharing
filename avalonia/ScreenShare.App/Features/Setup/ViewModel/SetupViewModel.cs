@@ -16,6 +16,7 @@ using ScreenShare.App.Features.Setup.RelayCheck.ViewModel;
 using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
+using ScreenShare.App.Features.Shell.Settings.Model;
 using ScreenShare.App.Features.Shell.ViewModel;
 using ScreenShare.App.Mvvm;
 
@@ -105,6 +106,12 @@ public sealed class SetupViewModel : Observable
     private readonly SharePickerViewModel _picker;
 
     /// <summary>
+    /// Way to the Discord link, which the settings dialog draws.
+    /// Held rather than built here for the reason <see cref="_picker"/> is.
+    /// </summary>
+    private readonly DelegateCommand _toDiscordSettings;
+
+    /// <summary>
     /// One select command per step key, made once and reused.
     /// The reused instance lets a chip row be a record:
     /// two passes over one step compare equal rather than merely look alike, so the strip is left alone.
@@ -191,19 +198,31 @@ public sealed class SetupViewModel : Observable
     /// an effect's answer arrives on whichever thread the transport completed on,
     /// and every property below is read by a binding tolerating a write from one thread only.
     /// </param>
+    /// <param name="toDiscordSettings">
+    /// Opens the settings dialog at the Discord heading, the one control this flow's checks name
+    /// that no step here draws (<see cref="FixedOutside"/>).
+    /// The dialog's own command, so a line the reader has already seen produces an anchor equal to the last.
+    /// </param>
     public SetupViewModel(
-        IBackend backend, FormSession form, Session session, SharePickerViewModel picker, Action<Action> dispatch)
+        IBackend backend,
+        FormSession form,
+        Session session,
+        SharePickerViewModel picker,
+        DelegateCommand toDiscordSettings,
+        Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a setup flow asks the backend to put its draft on the air");
         Assert.NotNull(form, "a setup flow draws the draft the window is holding");
         Assert.NotNull(session, "a setup flow reads the running state the commit turns on");
         Assert.NotNull(picker, "a setup flow asks what to share before it starts a stream");
+        Assert.NotNull(toDiscordSettings, "a setup flow points a check about the Discord link at the dialog fixing it");
         Assert.NotNull(dispatch, "a setup flow needs a UI loop to marshal an answer back to");
 
         _backend = backend;
         _form = form;
         _session = session;
         _picker = picker;
+        _toDiscordSettings = toDiscordSettings;
         _dispatch = dispatch;
 
         // Everything the render function reads exists before anything can call it,
@@ -886,14 +905,15 @@ public sealed class SetupViewModel : Observable
                 .ToList();
 
     /// <summary>
-    /// Anchors one field key on the step owning it, for the diagnostics carrying one.
+    /// Anchors one diagnostic on the screen fixing it.
     /// The one thing this flow uses the field-to-group arrangement for,
     /// and it is placement: the contract says which control a diagnostic is about,
     /// and this side alone knows which screen that control landed on.
-    /// A diagnostic about a control another destination draws anchors nowhere: the check is still listed,
+    /// A diagnostic about a control another destination draws anchors on that destination
+    /// (<see cref="FixedOutside"/>), or nowhere where none of them draws it: the check is still listed,
     /// and it names no step here because no step here fixes it.
     /// </summary>
-    private Func<string, CheckAnchor> AnchorIn(IReadOnlyList<SetupStepRow> steps, Form? form)
+    private Func<Diagnostic, CheckAnchor> AnchorIn(IReadOnlyList<SetupStepRow> steps, Form? form)
     {
         if (form is null)
         {
@@ -914,8 +934,22 @@ public sealed class SetupViewModel : Observable
             }
         }
 
-        return key => key.Length > 0 && owner.TryGetValue(key, out var where) ? where : CheckAnchor.Nowhere;
+        return diagnostic => FixedOutside(diagnostic)
+            ?? (owner.TryGetValue(diagnostic.FieldKey, out var where) ? where : CheckAnchor.Nowhere);
     }
+
+    /// <summary>
+    /// Statements whose control stands on another screen, and the way to it.
+    /// Keyed on the statement rather than on the field it names: the group source is a control this flow draws,
+    /// and a group with no Discord link behind it is fixed by the link button in the settings dialog.
+    /// Null for everything else, which leaves the field's own step to answer.
+    /// </summary>
+    private CheckAnchor? FixedOutside(Diagnostic diagnostic) => diagnostic.Text?.Code switch
+    {
+        TextCode.DiscordNotLinked or TextCode.DiscordLinkRefused =>
+            CheckAnchor.Elsewhere(AppSettingsCopy.ToDiscord, _toDiscordSettings),
+        _ => null,
+    };
 
     /// <summary>
     /// What a chip says its step settled on.

@@ -29,7 +29,7 @@ public sealed class WatchSettingsTests
         var form = new FormSession(backend, session, Inline);
 
         var viewer = new ViewerViewModel(backend, form, session, Inline);
-        var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
+        var setup = Flows.Setup(backend, form, session);
 
         // Stands in for the shell's own render pass: without it a relay snapshot reaches the session
         // and never the roster drawn from it (Features/Shell/ViewModel/ShellViewModel.cs).
@@ -82,7 +82,7 @@ public sealed class WatchSettingsTests
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var viewer = new ViewerViewModel(backend, form, session, Inline);
-        var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
+        var setup = Flows.Setup(backend, form, session);
 
         // Reads every running state once and stops before the reconnect delay.
         _ = session.Start();

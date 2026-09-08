@@ -1028,6 +1028,19 @@ internal sealed class SeededBackend : IBackend
             });
         }
 
+        // A group off the voice channel with no account behind it, which blocks the publish
+        // (backend/internal/form/diagnostics.go).
+        if (settings.Relay.GroupSource == "discord" && !Discord.Linked)
+        {
+            form.Publishable = false;
+            form.Diagnostics.Add(new Diagnostic
+            {
+                Severity = Severity.Error,
+                FieldKey = "relay.group_source",
+                Text = Say(TextCode.DiscordNotLinked),
+            });
+        }
+
         Assert.That(form.Groups.Count == Groups().Count, "a resolved group per seeded group", form.Groups.Count);
         return form;
     }

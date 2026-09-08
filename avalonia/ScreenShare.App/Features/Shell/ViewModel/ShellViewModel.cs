@@ -141,7 +141,9 @@ public sealed class ShellViewModel : Observable
         // The dialog around it, built before the flow that opens it.
         SharePicker = new SharePickerViewModel(ShareStep, _form);
 
-        Setup = new SetupViewModel(backend, _form, _session, SharePicker, dispatch);
+        // The check about the Discord link leads to the settings dialog, which is why it is built first.
+        Setup = new SetupViewModel(
+            backend, _form, _session, SharePicker, AppSettings.OpenAtDiscordCommand, dispatch);
         Insights = new InsightsViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 

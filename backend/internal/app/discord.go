@@ -284,14 +284,14 @@ func (a *App) withBrokered(s settings.Settings) settings.Settings {
 }
 
 // errDiscordUnlinked refuses a command while no link secret is set.
-var errDiscordUnlinked = errors.New("Discord mode is on but this computer is not linked: link Discord under Relay")
+var errDiscordUnlinked = errors.New("Discord mode is on but this computer is not linked: link Discord in Settings")
 
 // errNoVoiceChannel refuses a command while the linked account stands in no voice channel.
 var errNoVoiceChannel = errors.New("not in a voice channel: join one in Discord to get a group")
 
 // errLinkRefused refuses a command while the manager declines the link the settings hold.
 // A channel clears nothing here, so the refusal names the link instead.
-var errLinkRefused = errors.New("the Discord manager does not recognize this computer's link: link Discord again under Relay")
+var errLinkRefused = errors.New("the Discord manager does not recognize this computer's link: link Discord again in Settings")
 
 // discordSettingsForCommand is settingsForCommand's Discord half:
 // the token is brokered by the manager, and the brokered facts ride the same copy.

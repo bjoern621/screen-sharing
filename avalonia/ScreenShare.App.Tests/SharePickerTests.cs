@@ -30,7 +30,7 @@ public class SharePickerTests
         var step = new ShareStepViewModel(backend, form, session, () => Task.FromResult(region), Inline);
         picker = new SharePickerViewModel(step, form);
 
-        var flow = new SetupViewModel(backend, form, session, picker, Inline);
+        var flow = new SetupViewModel(backend, form, session, picker, Flows.ToDiscordSettings, Inline);
         session.Start();
         session.Stop();
         flow.Apply();

@@ -12,13 +12,13 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// </summary>
 public sealed record CheckAnchor
 {
-    /// <summary>What the press says it does: "Go to step 2 · Quality". Empty where the form named no field.</summary>
+    /// <summary>What the press says it does: "Go to step 2 · Quality". Empty where the line leads nowhere.</summary>
     public required string Label { get; init; }
 
-    /// <summary>Step's key, which the strip marks its chip from. Empty where the form named no field.</summary>
+    /// <summary>Step's key, which the strip marks its chip from. Empty where the fix is off this flow.</summary>
     public required string StepKey { get; init; }
 
-    /// <summary>Move to that step. Null where the form named no field.</summary>
+    /// <summary>Move to where the fix is. Null where the line leads nowhere.</summary>
     public required DelegateCommand? Fix { get; init; }
 
     public bool HasStep => StepKey.Length > 0;
@@ -28,6 +28,19 @@ public sealed record CheckAnchor
     /// The list still carries it; the strip has nowhere to mark but the terminal chip.
     /// </summary>
     public static readonly CheckAnchor Nowhere = new() { Label = "", StepKey = "", Fix = null };
+
+    /// <summary>
+    /// Anchor on a screen outside this flow.
+    /// Carries no step key, the strip having no chip for a screen it does not draw,
+    /// so a blocking line lands on the terminal chip the way one naming no field does.
+    /// </summary>
+    public static CheckAnchor Elsewhere(string label, DelegateCommand fix)
+    {
+        Assert.That(label.Length > 0, "an anchor away from the flow says where it leads");
+        Assert.NotNull(fix, "an anchor carries the move to that screen");
+
+        return new CheckAnchor { Label = label, StepKey = "", Fix = fix };
+    }
 
     /// <summary>Anchor on one step of this flow.</summary>
     public static CheckAnchor On(SetupStepRow step, DelegateCommand fix)

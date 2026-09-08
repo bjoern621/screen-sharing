@@ -5,6 +5,7 @@ using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
 using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Viewer.ViewModel;
+using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Tests;
 
@@ -615,11 +616,18 @@ internal static class Flows
     public static SharePickerViewModel Picker(IBackend backend, FormSession form, Session session)
         => new(Share(backend, form, session), form);
 
+    /// <summary>
+    /// Where a check about the Discord link leads, which the settings dialog owns.
+    /// Inert here, the dialog behind the press being what <c>DiscordFixAnchorTests</c> wires up.
+    /// </summary>
+    public static readonly DelegateCommand ToDiscordSettings = new(() => { });
+
+    /// <summary>The wizard over a draft the test already holds, as the window builds it.</summary>
+    public static SetupViewModel Setup(IBackend backend, FormSession form, Session session)
+        => new(backend, form, session, Picker(backend, form, session), ToDiscordSettings, Inline);
+
     public static SetupViewModel Setup(IBackend backend, Session session)
-    {
-        var form = new FormSession(backend, session, Inline);
-        return new SetupViewModel(backend, form, session, Picker(backend, form, session), Inline);
-    }
+        => Setup(backend, new FormSession(backend, session, Inline), session);
 
     public static SetupViewModel Setup(IBackend backend) => Setup(backend, new Session(backend, Inline));
 

@@ -24,22 +24,22 @@ public sealed record PreflightCheckRow
 /// The list, built from the diagnostics the form carried.
 /// Every word comes from <c>Copy/</c>, keyed on the statement code the backend sent.
 /// The ranking is the form's.
-/// The one thing decided here is where a line is anchored: the contract names the field a diagnostic is about,
-/// and which step holds that field is placement (<c>docs/ipc-api.md</c>, "The rule").
+/// The one thing decided here is where a line is anchored: the contract names what a diagnostic is about,
+/// and which screen fixes it is placement (<c>docs/ipc-api.md</c>, "The rule").
 /// </summary>
 public static class PreflightChecks
 {
     /// <summary>Diagnostics as lines, in the order the form ranked them.</summary>
     /// <param name="anchorOf">
-    /// Anchors one field key on the step owning it.
-    /// Answers <see cref="CheckAnchor.Nowhere"/> for a key no step holds,
+    /// Anchors one diagnostic on the screen fixing it.
+    /// Answers <see cref="CheckAnchor.Nowhere"/> where nothing this app draws fixes it,
     /// and for a diagnostic about the combination rather than a field.
     /// </param>
     public static IReadOnlyList<PreflightCheckRow> Of(
-        IReadOnlyList<Diagnostic> diagnostics, Func<string, CheckAnchor> anchorOf)
+        IReadOnlyList<Diagnostic> diagnostics, Func<Diagnostic, CheckAnchor> anchorOf)
     {
         Assert.NotNull(diagnostics, "building the list needs the diagnostics the form carried");
-        Assert.NotNull(anchorOf, "a line needs somewhere to look up the step that owns its field");
+        Assert.NotNull(anchorOf, "a line needs somewhere to look up the screen that fixes it");
 
         if (diagnostics.Count == 0)
         {
@@ -51,7 +51,7 @@ public static class PreflightChecks
             {
                 Text = Copy.Statements.Of(diagnostic.Text),
                 State = StateOf(diagnostic.Severity),
-                Anchor = anchorOf(diagnostic.FieldKey),
+                Anchor = anchorOf(diagnostic),
             })
             .ToList();
     }

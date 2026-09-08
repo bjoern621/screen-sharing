@@ -46,7 +46,7 @@ public sealed class TrayTests
     {
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
-        var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
+        var setup = Flows.Setup(backend, form, session);
         var insights = new InsightsViewModel(backend, form, session, Inline);
         var tray = new TrayViewModel(
             backend, session, form, setup, insights, part ?? (static _ => Task.CompletedTask), Inline);

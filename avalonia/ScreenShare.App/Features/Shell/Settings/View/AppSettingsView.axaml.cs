@@ -1,15 +1,22 @@
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
+using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Shell.Settings.Model;
 using ScreenShare.App.Features.Shell.Settings.ViewModel;
 
 namespace ScreenShare.App.Features.Shell.Settings.View;
 
 /// <summary>
-/// Two gestures the markup cannot state, both of them dismissals.
+/// Three things the markup cannot state: two dismissals, and the heading the dialog opens at.
 /// Every setting the dialog draws writes through its own binding.
 /// </summary>
 public sealed partial class AppSettingsView : UserControl
 {
+    /// <summary>Dialog behind this view, held so its news is dropped when the binding moves.</summary>
+    private AppSettingsViewModel? _settings;
+
     public AppSettingsView()
     {
         InitializeComponent();
@@ -24,6 +31,72 @@ public sealed partial class AppSettingsView : UserControl
                 Focus();
             }
         };
+
+        DataContextChanged += (_, _) => Follow(DataContext as AppSettingsViewModel);
+    }
+
+    /// <summary>
+    /// Takes the dialog's news, dropping the last one's.
+    /// The scroll follows the model rather than this control's own visibility:
+    /// the scrim carries whether the dialog is drawn, and this control is in the tree either way.
+    /// </summary>
+    private void Follow(AppSettingsViewModel? settings)
+    {
+        if (_settings is not null)
+        {
+            _settings.PropertyChanged -= Moved;
+        }
+
+        _settings = settings;
+
+        if (_settings is not null)
+        {
+            _settings.PropertyChanged += Moved;
+        }
+    }
+
+    private void Moved(object? sender, PropertyChangedEventArgs change)
+    {
+        if (_settings is not { IsOpen: true })
+        {
+            return;
+        }
+
+        if (change.PropertyName is nameof(AppSettingsViewModel.IsOpen)
+            or nameof(AppSettingsViewModel.OpenedAt))
+        {
+            StandAtOpenedSection(_settings.OpenedAt);
+        }
+    }
+
+    /// <summary>
+    /// Puts the heading the press asked for in front of the reader.
+    /// The offset carries between openings, so a plain open scrolls home rather than standing where
+    /// the opening before it left off.
+    /// Posted at <see cref="DispatcherPriority.Loaded"/>: a panel the layout has not measured has nowhere
+    /// to be scrolled to.
+    /// </summary>
+    private void StandAtOpenedSection(SettingsSection section)
+    {
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                switch (section)
+                {
+                    case SettingsSection.Top:
+                        Sections.ScrollToHome();
+                        break;
+
+                    case SettingsSection.Discord:
+                        DiscordSection.BringIntoView();
+                        break;
+
+                    default:
+                        Assert.Never("unexpected settings section", (int)section);
+                        break;
+                }
+            },
+            DispatcherPriority.Loaded);
     }
 
     /// <summary>
