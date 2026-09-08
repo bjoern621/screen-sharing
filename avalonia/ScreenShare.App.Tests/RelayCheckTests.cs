@@ -63,9 +63,8 @@ public sealed class RelayCheckTests
     }
 
     /// <summary>
-    /// Four verdicts wear four marks: a listener that answered, one that did not,
-    /// one nothing dialled, and one whose answer nothing here needs.
-    /// Neither of the last two is a fault.
+    /// Three marks over four verdicts: a listener that answered, one that did not, one nothing dialled.
+    /// A listener whose answer nothing here needs wears the mark of one that answered, which is what it did.
     /// </summary>
     [Fact]
     public async Task EachVerdictWearsItsOwnMark()
@@ -76,7 +75,7 @@ public sealed class RelayCheckTests
         flow.RelayCheck.CheckCommand.Execute(null);
 
         Assert.Equal(
-            [CheckState.Passed, CheckState.Blocking, CheckState.Note, CheckState.Warned],
+            [CheckState.Passed, CheckState.Blocking, CheckState.Note, CheckState.Passed],
             flow.RelayCheck.Legs.Select(leg => leg.State));
     }
 
@@ -193,7 +192,7 @@ public sealed class RelayCheckTests
 
     /// <summary>
     /// A manager answering with Discord mode off is the relay behaving and this machine pointing elsewhere,
-    /// which is amber: the row carries the answer and the reason beside it.
+    /// which is green: the row carries the answer and the reason beside it.
     /// </summary>
     [Fact]
     public void TheDiscordManagerRowCarriesItsAnswerAndWhyNothingUsesIt()
@@ -210,7 +209,7 @@ public sealed class RelayCheckTests
             },
         ]);
 
-        Assert.Equal(CheckState.Warned, legs[0].State);
+        Assert.Equal(CheckState.Passed, legs[0].State);
         Assert.Contains(Words.RelayLeg("discord"), legs[0].Text);
         Assert.Contains("https://relay.test/discord", legs[0].Text);
         Assert.Contains("200 OK", legs[0].Text);

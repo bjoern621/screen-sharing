@@ -115,17 +115,18 @@ public static class RelayLegRows
     /// Exhaustive, so a verdict added to the contract fails here,
     /// rather than taking whatever a default arm would give it.
     ///
-    /// A leg nothing dialled is a note and never a fault: the relay binds what it is configured to bind,
+    /// A leg nothing dialled is a note: the relay binds what it is configured to bind,
     /// and a red mark against it would send a reader looking for a break that is not there.
-    /// A listener that answered where nothing here uses it is amber: the relay is whole,
-    /// and the row is the one place saying the settings point elsewhere.
+    /// A listener that answered wears green where nothing here uses it as well,
+    /// answering being what the check asks of it,
+    /// and the row's own words carry why the settings point elsewhere.
     /// </summary>
     private static CheckState StateOf(RelayLegVerdict verdict) => verdict switch
     {
         RelayLegVerdict.Reachable => CheckState.Passed,
         RelayLegVerdict.Unreachable => CheckState.Blocking,
         RelayLegVerdict.Unaddressed => CheckState.Note,
-        RelayLegVerdict.Unused => CheckState.Warned,
+        RelayLegVerdict.Unused => CheckState.Passed,
         _ => Assert.Never<CheckState>("unexpected relay leg verdict", (int)verdict),
     };
 }
