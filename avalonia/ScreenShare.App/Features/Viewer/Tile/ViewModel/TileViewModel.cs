@@ -92,6 +92,7 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     private string _notice = "";
     private bool _hasNotice;
     private bool _noticeIsFailure;
+    private bool _isConnecting;
     private bool _isFocused;
     private bool _isPoppedOut;
     private bool _isFullscreen;
@@ -216,6 +217,13 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     /// idle and connecting are not (<c>docs/design-language.md</c>, "Palette").
     /// </summary>
     public bool NoticeIsFailure { get => _noticeIsFailure; private set => Set(ref _noticeIsFailure, value); }
+
+    /// <summary>
+    /// Whether the notice is a picture still on its way, which is the one dark state the arc turns on
+    /// (<c>docs/design-language.md</c>, "Status language").
+    /// A decode nobody opened waits on a press instead, and a pipeline that stated why waits on nothing.
+    /// </summary>
+    public bool IsConnecting { get => _isConnecting; private set => Set(ref _isConnecting, value); }
 
     // --- Audio -----------------------------------------------------------------------
     //
@@ -393,6 +401,7 @@ public sealed partial class TileViewModel : Observable, IFrameSource
         Notice = notice.Text;
         HasNotice = Notice.Length > 0;
         NoticeIsFailure = notice.Failure;
+        IsConnecting = notice.Connecting;
         Aspect = AspectOf();
 
         TileStats.Merge(Stats, ShowStats ? TileStats.Of(sample, _report) : []);
@@ -610,30 +619,30 @@ public sealed partial class TileViewModel : Observable, IFrameSource
     /// Idle and connecting are states of a stream on its way, so the mark separates them from the two that broke
     /// (<c>docs/design-language.md</c>, "Palette").
     /// </summary>
-    private (string Text, bool Failure) NoticeFor(TilePipeline? pipeline)
+    private (string Text, bool Failure, bool Connecting) NoticeFor(TilePipeline? pipeline)
     {
         if (_report.Notice.Length > 0)
         {
-            return (_report.Notice, true);
+            return (_report.Notice, true, false);
         }
 
         if (pipeline is null)
         {
             // In the source's own terms: a decode nobody opened and a screen nobody reads are different things
             // to act on.
-            return (_source.Missing, false);
+            return (_source.Missing, false, false);
         }
 
         if (pipeline.Value.Live)
         {
-            return ("", false);
+            return ("", false, false);
         }
 
         // A pipeline that stated why carries the one thing a reader can act on,
         // where "Connecting." over it would promise a picture nothing is bringing.
         return Statements.Any(pipeline.Value.Failure)
-            ? (Statements.Of(pipeline.Value.Failure), true)
-            : ("Connecting.", false);
+            ? (Statements.Of(pipeline.Value.Failure), true, false)
+            : ("Connecting.", false, true);
     }
 
 }

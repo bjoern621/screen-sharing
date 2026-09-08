@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ti="using:TablerIcons"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Viewer.Tile.Model"
              xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
@@ -295,12 +296,27 @@
         Red for the two that broke, the other two being a stream on its way
         (docs/design-language.md, "Palette").
       -->
-      <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
-                           Classes.danger="{Binding NoticeIsFailure}"
-                           IsVisible="{Binding HasNotice}"
-                           Tapped="OnClickTaken"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           TextAlignment="Center" Margin="{StaticResource InsetSection}" />
+      <StackPanel IsVisible="{Binding HasNotice}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Spacing="{StaticResource GapTight}"
+                  Margin="{StaticResource InsetSection}">
+
+        <!--
+          The one dark state a picture is still coming in.
+          Centred over the tile rather than beside the line, the sentence under it being centred too,
+          and in the sentence's own grey: a hue over a picture is a hue against an unknown background
+          (docs/design-language.md, "Video surfaces").
+        -->
+        <controls:Waiting Foreground="{StaticResource MutedBrush}"
+                          HorizontalAlignment="Center"
+                          IsVisible="{Binding IsConnecting}" />
+
+        <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
+                             Classes.danger="{Binding NoticeIsFailure}"
+                             Tapped="OnClickTaken"
+                             HorizontalAlignment="Center"
+                             TextAlignment="Center" />
+      </StackPanel>
 
       <!-- The plate. The slot holds its place at this stream's shape, so nothing reflows. -->
       <Border Classes="plate" Background="{StaticResource SurfaceBrush}">
