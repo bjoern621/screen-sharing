@@ -91,6 +91,18 @@
     <Style Selector="tiles|TileCard[PictureElsewhere=True] Border.plate">
       <Setter Property="IsVisible" Value="True" />
     </Style>
+
+    <!--
+      The overlay goes with the picture, on the host's answer rather than the tile's.
+      Figures over the plate describe a decode this card is not drawing,
+      and asking one tile for them puts the panel on screen twice.
+    -->
+    <Style Selector="tiles|TileCard Panel.stats" x:DataType="tile:TileViewModel">
+      <Setter Property="IsVisible" Value="{Binding ShowStats}" />
+    </Style>
+    <Style Selector="tiles|TileCard[PictureElsewhere=True] Panel.stats">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
   </UserControl.Styles>
 
   <!--
@@ -342,7 +354,7 @@
         so its own margin would push it past the bottom of the tile by that much
         and lose the last row behind the frame's clip.
       -->
-      <Panel IsVisible="{Binding ShowStats}" Margin="{StaticResource InsetTight}">
+      <Panel Classes="stats" Margin="{StaticResource InsetTight}">
         <Border VerticalAlignment="Top" HorizontalAlignment="Right"
                 MaxHeight="{Binding $parent[Panel].Bounds.Height}"
                 Width="286"
