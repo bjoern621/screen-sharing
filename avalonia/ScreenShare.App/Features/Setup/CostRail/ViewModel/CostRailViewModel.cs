@@ -4,18 +4,16 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
-using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Setup.CostRail.ViewModel;
 
 /// <summary>
-/// What the draft costs, what stands between it and going live, and the saved ways of publishing.
+/// What the draft costs and what stands between it and going live.
 /// Beside the form rather than after it, so a choice is priced while it is being made.
 ///
 /// <b>The same column on every step.</b>
-/// A rail that changed panels per step would make the reader find the checks again on each one,
-/// and a preset is the whole way of publishing rather than a property of the step standing on it.
+/// A rail that changed panels per step would make the reader find the checks again on each one.
 ///
 /// <b>Every figure is the backend's.</b>
 /// The rate, the raw rate and the headroom come off <c>Summary.estimate</c>,
@@ -49,23 +47,13 @@ public sealed class CostRailViewModel : Observable
     private string _refusal = "";
     private bool _hasRefusal;
 
-    /// <param name="presets">
-    /// Saved ways of publishing, drawn in this column.
-    /// Composed rather than owned: it reads the store and writes the draft through inputs of its own,
-    /// and the rail decides only where it sits and renders it on every pass.
-    /// </param>
-    public CostRailViewModel(PresetsViewModel presets)
+    public CostRailViewModel()
     {
-        Assert.NotNull(presets, "the rail draws the saved ways of publishing beside the one being edited");
-
-        Presets = presets;
         Metrics = [];
         Checks = [];
 
         Apply(null, null, null, [], "");
     }
-
-    public PresetsViewModel Presets { get; }
 
     /// <summary>Estimate's figures under the headline, rebuilt from it on every pass.</summary>
     public ObservableCollection<CostMetricRow> Metrics { get; }
@@ -188,10 +176,6 @@ public sealed class CostRailViewModel : Observable
 
         Refusal = refusal;
         HasRefusal = Refusal.Length > 0;
-
-        // Rendered rather than fed: the card draws from the draft and the store, neither of which the rail holds,
-        // and both have moved by the time this pass runs.
-        Presets.Apply();
 
         Assert.That(FillShare is >= 0 and <= 1, "the bar's fill is a share of it", FillShare);
         Assert.That(UplinkShare is >= 0 and <= 1, "the uplink marker stands on the bar", UplinkShare);

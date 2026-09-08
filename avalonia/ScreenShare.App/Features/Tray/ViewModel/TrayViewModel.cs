@@ -14,7 +14,7 @@ namespace ScreenShare.App.Features.Tray.ViewModel;
 ///
 /// The commit row presses the review's commit and the insights screen's stop, so the wait, the guard and
 /// the refusal surface stay one each, and a refusal lands where the window already shows it.
-/// The preset rows are the rail card's, applied through the card's own commands.
+/// The preset rows are the presets card's, applied through the card's own commands.
 /// Nothing here decides anything: which effect a press is comes off the running state at the press,
 /// the way every commit reads it (<see cref="PublishGate.CommitFor"/>).
 ///
@@ -78,8 +78,8 @@ public sealed class TrayViewModel : Observable
         _form.Changed += Apply;
         setup.Review.PropertyChanged += (_, _) => Apply();
         insights.StopCommand.Changed += Apply;
-        setup.Rail.Presets.Rows.CollectionChanged += (_, _) => Apply();
-        setup.Rail.Presets.Builtin.CollectionChanged += (_, _) => Apply();
+        setup.Presets.Rows.CollectionChanged += (_, _) => Apply();
+        setup.Presets.Builtin.CollectionChanged += (_, _) => Apply();
 
         Apply();
     }
@@ -149,7 +149,7 @@ public sealed class TrayViewModel : Observable
     public void Apply()
     {
         var live = _session.Publish?.Live is not null;
-        var card = _setup.Rail.Presets;
+        var card = _setup.Presets;
 
         Menu = new TrayMenu
         {
@@ -205,7 +205,7 @@ public sealed class TrayViewModel : Observable
     /// <summary>Answers whether the draft moved, which is what decides whether a live stream restarts.</summary>
     private bool ApplyBuiltin(string key)
     {
-        var row = _setup.Rail.Presets.Builtin.FirstOrDefault(row => row.Key == key);
+        var row = _setup.Presets.Builtin.FirstOrDefault(row => row.Key == key);
         if (row is null || !row.IsReachable)
         {
             return false;
@@ -217,7 +217,7 @@ public sealed class TrayViewModel : Observable
 
     private bool ApplySaved(string name)
     {
-        var row = _setup.Rail.Presets.Rows.FirstOrDefault(row => row.Name == name);
+        var row = _setup.Presets.Rows.FirstOrDefault(row => row.Name == name);
         if (row is null)
         {
             return false;

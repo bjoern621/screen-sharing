@@ -34,9 +34,9 @@ public sealed class PresetsTests
         var flow = Flows.Setup(backend, form, session);
 
         await form.Settled;
-        await flow.Rail.Presets.Settled;
+        await flow.Presets.Settled;
 
-        return new Card(flow.Rail.Presets, form, backend, flow);
+        return new Card(flow.Presets, form, backend, flow);
     }
 
     /// <summary>The draft's way of publishing, what a save carries.</summary>

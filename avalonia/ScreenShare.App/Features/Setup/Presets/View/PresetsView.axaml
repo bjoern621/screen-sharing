@@ -123,7 +123,7 @@
 
       <!--
         That the window is still dialling, under the refusal saying it could not be reached.
-        Under rather than beside: the card is a rail's width and the sentence wraps over it.
+        Under rather than beside: the sentence wraps over the card's width.
       -->
       <controls:Waiting Margin="0,6,0,0"
                         IsVisible="{Binding IsDialling}"

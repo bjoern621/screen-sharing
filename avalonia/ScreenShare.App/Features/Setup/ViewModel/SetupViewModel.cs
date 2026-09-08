@@ -274,19 +274,21 @@ public sealed class SetupViewModel : Observable
         // and the reader may have typed another address since the pass that drew the button (Setup/RelayCheck).
         RelayCheck = new RelayCheckViewModel(backend, () => _form.Draft, dispatch);
 
-        // The rail, and the saved ways of publishing in it, handed the boundaries this flow reads
-        // and nothing of this flow's own: the store is the backend's and the draft is the window's,
+        Rail = new CostRailViewModel();
+
+        // The saved ways of publishing, handed the boundaries this flow reads and nothing of this flow's own:
+        // the store is the backend's and the draft is the window's,
         // so a card routed through here would be one more hop between a press and the state it changes.
-        // The rail draws on every step, so a preset is offered wherever the reader stands
-        // (CostRail/ViewModel/CostRailViewModel.cs).
-        Rail = new CostRailViewModel(new PresetsViewModel(backend, form, session, dispatch));
+        // Held by the flow rather than by the step that draws it,
+        // the tray and the strip's menu offering the same rows (Presets/ViewModel/PresetsViewModel.cs).
+        Presets = new PresetsViewModel(backend, form, session, dispatch);
 
         // Beside the form where the window carries both, over it where it does not
         // (Shell/Model/SideColumns.cs).
         RailColumn = new SideColumnViewModel(
             SideColumns.SetupRail,
-            "Show the cost, the checks and the presets",
-            "Hide the cost, the checks and the presets");
+            "Show the cost and the checks",
+            "Hide the cost and the checks");
 
         Review = new ReviewStepViewModel(SelectCommandOf, Back, StartSharingAsync, dispatch);
 
@@ -372,6 +374,13 @@ public sealed class SetupViewModel : Observable
     public RelayCheckViewModel RelayCheck { get; }
 
     public CostRailViewModel Rail { get; }
+
+    /// <summary>
+    /// Built-in and saved ways of publishing, drawn under the summary on the terminal step
+    /// (<c>Setup/View/SetupView.axaml</c>).
+    /// The tray menu and the strip's start menu draw the same rows through the same commands.
+    /// </summary>
+    public PresetsViewModel Presets { get; }
 
     /// <summary>
     /// Where the rail stands: beside the step's form, or over it on a window with the width for one column
@@ -542,6 +551,11 @@ public sealed class SetupViewModel : Observable
         var gate = PublishGate.Of(
             IsPublishable, form?.InForce ?? false, _form.Unavailable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _form.Draft?.StreamName ?? "", _refusal, Summaries(drawn, form));
+
+        // Rendered rather than fed: the card draws from the draft and the store, neither of which this flow holds,
+        // and both have moved by the time this pass runs.
+        // Rendered on every pass, the tray and the strip drawing these rows wherever the reader stands.
+        Presets.Apply();
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, checks, ValueOf, SelectCommandOf));
 

@@ -49,8 +49,8 @@ public sealed class RedialIndicatorTests
         Load(session);
         flow.Apply();
 
-        Assert.True(flow.Rail.Presets.HasRefusal);
-        Assert.True(flow.Rail.Presets.IsDialling);
+        Assert.True(flow.Presets.HasRefusal);
+        Assert.True(flow.Presets.IsDialling);
     }
 
     /// <summary>

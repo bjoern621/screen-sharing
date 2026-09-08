@@ -245,10 +245,10 @@ public sealed class CostRailTests
     public async Task TheRailIsTheSameColumnOnEveryStep()
     {
         var flow = await FlowAsync(new SeededBackend("linux"));
-        await flow.Rail.Presets.Settled;
+        await flow.Presets.Settled;
 
         var checks = flow.Rail.Checks.ToList();
-        var presets = flow.Rail.Presets.Builtin.Select(row => row.Key).ToList();
+        var presets = flow.Presets.Builtin.Select(row => row.Key).ToList();
 
         Assert.NotEmpty(checks);
         Assert.NotEmpty(presets);
@@ -258,7 +258,7 @@ public sealed class CostRailTests
             flow.CurrentStep = step.Key;
 
             Assert.Equal(checks, flow.Rail.Checks);
-            Assert.Equal(presets, flow.Rail.Presets.Builtin.Select(row => row.Key));
+            Assert.Equal(presets, flow.Presets.Builtin.Select(row => row.Key));
             Assert.True(flow.Rail.IsResolved);
         }
     }

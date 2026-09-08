@@ -11,7 +11,9 @@ namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 ///
 /// The tiles draw in the step column and the commit at the foot of the rail, where every other step's Back
 /// and Continue sit (<c>Setup/View/SetupView.axaml</c>).
-/// What the settings owe and what has been saved are the rail's, on every step alike
+/// The saved ways of publishing draw under the tiles, in that same column
+/// (<c>Setup/Presets/ViewModel/PresetsViewModel.cs</c>).
+/// What the settings owe is the rail's, on every step alike
 /// (<c>Setup/CostRail/ViewModel/CostRailViewModel.cs</c>).
 ///
 /// Outputs are written by <see cref="Apply"/> alone, each coming off a state some other side stated:

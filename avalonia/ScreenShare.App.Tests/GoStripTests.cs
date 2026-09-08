@@ -68,8 +68,8 @@ public sealed class GoStripTests
         kept.Fps = fps;
         await opened.Backend.SavePresetAsync(name, kept);
 
-        opened.Setup.Rail.Presets.RereadCommand.Execute(null);
-        await opened.Setup.Rail.Presets.Settled;
+        opened.Setup.Presets.RereadCommand.Execute(null);
+        await opened.Setup.Presets.Settled;
         opened.Go.Apply();
     }
 
@@ -155,7 +155,7 @@ public sealed class GoStripTests
         await opened.Form.Settled;
         opened.Setup.Apply();
 
-        var row = opened.Setup.Rail.Presets.Builtin.First(row => row.IsReachable);
+        var row = opened.Setup.Presets.Builtin.First(row => row.IsReachable);
         opened.Go.UseBuiltin(row.Key);
 
         Assert.Single(opened.Backend.Applied);

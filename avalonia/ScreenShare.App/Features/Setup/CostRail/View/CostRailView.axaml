@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Setup.Model"
-             xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:view="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:vm="using:ScreenShare.App.Features.Setup.CostRail.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.CostRail.View.CostRailView"
@@ -132,8 +131,6 @@
                              Text="{Binding Refusal}" />
       </StackPanel>
     </Border>
-
-    <presets:PresetsView DataContext="{Binding Presets}" />
 
   </controls:CardColumn>
 

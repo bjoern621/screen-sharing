@@ -73,8 +73,8 @@ public sealed class TrayTests
         kept.Fps = fps;
         await opened.Backend.SavePresetAsync(name, kept);
 
-        opened.Setup.Rail.Presets.RereadCommand.Execute(null);
-        await opened.Setup.Rail.Presets.Settled;
+        opened.Setup.Presets.RereadCommand.Execute(null);
+        await opened.Setup.Presets.Settled;
         opened.Tray.Apply();
     }
 
@@ -141,7 +141,7 @@ public sealed class TrayTests
         var opened = Open(new PublishingBackend());
         await KeepAsync(opened, "work", fps: 120);
 
-        var card = opened.Setup.Rail.Presets;
+        var card = opened.Setup.Presets;
         var entries = opened.Tray.Menu.Presets;
 
         Assert.Equal(card.Builtin.Count + card.Rows.Count, entries.Count);

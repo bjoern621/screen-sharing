@@ -8,6 +8,7 @@
              xmlns:audio="using:ScreenShare.App.Features.Setup.AudioStep.View"
              xmlns:advanced="using:ScreenShare.App.Features.Setup.AdvancedGroup.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
+             xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
              xmlns:sharestep="using:ScreenShare.App.Features.Setup.ShareStep.View"
              xmlns:relaycheck="using:ScreenShare.App.Features.Setup.RelayCheck.View"
@@ -126,7 +127,8 @@
           <!--
             The audio group's own layout: one row per source,
             rather than the four controls of every entry drawn with their copy repeated (Setup/AudioStep).
-            The wrapper is load-bearing, as on the review step below.
+            The wrapper is load-bearing: IsVisible reads this view's model,
+            so it cannot sit on the element that hands its DataContext to the child.
           -->
           <Panel IsVisible="{Binding ShowsAudio}">
             <audio:AudioStepView DataContext="{Binding Audio}" />
@@ -136,7 +138,7 @@
             The share group's own layout: the kind above the chooser it names,
             rather than a grid of screens over a question that has not been asked yet (Setup/ShareStep).
             The dialog at the start press draws this same model.
-            The wrapper is load-bearing, as on the review step below.
+            The wrapper is load-bearing, as on the audio group above.
           -->
           <Panel IsVisible="{Binding ShowsShare}">
             <sharestep:ShareStepView DataContext="{Binding Share}" />
@@ -145,12 +147,13 @@
           <!--
             Terminal step's read-back, in the same column every other step's form draws in,
             so the rail beside it is one column rather than a second one per step.
-            The wrapper is load-bearing: IsVisible reads this view's model,
-            so it cannot sit on the element that hands its DataContext to the child.
+            Under it the saved ways of publishing: a preset is the whole way of publishing,
+            which no earlier step owns a fraction of, and this is the step reading the whole draft back.
           -->
-          <Panel IsVisible="{Binding ShowsReview}">
+          <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsReview}">
             <review:ReviewStepView DataContext="{Binding Review}" />
-          </Panel>
+            <presets:PresetsView DataContext="{Binding Presets}" />
+          </controls:CardColumn>
 
           <!--
             One renderer instanced per group, and the group decides everything on it.
@@ -165,7 +168,7 @@
             <!--
               No group, no card:
               a form that never arrived leaves the step column empty rather than drawing a frame around nothing.
-              The wrapper is load-bearing, as on the review step above.
+              The wrapper is load-bearing, as on the audio group above.
             -->
             <Panel IsVisible="{Binding CurrentGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
               <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
@@ -183,8 +186,8 @@
       </ScrollViewer>
 
       <!--
-        The rail, on every step and in the same order on each: what the draft costs,
-        what stands between it and going live, and the saved ways of publishing.
+        The rail, on every step and in the same order on each:
+        what the draft costs and what stands between it and going live.
         A column that changed panels per step would make the reader look for the checks again on each one.
 
         Fixed width beside the form, because the rail prices it:

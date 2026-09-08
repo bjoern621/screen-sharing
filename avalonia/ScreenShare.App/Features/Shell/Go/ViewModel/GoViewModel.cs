@@ -14,7 +14,7 @@ namespace ScreenShare.App.Features.Shell.Go.ViewModel;
 ///
 /// The button presses the review's own commit, so the label, the guard, the wait and the refusal surface
 /// stay one each (<c>Features/Tray/ViewModel/TrayViewModel.cs</c> states the argument).
-/// A preset row writes the draft through the rail card's own command and presses that same commit,
+/// A preset row writes the draft through the presets card's own command and presses that same commit,
 /// so one pick is on the air on the preset, live or not.
 /// The summary line repeats the publish groups' shorthands, the derivation the review's tiles read.
 ///
@@ -86,10 +86,10 @@ public sealed class GoViewModel : Observable
     /// </summary>
     public PendingCommand StopCommand => _insights.StopCommand;
 
-    /// <summary>The rail card's rows, read through. The menu lists what the card lists.</summary>
-    public ObservableCollection<BuiltinPresetRow> Builtin => _setup.Rail.Presets.Builtin;
+    /// <summary>The presets card's rows, read through. The menu lists what the card lists.</summary>
+    public ObservableCollection<BuiltinPresetRow> Builtin => _setup.Presets.Builtin;
 
-    public ObservableCollection<PresetRow> Saved => _setup.Rail.Presets.Rows;
+    public ObservableCollection<PresetRow> Saved => _setup.Presets.Rows;
 
     // --- Outputs -------------------------------------------------------------------
 

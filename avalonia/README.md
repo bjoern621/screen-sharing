@@ -82,7 +82,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Features/Tray/` | the tray icon: its menu model, the view model pressing the destinations' own commands, and the host drawing the platform icon |
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
-| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, the share question with a chooser per kind, Quality form, audio source list, raw-property card, review, and the rail every step draws beside them carrying cost, checks and saved presets. The share question is drawn again in a dialog at the press that starts a stream, one model behind both |
+| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, the share question with a chooser per kind, Quality form, audio source list, raw-property card, the summary and the presets under it, and the rail every step draws beside them carrying cost and checks. The share question is drawn again in a dialog at the press that starts a stream, one model behind both |
 | `Features/Insights/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and its rail: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding how this machine receives |
 
@@ -280,12 +280,12 @@ The placeholder stays for the states where there is no picture, each saying whic
 The card's own sentence is the selected segment's, the two routes making opposite claims and one sentence for both being false under one of them.
 A reader who took a perfect local preview for a healthy stream would be reading it exactly wrong, which is why the sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
-**The rail carries the preset card, and it draws two different things under one heading.**
+**The summary step carries the preset card, and it draws two different things under one heading.**
 Above are the built-in presets, promises about the picture.
 What "gaming" is on this machine is a search the backend ran over its own capability tables, so a row can be unreachable and what applying it writes differs per machine (`docs/presets.md`).
 Below are the saved ones, and a saved preset is a name: kept, replaced and deleted by the name it is under.
 So the card is a row per promise, a row per saved preset, and a name box (`Features/Setup/Presets/`).
-It sits in the rail because a preset is the whole way of publishing, which no step owns a fraction of, and the rail is the one column every step draws.
+It sits under the summary because a preset is the whole way of publishing, which no earlier step owns a fraction of, and the summary is where the whole draft is read back.
 
 A preset is a `PublishSettings` and nothing else, so applying one replaces that group of the draft and leaves the relay and watch settings where they are (`docs/presets.md`).
 Nothing is committed by it: publish settings are staged until a commit carries them, so trying a preset out costs nothing and puts nothing on the air.
@@ -380,7 +380,7 @@ a second shell draws a second grid and a second menu over the backend the first 
 
 The menu decides nothing.
 Its commit row presses the review's commit and the insights screen's stop, so gate, wait and refusal surface stay one each, and a refusal lands where the window already shows it.
-The preset rows are the rail card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
+The preset rows are the summary card's, applied through the card's own commands, and a pick while a stream is live is the review's apply, a restart.
 The icon says whether this machine is sharing, as a second baked asset (`task icons`).
 
 The lifetime is the host's (`App.axaml.cs`), and shutdown is explicit.
