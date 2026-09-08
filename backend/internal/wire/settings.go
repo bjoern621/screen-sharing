@@ -39,6 +39,7 @@ func Settings(s settings.Settings) *screensharev1.Settings {
 func AppSettings(a settings.App) *screensharev1.AppSettings {
 	return &screensharev1.AppSettings{
 		SendCrashReports:    a.SendCrashReports,
+		CrashReportsAsked:   a.CrashReportsAsked,
 		CheckUpdatesOnStart: a.CheckUpdatesOnStart,
 		TrayIcon:            a.TrayIcon,
 		DiscordRichPresence: a.DiscordRichPresence,
@@ -149,6 +150,7 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 func ToApp(m *screensharev1.AppSettings) settings.App {
 	return settings.App{
 		SendCrashReports:    m.GetSendCrashReports(),
+		CrashReportsAsked:   m.GetCrashReportsAsked(),
 		CheckUpdatesOnStart: m.GetCheckUpdatesOnStart(),
 		TrayIcon:            m.GetTrayIcon(),
 		DiscordRichPresence: m.GetDiscordRichPresence(),

@@ -78,7 +78,7 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Assets/Fonts/` | the mono family `Design/Typography.axaml` names, as files: Avalonia packages Inter and no mono, so this one is carried rather than resolved off the platform |
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch, and `SideColumnPanel`, which puts a screen's side column beside its body or over it |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
-| `Features/Shell/` | the window, title bar, shared nav strip, status band, the settings dialog over all of them, and which destination is showing |
+| `Features/Shell/` | the window, title bar, shared nav strip, status band, the settings dialog and the crash report question over all of them, and which destination is showing |
 | `Features/Tray/` | the tray icon: its menu model, the view model pressing the destinations' own commands, and the host drawing the platform icon |
 | `Backend/` | the control-plane boundary: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |

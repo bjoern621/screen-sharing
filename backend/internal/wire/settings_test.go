@@ -79,6 +79,7 @@ func populatedSettings() settings.Settings {
 		},
 		App: settings.App{
 			SendCrashReports:    true,
+			CrashReportsAsked:   true,
 			CheckUpdatesOnStart: true,
 			TrayIcon:            true,
 			DiscordRichPresence: true,

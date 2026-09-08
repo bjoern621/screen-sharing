@@ -194,5 +194,7 @@ OS, display server, GPU and toolkit versions among them,
 to the operator of the configured relay, on the next start.
 The group key, the Discord link and the member secrets stay on the machine.
 
+The app puts the question once, over its own window, and nothing is sent while that question stands open.
+
 `Send crash reports` in Settings turns this off, keeping the log on this machine (`Open logs folder` reaches it).
 The bundles land where the relay's groupd stores them (`deploy/README.md`, "Reports").

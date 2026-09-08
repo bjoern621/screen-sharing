@@ -9,6 +9,12 @@ type App struct {
 	// SendCrashReports lets a crash in an earlier run reach the relay operator on the next start,
 	// as the bundle a manual report sends (internal/report).
 	SendCrashReports bool `json:"sendCrashReports"`
+	// CrashReportsAsked is the question about SendCrashReports having been put to the reader.
+	// False on a fresh installation, and on a stored file written before the question.
+	// The shell draws one dialog over the window while it is false and writes it on the way out.
+	//
+	// No form field: it records that a choice was offered, and no control writes it.
+	CrashReportsAsked bool `json:"crashReportsAsked"`
 	// CheckUpdatesOnStart reads the published release once per start,
 	// which is what fills the update state with no press behind it (internal/update).
 	CheckUpdatesOnStart bool `json:"checkUpdatesOnStart"`
@@ -31,3 +37,10 @@ type App struct {
 	// The set converges on the write rather than at the next start (internal/app/teststreams.go).
 	TestStreams bool `json:"testStreams"`
 }
+
+// SendsCrashReport is a crash from an earlier run going out on this start.
+//
+// Two facts and not one: the question has to have been put and answered on.
+// A fresh installation carries SendCrashReports on,
+// so reading that alone would send the first crash of an install nobody had asked yet.
+func (a App) SendsCrashReport() bool { return a.CrashReportsAsked && a.SendCrashReports }

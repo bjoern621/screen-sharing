@@ -36,10 +36,11 @@ func (a *App) sendReport(kind string, include ...string) (string, error) {
 // ReportLastCrash sends a report about the newest unreported crash
 // among tag's earlier run logs, and nothing where every earlier run ended clean.
 //
-// Refused by the stored settings, which is the whole of the consent behind an automatic send
-// (settings.App.SendCrashReports).
+// Refused by the stored settings, which carry the whole of the consent behind an automatic send
+// (settings.App.SendsCrashReport).
+// An unput question refuses too, so nothing leaves before the shell has drawn it.
 // The crash keeps its marker unwritten there,
-// so turning the setting on and starting again sends what the refused run held back.
+// so answering and starting again sends what the refused run held back.
 //
 // Called once per start, off the startup path (cmd/backend).
 // The marker keeps a crash to one report,
@@ -49,7 +50,7 @@ func (a *App) sendReport(kind string, include ...string) (string, error) {
 func (a *App) ReportLastCrash(tag string) {
 	assert.Assert(tag != "", "a crash is looked for under the run log tag")
 
-	if !a.GetSettings().App.SendCrashReports {
+	if !a.GetSettings().App.SendsCrashReport() {
 		return
 	}
 

@@ -94,6 +94,11 @@ A control is the write, and what a reader closes the dialog on is what the app h
 A control the form draws no field for is applied by construction.
 The insights preview's route toggle has no commit beside it, so the press is the write (`viewer-architecture.md`).
 
+A field the form draws no control for is the other half, and the group's mark decides it.
+That the crash report question was put is settled by answering rather than by moving a control,
+so no field row addresses it and the write names the settings field itself.
+Any applied field of that group makes the write a setting.
+
 ## Who can be put back
 
 A group carries a reset to what a fresh installation holds where the reader has no other way back to it.

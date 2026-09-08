@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:model="using:ScreenShare.App.Features.Shell.Consent.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.Consent.ViewModel"
+             x:Class="ScreenShare.App.Features.Shell.Consent.View.ConsentView"
+             x:DataType="vm:ConsentViewModel"
+             Focusable="True">
+
+  <!--
+    The crash report question, over the window an install has not answered it on.
+
+    The same ground and panel the settings dialog stands on, a dialog about the app belonging over the
+    window rather than in a caption of its own (docs/design-language.md, "Surfaces and shape").
+    The way out is the commit rather than a corner button: every way of leaving is the answer, and a cross
+    beside a button that says the same thing reads as a way of not answering.
+  -->
+
+  <UserControl.KeyBindings>
+    <!--
+      Escape reaches this before the window, the event starting at the focus inside it and the code-behind
+      putting the focus here as it opens.
+    -->
+    <KeyBinding Gesture="Escape" Command="{Binding CloseCommand}" />
+  </UserControl.KeyBindings>
+
+  <!-- Dimmed rather than covered: the window stays readable behind what is being decided over it. -->
+  <Border Background="{StaticResource ScrimBrush}"
+          IsVisible="{Binding IsOpen}"
+          PointerPressed="ScrimPressed">
+
+    <Border Classes="panel"
+            MaxWidth="460"
+            Margin="{StaticResource InsetSection}"
+            BoxShadow="{StaticResource MenuShadow}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+
+      <StackPanel Margin="{StaticResource InsetSection}" Spacing="{StaticResource GapSection}">
+
+        <StackPanel Spacing="{StaticResource GapTight}">
+          <TextBlock Classes="heading" Text="{x:Static model:ConsentCopy.Title}" />
+          <TextBlock Classes="hint"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     Text="{x:Static model:ConsentCopy.Body}" />
+        </StackPanel>
+
+        <!--
+          Pulled off the app group by key, so the write path stays the field's own (ConsentViewModel.Apply).
+          Margin cancels the row's own trailing 18px (FieldRow.axaml), built for an unspaced list.
+        -->
+        <ContentControl Content="{Binding CrashReports}"
+                        ContentTemplate="{StaticResource FieldRow}"
+                        Margin="0,0,0,-18"
+                        IsVisible="{Binding CrashReports, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <Button HorizontalAlignment="Right"
+                Theme="{StaticResource PrimaryButton}"
+                Content="{x:Static model:ConsentCopy.Continue}"
+                Command="{Binding CloseCommand}" />
+
+      </StackPanel>
+    </Border>
+  </Border>
+</UserControl>

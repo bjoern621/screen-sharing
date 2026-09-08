@@ -55,6 +55,11 @@ message AppSettings {
   // and the run log holding the traceback (internal/report).
   // Off leaves that log on this machine, where OpenLogsFolder reaches it.
   bool send_crash_reports = 1;
+  // Whether the question above has been put to the reader.
+  // A shell draws one dialog over its window while this is false and sets it on the way out,
+  // so the choice is made once and stands.
+  // No form field draws it: it records that a choice was offered, and no control writes it.
+  bool crash_reports_asked = 6;
   // The published release is read once per start, filling the update state a shell draws.
   // Off leaves the read to the press the status band carries (control.proto, CheckUpdate).
   bool check_updates_on_start = 2;

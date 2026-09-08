@@ -370,6 +370,43 @@ public sealed class FormSession
     }
 
     /// <summary>
+    /// One write to a settings field the form draws no control for.
+    ///
+    /// <b>Stored on the group rather than on the field</b> (<see cref="AppliesToGroup"/>).
+    /// <see cref="Write"/> reads the mark off the field's own form row, which a field with no control has none
+    /// of, so a write of one would be held for a form answer that is never coming.
+    /// What the backend said about the group holding it stands in:
+    /// any applied field of that group makes the write a setting.
+    ///
+    /// What this is for is a fact a reader settles without moving a control:
+    /// that the crash report question was put to them
+    /// (<c>Features/Shell/Consent</c>).
+    ///
+    /// <b>Safe to run twice</b>, the second write being the value the draft already holds.
+    /// </summary>
+    public void WriteUndrawn(string key, FieldValue value)
+    {
+        Assert.That(key.Length > 0, "a write names the settings field it changes");
+        Assert.NotNull(value, "a write carries the value the field takes");
+
+        // The draft is what the window opened on, so a write reaching here was offered beside one.
+        var draft = Assert.NotNull(_draft, "a write to an undrawn field was offered beside a draft");
+
+        var separator = key.IndexOf(SettingsDraft.KeySeparator);
+        Assert.That(separator > 0, "a settings field is named under the group holding it", key);
+
+        SettingsDraft.Write(draft, key, value);
+        Sync();
+
+        if (AppliesToGroup(key[..separator]))
+        {
+            _ = Persist(draft);
+        }
+
+        Announce();
+    }
+
+    /// <summary>
     /// Stores the draft as it stands, and answers once the write has landed.
     ///
     /// What a staged group's commit runs: nothing in such a group reaches the backend as it is edited,
