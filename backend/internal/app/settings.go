@@ -39,7 +39,7 @@ func (a *App) SaveSettings(s settings.Settings) error {
 
 	a.settingsMu.Lock()
 	before := a.settings.Relay
-	s.Relay = followsDiscord(before, s.Relay)
+	s.Relay = followsDiscord(a.settings.App, s.App, s.Relay)
 	a.settings = s
 	a.settingsMu.Unlock()
 
@@ -64,7 +64,8 @@ func (a *App) SaveSettings(s settings.Settings) error {
 }
 
 // followsDiscord is r with the mode a Discord activity is read through turned on beside it,
-// where this write is what asked for the activity. before is the stored relay the write moves from.
+// where this write is what asked for the activity.
+// before is the stored app group the write moves from, app the one it carries.
 //
 // The activity states a voice channel and the members in it, both of them Discord mode's answers,
 // so the toggle alone would store a setting that describes nothing (richpresence.go).
@@ -78,8 +79,8 @@ func (a *App) SaveSettings(s settings.Settings) error {
 //
 // The write is what a shell reads back, the settings arriving on the next resolve,
 // so the mode's own toggle moves on screen with it (docs/ipc-api.md, "The rule").
-func followsDiscord(before, r settings.Relay) settings.Relay {
-	if r.DiscordRichPresence && !before.DiscordRichPresence {
+func followsDiscord(before, app settings.App, r settings.Relay) settings.Relay {
+	if app.DiscordRichPresence && !before.DiscordRichPresence {
 		r.DiscordMode = true
 	}
 	return r

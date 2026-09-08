@@ -41,6 +41,7 @@ func AppSettings(a settings.App) *screensharev1.AppSettings {
 		SendCrashReports:    a.SendCrashReports,
 		CheckUpdatesOnStart: a.CheckUpdatesOnStart,
 		TrayIcon:            a.TrayIcon,
+		DiscordRichPresence: a.DiscordRichPresence,
 		TestStreams:         a.TestStreams,
 	}
 }
@@ -64,8 +65,6 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		GroupKey:    r.GroupKey,
 		DisplayName: r.DisplayName,
 		DiscordMode: r.DiscordMode,
-
-		DiscordRichPresence: r.DiscordRichPresence,
 	}
 }
 
@@ -152,6 +151,7 @@ func ToApp(m *screensharev1.AppSettings) settings.App {
 		SendCrashReports:    m.GetSendCrashReports(),
 		CheckUpdatesOnStart: m.GetCheckUpdatesOnStart(),
 		TrayIcon:            m.GetTrayIcon(),
+		DiscordRichPresence: m.GetDiscordRichPresence(),
 		TestStreams:         m.GetTestStreams(),
 	}
 }
@@ -179,8 +179,6 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		GroupKey:    m.GetGroupKey(),
 		DisplayName: m.GetDisplayName(),
 		DiscordMode: m.GetDiscordMode(),
-
-		DiscordRichPresence: m.GetDiscordRichPresence(),
 	}
 }
 

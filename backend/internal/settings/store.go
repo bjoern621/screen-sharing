@@ -171,6 +171,9 @@ func Load() (Settings, error) {
 	if flat, ok := decodeFlat(data); ok {
 		s = flat
 	}
+	// A key that changed group is in these bytes under the group that used to hold it,
+	// which the decode above found no field for (migrate.go).
+	s = decodeMoved(s, data)
 
 	return migrate(s), nil
 }

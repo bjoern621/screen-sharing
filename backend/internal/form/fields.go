@@ -443,16 +443,6 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.DiscordMode) },
 	},
 	{
-		// A share states itself on the Discord client beside this app (docs/discord-mode.md).
-		// Beside the mode it reads, which turning this on turns on with it (internal/app, SaveSettings).
-		key:     KeyDiscordRichPresence,
-		group:   GroupRelay,
-		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
-		value: func(s settings.Settings) *screensharev1.FieldValue {
-			return flag(s.Relay.DiscordRichPresence)
-		},
-	},
-	{
 		// The group is where every stream of this machine lives on the relay.
 		//
 		// Text and not a list, the key being a secret somebody was handed: the key service draws it,
@@ -556,6 +546,17 @@ var fieldTable = []field{
 		group:   GroupApp,
 		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.App.TrayIcon) },
+	},
+	{
+		// A share states itself on the Discord client beside this app (docs/discord-mode.md).
+		// What this machine says about itself, so it sits with the app rather than with the relay,
+		// and turning it on turns Discord mode on with it (internal/app, SaveSettings).
+		key:     KeyDiscordRichPresence,
+		group:   GroupApp,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value: func(s settings.Settings) *screensharev1.FieldValue {
+			return flag(s.App.DiscordRichPresence)
+		},
 	},
 	{
 		key:     KeyTestStreams,

@@ -24,18 +24,17 @@ import (
 // and the shell's own draft writer walks the same two
 // (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
 const (
-	KeyRelayHost           = "relay.host"
-	KeyRelayTls            = "relay.tls"
-	KeyDiscordMode         = "relay.discord_mode"
-	KeyDiscordRichPresence = "relay.discord_rich_presence"
-	KeyGroupKey            = "relay.group_key"
-	KeyDisplayName         = "relay.display_name"
-	KeySrtPort             = "relay.srt_port"
-	KeyRtspPort            = "relay.rtsp_port"
-	KeyWebrtcPort          = "relay.webrtc_port"
-	KeyRtmpPort            = "relay.rtmp_port"
-	KeyHlsPort             = "relay.hls_port"
-	KeyMoqPort             = "relay.moq_port"
+	KeyRelayHost   = "relay.host"
+	KeyRelayTls    = "relay.tls"
+	KeyDiscordMode = "relay.discord_mode"
+	KeyGroupKey    = "relay.group_key"
+	KeyDisplayName = "relay.display_name"
+	KeySrtPort     = "relay.srt_port"
+	KeyRtspPort    = "relay.rtsp_port"
+	KeyWebrtcPort  = "relay.webrtc_port"
+	KeyRtmpPort    = "relay.rtmp_port"
+	KeyHlsPort     = "relay.hls_port"
+	KeyMoqPort     = "relay.moq_port"
 
 	KeyTransport = "publish.publish_transport"
 	// The encode, as the two controls it is: which bitstream, and what produces it.
@@ -101,6 +100,7 @@ const (
 	KeySendCrashReports    = "app.send_crash_reports"
 	KeyCheckUpdatesOnStart = "app.check_updates_on_start"
 	KeyTrayIcon            = "app.tray_icon"
+	KeyDiscordRichPresence = "app.discord_rich_presence"
 	KeyTestStreams         = "app.test_streams"
 )
 

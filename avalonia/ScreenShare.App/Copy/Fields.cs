@@ -73,12 +73,6 @@ public static class Fields
             + "Whoever sits in the channel can watch, and leaving it cuts them off within seconds. "
             + "The channel sets the group and the name while this is on, so both boxes below gray out."),
 
-        ["relay.discord_rich_presence"] = new(
-            "Show sharing on Discord",
-            "Puts what you are sharing on your Discord profile: the voice channel, and how many of the people in it are watching. "
-            + "Everyone who can see your profile sees it. "
-            + "The status needs a Discord client running on this computer, and turning this on turns Follow Discord on with it."),
-
         ["relay.group_key"] = new(
             "Group key",
             "The secret that decides who can watch. Everyone holding it sees your streams, and nobody else does. Share it like a meeting link. Setting a key puts this computer in that group, and clearing the field takes it out. Change it to cut someone off. Sharing needs one, so nothing is published while this is empty."),
@@ -272,6 +266,11 @@ public static class Fields
         ["app.tray_icon"] = new(
             "Show an icon in the tray",
             "Puts an icon in the system tray, whose menu starts and stops sharing. Closing the window hides it there. Off ends the app when you close the window."),
+        ["app.discord_rich_presence"] = new(
+            "Show sharing on Discord",
+            "Puts what you are sharing on your Discord profile: the voice channel, and how many of the people in it are watching. "
+            + "Everyone who can see your profile sees it. "
+            + "The status needs a Discord client running on this computer, and turning this on turns Follow Discord on with it."),
         ["app.test_streams"] = new(
             "Run test streams",
             "Publishes synthetic streams from this computer to the relay, so the group has something to watch with no screen shared. Each stream runs its own encoder, so turn it on for testing only. They start as soon as this computer is in a group."),

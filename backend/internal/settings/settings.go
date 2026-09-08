@@ -121,14 +121,6 @@ type Relay struct {
 	// and both move on the next link.
 	// Empty for a manager that named no picture.
 	DiscordAvatar string `json:"discordAvatar,omitempty"`
-	// DiscordRichPresence has a share state itself on the Discord client running beside this app
-	// (internal/discordrpc).
-	// Read only while DiscordMode is set, which is what answers the channel and the audience,
-	// so the press turning this on turns that on with it (internal/app, SaveSettings).
-	//
-	// No omitempty: a fresh installation carries it on,
-	// so a stored off has to survive the decode Defaults seeds (migrate.go).
-	DiscordRichPresence bool `json:"discordRichPresence"`
 	// brokered is the manager's answer standing in for the group key's derivations,
 	// runtime like Token: written per pass or command (WithBrokeredGroup), never stored.
 	// nil is Discord mode outside any voice channel, and every mode before injection.
@@ -673,10 +665,6 @@ func Defaults() Settings {
 			// that file being the configuration every relay runs.
 			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890,
 			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
-			// A share states itself on the Discord client beside this app,
-			// read only in Discord mode,
-			// so an installation that never turns the mode on states nothing.
-			DiscordRichPresence: true,
 		},
 		Publish: Publish{
 			// A fresh installation follows the balanced preset,
@@ -735,6 +723,10 @@ func Defaults() Settings {
 			SendCrashReports:    true,
 			CheckUpdatesOnStart: true,
 			TrayIcon:            true,
+			// A share states itself on the Discord client beside this app,
+			// read only in Discord mode,
+			// so an installation that never turns the mode on states nothing.
+			DiscordRichPresence: true,
 		},
 	}
 

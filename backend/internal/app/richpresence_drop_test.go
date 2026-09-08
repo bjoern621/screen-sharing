@@ -36,7 +36,7 @@ func sharingApp(t *testing.T) (*App, *fakePresence) {
 	t.Helper()
 
 	a := discordApp(&fakeDiscord{answer: inChannel()})
-	a.settings.Relay.DiscordRichPresence = true
+	a.settings.App.DiscordRichPresence = true
 	a.discordPass()
 
 	held := &fakePresence{}
@@ -113,7 +113,7 @@ func TestTurningDiscordModeOffTakesTheActivityOff(t *testing.T) {
 
 func TestTurningTheActivityOffTakesItOff(t *testing.T) {
 	a, held := sharingApp(t)
-	a.settings.Relay.DiscordRichPresence = false
+	a.settings.App.DiscordRichPresence = false
 
 	a.statePresenceOnDiscord()
 
@@ -139,7 +139,7 @@ func TestClosingTheAppTakesTheActivityOff(t *testing.T) {
 // so an app outside Discord mode never opens one.
 func TestAMachineStatingNothingOpensNoConnection(t *testing.T) {
 	a := discordApp(&fakeDiscord{answer: inChannel()})
-	a.settings.Relay.DiscordRichPresence = true
+	a.settings.App.DiscordRichPresence = true
 	a.discordPass()
 
 	a.statePresenceOnDiscord()

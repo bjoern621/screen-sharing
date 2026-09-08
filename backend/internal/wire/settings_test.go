@@ -34,8 +34,6 @@ func populatedSettings() settings.Settings {
 			DiscordLink:    "fixture-discord-link",
 			DiscordAccount: "fixture-discord-account",
 			DiscordAvatar:  "https://cdn.discordapp.com/avatars/u1/h1.png?size=64",
-
-			DiscordRichPresence: true,
 		},
 		Publish: settings.Publish{
 			Transport:           "srt",
@@ -82,6 +80,7 @@ func populatedSettings() settings.Settings {
 			SendCrashReports:    true,
 			CheckUpdatesOnStart: true,
 			TrayIcon:            true,
+			DiscordRichPresence: true,
 			TestStreams:         true,
 		},
 	}

@@ -117,6 +117,33 @@ func decodeFlat(data []byte) (Settings, bool) {
 	return s, true
 }
 
+// moved carries the keys that changed group, under the group that used to hold them.
+// A move is invisible after the ordinary decode, an old key landing in no field,
+// so the bytes are read a second time for these.
+//
+// Every field is a pointer, for decodeFlat's reason:
+// a key the file did not carry is one the defaults answer,
+// and the stated share defaults to on, so a zero taken from an absent key would turn it off.
+type moved struct {
+	Relay struct {
+		DiscordRichPresence *bool `json:"discordRichPresence"`
+	} `json:"relay"`
+}
+
+// decodeMoved writes what a file carries under an old group onto the field holding it now.
+//
+// Idempotent: a file this build wrote carries none of these keys, so a second pass moves nothing.
+// Run over the same bytes the decode walked, after it, and after decodeFlat replaces its answer.
+func decodeMoved(s Settings, data []byte) Settings {
+	var m moved
+	if err := json.Unmarshal(data, &m); err != nil {
+		return s
+	}
+
+	set(&s.App.DiscordRichPresence, m.Relay.DiscordRichPresence)
+	return s
+}
+
 // set writes a stored value over a default, leaving the default where the file carried no such key.
 func set[T any](into *T, stored *T) {
 	assert.IsNotNil(into, "a stored value is written into a field")

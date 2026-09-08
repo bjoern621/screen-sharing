@@ -18,6 +18,14 @@ type App struct {
 	//
 	// Read by the shell rather than here: the icon is drawn by the shell process.
 	TrayIcon bool `json:"trayIcon"`
+	// DiscordRichPresence has a share state itself on the Discord client running beside this app
+	// (internal/discordrpc).
+	// Read only while Relay.DiscordMode is set, which is what answers the channel and the audience,
+	// so the press turning this on turns that on with it (internal/app, SaveSettings).
+	//
+	// No omitempty: a fresh installation carries it on,
+	// so a stored off has to survive the decode Defaults seeds (migrate.go).
+	DiscordRichPresence bool `json:"discordRichPresence"`
 	// TestStreams runs the synthetic publishers this machine exercises the viewing paths with,
 	// off a fresh installation: an x264 encoder per slot runs for as long as the backend does.
 	// The set converges on the write rather than at the next start (internal/app/teststreams.go).

@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"os"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/group"
@@ -89,7 +90,7 @@ func TestABrokeredPathSpellsTheNameDiscordHandedOver(t *testing.T) {
 }
 
 func TestAFreshInstallationStatesItsShare(t *testing.T) {
-	if !Defaults().Relay.DiscordRichPresence {
+	if !Defaults().App.DiscordRichPresence {
 		t.Error("a fresh installation states its share on the Discord client beside it")
 	}
 }
@@ -97,13 +98,30 @@ func TestAFreshInstallationStatesItsShare(t *testing.T) {
 func TestTheStatedShareStaysOffOnceTurnedOff(t *testing.T) {
 	isolateConfig(t)
 	s := Defaults()
-	s.Relay.DiscordRichPresence = false
+	s.App.DiscordRichPresence = false
 
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	if mustLoad(t).Relay.DiscordRichPresence {
+	if mustLoad(t).App.DiscordRichPresence {
 		t.Error("a stored refusal outlives a default the decode starts from")
+	}
+}
+
+// The stated share sits with the app, and a file written while it sat with the relay
+// carries it under the relay group alone.
+// A fresh installation states its share, so a stored refusal is what the decode would put back on.
+func TestARefusalStoredUnderTheRelayGroupOutlivesTheMove(t *testing.T) {
+	isolateConfig(t)
+
+	path := mustSettingsPath(t)
+	const body = `{"relay":{"host":"relay.lan","discordRichPresence":false}}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("seed the stored file: %v", err)
+	}
+
+	if mustLoad(t).App.DiscordRichPresence {
+		t.Error("a refusal stored under the relay group came back on under the app group")
 	}
 }

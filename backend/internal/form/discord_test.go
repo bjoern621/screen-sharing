@@ -28,6 +28,24 @@ func TestTheDiscordToggleIsARelayField(t *testing.T) {
 	}
 }
 
+// What this machine states about itself is no property of the relay it publishes to,
+// so the stated share sits with the app and the mode it reads sits with the relay.
+func TestTheStatedShareIsAnAppField(t *testing.T) {
+	f := fieldRowFor(t, KeyDiscordRichPresence)
+	if f.group != GroupApp {
+		t.Errorf("the stated share sits in %q, want the app group", f.group)
+	}
+	if f.control != screensharev1.ControlKind_CONTROL_KIND_TOGGLE {
+		t.Errorf("the stated share renders as %v, want a toggle", f.control)
+	}
+
+	s := settings.Defaults()
+	s.App.DiscordRichPresence = false
+	if f.value(s).GetFlag() {
+		t.Error("the toggle reads the stored refusal")
+	}
+}
+
 func TestDiscordModeGreysTheManualGroupControls(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.DiscordMode = true

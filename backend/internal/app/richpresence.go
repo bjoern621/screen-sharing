@@ -67,12 +67,13 @@ type sharing struct {
 func (a *App) statePresenceOnDiscord() {
 	a.settingsMu.Lock()
 	r := a.settings.Relay
+	stated := a.settings.App.DiscordRichPresence
 	a.settingsMu.Unlock()
 
 	// The channel and the audience are Discord mode's answers,
 	// so the mode going off leaves the last pass's snapshot describing a group nothing follows
 	// (discord.go, discordWire).
-	if !r.DiscordMode || !r.DiscordRichPresence {
+	if !r.DiscordMode || !stated {
 		a.dropRichPresence()
 		return
 	}
