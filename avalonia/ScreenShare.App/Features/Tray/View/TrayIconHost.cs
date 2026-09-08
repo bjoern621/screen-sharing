@@ -20,8 +20,9 @@ namespace ScreenShare.App.Features.Tray.View;
 /// No icon stands until the settings have been read, an icon that flashes up and goes being worse than
 /// one arriving late.
 ///
-/// A platform serving no tray is an Umgebungsfehler, and leaves <see cref="IsUp"/> false the way the
-/// setting does: quit-on-close stands, a hidden window with no icon to come back through being gone.
+/// A platform serving no tray is an Umgebungsfehler,
+/// and leaves <see cref="IsUp"/> false the way the setting does:
+/// quit-on-close stands, a hidden window with no icon to come back through being gone.
 /// </summary>
 public sealed class TrayIconHost : IDisposable
 {
