@@ -33,18 +33,12 @@ public sealed class TrayViewModel : Observable
     private readonly FormSession _form;
     private readonly SetupViewModel _setup;
     private readonly InsightsViewModel _insights;
-    private readonly Func<bool> _ownsBackend;
     private readonly Func<CancellationToken, Task> _part;
     private readonly Action<Action> _dispatch;
 
     private TrayMenu _menu = TrayMenu.Unread;
 
     /// <param name="form">Draft the window holds, which is where the tray reads its own setting.</param>
-    /// <param name="ownsBackend">
-    /// Whether this shell has a backend of its own running, read at the press.
-    /// A function rather than a value: the backend is started lazily, on the first connect that finds
-    /// nothing listening (<c>Backend/BackendProcess.cs</c>).
-    /// </param>
     /// <param name="part">
     /// Closes what the window alone holds open on the backend, the grid's decodes and the preview's,
     /// answering once the backend has (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>).
@@ -56,7 +50,6 @@ public sealed class TrayViewModel : Observable
         FormSession form,
         SetupViewModel setup,
         InsightsViewModel insights,
-        Func<bool> ownsBackend,
         Func<CancellationToken, Task> part,
         Action<Action> dispatch)
     {
@@ -65,7 +58,6 @@ public sealed class TrayViewModel : Observable
         Assert.NotNull(form, "a tray reads whether an icon is wanted off the draft the window holds");
         Assert.NotNull(setup, "a tray presses the setup flow's own commit");
         Assert.NotNull(insights, "a tray presses the insights screen's own stop");
-        Assert.NotNull(ownsBackend, "a tray asks whether this shell has a backend of its own to stop");
         Assert.NotNull(part, "a tray closes the window's decodes before a quit");
         Assert.NotNull(dispatch, "a tray needs a UI loop to marshal an answer back to");
 
@@ -74,7 +66,6 @@ public sealed class TrayViewModel : Observable
         _form = form;
         _setup = setup;
         _insights = insights;
-        _ownsBackend = ownsBackend;
         _part = part;
         _dispatch = dispatch;
 
@@ -237,23 +228,24 @@ public sealed class TrayViewModel : Observable
     }
 
     /// <summary>
-    /// Closes the window's decodes and stops the stream, side by side under one budget, then asks the host
-    /// to shut down.
-    /// The decodes close on every quit, being the shell's alone.
-    /// Only a backend this shell started has its stream stopped: it dies with the shell either way, and the stop
-    /// lets the relay drop the session now rather than at the lease sweep.
-    /// One left running keeps its stream (<c>Backend/BackendProcess.cs</c>).
-    /// A stop that failed or ran out the budget still quits: the exit is what was asked for, and the kill on exit
-    /// takes the pipeline with it.
+    /// Closes the window's decodes and stops the stream, side by side under one budget,
+    /// then asks the host to shut down.
+    /// Both on every quit, whichever backend serves them:
+    /// the exit takes the stream with it,
+    /// and the stop lets the relay drop the session at once rather than at the lease sweep.
+    /// A stop names the state it wants,
+    /// and the backend refuses one with nothing publishing,
+    /// so nothing is read off the air first.
+    /// A stop that failed or ran out the budget still quits:
+    /// the exit is what was asked for,
+    /// and a backend this shell started dies with it (<c>Backend/BackendProcess.cs</c>).
     /// </summary>
     private async Task QuitAsync()
     {
         using var bound = new CancellationTokenSource(StopBudget);
 
         var part = Attempt(_part(bound.Token));
-        var stop = _session.Publish?.Live is not null && _ownsBackend()
-            ? Attempt(_backend.StopPublishAsync(bound.Token))
-            : Task.CompletedTask;
+        var stop = Attempt(_backend.StopPublishAsync(bound.Token));
         await Task.WhenAll(part, stop).ConfigureAwait(false);
 
         _dispatch(() => QuitRequested?.Invoke());

@@ -87,8 +87,8 @@ public sealed partial class App : Application
             // Whether one is up follows the app setting and the tray the desktop serves, and moves while the
             // app runs, so each close asks rather than reading what the start found
             // (Features/Tray/View/TrayIconHost.cs).
-            // Both take the tray's quit, so the window's decodes close and a stream on a backend this shell
-            // started ends before the process does, and the exit hooks take that backend with the shell
+            // Both take the tray's quit, so the window's decodes close and the stream ends before the process
+            // does, and the exit hooks take a backend this shell started with it
             // (Features/Tray/ViewModel/TrayViewModel.cs, Backend/BackendProcess.cs).
             // Shutdown is explicit either way: the close is cancelled, and the quit closes the window for real.
             var tray = TrayIconHost.Create(shell.Tray);

@@ -13,7 +13,7 @@ namespace ScreenShare.App.Tests;
 /// Tray menu, derived from the same commands the window presses.
 /// What is on the air decides the one commit row: a start where nothing runs, a stop where something does.
 /// A preset picked from the tray writes the draft the window holds, and restarts the stream where one is live.
-/// Quit closes the window's decodes, then stops the stream, the latter only for a backend this shell started.
+/// Quit closes the window's decodes, then stops the stream, whichever backend runs it and whatever is on the air.
 /// </summary>
 public sealed class TrayTests
 {
@@ -42,16 +42,14 @@ public sealed class TrayTests
         }
     }
 
-    private static Fixture Open(
-        PublishingBackend backend, Func<bool>? owns = null, Func<CancellationToken, Task>? part = null)
+    private static Fixture Open(PublishingBackend backend, Func<CancellationToken, Task>? part = null)
     {
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Flows.Picker(backend, form, session), Inline);
         var insights = new InsightsViewModel(backend, form, session, Inline);
         var tray = new TrayViewModel(
-            backend, session, form, setup, insights,
-            owns ?? (static () => true), part ?? (static _ => Task.CompletedTask), Inline);
+            backend, session, form, setup, insights, part ?? (static _ => Task.CompletedTask), Inline);
 
         var opened = new Fixture(backend, session, form, setup, insights, tray);
         opened.Reload();
@@ -222,7 +220,7 @@ public sealed class TrayTests
     }
 
     [Fact]
-    public void QuitStopsTheStreamForABackendThisShellStarted()
+    public void QuitStopsTheStream()
     {
         var opened = Open(new PublishingBackend { Publish = Live("lab04") });
 
@@ -235,23 +233,12 @@ public sealed class TrayTests
         Assert.Equal(1, quits);
     }
 
-    /// <summary>A backend this shell did not start keeps publishing, so its stream is not stopped either.</summary>
+    /// <summary>
+    /// A stop names the state it wants, and the backend refuses one with nothing publishing,
+    /// so the quit asks for it without first reading what is on the air.
+    /// </summary>
     [Fact]
-    public void QuitLeavesTheStreamOfABackendItDidNotStart()
-    {
-        var opened = Open(new PublishingBackend { Publish = Live("lab04") }, owns: static () => false);
-
-        var quits = 0;
-        opened.Tray.QuitRequested += () => quits++;
-
-        opened.Tray.QuitCommand.Execute(null);
-
-        Assert.Equal(0, opened.Backend.Stopped);
-        Assert.Equal(1, quits);
-    }
-
-    [Fact]
-    public void QuitWithNothingOnTheAirStopsNothing()
+    public void QuitStopsTheStreamWithNothingOnTheAir()
     {
         var opened = Open(new PublishingBackend());
 
@@ -260,7 +247,7 @@ public sealed class TrayTests
 
         opened.Tray.QuitCommand.Execute(null);
 
-        Assert.Equal(0, opened.Backend.Stopped);
+        Assert.Equal(1, opened.Backend.Stopped);
         Assert.Equal(1, quits);
     }
 
@@ -274,7 +261,6 @@ public sealed class TrayTests
         var order = new List<string>();
         var opened = Open(
             new PublishingBackend { Publish = Live("lab04") },
-            owns: static () => false,
             part: _ =>
             {
                 order.Add("part");
@@ -285,7 +271,7 @@ public sealed class TrayTests
         opened.Tray.QuitCommand.Execute(null);
 
         Assert.Equal(["part", "quit"], order);
-        Assert.Equal(0, opened.Backend.Stopped);
+        Assert.Equal(1, opened.Backend.Stopped);
     }
 
     /// <summary>A part that never answers is waited out, the exit being what was asked for.</summary>

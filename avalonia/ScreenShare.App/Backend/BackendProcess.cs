@@ -105,23 +105,6 @@ internal static class BackendProcess
     }
 
     /// <summary>
-    /// Whether this shell has a backend of its own running.
-    /// What a quit reads before stopping the stream:
-    /// one this shell started dies with it, so its stream is worth ending cleanly,
-    /// and one it did not start keeps publishing.
-    /// </summary>
-    public static bool Owns
-    {
-        get
-        {
-            lock (Gate)
-            {
-                return _started is { HasExited: false };
-            }
-        }
-    }
-
-    /// <summary>
     /// Stops the backend this shell started, and its children with it.
     /// The backend supervises the encoder and viewer processes it spawned, so a kill taking the parent alone
     /// leaves those encoding.
