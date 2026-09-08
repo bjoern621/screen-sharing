@@ -979,6 +979,28 @@ func TestCheckingOnStartGreysWhereTheUpdateChannelIsOff(t *testing.T) {
 	}
 }
 
+// The icon is the shell's, and a run holding it out of the tray leaves the toggle asking for one
+// with nothing behind it, the way a refused update channel leaves the check-on-start toggle.
+func TestTheTrayToggleGreysWhereTheRunHoldsTheIconOut(t *testing.T) {
+	for _, tc := range availabilityCases() {
+		live := tc.deps
+		live.TrayOff = false
+		if st := fieldState(live, tc.s, KeyTrayIcon, noEntry); !st.visible || !st.enabled {
+			t.Errorf("%s: a run drawing the icon draws the toggle visible=%v enabled=%v", tc.name, st.visible, st.enabled)
+		}
+
+		off := tc.deps
+		off.TrayOff = true
+		st := fieldState(off, tc.s, KeyTrayIcon, noEntry)
+		if !st.visible || st.enabled {
+			t.Errorf("%s: a run holding the icon out draws the toggle visible=%v enabled=%v", tc.name, st.visible, st.enabled)
+		}
+		if got := st.reason.GetCode(); got != screensharev1.TextCode_TEXT_CODE_TRAY_ICON_OFF {
+			t.Errorf("%s: the toggle's reason is not the run's own code: %v", tc.name, got)
+		}
+	}
+}
+
 // availabilityRowState is what the encoder control says about one row of the capability table.
 //
 // The draft is pointed at that row's format first, the pair being what a greying is about:

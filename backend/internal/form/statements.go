@@ -104,6 +104,7 @@ const (
 	encryptedRtspInterleavesRtp = screensharev1.TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP
 
 	updateCheckOff = screensharev1.TextCode_TEXT_CODE_UPDATE_CHECK_OFF
+	trayIconOff    = screensharev1.TextCode_TEXT_CODE_TRAY_ICON_OFF
 
 	publishRefused         = screensharev1.TextCode_TEXT_CODE_PUBLISH_REFUSED
 	noUplinkStated         = screensharev1.TextCode_TEXT_CODE_NO_UPLINK_STATED

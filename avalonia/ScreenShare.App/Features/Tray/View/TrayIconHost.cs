@@ -31,6 +31,9 @@ public sealed class TrayIconHost : IDisposable
     ///
     /// For a desktop whose panel draws no tray, and for a checkout run beside an installed app.
     /// Everything the menu offers is the window's own, so a run without the icon loses no control.
+    ///
+    /// The backend reads it too and greys the app setting behind it
+    /// (<c>internal/control</c>, <c>EnvTray</c>).
     /// </summary>
     internal const string EnvTray = "MIRRORME_TRAY";
 

@@ -849,6 +849,10 @@ const (
 	// The download is refused rather than trusted, and the page stays open to a reader.
 	// TEXT_ARG_NAME_VERSION.
 	TextCode_TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE TextCode = 188
+	// MIRRORME_TRAY holds the icon out of the tray for this run,
+	// so the app setting asking for one reaches nothing (avalonia/README.md, "The tray").
+	// No arguments.
+	TextCode_TEXT_CODE_TRAY_ICON_OFF TextCode = 198
 )
 
 // Enum value maps for TextCode.
@@ -1005,6 +1009,7 @@ var (
 		186: "TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT",
 		187: "TEXT_CODE_UPDATE_INSTALL_FAILED",
 		188: "TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE",
+		198: "TEXT_CODE_TRAY_ICON_OFF",
 	}
 	TextCode_value = map[string]int32{
 		"TEXT_CODE_UNSPECIFIED":                               0,
@@ -1158,6 +1163,7 @@ var (
 		"TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT":                   186,
 		"TEXT_CODE_UPDATE_INSTALL_FAILED":                     187,
 		"TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE":              188,
+		"TEXT_CODE_TRAY_ICON_OFF":                             198,
 	}
 )
 
@@ -1517,7 +1523,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@\x12 \n" +
 	"\x1cTEXT_ARG_NAME_NEXT_TRANSPORT\x10A\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CHANNEL\x10B\x12\x19\n" +
-	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\xf31\n" +
+	"\x15TEXT_ARG_NAME_VERSION\x10C\"\x04\b3\x103*\x18TEXT_ARG_NAME_ENC_PRESET*\x16TEXT_ARG_NAME_RAW_MBPS*\x912\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1670,7 +1676,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	" TEXT_CODE_UPDATE_DOWNLOAD_FAILED\x10\xb9\x01\x12&\n" +
 	"!TEXT_CODE_UPDATE_DOWNLOAD_CORRUPT\x10\xba\x01\x12$\n" +
 	"\x1fTEXT_CODE_UPDATE_INSTALL_FAILED\x10\xbb\x01\x12+\n" +
-	"&TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE\x10\xbc\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8a\x01\x10\x8a\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO*\x1aTEXT_CODE_STREAM_IS_PUBLIC**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"&TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE\x10\xbc\x01\x12\x1c\n" +
+	"\x17TEXT_CODE_TRAY_ICON_OFF\x10\xc6\x01\"\x04\bL\x10L\"\x04\b\x7f\x10\x7f\"\x06\b\x89\x01\x10\x89\x01\"\x06\b\x8a\x01\x10\x8a\x01\"\x06\b\x8e\x01\x10\x8e\x01\"\x04\bB\x10B\"\x04\bP\x10P\"\x06\b\xa7\x01\x10\xa7\x01*%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED*$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY*\x1bTEXT_CODE_COMPRESSION_RATIO*\x1aTEXT_CODE_STREAM_IS_PUBLIC**TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDER*!TEXT_CODE_RELAY_LEG_LOOPBACK_ONLYB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once

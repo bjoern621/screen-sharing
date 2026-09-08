@@ -657,6 +657,12 @@ public static class Statements
             TextCode.UpdateInstallFailed =>
                 "The staged release could not be started. Get it from the release page instead.",
 
+            // The tray.
+
+            TextCode.TrayIconOff =>
+                "The tray icon is off in this environment (MIRRORME_TRAY=0). "
+                + "Clear the variable and restart MirrorMe to use this setting.",
+
             // A backend newer than this build.
             // The code is printed so it can be searched for and reported.
             _ => text.Code.ToString(),

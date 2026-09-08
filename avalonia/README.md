@@ -394,6 +394,7 @@ A backend this shell attached to keeps its stream, the arrangement a window clos
 The icon is a setting, and the host converges on it: switching it off takes the icon out of the tray with the app running, and switching it on puts one back.
 Nothing stands in the tray until the settings have been read, and a platform serving no tray registers nothing either way.
 `MIRRORME_TRAY=0` keeps the icon out for a whole run whatever the setting holds, and `task avalonia` sets it, so a checkout run puts no second icon beside an installed app's.
+The backend reads the same variable and greys the setting behind it, so the toggle a run follows nothing on says why.
 A hidden window nothing can reopen is gone, so closing the window with no icon up runs the quit.
 
 ## How the repository's principles land in C#

@@ -114,6 +114,9 @@ tasks:
     env:
       # The endpoint `task avalonia` opens, kept off the one an installed build binds.
       MIRRORME_INSTANCE: dev
+      # What `task avalonia` sets, so the greyed tray toggle names the run it belongs to:
+      # the shell holds the icon out and this backend says why.
+      MIRRORME_TRAY: "0"
       # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo.
       # Go turns CGO_ENABLED off by itself when it finds no C compiler,
       # so a build outside the toolchain's reach fails as "build constraints exclude all Go files"

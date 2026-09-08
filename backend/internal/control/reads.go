@@ -133,6 +133,7 @@ func (s *Server) formDeps() form.Deps {
 		Portal:         s.backend.PortalCapabilities(),
 		DiscordRefused: s.backend.DiscordState().Refused,
 		UpdateCheckOff: s.backend.UpdateState().Unchecked != nil,
+		TrayOff:        trayForcedOff(),
 	}
 }
 

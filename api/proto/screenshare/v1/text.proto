@@ -818,6 +818,13 @@ enum TextCode {
   // TEXT_ARG_NAME_VERSION.
   TEXT_CODE_UPDATE_DOWNLOAD_UNVERIFIABLE = 188;
 
+  // --- The tray icon -------------------------------------------------------------
+
+  // MIRRORME_TRAY holds the icon out of the tray for this run,
+  // so the app setting asking for one reaches nothing (avalonia/README.md, "The tray").
+  // No arguments.
+  TEXT_CODE_TRAY_ICON_OFF = 198;
+
   // 66 said only some encoder families take a preset ladder,
   // which stopped holding once every implemented encoder's row declared its own.
   // The statement is gone rather than renamed, so the name stays reserved too:

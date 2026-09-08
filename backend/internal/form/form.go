@@ -72,6 +72,10 @@ type Deps struct {
 	// (internal/update, MIRRORME_UPDATE_CHECK=0 or an unstamped build).
 	// The zero value is live, matching a caller that never asked the channel.
 	UpdateCheckOff bool
+	// TrayOff is whether this run holds the icon out of the tray whatever the setting holds
+	// (MIRRORME_TRAY=0, avalonia/README.md, "The tray").
+	// The zero value is a run that draws the icon the setting asks for.
+	TrayOff bool
 }
 
 // state is what availability decided about one field, in the treatments

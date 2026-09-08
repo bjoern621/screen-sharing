@@ -157,7 +157,14 @@ var availabilityRules = map[string]func(availability) state{
 	},
 	// The icon is the shell's, drawn against whatever tray the desktop serves,
 	// and a desktop serving none leaves the toggle live with nothing to draw.
-	KeyTrayIcon: func(availability) state { return availabilityLive() },
+	// Greyed for one fact: a run holding the icon out whatever the setting holds
+	// is a toggle nothing follows.
+	KeyTrayIcon: func(av availability) state {
+		if av.deps.TrayOff {
+			return availabilityDisabled(say(trayIconOff))
+		}
+		return availabilityLive()
+	},
 	// The synthetic set publishes to the relay like any other stream and is refused outside a group
 	// the same way, which the start reports where it happens rather than greying the toggle here.
 	KeyTestStreams: func(availability) state { return availabilityLive() },
