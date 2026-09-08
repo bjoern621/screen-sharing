@@ -19,7 +19,9 @@ Without exception:
 - Every piece of state is read from the backend or received on its event stream. A shell caches nothing across a change notification.
 - **Every word on screen is the shell's.** Labels, help text, option names, the paragraph behind a choice, the sentence in place of a greyed entry, how a unit is spelled and where it sits. Written where the layout is, keyed by the identifiers the backend sends (`text.proto`).
 - Beyond words, a shell contributes layout, typography, colour, motion, input handling and accessibility. Its whole job.
-- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer, the app group in a dialog over the window, and the rest in its publish wizard, invisible from the backend. A shell may never decide that a group exists, what is in it, or which entries are reachable.
+- **Placement reaches as far as which screen a group is drawn on.** Groups and their order are the backend's. Where a shell puts them is not on the contract, which describes no screens. The Avalonia shell draws the watch group in its viewer, the app group in a dialog over the window, the share group both in its wizard and in a dialog at the press that starts a stream, and the rest in its publish wizard, invisible from the backend.
+One group on two screens is placement like any other: what is shared is configured where everything else is, and asked again where it is acted on.
+A shell may never decide that a group exists, what is in it, or which entries are reachable.
 
 **The two halves meet on identifiers and nowhere else.**
 `hevc_nvenc`, `gstreamer`, `yuv420p`, `srt`: what the encoder, the element registry and the relay call these things.
@@ -31,7 +33,7 @@ Three kinds of method, the rule in executable form:
 
 | Kind | What it does | Examples |
 | --- | --- | --- |
-| Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
+| Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ListShareWindows`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
 | Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `CheckUpdate`, `InstallUpdate`, `OpenInBrowser`, `CreateGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 

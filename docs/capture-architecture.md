@@ -31,6 +31,28 @@ A screen both read is two rows.
 Both frameworks have a row on every platform, so no platform decides the engine for the user.
 The stream and the wizard's monitor preview take one rectangle, a preview cropped differently being a picture that lies about what is shared.
 
+## What a capture is pointed at
+
+Three things a capture reads: one whole output, one window of one application, one rectangle of the virtual desktop.
+A kind names which, and the field beside it names the thing, so the three are one question with three answers rather than three fields a stream could satisfy at once.
+
+| Backend | Reads |
+| --- | --- |
+| `d3d11screencapturesrc` | a monitor, a window, a rectangle |
+| `ddagrab` | a monitor, a rectangle |
+| `gdigrab` | the whole desktop, a window, a rectangle |
+| `ximagesrc` | a monitor, a window, a rectangle |
+| `x11grab` | a monitor, a rectangle |
+| `kmsgrab`, `avfoundation`, `avfvideosrc` | what the source picks itself |
+| portal | what the picker was told |
+
+The portal names none of the three because the compositor draws the picker and answers with whatever was chosen there, so every control over what is shared greys with that as its reason.
+
+A rectangle is held in virtual-desktop pixels, the space a user draws one in and the space the monitor enumeration measures.
+A backend cropping inside a single output is handed the difference against that output's origin, and one no output holds is refused rather than cropped out of the wrong screen.
+
+Whether a window can be picked at all is the display server's answer, stated once for the machine before a surface offers the choice.
+
 ## Changing settings on a live stream
 
 A running encoder takes some settings and refuses the rest.
