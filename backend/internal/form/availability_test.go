@@ -962,19 +962,27 @@ func TestTheDisplayNameIsEditableWhateverTheDraftHolds(t *testing.T) {
 func TestCheckingOnStartGreysWhereTheUpdateChannelIsOff(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		live := tc.deps
-		live.UpdateCheckOff = false
+		live.UpdateUnchecked = nil
 		if st := fieldState(live, tc.s, KeyCheckUpdatesOnStart, noEntry); !st.visible || !st.enabled {
 			t.Errorf("%s: a channel taking checks draws the toggle visible=%v enabled=%v", tc.name, st.visible, st.enabled)
 		}
 
-		off := tc.deps
-		off.UpdateCheckOff = true
-		st := fieldState(off, tc.s, KeyCheckUpdatesOnStart, noEntry)
-		if !st.visible || st.enabled {
-			t.Errorf("%s: a channel refusing every check draws the toggle visible=%v enabled=%v", tc.name, st.visible, st.enabled)
-		}
-		if got := st.reason.GetCode(); got != screensharev1.TextCode_TEXT_CODE_UPDATE_CHECK_OFF {
-			t.Errorf("%s: the toggle's reason is not the channel's own code: %v", tc.name, got)
+		// Each code the channel can answer with, so the toggle carries whichever fact turned the
+		// checks off.
+		for _, code := range []screensharev1.TextCode{
+			screensharev1.TextCode_TEXT_CODE_UPDATE_CHECK_OFF,
+			screensharev1.TextCode_TEXT_CODE_UPDATE_BUILD_UNSTAMPED,
+		} {
+			off := tc.deps
+			off.UpdateUnchecked = say(code)
+			st := fieldState(off, tc.s, KeyCheckUpdatesOnStart, noEntry)
+			if !st.visible || st.enabled {
+				t.Errorf("%s: a channel refusing every check draws the toggle visible=%v enabled=%v",
+					tc.name, st.visible, st.enabled)
+			}
+			if got := st.reason.GetCode(); got != code {
+				t.Errorf("%s: the toggle's reason is %v, want the channel's own %v", tc.name, got, code)
+			}
 		}
 	}
 }

@@ -80,7 +80,12 @@ public sealed class AppSettingsViewModel : Observable
         _updates = updates;
         _dispatch = dispatch;
 
-        Group = new FieldGroupViewModel(_form.Write, groupActionOf: ResetOf);
+        // The update toggle's row prints no reason: it and the check button are both inert for one fact,
+        // which the Updates heading states once above them (UpdatesRefusal).
+        Group = new FieldGroupViewModel(
+            _form.Write,
+            groupActionOf: ResetOf,
+            reasonStatedAbove: key => key == CheckUpdatesOnStartKey);
 
         // Named states rather than one toggle: a press asks for open or closed, and a second press
         // asks for what already holds (docs/development-principles.md, "Idempotency").
@@ -113,6 +118,8 @@ public sealed class AppSettingsViewModel : Observable
     private string _linkLabel = "";
     private string _linkTip = "";
     private string _linkHint = "";
+    private string _updatesRefusal = "";
+    private bool _updatesRefused;
 
     /// <summary>Whether the dialog stands over the window.</summary>
     public bool IsOpen { get => _isOpen; private set => Set(ref _isOpen, value); }
@@ -159,6 +166,15 @@ public sealed class AppSettingsViewModel : Observable
 
     /// <summary>Published release, the band's answer and this one being the same object.</summary>
     public UpdateViewModel Updates => _updates;
+
+    /// <summary>
+    /// Why this install asks about no release, empty where it asks.
+    /// The toggle's own reason, hoisted: the check button is inert for the same fact,
+    /// and one line over the section says it once.
+    /// </summary>
+    public string UpdatesRefusal { get => _updatesRefusal; private set => Set(ref _updatesRefusal, value); }
+
+    public bool UpdatesRefused { get => _updatesRefused; private set => Set(ref _updatesRefused, value); }
 
     /// <summary>Build the backend answered with, empty until the first read lands.</summary>
     public string Version { get => _version; private set => Set(ref _version, value); }
@@ -223,6 +239,9 @@ public sealed class AppSettingsViewModel : Observable
         TrayIcon = Group.Visible(TrayIconKey);
         TestStreams = Group.Visible(TestStreamsKey);
 
+        UpdatesRefusal = CheckUpdatesOnStart?.Reason ?? "";
+        UpdatesRefused = UpdatesRefusal.Length > 0;
+
         Version = _session.Version;
 
         var discord = _session.Discord;
@@ -250,6 +269,12 @@ public sealed class AppSettingsViewModel : Observable
         Assert.That(
             !Group.IsResolved || TestStreams is not null,
             "a resolved app group always carries the test-stream toggle");
+        Assert.That(
+            UpdatesRefused == (CheckUpdatesOnStart?.HasReason ?? false),
+            "the section states the toggle's reason exactly where the toggle has one", UpdatesRefusal);
+        Assert.That(
+            !UpdatesRefused || !Updates.CanCheck,
+            "a section stating why nothing is checked offers no check", UpdatesRefusal);
     }
 
     /// <summary>

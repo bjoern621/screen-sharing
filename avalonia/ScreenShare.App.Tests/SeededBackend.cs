@@ -1233,6 +1233,13 @@ internal sealed class SeededBackend : IBackend
                     ? (true, true, null, null)
                     : (true, false, Say(TextCode.CqOnlyInConstantQuality), null);
 
+            // Disabled from the update channel's own statement, which the toggle and the band both carry
+            // (backend/internal/form/availability.go, KeyCheckUpdatesOnStart).
+            case "app.check_updates_on_start":
+                return Update.Unchecked is null
+                    ? (true, true, null, null)
+                    : (true, false, Update.Unchecked, null);
+
             // Disabled from a mode owning the value: the group follows the voice channel,
             // so a key set here is read by nobody (backend/internal/form/availability.go).
             case "relay.group_key":

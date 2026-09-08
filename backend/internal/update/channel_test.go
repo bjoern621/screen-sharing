@@ -53,6 +53,14 @@ func TestWhatEachChannelMayDo(t *testing.T) {
 			unchecked:     screensharev1.TextCode_TEXT_CODE_UPDATE_BUILD_UNSTAMPED,
 			uninstallable: screensharev1.TextCode_TEXT_CODE_UPDATE_BUILD_UNSTAMPED,
 		},
+		// Both facts at once: the environment is what a reader can clear, so it is what the reason names.
+		{
+			channel:       Unstamped,
+			version:       "dev",
+			check:         "0",
+			unchecked:     screensharev1.TextCode_TEXT_CODE_UPDATE_CHECK_OFF,
+			uninstallable: screensharev1.TextCode_TEXT_CODE_UPDATE_BUILD_UNSTAMPED,
+		},
 		// A stamped channel carrying an unstamped version is a recipe that dropped the flag.
 		{
 			channel:   Portable,

@@ -229,10 +229,11 @@
                              Text="{Binding ActionNotice}" />
       </StackPanel>
 
+      <!-- Absent where the surface prints the reason over the whole section (FieldViewModel.ShowsReason). -->
       <SelectableTextBlock Classes="reason"
                            TextWrapping="Wrap"
                            TextTrimming="None"
-                           IsVisible="{Binding HasReason}"
+                           IsVisible="{Binding ShowsReason}"
                            Text="{Binding Reason}" />
 
       <!--

@@ -149,9 +149,11 @@ var availabilityRules = map[string]func(availability) state{
 	// Greyed where the update channel already refuses every check, the same fact the band's own
 	// version control states (control.proto, GetUpdateState): a preference over a check that never
 	// runs is a control with nothing behind it.
+	// Carrying the channel's own statement, so the two surfaces cannot disagree about which fact
+	// turned the checks off.
 	KeyCheckUpdatesOnStart: func(av availability) state {
-		if av.deps.UpdateCheckOff {
-			return availabilityDisabled(say(updateCheckOff))
+		if av.deps.UpdateUnchecked != nil {
+			return availabilityDisabled(av.deps.UpdateUnchecked)
 		}
 		return availabilityLive()
 	},

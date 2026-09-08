@@ -58,17 +58,27 @@ public sealed class FieldGroupViewModel : Observable
     /// <summary>Which keys stay visible while the fold is closed. Null keeps every control on the floor.</summary>
     private readonly Func<string, bool>? _onFloor;
 
+    /// <summary>
+    /// Which keys the surface states the reason for itself. Null leaves every row printing its own.
+    /// </summary>
+    private readonly Func<string, bool>? _reasonStatedAbove;
+
     /// <param name="onFloor">
     /// The step's floor, null where the screen folds nothing (the viewer's watch panel).
     /// A table rather than a flag per field: the fold is placement, which is this side's to decide
     /// (<c>avalonia/README.md</c>).
+    /// </param>
+    /// <param name="reasonStatedAbove">
+    /// The keys whose reason the surface prints over the section they stand in, null where none does.
+    /// Placement like the fold, and read once per control (<see cref="FieldViewModel.ShowsReason"/>).
     /// </param>
     public FieldGroupViewModel(
         Action<string, FieldValue> write,
         Func<string, FieldAction?>? actionOf = null,
         Func<FieldGroup, GroupAction?>? groupActionOf = null,
         Action<bool>? sweep = null,
-        Func<string, bool>? onFloor = null)
+        Func<string, bool>? onFloor = null,
+        Func<string, bool>? reasonStatedAbove = null)
     {
         Assert.NotNull(write, "a group needs somewhere to report what the user moved");
 
@@ -77,6 +87,7 @@ public sealed class FieldGroupViewModel : Observable
         _groupActionOf = groupActionOf ?? (_ => null);
         _sweep = sweep;
         _onFloor = onFloor;
+        _reasonStatedAbove = reasonStatedAbove;
         Fields = [];
         Floor = [];
         Folded = [];
@@ -234,7 +245,7 @@ public sealed class FieldGroupViewModel : Observable
             return model;
         }
 
-        model = new FieldViewModel(key, _write, _sweep);
+        model = new FieldViewModel(key, _write, _sweep, _reasonStatedAbove?.Invoke(key) ?? false);
         _fields[key] = model;
         return model;
     }

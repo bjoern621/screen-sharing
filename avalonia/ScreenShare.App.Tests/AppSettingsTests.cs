@@ -1,5 +1,6 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Shell.Settings.ViewModel;
@@ -257,6 +258,47 @@ public sealed class AppSettingsTests
 
         var saved = Assert.Single(panel.Backend.Saved);
         Assert.True(saved.App.TestStreams);
+    }
+
+    /// <summary>
+    /// The toggle and the check button are inert for one fact, so the heading over them states it once
+    /// and the toggle's own row prints nothing.
+    /// </summary>
+    [Fact]
+    public async Task TheUpdatesHeadingStatesOneReasonForBothControls()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Update = new UpdateState
+            {
+                Stage = UpdateStage.Off,
+                Unchecked = new Text { Code = TextCode.UpdateCheckOff },
+            },
+        };
+
+        var panel = await PanelAsync(backend);
+        var toggle = panel.Settings.CheckUpdatesOnStart;
+
+        Assert.NotNull(toggle);
+        Assert.False(toggle!.IsEnabled);
+        Assert.True(panel.Settings.UpdatesRefused);
+        Assert.Equal(Statements.Of(backend.Update.Unchecked), panel.Settings.UpdatesRefusal);
+
+        // The row still carries the reason and draws none: one sentence on screen, one owner behind it.
+        Assert.Equal(panel.Settings.UpdatesRefusal, toggle.Reason);
+        Assert.True(toggle.HasReason);
+        Assert.False(toggle.ShowsReason);
+    }
+
+    /// <summary>An install that does ask states nothing over the heading, and its toggle is live.</summary>
+    [Fact]
+    public async Task TheUpdatesHeadingStatesNothingWhereTheInstallChecks()
+    {
+        var panel = await PanelAsync();
+
+        Assert.False(panel.Settings.UpdatesRefused);
+        Assert.Equal("", panel.Settings.UpdatesRefusal);
+        Assert.True(panel.Settings.CheckUpdatesOnStart!.IsEnabled);
     }
 
     private static Features.Fields.ViewModel.FieldViewModel Field(Panel panel, string key)

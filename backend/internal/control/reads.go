@@ -124,16 +124,16 @@ func (s *Server) inForce(draft settings.Settings) bool {
 // answer from the same machine.
 func (s *Server) formDeps() form.Deps {
 	return form.Deps{
-		Monitors:       s.backend.Monitors(),
-		Windows:        s.backend.Windows(),
-		Platform:       s.backend.Platform(),
-		Device:         s.backend.Device(),
-		Encoders:       s.backend.CachedEncoders(),
-		AudioDevices:   s.backend.AudioDevices(),
-		Portal:         s.backend.PortalCapabilities(),
-		DiscordRefused: s.backend.DiscordState().Refused,
-		UpdateCheckOff: s.backend.UpdateState().Unchecked != nil,
-		TrayOff:        trayForcedOff(),
+		Monitors:        s.backend.Monitors(),
+		Windows:         s.backend.Windows(),
+		Platform:        s.backend.Platform(),
+		Device:          s.backend.Device(),
+		Encoders:        s.backend.CachedEncoders(),
+		AudioDevices:    s.backend.AudioDevices(),
+		Portal:          s.backend.PortalCapabilities(),
+		DiscordRefused:  s.backend.DiscordState().Refused,
+		UpdateUnchecked: s.backend.UpdateState().Unchecked,
+		TrayOff:         trayForcedOff(),
 	}
 }
 

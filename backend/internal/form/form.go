@@ -68,10 +68,11 @@ type Deps struct {
 	// (DiscordState.link_refused).
 	// The zero value is a link nothing has refused, which is what a caller outside Discord mode reads.
 	DiscordRefused bool
-	// UpdateCheckOff is whether this install's update channel refuses every check
-	// (internal/update, MIRRORME_UPDATE_CHECK=0 or an unstamped build).
+	// UpdateUnchecked is why this install asks about no release, nil where it asks
+	// (internal/update, Offer.Unchecked).
+	// The channel's own statement, so the greyed toggle and the band carry one wording.
 	// The zero value is live, matching a caller that never asked the channel.
-	UpdateCheckOff bool
+	UpdateUnchecked *screensharev1.Text
 	// TrayOff is whether this run holds the icon out of the tray whatever the setting holds
 	// (MIRRORME_TRAY=0, avalonia/README.md, "The tray").
 	// The zero value is a run that draws the icon the setting asks for.

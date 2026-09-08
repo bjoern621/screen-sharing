@@ -85,11 +85,22 @@ public sealed class FieldViewModel : Observable
     /// </summary>
     private bool _answered = true;
 
+    /// <summary>
+    /// Whether the surface states this control's reason itself, which leaves the row drawing none.
+    /// Placement, so it is fixed per key (<see cref="ShowsReason"/>).
+    /// </summary>
+    private readonly bool _reasonStatedAbove;
+
     /// <param name="sweep">
     /// Takes the two edges of a gesture on this control, null where the screen has nowhere to report them.
     /// A group given none draws controls that ask about every value the thumb passes over.
     /// </param>
-    public FieldViewModel(string key, Action<string, FieldValue> write, Action<bool>? sweep = null)
+    /// <param name="reasonStatedAbove">
+    /// True where the surface prints this control's reason over the section it stands in,
+    /// so the row leaves it out rather than saying it twice.
+    /// </param>
+    public FieldViewModel(
+        string key, Action<string, FieldValue> write, Action<bool>? sweep = null, bool reasonStatedAbove = false)
     {
         Assert.That(key.Length > 0, "a field is identified by the settings field it edits");
         Assert.NotNull(write, "a field needs somewhere to report what the user moved");
@@ -97,6 +108,7 @@ public sealed class FieldViewModel : Observable
         Key = key;
         _write = write;
         _sweep = sweep ?? (_ => { });
+        _reasonStatedAbove = reasonStatedAbove;
         Options = [];
         Offered = [];
         Refused = [];
@@ -253,6 +265,7 @@ public sealed class FieldViewModel : Observable
     private bool _hasHelp;
     private bool _hasDoc;
     private bool _hasReason;
+    private bool _showsReason;
     private bool _hasNote;
     private bool _hasUnit;
     private bool _isText;
@@ -419,6 +432,13 @@ public sealed class FieldViewModel : Observable
 
     public bool HasReason { get => _hasReason; private set => Set(ref _hasReason, value); }
 
+    /// <summary>
+    /// Whether the row prints that reason.
+    /// False where the surface prints one line over a whole section whose controls are inert for one fact.
+    /// Placement, which is this side's (<c>docs/field-availability.md</c>).
+    /// </summary>
+    public bool ShowsReason { get => _showsReason; private set => Set(ref _showsReason, value); }
+
     public bool HasNote { get => _hasNote; private set => Set(ref _hasNote, value); }
 
     public bool HasUnit { get => _hasUnit; private set => Set(ref _hasUnit, value); }
@@ -567,6 +587,7 @@ public sealed class FieldViewModel : Observable
         HasHelp = Help.Length > 0;
         HasDoc = Doc.Length > 0;
         HasReason = Reason.Length > 0;
+        ShowsReason = HasReason && !_reasonStatedAbove;
         HasNote = Note.Length > 0;
         HasUnit = Unit.Length > 0;
         IsVisible = field.Visible;
