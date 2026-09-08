@@ -1,4 +1,3 @@
-using Google.Protobuf;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Mvvm;
 
@@ -31,17 +30,13 @@ public sealed record FieldAction
     /// <param name="tip">What the effect does and when it is refused, since the label is one word.</param>
     /// <param name="notice">Why the press is refused, or what the last attempt answered.</param>
     /// <param name="command">Effect, holding whether one is already in flight.</param>
-    /// <param name="avatar">
-    /// Picture of whoever the notice names, drawn in front of it. Empty where it names nobody.
-    /// </param>
     /// <param name="noticeIsFailure">
     /// Whether that sentence reports something broken, which is what draws it in the failure hue
     /// (<c>docs/design-language.md</c>, "Palette").
     /// A precondition the reader has yet to meet is not one.
     /// </param>
     public FieldAction(
-        string label, string tip, string notice, PendingCommand command, bool noticeIsFailure = false,
-        ByteString? avatar = null)
+        string label, string tip, string notice, PendingCommand command, bool noticeIsFailure = false)
     {
         Assert.That(label.Length > 0, "an action beside a control says what it does");
         Assert.That(tip.Length > 0, "an action beside a control explains itself");
@@ -53,7 +48,6 @@ public sealed record FieldAction
         Notice = notice;
         Command = command;
         NoticeIsFailure = noticeIsFailure;
-        Avatar = avatar ?? ByteString.Empty;
 
         Assert.That(!NoticeIsFailure || Notice.Length > 0, "a failure is marked on the sentence stating it", label);
     }
@@ -67,13 +61,6 @@ public sealed record FieldAction
 
     /// <summary>Whether <see cref="Notice"/> reports something broken.</summary>
     public bool NoticeIsFailure { get; }
-
-    /// <summary>
-    /// Picture of whoever <see cref="Notice"/> names, empty where it names nobody.
-    /// Compared by content like every other field here, so a pass reading the same picture leaves
-    /// the bound action alone.
-    /// </summary>
-    public ByteString Avatar { get; }
 
     public PendingCommand Command { get; }
 }

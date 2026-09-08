@@ -10,9 +10,9 @@ namespace ScreenShare.App.Controls;
 /// A sentence naming a Discord account, the account's picture drawn where the sentence marks it.
 ///
 /// The mark is what lets one string carry both:
-/// the sentence reaches this control down paths that know nothing about Discord,
-/// and splitting it into parts would put an account's shape into every one of them
-/// (<c>Features/Fields/Model/FieldAction.cs</c>).
+/// the sentence is composed where the link is named and drawn where it lands,
+/// and splitting it into parts would put an account's shape into every path between the two
+/// (<c>Copy/Links.cs</c>).
 /// A sentence naming nobody, and one whose picture has yet to land, draw as the text alone.
 /// </summary>
 public sealed class AccountLine : SelectableTextBlock

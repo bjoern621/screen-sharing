@@ -220,14 +220,13 @@
                 controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
                 ToolTip.Tip="{Binding Action.Tip}" />
 
-        <!-- The picture stands where the sentence names whoever it belongs to. -->
-        <controls:AccountLine Classes="hint"
-                              Classes.danger="{Binding ActionNoticeIsFailure}"
-                              TextWrapping="Wrap"
-                              TextTrimming="None"
-                              IsVisible="{Binding HasActionNotice}"
-                              Sentence="{Binding ActionNotice}"
-                              Picture="{Binding ActionAvatar}" />
+        <!-- Selectable: what the last attempt answered is what a bug report carries. -->
+        <SelectableTextBlock Classes="hint"
+                             Classes.danger="{Binding ActionNoticeIsFailure}"
+                             TextWrapping="Wrap"
+                             TextTrimming="None"
+                             IsVisible="{Binding HasActionNotice}"
+                             Text="{Binding ActionNotice}" />
       </StackPanel>
 
       <SelectableTextBlock Classes="reason"
