@@ -298,6 +298,7 @@
       <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
                            Classes.danger="{Binding NoticeIsFailure}"
                            IsVisible="{Binding HasNotice}"
+                           Tapped="OnClickTaken"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            TextAlignment="Center" Margin="{StaticResource InsetSection}" />
 
@@ -354,7 +355,7 @@
         so its own margin would push it past the bottom of the tile by that much
         and lose the last row behind the frame's clip.
       -->
-      <Panel Classes="stats" Margin="{StaticResource InsetTight}">
+      <Panel Classes="stats" Margin="{StaticResource InsetTight}" Tapped="OnClickTaken">
         <Border VerticalAlignment="Top" HorizontalAlignment="Right"
                 MaxHeight="{Binding $parent[Panel].Bounds.Height}"
                 Width="286"

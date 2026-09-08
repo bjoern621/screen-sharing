@@ -77,6 +77,23 @@ public partial class TileCard : UserControl
         set => SetValue(PictureElsewhereProperty, value);
     }
 
+    /// <summary>
+    /// Whether this card is a slot in the arranged grid, which is what makes a click on it mean focus.
+    ///
+    /// The host's answer, as <see cref="PictureElsewhere"/> is.
+    /// Focus arranges the grid's tiles.
+    /// A click in the window a stream popped out to, or on the screen it fills,
+    /// would move tiles nobody is looking at and leave the grid rearranged for whoever comes back.
+    /// </summary>
+    public static readonly StyledProperty<bool> InGridProperty =
+        AvaloniaProperty.Register<TileCard, bool>(nameof(InGrid));
+
+    public bool InGrid
+    {
+        get => GetValue(InGridProperty);
+        set => SetValue(InGridProperty, value);
+    }
+
     private TileViewModel? _watched;
     private TopLevel? _root;
 
@@ -170,6 +187,37 @@ public partial class TileCard : UserControl
     /// <c>StaysOpenOnClick</c> in the markup covering the press that still reaches it.
     /// </summary>
     private void OnVolumePressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
+
+    /// <summary>
+    /// A left click toggles focus, the state the menu's first row and its key name.
+    ///
+    /// The tile is what a reader points at to say which stream they want big,
+    /// so the picture carries the gesture and there is nothing to find first.
+    /// A click on the focused tile gives the space back, as a second press of the key does.
+    ///
+    /// Unhandled taps alone, which leaves the parts of a card a reader clicks to use with their own clicks
+    /// (<see cref="OnClickTaken"/>).
+    /// Right-click reaches the menu instead, a tap and a right tap being separate events.
+    /// </summary>
+    protected override void OnTapped(TappedEventArgs e)
+    {
+        base.OnTapped(e);
+
+        if (!InGrid || DataContext is not TileViewModel tile)
+        {
+            return;
+        }
+
+        tile.ToggleFocus.Execute(null);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Takes the click for the parts of a card a reader clicks to use:
+    /// the error text they select and copy, and the stats overlay they read.
+    /// Rearranging the grid under either loses them what they were pointing at.
+    /// </summary>
+    private void OnClickTaken(object? sender, TappedEventArgs e) => e.Handled = true;
 
     /// <summary>
     /// Applies what a key names to the tile under the pointer.

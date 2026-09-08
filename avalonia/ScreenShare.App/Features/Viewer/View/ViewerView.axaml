@@ -270,7 +270,7 @@
                 so which of the two a card draws is the host's to state
                 (Features/Viewer/Tile/View/TileCard.axaml.cs).
               -->
-              <tiles:TileCard PictureElsewhere="{Binding PictureElsewhere}" />
+              <tiles:TileCard PictureElsewhere="{Binding PictureElsewhere}" InGrid="True" />
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
