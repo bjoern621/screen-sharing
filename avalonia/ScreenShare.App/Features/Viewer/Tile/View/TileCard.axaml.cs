@@ -20,11 +20,14 @@ public partial class TileCard : UserControl
     {
         InitializeComponent();
 
-        // Bar width follows the level and this control's width, so both are watched.
+        // Bar width follows the level and this control's width, and the overlay follows the host's answer,
+        // so all three are watched.
         // A converter takes one input, so the arithmetic sits here.
         PropertyChanged += (_, change) =>
         {
-            if (change.Property == BoundsProperty || change.Property == DataContextProperty)
+            if (change.Property == BoundsProperty
+                || change.Property == DataContextProperty
+                || change.Property == PictureElsewhereProperty)
             {
                 Draw();
             }
@@ -33,7 +36,7 @@ public partial class TileCard : UserControl
         DataContextChanged += (_, _) => Watch();
 
         // Held by the handlers it puts on this card, so it lasts as long as the card draws.
-        _ = new RestingWatch(this, Rest);
+        _ = new RestingWatch(this, Rested);
     }
 
     /// <summary>
@@ -43,25 +46,20 @@ public partial class TileCard : UserControl
     /// </summary>
     private static readonly Cursor Hidden = new(StandardCursorType.None);
 
-    /// <summary>
-    /// Clears the picture of everything the pointer raised, and puts it back on the next stir.
-    ///
-    /// The class is what the markup hides the chrome on, and the cursor is this control's own property,
-    /// inherited by everything drawn inside it.
-    /// The stats overlay reads its own state and stays, being asked for rather than hovered into.
-    ///
-    /// Both writes are the state named rather than a change to it, so a stir per pointer move costs nothing.
-    /// </summary>
-    private void Rest(bool resting)
+    /// <summary>Pointer's answer as the watch last reported it, the one input to a pass that no owner can be asked for.</summary>
+    private bool _resting;
+
+    /// <summary>Takes the pointer's answer and draws on it.</summary>
+    private void Rested(bool resting)
     {
-        PseudoClasses.Set(":resting", resting);
-        Cursor = resting ? Hidden : null;
+        _resting = resting;
+        Draw();
     }
 
     /// <summary>
     /// Whether this stream's picture is in another window, which makes this card draw the plate saying so.
     ///
-    /// The host's answer, not the tile's.
+    /// The host's answer.
     /// A popped-out stream is drawn by two cards off one tile, the grid slot it keeps and the window it moved to,
     /// so a card reading this from the tile would show the plate twice and the picture nowhere.
     ///
@@ -126,9 +124,10 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Tracks the view model's notifications, so a landed level redraws the meter.
+    /// Tracks the view model's notifications, so a landed level redraws the meter
+    /// and an overlay turned on raises the chrome with it.
     /// Levels arrive on a path of their own fifteen times a second and move two properties.
-    /// Redrawing resizes one border and touches nothing else on screen
+    /// Redrawing resizes one border and writes the classes it already carries
     /// (<c>Backend/Session.cs</c>, <c>Metered</c>).
     /// </summary>
     private void Watch()
@@ -149,7 +148,9 @@ public partial class TileCard : UserControl
 
     private void OnTileChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs change)
     {
-        if (change.PropertyName is nameof(TileViewModel.Level) or nameof(TileViewModel.HasLevel))
+        if (change.PropertyName is nameof(TileViewModel.Level)
+            or nameof(TileViewModel.HasLevel)
+            or nameof(TileViewModel.ShowStats))
         {
             Draw();
         }
@@ -168,9 +169,23 @@ public partial class TileCard : UserControl
         return arranged;
     }
 
-    /// <summary>Widens the meter's bar to the level, in pixels of this card.</summary>
+    /// <summary>
+    /// Draws what markup cannot decide: the overlay, the chrome under a resting pointer, and the meter's bar
+    /// at the level in pixels of this card.
+    ///
+    /// The classes are what the markup raises the overlay and hides the chrome on,
+    /// and the cursor is this control's own property, inherited by everything drawn inside it.
+    /// Every pass writes all of them, and each write is the state named rather than a change to it,
+    /// so a pass per pointer move and a pass per level costs nothing.
+    /// </summary>
     private void Draw()
     {
+        var chrome = TileChrome.Of(_resting, _watched is { ShowStats: true }, PictureElsewhere);
+
+        PseudoClasses.Set(":stats", chrome.Stats);
+        PseudoClasses.Set(":resting", chrome.Resting);
+        Cursor = chrome.Resting ? Hidden : null;
+
         if (this.FindControl<Border>("Level") is not { } bar)
         {
             return;

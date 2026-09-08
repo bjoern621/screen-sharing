@@ -19,8 +19,9 @@
     and a pointer parked on a picture is somebody watching it (Features/Viewer/Tile/View/RestingWatch.cs).
 
     Nothing is measured over the picture.
-    A decode is diagnosed in one place, the stats overlay, with no pinned copy in the chrome:
-    it reads its own state and stays up wherever the pointer goes.
+    A decode is diagnosed in one place, the stats overlay, with no pinned copy in the chrome.
+    A card drawing it is a card being read: the overlay stays up wherever the pointer goes,
+    and it holds the chrome and the cursor up with it (Features/Viewer/Tile/View/TileChrome.cs).
   -->
 
   <UserControl.Styles>
@@ -45,6 +46,8 @@
     <!--
       A pointer that stopped moving takes it off again, along with the cursor itself
       (Features/Viewer/Tile/View/RestingWatch.cs).
+      A card drawing the stats overlay never rests: the pointer there is aimed at the figures
+      (Features/Viewer/Tile/View/TileChrome.cs).
       After the hover setter it overrides, styles applying in the order they are written.
     -->
     <Style Selector="tiles|TileCard:resting Border.chrome">
@@ -94,15 +97,19 @@
     </Style>
 
     <!--
-      The overlay goes with the picture, on the host's answer rather than the tile's.
-      Figures over the plate describe a decode this card is not drawing,
+      The overlay goes with the picture, so the card asked for it is the one drawing the frames it describes:
+      figures over the plate describe a decode this card is not drawing,
       and asking one tile for them puts the panel on screen twice.
+
+      The card writes the class off the tile's state and the host's answer together,
+      the same pair deciding whether a resting pointer clears the chrome
+      (Features/Viewer/Tile/View/TileChrome.cs).
     -->
-    <Style Selector="tiles|TileCard Panel.stats" x:DataType="tile:TileViewModel">
-      <Setter Property="IsVisible" Value="{Binding ShowStats}" />
-    </Style>
-    <Style Selector="tiles|TileCard[PictureElsewhere=True] Panel.stats">
+    <Style Selector="tiles|TileCard Panel.stats">
       <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="tiles|TileCard:stats Panel.stats">
+      <Setter Property="IsVisible" Value="True" />
     </Style>
   </UserControl.Styles>
 
@@ -351,8 +358,9 @@
       <!--
         The stats overlay: the panel turned on for the one stream being diagnosed.
 
-        Reading its own state rather than the hover chrome.
-        Something that vanished when the pointer left would be useless for diagnosing.
+        Up on the tile's own state, so it survives the pointer leaving,
+        and while it is up the card keeps its cursor and the rest of its chrome:
+        a reader pointing at a row needs something to point with.
 
         It scrolls, and is sized against the tile rather than against its own contents.
         A decode answers with more than fits on any tile, the encoded stream, the decoded picture, the chain,
