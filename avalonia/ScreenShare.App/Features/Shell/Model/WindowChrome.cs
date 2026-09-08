@@ -1,3 +1,9 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Styling;
+
+using ScreenShare.App.Contracts;
+
 namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
@@ -21,4 +27,40 @@ namespace ScreenShare.App.Features.Shell.Model;
 internal static class WindowChrome
 {
     public static bool AppDrawsCaption => !OperatingSystem.IsLinux();
+
+    /// <summary>
+    /// Puts the window's client area over the platform's caption and empties the replacement the platform then
+    /// asks the theme for, so no window ends up with two (<c>Design/Windows.axaml</c>).
+    /// Both writes name a state, so a second call changes nothing.
+    ///
+    /// Where the desktop draws the frame the window is left as it is.
+    ///
+    /// What stands in the caption's place is the window's own: the shell draws a band claiming the caption's
+    /// hit-testing roles, and a stream's own window draws nothing and is dragged by its picture.
+    ///
+    /// Decorations stay full with the client area extended over them rather than dropping to a border.
+    /// A frame without a caption loses what the Win32 compositor animates: no open, close, minimise or restore
+    /// transition, and a top edge widened to the bare resize frame.
+    /// Painting underneath keeps the platform's animations, snap and shadow.
+    /// </summary>
+    public static void PaintOverCaption(Window window)
+    {
+        Assert.NotNull(window, "a caption is painted over on a window");
+
+        if (!AppDrawsCaption)
+        {
+            return;
+        }
+
+        // Off the application, where Design/Windows.axaml merges it:
+        // a window is asked before it is shown, and an unrooted lookup walks no further than the window.
+        var application = Assert.NotNull(Application.Current, "a window is shown by a running application");
+        var decorations = Assert.NotNull(application.FindResource("EmptyDecorations") as ControlTheme,
+            "the application's resources carry the empty window decorations theme");
+
+        window.ExtendClientAreaToDecorationsHint = true;
+        window.WindowDecorationsTheme = decorations;
+
+        Assert.That(window.ExtendClientAreaToDecorationsHint, "the client area covers the caption");
+    }
 }

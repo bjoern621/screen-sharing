@@ -18,8 +18,12 @@
     One tile through the grid's own solver,
     letterboxed at its stream's shape in whatever shape this window is dragged to
     (Features/Viewer/Model/TileLayout.cs).
+
+    Maximised, Windows hangs the frame's resize border off every edge of the work area, and the client area goes
+    with it, so an unpadded picture loses its edges under the screen edge.
+    OffScreenMargin is that overhang, read continuously, so restoring gives it back to zero.
   -->
-  <view:TileGrid>
+  <view:TileGrid Margin="{Binding $parent[Window].OffScreenMargin}">
     <tiles:TileCard view:TileGrid.Aspect="{Binding Aspect}" />
   </view:TileGrid>
 

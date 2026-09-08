@@ -11,7 +11,6 @@
         xmlns:insightsVm="using:ScreenShare.App.Features.Insights.ViewModel"
         xmlns:viewer="using:ScreenShare.App.Features.Viewer.View"
         xmlns:viewerVm="using:ScreenShare.App.Features.Viewer.ViewModel"
-        xmlns:chrome="using:Avalonia.Controls.Chrome"
         xmlns:model="using:ScreenShare.App.Features.Shell.Model"
         x:Class="ScreenShare.App.Features.Shell.View.ShellWindow"
         x:DataType="shell:ShellViewModel"
@@ -22,42 +21,6 @@
         MinHeight="{x:Static model:WindowSize.FloorHeight}"
         Background="{StaticResource SurfaceBrush}"
         Foreground="{StaticResource ControlForegroundBrush}">
-
-  <!--
-    This theme and the client-area extension are applied together from the code-behind,
-    and only where this app draws the caption (Features/Shell/Model/WindowChrome.cs).
-    Where the desktop draws the frame, on Linux, neither is applied,
-    and above the nav strip is whatever that desktop puts there, which on a tiling session is nothing.
-
-    Decorations stay Full with the client area extended over them, rather than BorderOnly.
-    BorderOnly drops the caption from the native frame,
-    and on Win32 the caption is what the compositor animates:
-    no open, close, minimise or restore transition, and a top edge widened to the bare resize frame.
-    Extending keeps the frame whole and paints underneath it,
-    so the platform's animations, snap and shadow survive.
-
-    The cost is hit-testing.
-    With the caption present and invisible, every part of the band below has to name the caption element it
-    stands in for, which is what the WindowDecorationProperties.ElementRole marks in TitleBarView do,
-    and what puts the Windows 11 snap-layout flyout back under the maximise button.
-
-    Extending also makes the platform ask the theme for a replacement caption,
-    and the stock one paints its own title and buttons over the band below.
-    This theme draws nothing instead: empty decorations content,
-    with the geometry parts zeroed so no frame, shadow or caption strip is reserved either.
-  -->
-  <Window.Resources>
-    <ControlTheme x:Key="EmptyDecorations" TargetType="chrome:WindowDrawnDecorations">
-      <Setter Property="DefaultTitleBarHeight" Value="0" />
-      <Setter Property="DefaultFrameThickness" Value="0" />
-      <Setter Property="DefaultShadowThickness" Value="0" />
-      <Setter Property="Template">
-        <WindowDrawnDecorationsTemplate>
-          <chrome:WindowDrawnDecorationsContent />
-        </WindowDrawnDecorationsTemplate>
-      </Setter>
-    </ControlTheme>
-  </Window.Resources>
 
   <Window.KeyBindings>
     <!--

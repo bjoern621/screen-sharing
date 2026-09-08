@@ -181,6 +181,9 @@ The aspect rule is the cell's, so the picture keeps its shape and the surround i
 The way in is the tile's menu row and the key printed beside it.
 Escape is always a way out, a screen that draws no controls still having to be one a reader can leave.
 
+A stream in a window of its own carries no caption, on the same terms as a filled screen.
+The picture is the whole window, dragged by the picture and resized by the platform's frame, and the tile's menu row is the way back into the grid.
+
 A grid is equal cells, and the arrangement is derived: the one with the largest fitted picture wins, and a short last row centres itself.
 No column count is written down anywhere.
 Maximising the cell instead of the picture inside it picks a single long row every time.

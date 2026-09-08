@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 using Avalonia.VisualTree;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.ViewModel;
@@ -24,17 +23,14 @@ public sealed partial class ShellWindow : Window
     {
         InitializeComponent();
 
-        // Applied together so no platform ends up with two captions: the client area covers the native one,
-        // and the replacement the platform then asks for is emptied.
-        // Both stay off where the desktop draws the frame (WindowChrome).
+        // The caption this window draws stands where the platform's was,
+        // so the platform's is painted over (WindowChrome).
+        // The band claims that caption's hit-testing roles,
+        // so drag, double-click maximise and the window menu stay the platform's (TitleBarView).
         //
-        // Whether the band standing in for the caption is drawn is the shell's to write,
+        // Whether the band is drawn is the shell's to write,
         // it being off while a stream fills the window as well (ShellViewModel.HasCaption).
-        if (WindowChrome.AppDrawsCaption)
-        {
-            ExtendClientAreaToDecorationsHint = true;
-            WindowDecorationsTheme = (ControlTheme)Resources["EmptyDecorations"]!;
-        }
+        WindowChrome.PaintOverCaption(this);
 
         // Tunnelling, so the press is seen on the way down and whatever it lands on still handles it.
         // A button pressed while a box holds the caret takes focus for itself straight afterwards.
