@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/discordrpc"
+	"bjoernblessin.de/screenshare/internal/group"
 )
 
 // What takes the activity off a profile, one test per way it ends.
@@ -97,9 +98,9 @@ func TestLeavingTheVoiceChannelTakesTheActivityOff(t *testing.T) {
 	}
 }
 
-func TestTurningDiscordModeOffTakesTheActivityOff(t *testing.T) {
+func TestLeavingTheDiscordSourceTakesTheActivityOff(t *testing.T) {
 	a, held := sharingApp(t)
-	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.GroupSource = group.SourceKey
 
 	a.statePresenceOnDiscord()
 

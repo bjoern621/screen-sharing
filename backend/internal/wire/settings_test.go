@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -30,7 +31,7 @@ func populatedSettings() settings.Settings {
 			MoqPort:        1007,
 			GroupKey:       "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 			DisplayName:    "fixture-member",
-			DiscordMode:    true,
+			GroupSource:    group.SourceDiscord,
 			DiscordLink:    "fixture-discord-link",
 			DiscordAccount: "fixture-discord-account",
 			DiscordAvatar:  "https://cdn.discordapp.com/avatars/u1/h1.png?size=64",

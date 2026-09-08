@@ -12,6 +12,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -266,7 +267,7 @@ func TestResolveFormReportsADiscordStreamInForce(t *testing.T) {
 		t.Fatalf("resolving a form answered %v, want an answer", err)
 	}
 	draft := idle.GetForm().GetSettings()
-	draft.Relay.DiscordMode = true
+	draft.Relay.GroupSource = group.SourceDiscord
 
 	resolved, err := server.ResolveForm(context.Background(), &screensharev1.ResolveFormRequest{Settings: draft})
 	if err != nil {
@@ -289,7 +290,7 @@ func TestResolveFormReportsADiscordStreamInForce(t *testing.T) {
 // Brokered is Discord mode's injection: the link and the group the manager derives for the current
 // voice channel, which the settings a shell sends carry on neither direction (internal/app, withBrokered).
 func (p *probedBackend) Brokered(s settings.Settings) settings.Settings {
-	if !s.Relay.DiscordMode {
+	if !s.Relay.FollowsDiscord() {
 		return s
 	}
 	s.Relay.DiscordLink = "link-secret"

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -50,7 +51,7 @@ func TestNoShellCopyUnlinksThisInstall(t *testing.T) {
 func TestADraftIsResolvedAgainstTheStoredLink(t *testing.T) {
 	a := discordApp(&fakeDiscord{})
 
-	draft := settings.Settings{Relay: settings.Relay{Host: "127.0.0.1", DiscordMode: true}}
+	draft := settings.Settings{Relay: settings.Relay{Host: "127.0.0.1", GroupSource: group.SourceDiscord}}
 
 	if got := a.withBrokered(draft).Relay.DiscordLink; got != "link-secret" {
 		t.Fatalf("the draft carries the link %q, want the stored secret", got)
@@ -112,11 +113,14 @@ func TestALandedLinkWithoutAnAccountStillLinks(t *testing.T) {
 func TestTheLinkedAccountReachesAShell(t *testing.T) {
 	isolateConfig(t)
 
-	// Both modes: the account labels the link the settings hold, and no pass answers it.
-	for name, mode := range map[string]bool{"in Discord mode": true, "with the mode off": false} {
+	// Both sources: the account labels the link the settings hold, and no pass answers it.
+	for name, source := range map[string]string{
+		"under the Discord source": group.SourceDiscord,
+		"under the key":            group.SourceKey,
+	} {
 		t.Run(name, func(t *testing.T) {
 			a := discordApp(&fakeDiscord{})
-			a.settings.Relay.DiscordMode = mode
+			a.settings.Relay.GroupSource = source
 
 			a.storeDiscordLink(landedLink{secret: "fresh", account: "bob"})
 

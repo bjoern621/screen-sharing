@@ -529,12 +529,12 @@ message DiscordState {
   // The answer stands from an earlier pass because the manager stopped answering.
   bool stale = 5;
   // The Discord account this install is linked as, for a reader.
-  // The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
+  // The link flow lands it beside the secret, so it stands whichever source the group comes from.
   // Empty where the manager that drew the link named no account.
   string account_name = 6;
   // The manager declines to resolve the link this install holds, so no group follows the channel.
   // Linking again is what clears it, and polling never does.
-  // Stands with discord_mode off, the toggle drawing no link and resolving none.
+  // Stands with the group off a key, that source drawing no link and resolving none.
   bool link_refused = 7;
   // The linked account's Discord picture, PNG bytes, empty until one is read.
   // Bytes and not an address: a shell draws what the backend hands it,

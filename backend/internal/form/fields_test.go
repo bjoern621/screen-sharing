@@ -26,7 +26,7 @@ import (
 // It is the only other copy of that list, so the bijection below is a check rather
 // than a tautology: a key added to keys.go and to no table fails here.
 var fieldDeclaredKeys = []string{
-	KeyRelayHost, KeyRelayTls, KeyDiscordMode, KeyDiscordRichPresence, KeyGroupKey, KeyDisplayName,
+	KeyRelayHost, KeyRelayTls, KeyGroupSource, KeyDiscordRichPresence, KeyGroupKey, KeyDisplayName,
 	KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
@@ -993,10 +993,11 @@ func TestACaptureBackendBehindAPrivilegeSaysSoOnItsEntry(t *testing.T) {
 }
 
 // The contract reserves the radio for a closed set whose entries carry a paragraph each,
-// which the rate-control mode and the share kind are and no other field here is.
+// which the rate-control mode, the share kind and the group source are
+// and no other field here is.
 // A radio anywhere else would be a decision about layout made in the wrong place.
-func TestTheRadioIsReservedForTheTwoClosedSets(t *testing.T) {
-	radios := []string{KeyMode, KeyShareKind}
+func TestTheRadioIsReservedForTheClosedSetsWithAParagraphEach(t *testing.T) {
+	radios := []string{KeyMode, KeyShareKind, KeyGroupSource}
 	for _, f := range fieldTable {
 		radio := f.control == screensharev1.ControlKind_CONTROL_KIND_RADIO
 		if radio != slices.Contains(radios, f.key) {

@@ -5,6 +5,10 @@ A voice channel is a group.
 whoever sits in the channel can watch, whoever leaves is cut within seconds,
 and no key changes hands to make it so.
 
+A group comes from one of two places, and the settings name which: a key somebody handed over, or this channel.
+The choice is one control, so the manual key and the name under it are read by nobody while the channel is the source,
+and the stored key waits where it is for the choice to come back.
+
 The app never holds the group key in this mode.
 `discordd` draws the group, keeps the key and every member secret,
 and answers the app with the derived facts alone: prefix, SRT passphrase, members, tokens.
@@ -57,9 +61,9 @@ What a shell learns is `DiscordState.linked`, `DiscordState.account_name` and `D
 
 Holding a link and the manager resolving it are two facts, and `DiscordState.link_refused` carries the second.
 A refused link stays stored and stays linked, so the mode moves neither field:
-folded into one, the toggle would decide whether this install is linked at all.
+folded into one, the source would decide whether this install is linked at all.
 Linking again is what clears a refusal, and no number of passes does.
-The channel is the one half the mode drops, no pass following one while the toggle is off,
+The channel is the one half the mode drops, no pass following one while the group comes from a key,
 so the app states the link in one sentence wherever it states it.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
@@ -118,7 +122,7 @@ Type 3 is what Discord draws as "Watching".
 The purple streaming badge is type 1, which Discord grants a Twitch or YouTube address alone.
 
 The channel and the audience are this mode's answers,
-so the setting asking for the activity turns the mode on with it (`internal/app`, `SaveSettings`).
+so the setting asking for the activity moves the group onto the channel with it (`internal/app`, `SaveSettings`).
 Switching it off closes the connection, which is what takes the activity off the profile.
 
 One button rides under the activity, "Watch stream", which Discord opens in a browser.
@@ -163,7 +167,7 @@ The next occupancy draws a fresh group, so a prefix outlives no session.
 | link secret to Discord user | `discordd`, on disk |
 | the Discord application every app draws an activity under | `discordd`, from the credentials it links through |
 | leases, tokens, enforcement | `groupd`, as ever |
-| mode toggle, link secret, the account it was drawn for and its picture | the app's settings |
+| where the group comes from, the link secret, the account it was drawn for and its picture | the app's settings |
 
 A `discordd` restart forgets every session:
 leases lapse, streams close, and the next pass rebuilds fresh groups.

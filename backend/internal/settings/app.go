@@ -20,7 +20,7 @@ type App struct {
 	TrayIcon bool `json:"trayIcon"`
 	// DiscordRichPresence has a share state itself on the Discord client running beside this app
 	// (internal/discordrpc).
-	// Read only while Relay.DiscordMode is set, which is what answers the channel and the audience,
+	// Read only while the group comes from Discord, which answers the channel and the audience,
 	// so the press turning this on turns that on with it (internal/app, SaveSettings).
 	//
 	// No omitempty: a fresh installation carries it on,

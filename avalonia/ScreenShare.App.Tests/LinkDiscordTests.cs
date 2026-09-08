@@ -111,7 +111,7 @@ public sealed class LinkDiscordTests
 
     /// <summary>
     /// The relay step decides which group a stream goes to, and the link is neither that nor per stream,
-    /// so the toggle following a voice channel carries no button of its own.
+    /// so the choice naming the voice channel carries no button of its own.
     /// </summary>
     [Fact]
     public async Task TheRelayStepCarriesNoLinkButton()
@@ -120,8 +120,8 @@ public sealed class LinkDiscordTests
         await flow.Settled;
         flow.CurrentStep = "relay";
 
-        var toggle = flow.CurrentGroup!.Fields.Single(field => field.Key == "relay.discord_mode");
+        var choice = flow.CurrentGroup!.Fields.Single(field => field.Key == "relay.group_source");
 
-        Assert.False(toggle.HasAction);
+        Assert.False(choice.HasAction);
     }
 }

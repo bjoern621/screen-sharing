@@ -3,6 +3,7 @@ package app
 import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -44,9 +45,9 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	a.settingsMu.Unlock()
 
 	if before.GroupKey != s.Relay.GroupKey ||
-		(!before.DiscordMode && s.Relay.DiscordMode) {
-		// A changed key and Discord mode switching on both leave the manual group:
-		// the mode leaves the key stored but unread, so the presence under it is released here too.
+		(!before.FollowsDiscord() && s.Relay.FollowsDiscord()) {
+		// A changed key and a group moving onto Discord both leave the manual group:
+		// the move leaves the key stored but unread, so the presence under it is released here too.
 		a.releaseGroup(before)
 	}
 	// On a goroutine of its own, for the reason the boot call is:
@@ -58,30 +59,30 @@ func (a *App) SaveSettings(s settings.Settings) error {
 	a.emitPublishState()
 	a.emit(wire.SettingsChangedEvent())
 	// The Discord state is read off these settings as well as off the last pass (discord.go),
-	// so the mode going on or off moves it with nothing having polled.
+	// so a group moving between sources moves it with nothing having polled.
 	a.emit(wire.DiscordStateEvent(a.discordWire()))
 	return settings.Save(s)
 }
 
-// followsDiscord is r with the mode a Discord activity is read through turned on beside it,
-// where this write is what asked for the activity.
+// followsDiscord is r with its group moved onto the voice channel,
+// where this write is what asked for the Discord activity.
 // before is the stored app group the write moves from, app the one it carries.
 //
-// The activity states a voice channel and the members in it, both of them Discord mode's answers,
-// so the toggle alone would store a setting that describes nothing (richpresence.go).
-// Turned on here rather than greyed on the form:
+// The activity states a voice channel and the members in it, both of them the Discord source's
+// answers, so the switch alone would store a setting that describes nothing (richpresence.go).
+// Moved here rather than greyed on the form:
 // the reader asking for the activity is asking for what it is drawn from,
-// and a greyed control would put the mode between them and the one press.
+// and a greyed control would put the source between them and the one press.
 //
-// The press moves the mode, and the value on its own leaves it alone:
+// The press moves the source, and the value on its own leaves it alone:
 // a fresh installation carries the activity on (internal/settings, Defaults),
-// so a machine whose first write carries it would land in Discord mode nobody asked for.
+// so a machine whose first write carries it would land on a source nobody chose.
 //
 // The write is what a shell reads back, the settings arriving on the next resolve,
-// so the mode's own toggle moves on screen with it (docs/ipc-api.md, "The rule").
+// so the choice moves on screen with it (docs/ipc-api.md, "The rule").
 func followsDiscord(before, app settings.App, r settings.Relay) settings.Relay {
 	if app.DiscordRichPresence && !before.DiscordRichPresence {
-		r.DiscordMode = true
+		r.GroupSource = group.SourceDiscord
 	}
 	return r
 }

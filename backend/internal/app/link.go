@@ -37,7 +37,7 @@ func (a *App) ResolveLink(raw string) (string, error) {
 	// and a link is followed against the channel this machine stands in now (discord.go).
 	group := a.membership().Group
 	if group == "" {
-		if s.Relay.DiscordMode {
+		if s.Relay.FollowsDiscord() {
 			return "", a.discordRefusal(s)
 		}
 		return "", errNoGroup
@@ -61,7 +61,7 @@ func (a *App) ResolveLink(raw string) (string, error) {
 // Two sentences of one shape: what is wrong, and the one move that fixes it.
 // In Discord mode that move is a voice channel, membership following it (docs/discord-mode.md).
 func errOtherGroup(s settings.Settings) error {
-	if s.Relay.DiscordMode {
+	if s.Relay.FollowsDiscord() {
 		return errors.New("this stream is shared in another voice channel: join that channel in Discord to watch it")
 	}
 	return fmt.Errorf("this stream is in another group: paste that group's key under Relay to watch it")

@@ -105,18 +105,18 @@ var availabilityRules = map[string]func(availability) state{
 	KeyRelayTls: func(availability) state {
 		return availabilityDisabled(say(encryptionFollowsTheAddress))
 	},
-	// The toggle stays live in both modes, being what moves between them.
-	KeyDiscordMode: func(availability) state { return availabilityLive() },
-	// Live in both modes as the toggle above it is,
-	// turning it on being what turns that one on (internal/app, SaveSettings).
-	// Greying it outside Discord mode would leave the one control that reaches the mode
-	// behind the mode itself.
+	// The choice stays live under both sources, being what moves between them.
+	KeyGroupSource: func(availability) state { return availabilityLive() },
+	// Live under both sources as the choice above it is,
+	// turning it on being what moves the group onto Discord (internal/app, SaveSettings).
+	// Greying it under the key would leave the one control that reaches that source
+	// behind the source itself.
 	KeyDiscordRichPresence: func(availability) state { return availabilityLive() },
-	// Both manual group controls grey while the group follows the voice channel:
+	// Both manual group controls grey while the group comes from the voice channel:
 	// the key is unread there and the name comes off the Discord account,
 	// so either would be a control that changes nothing (docs/discord-mode.md).
 	KeyGroupKey: func(av availability) state {
-		if av.s.Relay.DiscordMode {
+		if av.s.Relay.FollowsDiscord() {
 			return availabilityDisabled(say(groupFollowsDiscord))
 		}
 		return availabilityLive()
@@ -126,7 +126,7 @@ var availabilityRules = map[string]func(availability) state{
 	// An empty name greys nothing either: it is what leaves this machine outside the group
 	// the key names, and this control is where that is answered.
 	KeyDisplayName: func(av availability) state {
-		if av.s.Relay.DiscordMode {
+		if av.s.Relay.FollowsDiscord() {
 			return availabilityDisabled(say(groupFollowsDiscord))
 		}
 		return availabilityLive()

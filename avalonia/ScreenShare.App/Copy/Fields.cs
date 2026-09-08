@@ -67,11 +67,11 @@ public static class Fields
             "Relay uses TLS",
             "Whether the relay answers on one address behind a certificate, or directly on the ports below. It follows the relay address rather than being set here. A relay on this computer or the local network is reached directly. Anything further away is always encrypted."),
 
-        ["relay.discord_mode"] = new(
-            "Follow Discord",
-            "Ties the group to the voice channel this computer's linked Discord account is in. "
-            + "Whoever sits in the channel can watch, and leaving it cuts them off within seconds. "
-            + "The channel sets the group and the name while this is on, so both boxes below gray out."),
+        ["relay.group_source"] = new(
+            "Where the group comes from",
+            "The group is who can watch what this computer shares. "
+            + "It comes from a key you pass around, or from the Discord voice channel you are in. "
+            + "The channel sets the group and the name itself, so both boxes below gray out under it."),
 
         ["relay.group_key"] = new(
             "Group key",
@@ -270,7 +270,7 @@ public static class Fields
             "Show sharing on Discord",
             "Puts what you are sharing on your Discord profile: the voice channel, and how many of the people in it are watching. "
             + "Everyone who can see your profile sees it. "
-            + "The status needs a Discord client running on this computer, and turning this on turns Follow Discord on with it."),
+            + "The status needs a Discord client running on this computer, and turning this on moves the group onto your voice channel with it."),
         ["app.test_streams"] = new(
             "Run test streams",
             "Publishes synthetic streams from this computer to the relay, so the group has something to watch with no screen shared. Each stream runs its own encoder, so turn it on for testing only. They start as soon as this computer is in a group."),

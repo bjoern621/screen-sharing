@@ -6,6 +6,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/group"
 )
 
 // flat is the settings shape from before the three groups:
@@ -176,6 +177,35 @@ const (
 	cleartextRtmpPort = 1935
 )
 
+// storedRelay is the relay group as a file spells it,
+// for the one key the ordinary decode has no field for.
+// A pointer for the reason flat's fields are: an absent key is not a flag that was off.
+type storedRelay struct {
+	Relay struct {
+		DiscordMode *bool `json:"discordMode"`
+	} `json:"relay"`
+}
+
+// decodeStoredSource reads the group source out of a file written while the source was a flag,
+// and false for one written since.
+//
+// The flag named the Discord half alone, so its two states are the two sources:
+// a machine following a voice channel keeps following it across the upgrade,
+// and one on its stored key keeps the key.
+func decodeStoredSource(data []byte) (string, bool) {
+	var s storedRelay
+	if err := json.Unmarshal(data, &s); err != nil {
+		return "", false
+	}
+	if s.Relay.DiscordMode == nil {
+		return "", false
+	}
+	if *s.Relay.DiscordMode {
+		return group.SourceDiscord, true
+	}
+	return group.SourceKey, true
+}
+
 // migrateRelay fills the listener ports a file written before a transport was registered lacks,
 // and moves the two a relay stopped binding onto the listeners that answer in their place.
 // No transport is reachable on port zero, so a missing port is no value a user chose.
@@ -199,6 +229,15 @@ func migrateRelay(r, d Relay) Relay {
 	replaceNum(&r.RtspPort, cleartextRtspPort, d.RtspPort)
 	replaceNum(&r.RtmpPort, cleartextRtmpPort, d.RtmpPort)
 
+	// A source this build does not know is the shipped one:
+	// the file is the user's to edit, and a group comes from one of the two places
+	// internal/group names.
+	// Empty lands here too, which is every file written before the source was a choice
+	// and whose flag decodeStoredSource did not find (store.go).
+	if !group.KnownSource(r.GroupSource) {
+		r.GroupSource = d.GroupSource
+	}
+
 	// DisplayName is left alone.
 	// An empty one is a state and not a gap:
 	// this machine has no name,
@@ -210,6 +249,8 @@ func migrateRelay(r, d Relay) Relay {
 	assert.Assert(r.SrtPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0 && r.MoqPort > 0,
 		"an upgraded relay names a port for every listener",
 		r.SrtPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort, r.MoqPort)
+	assert.Assert(group.KnownSource(r.GroupSource),
+		"an upgraded relay names where its group comes from", r.GroupSource)
 	return r
 }
 

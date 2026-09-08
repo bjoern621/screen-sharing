@@ -17,7 +17,7 @@ func relayInDiscordMode(t *testing.T) Relay {
 	}
 	return Relay{
 		Host:        "streamrelay.example.com",
-		DiscordMode: true,
+		GroupSource: group.SourceDiscord,
 		GroupKey:    key.String(),
 		DisplayName: "Bob",
 	}

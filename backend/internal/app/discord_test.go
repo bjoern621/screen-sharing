@@ -11,6 +11,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/discordclient"
 	"bjoernblessin.de/screenshare/internal/events"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -69,7 +70,7 @@ func discordApp(fake *fakeDiscord) *App {
 		avatars: fakePictures{},
 		settings: settings.Settings{Relay: settings.Relay{
 			Host:           "127.0.0.1",
-			DiscordMode:    true,
+			GroupSource:    group.SourceDiscord,
 			DiscordLink:    "link-secret",
 			DiscordAccount: "bob",
 		}},
@@ -152,7 +153,7 @@ func TestARefusedLinkStandsLinkedInEitherMode(t *testing.T) {
 		t.Fatalf("a refused link is one this install holds and the manager declines, got %+v", on)
 	}
 
-	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.GroupSource = group.SourceKey
 	off := a.discordWire()
 	if off.Linked != on.Linked || off.Refused != on.Refused || off.AccountName != on.AccountName {
 		t.Fatalf("the mode decided what the link reads as, on %+v off %+v", on, off)
@@ -163,7 +164,7 @@ func TestARefusedLinkStandsLinkedInEitherMode(t *testing.T) {
 // so a state read off the pass alone draws a linked install as unlinked until the toggle goes on.
 func TestALinkedInstallDrawsAsLinkedBeforeAnyPass(t *testing.T) {
 	a := discordApp(&fakeDiscord{answer: inChannel()})
-	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.GroupSource = group.SourceKey
 
 	if !a.discordWire().Linked {
 		t.Fatal("a stored link is a linked install with no pass behind it")
@@ -176,7 +177,7 @@ func TestWithTheModeOffTheLinkIsTheWholeState(t *testing.T) {
 	a := discordApp(&fakeDiscord{answer: inChannel()})
 	a.discordPass()
 
-	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.GroupSource = group.SourceKey
 
 	d := a.discordWire()
 	if !d.Linked || d.InChannel || d.ChannelName != "" {
@@ -188,7 +189,7 @@ func TestWithTheModeOffTheLinkIsTheWholeState(t *testing.T) {
 func TestStoringALinkAnnouncesIt(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	a := discordApp(&fakeDiscord{})
-	a.settings.Relay.DiscordMode = false
+	a.settings.Relay.GroupSource = group.SourceKey
 	a.settings.Relay.DiscordLink = ""
 
 	stream, cancel, err := a.events.Subscribe(nil)

@@ -166,6 +166,13 @@ public static class Descriptions
         ["remotegaming"] = "For rendered motion someone plays through. Delay above everything else.",
     };
 
+    /// <summary>What each source asks for, and who ends up able to watch.</summary>
+    private static readonly Dictionary<string, string> GroupSources = new()
+    {
+        ["key"] = "Everyone holding the key can watch. Paste a key you were sent, or make one and pass it on like a meeting link.",
+        ["discord"] = "Everyone in the voice channel your Discord account is in can watch, and leaving it cuts them off within seconds. No key changes hands. Needs a linked Discord account.",
+    };
+
     private static readonly Dictionary<string, string> Transports = new()
     {
         ["srt"] = "UDP that requests lost packets again, within a delay window set here. One outgoing connection carries everything, so a home router needs no setup.",
@@ -229,6 +236,8 @@ public static class Descriptions
     public static string RtspProtocol(string id) => Look(RtspProtocols, id);
 
     public static string RenderChain(string id) => Look(RenderChains, id);
+
+    public static string GroupSource(string id) => Look(GroupSources, id);
 
     /// <summary>
     /// Paragraph for an identifier, and nothing where this build has none.

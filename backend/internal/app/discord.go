@@ -83,7 +83,7 @@ func (a *App) discordState() discordSnapshot {
 // pollPass is one pass of the relay poll, in whichever mode the settings hold.
 func (a *App) pollPass() {
 	a.settingsMu.Lock()
-	mode := a.settings.Relay.DiscordMode
+	mode := a.settings.Relay.FollowsDiscord()
 	a.settingsMu.Unlock()
 
 	if mode {
@@ -217,7 +217,7 @@ func (a *App) discordWire() wire.DiscordSnapshot {
 
 	held := a.storedLink(r)
 	d := a.discordState()
-	if !r.DiscordMode {
+	if !r.FollowsDiscord() {
 		d = discordSnapshot{Refused: d.Refused}
 	}
 	return d.wire(held)
@@ -272,7 +272,7 @@ func (a *App) withStoredLink(s settings.Settings) settings.Settings {
 func (a *App) withBrokered(s settings.Settings) settings.Settings {
 	s = a.withStoredLink(s)
 
-	if !s.Relay.DiscordMode {
+	if !s.Relay.FollowsDiscord() {
 		return s
 	}
 	d := a.discordState()

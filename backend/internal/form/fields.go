@@ -434,13 +434,18 @@ var fieldTable = []field{
 	// a port answered against no host being a number about nothing,
 	// and which port is read follows from the leg chosen further up.
 	{
-		// The group follows the voice channel this machine's linked Discord account sits in
-		// (docs/discord-mode.md).
+		// Where the group comes from: the key below, or the voice channel this machine's linked
+		// Discord account sits in (docs/discord-mode.md).
 		// Ahead of the key and the name, being the fact that decides whether either is read.
-		key:     KeyDiscordMode,
+		//
+		// A radio and not a toggle: the two sources are one question with two answers,
+		// and each answer needs its paragraph read before it is picked,
+		// one asking for a secret somebody hands over and the other for a linked account.
+		key:     KeyGroupSource,
 		group:   GroupRelay,
-		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.DiscordMode) },
+		control: screensharev1.ControlKind_CONTROL_KIND_RADIO,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.GroupSource) },
+		options: optionGroupSources,
 	},
 	{
 		// The group is where every stream of this machine lives on the relay.

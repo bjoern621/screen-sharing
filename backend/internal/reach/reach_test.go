@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -606,7 +607,7 @@ func TestAProbeSendsTheTokenItWasGiven(t *testing.T) {
 func TestTheDiscordManagerIsCheckedInDiscordMode(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
-	s.Relay.DiscordMode = true
+	s.Relay.GroupSource = group.SourceDiscord
 
 	e, ok := endpointFor(Endpoints(s), legDiscord)
 	if !ok {

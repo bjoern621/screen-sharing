@@ -134,7 +134,7 @@ type ControlServiceClient interface {
 	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(ctx context.Context, in *GetMembersStateRequest, opts ...grpc.CallOption) (*MembersState, error)
 	// Discord mode as the backend's last manager pass read it, the event's read twin.
-	// Meaningful while the settings hold discord_mode.
+	// Meaningful while the settings hold the Discord group source.
 	GetDiscordState(ctx context.Context, in *GetDiscordStateRequest, opts ...grpc.CallOption) (*DiscordState, error)
 	// Reads a link this machine was handed and answers the stream it opens
 	// (backend/internal/applink).
@@ -968,7 +968,7 @@ type ControlServiceServer interface {
 	// and presence is stated on the loop that already polls the relay.
 	GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error)
 	// Discord mode as the backend's last manager pass read it, the event's read twin.
-	// Meaningful while the settings hold discord_mode.
+	// Meaningful while the settings hold the Discord group source.
 	GetDiscordState(context.Context, *GetDiscordStateRequest) (*DiscordState, error)
 	// Reads a link this machine was handed and answers the stream it opens
 	// (backend/internal/applink).

@@ -171,6 +171,11 @@ func Load() (Settings, error) {
 	if flat, ok := decodeFlat(data); ok {
 		s = flat
 	}
+	// A file written while the group source was a flag carries that flag and no source,
+	// so the choice is read off the same bytes rather than landing on the default (migrate.go).
+	if source, ok := decodeStoredSource(data); ok {
+		s.Relay.GroupSource = source
+	}
 	// A key that changed group is in these bytes under the group that used to hold it,
 	// which the decode above found no field for (migrate.go).
 	s = decodeMoved(s, data)

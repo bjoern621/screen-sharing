@@ -89,7 +89,7 @@ service ControlService {
   rpc GetMembersState(GetMembersStateRequest) returns (MembersState);
 
   // Discord mode as the backend's last manager pass read it, the event's read twin.
-  // Meaningful while the settings hold discord_mode.
+  // Meaningful while the settings hold the Discord group source.
   rpc GetDiscordState(GetDiscordStateRequest) returns (DiscordState);
 
   // Reads a link this machine was handed and answers the stream it opens

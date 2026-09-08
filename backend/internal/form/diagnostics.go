@@ -18,7 +18,7 @@ import (
 // An anchor no shell has a widget for renders the diagnostic nowhere and reports nothing,
 // so every anchor a rule below writes is held against this list.
 var warningAnchors = []string{
-	KeyRelayHost, KeyRelayTls, KeyDiscordMode, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
+	KeyRelayHost, KeyRelayTls, KeyGroupSource, KeyGroupKey, KeyDisplayName, KeySrtPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
@@ -111,25 +111,25 @@ func diagnosticsAboutTheAudience(d Deps, s settings.Settings) []*screensharev1.D
 	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.InGroup() {
 		return nil
 	}
-	// Every way Discord mode reaches no group, anchored on the toggle:
+	// Every way the Discord source reaches no group, anchored on the choice that names it:
 	// the manual controls are greyed there, so none of them can carry the refusal.
 	// InGroup above already read the brokered membership the resolve injected
 	// (internal/app, Brokered), so reaching here is really being outside.
-	if s.Relay.DiscordMode {
+	if s.Relay.FollowsDiscord() {
 		if s.Relay.DiscordLink == "" {
 			return []*screensharev1.Diagnostic{
-				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordNotLinked)),
+				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyGroupSource, say(discordNotLinked)),
 			}
 		}
 		// A refused link is held and declined, and joining a channel clears neither,
 		// so the move this names is linking again.
 		if d.DiscordRefused {
 			return []*screensharev1.Diagnostic{
-				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordLinkRefused)),
+				diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyGroupSource, say(discordLinkRefused)),
 			}
 		}
 		return []*screensharev1.Diagnostic{
-			diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyDiscordMode, say(discordNoVoiceChannel)),
+			diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, KeyGroupSource, say(discordNoVoiceChannel)),
 		}
 	}
 	if s.Relay.GroupKey == "" {

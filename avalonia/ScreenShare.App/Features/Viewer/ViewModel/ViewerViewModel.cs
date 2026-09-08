@@ -499,7 +499,7 @@ public sealed class ViewerViewModel : Observable
         HasFullscreen = FullscreenTile is not null;
 
         // The way into a group, which the card and the grid each name in their own sentence.
-        var discordMode = _form.Stored?.Relay?.DiscordMode == true;
+        var discordMode = _form.Stored?.Relay?.GroupSource == "discord";
 
         Members.Reported = _session.Members;
         Members.Discord = _session.Discord;

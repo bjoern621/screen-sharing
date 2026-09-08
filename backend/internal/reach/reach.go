@@ -66,7 +66,7 @@ const (
 	ReasonNone Reason = iota
 	// ReasonNoRelay: settings name no relay, so no leg has an address.
 	ReasonNoRelay
-	// ReasonDiscordOff: Discord mode is off, so nothing this machine does reaches the manager,
+	// ReasonDiscordOff: the group comes from a key, so nothing this machine does reaches the manager,
 	// whatever it answers.
 	ReasonDiscordOff
 )
@@ -267,7 +267,7 @@ func discordService(r settings.Relay) resolved {
 		address: base,
 		target:  target{url: base + "/health", method: http.MethodGet, wantOK: true, insecure: r.OnTrustedNetwork()},
 	}
-	if !r.DiscordMode {
+	if !r.FollowsDiscord() {
 		row.reason = ReasonDiscordOff
 	}
 	return row

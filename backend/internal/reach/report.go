@@ -29,7 +29,7 @@ var marks = map[Verdict]string{
 // Rows crossing to a shell carry the code and the shell writes the sentence (docs/ipc-api.md).
 var reasons = map[Reason]string{
 	ReasonNoRelay:    "no relay is named in the settings",
-	ReasonDiscordOff: "Discord mode is off",
+	ReasonDiscordOff: "the group comes from a key",
 }
 
 // Report writes a line per leg: mark, leg, where it answers, what came back, the version it named

@@ -112,7 +112,7 @@ The app draws it under the connection step's controls, on the settings on screen
 `backend check-relay` runs the same check over the stored ones and prints them.
 
 ```
-–  discord                             Discord mode is off
+–  discord                             the group comes from a key
 ✓  groups   https://relay.example      200 OK           0.9.0  62ms
 ✓  hls      https://relay.example      200 OK                  64ms
 ✓  webrtc   https://relay.example      204 No Content          64ms

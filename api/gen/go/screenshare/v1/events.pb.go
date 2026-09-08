@@ -1889,12 +1889,12 @@ type DiscordState struct {
 	// The answer stands from an earlier pass because the manager stopped answering.
 	Stale bool `protobuf:"varint,5,opt,name=stale,proto3" json:"stale,omitempty"`
 	// The Discord account this install is linked as, for a reader.
-	// The link flow lands it beside the secret, so it stands whether or not discord_mode is on.
+	// The link flow lands it beside the secret, so it stands whichever source the group comes from.
 	// Empty where the manager that drew the link named no account.
 	AccountName string `protobuf:"bytes,6,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
 	// The manager declines to resolve the link this install holds, so no group follows the channel.
 	// Linking again is what clears it, and polling never does.
-	// Stands with discord_mode off, the toggle drawing no link and resolving none.
+	// Stands with the group off a key, that source drawing no link and resolving none.
 	LinkRefused bool `protobuf:"varint,7,opt,name=link_refused,json=linkRefused,proto3" json:"link_refused,omitempty"`
 	// The linked account's Discord picture, PNG bytes, empty until one is read.
 	// Bytes and not an address: a shell draws what the backend hands it,

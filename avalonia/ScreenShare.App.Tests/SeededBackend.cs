@@ -368,7 +368,7 @@ internal sealed class SeededBackend : IBackend
         Relay = new RelaySettings
         {
             Host = RelayHost,
-            DiscordMode = FollowDiscord,
+            GroupSource = FollowDiscord ? "discord" : "key",
             SrtPort = 8890,
             RtspPort = 8322,
             WebrtcPort = 8889,
@@ -967,7 +967,7 @@ internal sealed class SeededBackend : IBackend
     public string RelayHost { get; set; } = "127.0.0.1";
 
     /// <summary>
-    /// Whether the group follows the voice channel (<c>Relay.DiscordMode</c>),
+    /// Whether the group comes from the voice channel (<c>Relay.GroupSource</c>),
     /// which greys the manual group controls.
     /// </summary>
     public bool FollowDiscord { get; set; }
@@ -1240,10 +1240,10 @@ internal sealed class SeededBackend : IBackend
                     ? (true, true, null, null)
                     : (true, false, Update.Unchecked, null);
 
-            // Disabled from a mode owning the value: the group follows the voice channel,
+            // Disabled from a source owning the value: the group follows the voice channel,
             // so a key set here is read by nobody (backend/internal/form/availability.go).
             case "relay.group_key":
-                return settings.Relay.DiscordMode
+                return settings.Relay.GroupSource == "discord"
                     ? (true, false, Say(TextCode.GroupFollowsDiscord), null)
                     : (true, true, null, null);
 
@@ -1808,7 +1808,16 @@ internal sealed class SeededBackend : IBackend
             Fields =
             [
                 new() { Key = "relay.host", Control = ControlKind.Text },
-                new() { Key = "relay.discord_mode", Control = ControlKind.Toggle },
+                new()
+                {
+                    Key = "relay.group_source",
+                    Control = ControlKind.Radio,
+                    Options =
+                    [
+                        new() { Value = "key" },
+                        new() { Value = "discord" },
+                    ],
+                },
                 new() { Key = "relay.group_key", Control = ControlKind.Text },
                 new() { Key = "relay.srt_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },

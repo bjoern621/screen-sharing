@@ -92,7 +92,7 @@ func (a *App) startPublish(s settings.Settings) error {
 	// In Discord mode membership is the brokered facts, which the caller's copy cannot carry.
 	s = a.withBrokered(s)
 	if !s.Relay.InGroup() {
-		if s.Relay.DiscordMode {
+		if s.Relay.FollowsDiscord() {
 			return a.discordRefusal(s)
 		}
 		return errNoGroup

@@ -150,9 +150,9 @@ type AppSettings struct {
 	// A share states itself on the Discord client running beside this app:
 	// what is shared, which voice channel, how many are watching of how many in it
 	// (docs/discord-mode.md).
-	// Set while relay.discord_mode is off states nothing,
-	// the channel and the audience being that mode's answers,
-	// so turning it on turns the mode on with it (internal/app, SaveSettings).
+	// Set while the group comes from a key states nothing,
+	// the channel and the audience being the Discord source's answers,
+	// so turning it on moves the group onto that source with it (internal/app, SaveSettings).
 	DiscordRichPresence bool `protobuf:"varint,5,opt,name=discord_rich_presence,json=discordRichPresence,proto3" json:"discord_rich_presence,omitempty"`
 	// The synthetic publishers this machine exercises the viewing paths with, and an encoder per slot.
 	// A development aid: the streams carry test patterns and reach every viewer of the group
@@ -267,6 +267,17 @@ type RelaySettings struct {
 	// A shell that sent a value here would be answering a question this side already answered,
 	// and the two would disagree the moment the host was edited.
 	Tls bool `protobuf:"varint,10,opt,name=tls,proto3" json:"tls,omitempty"`
+	// Where membership comes from: "key", the secret below, or "discord",
+	// the voice channel this machine's linked Discord account sits in (internal/group, Sources).
+	//
+	// One question with two answers rather than a flag on the Discord half.
+	// A flag off names no source, leaving the key under it reading as the group control in one mode
+	// and as a dead box in the other, with nothing on the form saying which.
+	//
+	// Under "discord" group_key is left unread:
+	// membership, paths and passphrases come brokered from the Discord manager,
+	// and the stored key waits for the choice to come back (docs/discord-mode.md).
+	GroupSource string `protobuf:"bytes,16,opt,name=group_source,json=groupSource,proto3" json:"group_source,omitempty"`
 	// Secret whose possession is membership of a group, as the key service handed it over.
 	// Empty is a machine in no group, and taking a key out of here is what leaves one.
 	//
@@ -284,11 +295,6 @@ type RelaySettings struct {
 	// a member is listed under a name, claimed first-come inside a group,
 	// so there is nothing to fill this with that another member may not already hold.
 	DisplayName string `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	// The group follows the voice channel this machine's linked Discord account sits in.
-	// While set, group_key is left unread:
-	// membership, paths and passphrases come brokered from the Discord manager,
-	// and the stored key waits for the toggle to go off (docs/discord-mode.md).
-	DiscordMode bool `protobuf:"varint,13,opt,name=discord_mode,json=discordMode,proto3" json:"discord_mode,omitempty"`
 	// Names this install as a Discord account at the manager, drawn by the link flow.
 	// It carries the trust group_key does.
 	//
@@ -389,6 +395,13 @@ func (x *RelaySettings) GetTls() bool {
 	return false
 }
 
+func (x *RelaySettings) GetGroupSource() string {
+	if x != nil {
+		return x.GroupSource
+	}
+	return ""
+}
+
 func (x *RelaySettings) GetGroupKey() string {
 	if x != nil {
 		return x.GroupKey
@@ -401,13 +414,6 @@ func (x *RelaySettings) GetDisplayName() string {
 		return x.DisplayName
 	}
 	return ""
-}
-
-func (x *RelaySettings) GetDiscordMode() bool {
-	if x != nil {
-		return x.DiscordMode
-	}
-	return false
 }
 
 func (x *RelaySettings) GetDiscordLink() string {
@@ -1101,7 +1107,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x16check_updates_on_start\x18\x02 \x01(\bR\x13checkUpdatesOnStart\x12\x1b\n" +
 	"\ttray_icon\x18\x04 \x01(\bR\btrayIcon\x122\n" +
 	"\x15discord_rich_presence\x18\x05 \x01(\bR\x13discordRichPresence\x12!\n" +
-	"\ftest_streams\x18\x03 \x01(\bR\vtestStreams\"\xaa\x03\n" +
+	"\ftest_streams\x18\x03 \x01(\bR\vtestStreams\"\xbe\x03\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x1b\n" +
@@ -1112,12 +1118,12 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x19\n" +
 	"\bmoq_port\x18\v \x01(\x05R\amoqPort\x12\x10\n" +
 	"\x03tls\x18\n" +
-	" \x01(\bR\x03tls\x12\x1b\n" +
+	" \x01(\bR\x03tls\x12!\n" +
+	"\fgroup_source\x18\x10 \x01(\tR\vgroupSource\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
 	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12!\n" +
-	"\fdiscord_mode\x18\r \x01(\bR\vdiscordMode\x12!\n" +
-	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLinkJ\x04\b\x0f\x10\x10J\x04\b\t\x10\n" +
-	"J\x04\b\x03\x10\x04R\x15discord_rich_presenceR\x0esrt_passphraseR\bapi_port\"\x80\n" +
+	"\fdiscord_link\x18\x0e \x01(\tR\vdiscordLinkJ\x04\b\r\x10\x0eJ\x04\b\x0f\x10\x10J\x04\b\t\x10\n" +
+	"J\x04\b\x03\x10\x04R\fdiscord_modeR\x15discord_rich_presenceR\x0esrt_passphraseR\bapi_port\"\x80\n" +
 	"\n" +
 	"\x0fPublishSettings\x12+\n" +
 	"\x11publish_transport\x18\n" +

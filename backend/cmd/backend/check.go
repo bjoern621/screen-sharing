@@ -56,7 +56,7 @@ func runCheck() int {
 // to fail in.
 func withRelayToken(s settings.Settings) settings.Settings {
 	base, ok := s.Relay.GroupService()
-	if !ok || s.Relay.DiscordMode || s.Relay.GroupKey == "" {
+	if !ok || s.Relay.FollowsDiscord() || s.Relay.GroupKey == "" {
 		return s
 	}
 

@@ -184,6 +184,13 @@ public static class Words
         ["region"] = "Only the rectangle you draw is sent. A window moved into it becomes visible.",
     };
 
+    /// <summary>Where a group comes from, named by the thing that decides who is in it.</summary>
+    private static readonly Dictionary<string, string> GroupSources = new()
+    {
+        ["key"] = "A group key",
+        ["discord"] = "A Discord voice channel",
+    };
+
     private static readonly Dictionary<string, string> Cursors = new()
     {
         ["embedded"] = "Drawn into the picture",
@@ -443,6 +450,8 @@ public static class Words
     public static string Cursor(string id) => Look(Cursors, id);
 
     public static string ShareKind(string id) => Look(ShareKinds, id);
+
+    public static string GroupSource(string id) => Look(GroupSources, id);
 
     public static string ShareKindNote(string id) => ShareKindNotes.TryGetValue(id, out var note) ? note : "";
 

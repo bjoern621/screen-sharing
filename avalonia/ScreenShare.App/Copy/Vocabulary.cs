@@ -68,6 +68,7 @@ public sealed class Vocabulary
         "publish.publish_transport" or "viewer.tile_watch_transport" => Words.Transport(value),
         "publish.rtsp_publish_protocol" or "viewer.rtsp_watch_protocol" => Words.RtspProtocol(value),
         "viewer.render_chain" => Words.RenderChain(value),
+        "relay.group_source" => Words.GroupSource(value),
         _ => value,
     };
 
@@ -94,6 +95,7 @@ public sealed class Vocabulary
         "publish.publish_transport" or "viewer.tile_watch_transport" => Descriptions.Transport(value),
         "publish.rtsp_publish_protocol" or "viewer.rtsp_watch_protocol" => Descriptions.RtspProtocol(value),
         "viewer.render_chain" => Descriptions.RenderChain(value),
+        "relay.group_source" => Descriptions.GroupSource(value),
         _ => "",
     };
 

@@ -5,6 +5,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -144,7 +145,7 @@ func TestStoppingTheControlServiceTwiceIsOneStop(t *testing.T) {
 func TestADiscordStreamCarriesNoPendingChange(t *testing.T) {
 	held := settings.Defaults()
 	held.Relay.Host = "relay.example.com"
-	held.Relay.DiscordMode = true
+	held.Relay.GroupSource = group.SourceDiscord
 	held.Relay.DiscordLink = "link-secret"
 
 	a := &App{settings: held}

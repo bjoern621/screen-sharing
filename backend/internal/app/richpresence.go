@@ -73,7 +73,7 @@ func (a *App) statePresenceOnDiscord() {
 	// The channel and the audience are Discord mode's answers,
 	// so the mode going off leaves the last pass's snapshot describing a group nothing follows
 	// (discord.go, discordWire).
-	if !r.DiscordMode || !stated {
+	if !r.FollowsDiscord() || !stated {
 		a.dropRichPresence()
 		return
 	}

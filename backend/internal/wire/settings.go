@@ -64,7 +64,7 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		Tls:         r.Tls(),
 		GroupKey:    r.GroupKey,
 		DisplayName: r.DisplayName,
-		DiscordMode: r.DiscordMode,
+		GroupSource: r.GroupSource,
 	}
 }
 
@@ -178,7 +178,7 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		MoqPort:     int(m.GetMoqPort()),
 		GroupKey:    m.GetGroupKey(),
 		DisplayName: m.GetDisplayName(),
-		DiscordMode: m.GetDiscordMode(),
+		GroupSource: m.GetGroupSource(),
 	}
 }
 

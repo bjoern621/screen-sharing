@@ -7,6 +7,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/events"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -24,7 +25,7 @@ func TestStartPublishRepeatsADiscordStream(t *testing.T) {
 		t.Fatalf("resolving a form answered %v, want an answer", err)
 	}
 	draft := idle.GetForm().GetSettings()
-	draft.Relay.DiscordMode = true
+	draft.Relay.GroupSource = group.SourceDiscord
 
 	running := backend.Brokered(wire.ToSettings(draft))
 	backend.publish = wire.PublishSnapshot{Live: &wire.LiveSnapshot{Settings: running}}

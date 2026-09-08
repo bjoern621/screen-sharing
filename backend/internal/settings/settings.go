@@ -82,6 +82,17 @@ type Relay struct {
 	// No reverse proxy carries WebTransport,
 	// so the relay terminates that leg itself wherever it runs (transport.MoQ).
 	MoqPort int `json:"moqPort"`
+	// GroupSource is where membership comes from: group.SourceKey, the secret below,
+	// or group.SourceDiscord, the voice channel this install's linked account sits in.
+	//
+	// Under Discord GroupKey is left unread:
+	// membership, paths and passphrases come brokered from the manager instead,
+	// and the stored key waits for the choice to come back (docs/discord-mode.md).
+	//
+	// One question with two answers rather than a flag on the Discord half,
+	// a group coming from one source at a time.
+	// A value this build does not know is repaired onto the shipped one on load (migrate.go).
+	GroupSource string `json:"groupSource"`
 	// GroupKey is the secret whose possession is membership of a group,
 	// as the key service handed it over (internal/group).
 	// Empty is a machine in no group.
@@ -98,11 +109,6 @@ type Relay struct {
 	// Empty is a machine with no name, and joining a group asks for one.
 	// With the relay because a group is, and a preset carries neither.
 	DisplayName string `json:"displayName,omitempty"`
-	// DiscordMode has the group follow the voice channel this machine's linked account sits in.
-	// While set, GroupKey is left unread:
-	// membership, paths and passphrases come brokered from the Discord manager instead,
-	// and the stored key waits for the toggle to go off (docs/discord-mode.md).
-	DiscordMode bool `json:"discordMode,omitempty"`
 	// DiscordLink names this install as a Discord account at the manager.
 	// Drawn by the link flow, held like GroupKey and carrying the same trust:
 	// whoever reads it watches this account's channels.
@@ -247,8 +253,18 @@ func (r Relay) GroupService() (base string, ok bool) {
 //
 // A key that will not parse reads as membership here and reaches a path every relay refuses (Path),
 // this being the settings a user typed rather than a fact this app can repair.
+// FollowsDiscord reports whether the group comes from the voice channel rather than from GroupKey.
+//
+// The one read of GroupSource every caller takes, so no site spells a source value
+// and a third source is a change here rather than a comparison per site.
+// Anything but the Discord source is the key's: a load repairs an unknown value (migrate.go)
+// and a draft carrying one is walked onto a legal source and named (internal/form, Repair).
+func (r Relay) FollowsDiscord() bool {
+	return r.GroupSource == group.SourceDiscord
+}
+
 func (r Relay) InGroup() bool {
-	if r.DiscordMode {
+	if r.FollowsDiscord() {
 		return r.brokered != nil && r.DisplayName != ""
 	}
 	return r.GroupKey != "" && r.DisplayName != ""
@@ -273,9 +289,9 @@ func (r Relay) InGroup() bool {
 // What keeps a machine outside a group from reaching here at all
 // is the publish refusing before a path is built (internal/form, diagnosticsAboutTheAudience).
 func (r Relay) Path(name string) string {
-	// In Discord mode the brokered prefix is the group's, held to the same name rule,
+	// Under the Discord source the brokered prefix is the group's, held to the same name rule,
 	// and the stored key stays unread: paths must follow the voice channel alone.
-	if r.DiscordMode {
+	if r.FollowsDiscord() {
 		if r.brokered == nil {
 			return name
 		}
@@ -359,7 +375,7 @@ func (s Settings) WatchPath(streamName string) string {
 // (internal/groupsvc).
 func (r Relay) SrtPassphrase() string {
 	// Brokered beside the prefix it belongs to, the manager deriving both from the one key.
-	if r.DiscordMode {
+	if r.FollowsDiscord() {
 		if r.brokered == nil {
 			return ""
 		}
@@ -665,6 +681,9 @@ func Defaults() Settings {
 			// that file being the configuration every relay runs.
 			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890,
 			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
+			// The key: the source needing no account linked and no manager reachable,
+			// so a fresh installation can join a group with what somebody pasted to it.
+			GroupSource: group.SourceKey,
 		},
 		Publish: Publish{
 			// A fresh installation follows the balanced preset,

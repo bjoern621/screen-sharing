@@ -543,11 +543,11 @@ public static class Statements
                 + "or create a group and share its key.",
 
             TextCode.GroupFollowsDiscord =>
-                "The group follows the voice channel while Follow Discord is on. "
-                + "Turn it off to set a key and a name by hand.",
+                "The group comes from your Discord voice channel, which sets this itself. "
+                + "Pick a group key above to set it by hand.",
 
             TextCode.DiscordNotLinked =>
-                "Follow Discord is on, but this computer is not linked to a Discord account. "
+                "The group comes from a Discord voice channel, and this computer is not linked to a Discord account. "
                 + "Press Link Discord in Settings.",
 
             TextCode.DiscordLinkRefused =>
@@ -624,7 +624,7 @@ public static class Statements
                 "No relay is set, so there is no address to check.",
 
             TextCode.RelayLegDiscordOff =>
-                "Discord mode is off, so nothing here uses this manager.",
+                "The group comes from a key, so nothing here uses this manager.",
 
             // Updates.
             // The first three are why nothing is checked or installed here, and each names what does it instead.

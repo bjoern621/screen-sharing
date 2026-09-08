@@ -14,6 +14,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	// Aliased: group is this package's own type, the heading a shell draws (form.go).
+	groupdomain "bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/receive"
@@ -566,6 +568,14 @@ func optionMaxratePresets(d Deps, s settings.Settings) []*screensharev1.FieldOpt
 	}
 	assert.Assert(len(out) > 0, "the burst ceiling offers a ladder to reach", s.Publish.Mode)
 	return out
+}
+
+// optionGroupSources offers both sources a group comes from (groupdomain.Sources).
+// Neither is ever greyed: the key is reachable with nothing linked,
+// and Discord is what a machine with no link picks before linking,
+// its own refusals being diagnostics on the field rather than a greyed entry (diagnostics.go).
+func optionGroupSources(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
+	return optionPlainList(groupdomain.Sources, KeyGroupSource)
 }
 
 // optionShareKinds offers every kind share.Kinds declares.

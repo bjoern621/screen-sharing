@@ -64,7 +64,7 @@ Both effects return at once and report on the event stream, a download running f
 Which copies may replace themselves is the backend's answer, on `UpdateState` before a shell draws a control (`updates.md`).
 
 Discord mode holds the same shape.
-`SaveSettings` turns it on, `LinkDiscord` is the one effect that stores the link secret,
+`SaveSettings` moves the group onto the voice channel, `LinkDiscord` is the one effect that stores the link secret,
 and `GetDiscordState` reads the link off the settings and the channel off the last manager pass (`discord-mode.md`).
 
 ## Why

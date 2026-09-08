@@ -149,23 +149,23 @@ func TestAnUnlistedStreamIsWatchedByNobody(t *testing.T) {
 func TestTheActivityFollowsDiscordMode(t *testing.T) {
 	r := followsDiscord(settings.App{}, settings.App{DiscordRichPresence: true}, settings.Relay{})
 
-	if !r.DiscordMode {
-		t.Error("the activity is drawn from a voice channel, so asking for it asks for Discord mode")
+	if !r.FollowsDiscord() {
+		t.Error("the activity is drawn from a voice channel, so asking for it asks for that source")
 	}
 }
 
-func TestDiscordModeIsLeftAloneWithoutTheActivity(t *testing.T) {
+func TestTheGroupSourceIsLeftAloneWithoutTheActivity(t *testing.T) {
 	r := followsDiscord(settings.App{}, settings.App{}, settings.Relay{GroupKey: "a-key"})
 
-	if r.DiscordMode {
-		t.Error("a machine asking for no activity is left in the mode its own settings name")
+	if r.FollowsDiscord() {
+		t.Error("a machine asking for no activity is left on the source its own settings name")
 	}
 }
 
-func TestDiscordModeIsLeftAloneWhileTheActivityDoesNotMove(t *testing.T) {
+func TestTheGroupSourceIsLeftAloneWhileTheActivityDoesNotMove(t *testing.T) {
 	on := settings.App{DiscordRichPresence: true}
 
-	if followsDiscord(on, on, settings.Relay{}).DiscordMode {
-		t.Error("a machine that asked for no mode keeps the one its settings name, the stated share a fresh installation carries included")
+	if followsDiscord(on, on, settings.Relay{}).FollowsDiscord() {
+		t.Error("a machine that asked for no source keeps the one its settings name, the stated share a fresh installation carries included")
 	}
 }

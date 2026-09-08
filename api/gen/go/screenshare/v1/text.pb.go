@@ -770,11 +770,11 @@ const (
 	// The group key is the control that joins one.
 	// No arguments.
 	TextCode_TEXT_CODE_GROUP_REQUIRED TextCode = 171
-	// The group follows the voice channel while Discord mode is on (docs/discord-mode.md),
-	// so the manual group controls change nothing until the toggle goes off.
+	// The group follows the voice channel while it comes from Discord (docs/discord-mode.md),
+	// so the manual group controls change nothing until the key is the source again.
 	// No arguments.
 	TextCode_TEXT_CODE_GROUP_FOLLOWS_DISCORD TextCode = 172
-	// Discord mode is on and this install holds no link,
+	// The group comes from Discord and this install holds no link,
 	// so there is no account to read a voice channel off.
 	// Linking is the action that clears it.
 	// No arguments.
@@ -815,7 +815,7 @@ const (
 	// No relay is named in the settings, so no leg has an address at all.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_NO_RELAY TextCode = 166
-	// Discord mode is off, so nothing this machine does reaches the manager beside the relay,
+	// The group comes from a key, so nothing this machine does reaches the manager beside the relay,
 	// whatever it answers.
 	// No arguments.
 	TextCode_TEXT_CODE_RELAY_LEG_DISCORD_OFF TextCode = 189

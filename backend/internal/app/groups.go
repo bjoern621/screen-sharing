@@ -53,7 +53,7 @@ func (a *App) settingsForCommand(s settings.Settings) (settings.Settings, error)
 	// The caller's copy came off the contract, which carries no link secret (internal/wire, ToRelay).
 	s = a.withStoredLink(s)
 
-	if s.Relay.DiscordMode {
+	if s.Relay.FollowsDiscord() {
 		// The manager brokers the trade and the brokered facts ride the same copy (discord.go).
 		return a.discordSettingsForCommand(s)
 	}
