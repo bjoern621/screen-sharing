@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls.Primitives;
 using ScreenShare.App.Contracts;
@@ -40,9 +41,13 @@ public sealed class CheckItem : TemplatedControl
     public static readonly StyledProperty<CheckState> StateProperty =
         AvaloniaProperty.Register<CheckItem, CheckState>(nameof(State), CheckState.Pending);
 
-    /// <summary>Step that fixes a blocking check, empty on every other state.</summary>
+    /// <summary>Press reaching the step that fixes the line, empty where the form named no field.</summary>
     public static readonly StyledProperty<string> FixedInStepProperty =
         AvaloniaProperty.Register<CheckItem, string>(nameof(FixedInStep), "");
+
+    /// <summary>What that press runs. Null draws the step as a hint rather than a control.</summary>
+    public static readonly StyledProperty<ICommand?> FixProperty =
+        AvaloniaProperty.Register<CheckItem, ICommand?>(nameof(Fix));
 
     public string Text
     {
@@ -60,6 +65,12 @@ public sealed class CheckItem : TemplatedControl
     {
         get => GetValue(FixedInStepProperty);
         set => SetValue(FixedInStepProperty, value);
+    }
+
+    public ICommand? Fix
+    {
+        get => GetValue(FixProperty);
+        set => SetValue(FixProperty, value);
     }
 
     /// <summary>

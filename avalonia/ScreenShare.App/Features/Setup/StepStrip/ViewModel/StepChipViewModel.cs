@@ -54,11 +54,22 @@ public sealed record StepChipViewModel
 
     public required DelegateCommand Select { get; init; }
 
+    /// <summary>
+    /// Whether a blocking line names this step, the terminal chip carrying every one of them.
+    /// The strip is on every step, so a fault a reader is standing away from is still visible.
+    /// </summary>
+    public required bool IsBlocked { get; init; }
+
     public bool IsDone => State == StepChipState.Done;
 
     public bool IsCurrent => State == StepChipState.Current;
 
     public bool IsTerminal => State == StepChipState.Terminal;
+
+    /// <summary>Blocked wins the badge: the number and the tick both say the flow got past this step.</summary>
+    public bool ShowsNumber => !IsDone && !IsBlocked;
+
+    public bool ShowsWalked => IsDone && !IsBlocked;
 }
 
 /// <summary>
@@ -67,17 +78,24 @@ public sealed record StepChipViewModel
 /// </summary>
 public static class StepChips
 {
+    /// <param name="checks">
+    /// Pre-publish list, which decides the marked chips.
+    /// The list rather than a set of keys, so the mark is derived where the lines are counted.
+    /// </param>
     public static IReadOnlyList<StepChipViewModel> For(
         IReadOnlyList<SetupStepRow> steps,
         string current,
+        IReadOnlyList<PreflightCheckRow> checks,
         Func<SetupStepRow, string> valueOf,
         Func<string, DelegateCommand> commandOf)
     {
         Assert.NotNull(steps, "a strip is built from the steps the form described");
+        Assert.NotNull(checks, "a chip is marked from the list the form's diagnostics became");
         Assert.NotNull(valueOf, "a chip needs somewhere to read its value from");
         Assert.NotNull(commandOf, "a chip needs a command to carry");
 
         var currentIndex = SetupSteps.IndexOf(steps, current);
+        var blocked = PreflightChecks.BlockedSteps(checks);
         var chips = new List<StepChipViewModel>(steps.Count);
 
         for (var i = 0; i < steps.Count; i++)
@@ -94,6 +112,9 @@ public static class StepChips
                 HasConnector = i > 0,
                 IsConnectorLit = i <= currentIndex + 1,
                 Select = commandOf(row.Key),
+                // The commit stands on the terminal step, so every blocking line is against it,
+                // the ones about the settings as a whole included.
+                IsBlocked = row.IsTerminal ? blocked.Count > 0 : blocked.Contains(row.Key),
             });
         }
 

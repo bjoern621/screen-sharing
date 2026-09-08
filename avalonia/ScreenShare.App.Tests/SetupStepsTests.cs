@@ -215,7 +215,7 @@ public sealed class CostRailTests
         var owner = flow.Steps.Single(step => step.Key == "network");
 
         Assert.Contains("upload", warned.Text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(owner.Label, warned.FixedInStep);
+        Assert.Contains(owner.Label, warned.Anchor.Label);
         Assert.True(flow.Rail.IsOverUplink);
         Assert.Equal(flow.Rail.ChecksSummary, flow.Steps.Single(step => step.IsTerminal).Value);
     }

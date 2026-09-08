@@ -19,7 +19,7 @@ Text is five steps from white down through control label, secondary copy, muted 
 
 | Hue | Says | Spent on |
 | --- | --- | --- |
-| red `#E5484D` | broken, or on air | a check that blocks, a failure sentence, the sharing pill and badge, `Stop sharing` |
+| red `#E5484D` | broken, or on air | a check that blocks, the step chip it names, a failure sentence, the sharing pill and badge, `Stop sharing` |
 | amber `#FFB224` | it runs, and something about it disappoints | a check that warns, a figure out of bounds, an estimate over the measured line, why a control is inert |
 | green `#30A46C` | the way is clear | a check that passed, `Start sharing` |
 

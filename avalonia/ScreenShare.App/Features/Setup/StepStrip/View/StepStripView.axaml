@@ -63,6 +63,17 @@
       <Setter Property="Background" Value="{StaticResource OnSelectedBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
+    <!--
+      A step a blocking line names, red wherever the reader is standing
+      (docs/design-language.md, "Palette").
+      Stated after walked and current, so it outranks both: what the flow got past matters less than
+      what stops the publish.
+      The badge says it in a glyph too, carrying the exclamation instead of the number.
+    -->
+    <Style Selector="Button.blocked Border.chipbadge">
+      <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
 
     <Style Selector="TextBlock.chipglyph">
       <Setter Property="FontSize" Value="{StaticResource FontSizeMinor}" />
@@ -80,9 +91,11 @@
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     </Style>
 
-    <!-- Only the walked chip draws it, so no state overrides this. -->
     <Style Selector="ti|TablerIcon.chipglyph">
       <Setter Property="Brush" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+    <Style Selector="Button.blocked ti|TablerIcon.chipglyph">
+      <Setter Property="Brush" Value="{StaticResource OnHueBrush}" />
     </Style>
 
     <Style Selector="TextBlock.chiplabel">
@@ -140,16 +153,21 @@
                   Command="{Binding Select}"
                   Classes.done="{Binding IsDone}"
                   Classes.current="{Binding IsCurrent}"
-                  Classes.terminal="{Binding IsTerminal}">
+                  Classes.terminal="{Binding IsTerminal}"
+                  Classes.blocked="{Binding IsBlocked}">
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
               <Border Grid.Row="0" Grid.Column="0" Classes="chipbadge">
                 <Panel>
                   <TextBlock Classes="chipglyph"
                              Text="{Binding Badge}"
-                             IsVisible="{Binding !IsDone}" />
+                             IsVisible="{Binding ShowsNumber}" />
                   <ti:TablerIcon Classes="badge chipglyph"
                                  Icon="IconCheck"
-                                 IsVisible="{Binding IsDone}"
+                                 IsVisible="{Binding ShowsWalked}"
+                                 HorizontalAlignment="Center" />
+                  <ti:TablerIcon Classes="badge chipglyph"
+                                 Icon="IconExclamationMark"
+                                 IsVisible="{Binding IsBlocked}"
                                  HorizontalAlignment="Center" />
                 </Panel>
               </Border>

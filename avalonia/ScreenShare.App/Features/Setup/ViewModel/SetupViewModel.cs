@@ -111,6 +111,12 @@ public sealed class SetupViewModel : Observable
     private readonly Dictionary<string, DelegateCommand> _reset = [];
 
     /// <summary>
+    /// One fix command per step and field, held for the reason the select commands are:
+    /// a pre-publish line is a record, and the held instance lets two passes over one fault compare equal.
+    /// </summary>
+    private readonly Dictionary<string, DelegateCommand> _fix = [];
+
+    /// <summary>
     /// Measurement offered beside the uplink figure.
     /// The command is held and the action around it made per pass, so what it says follows the running state;
     /// holding the command keeps the button and the lock refusing a second press one object
@@ -510,7 +516,7 @@ public sealed class SetupViewModel : Observable
             IsPublishable, form?.InForce ?? false, _form.Unavailable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _form.Draft?.StreamName ?? "", _refusal, Summaries(drawn, form));
 
-        Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));
+        Reconcile.Onto(Steps, StepChips.For(_steps, current, checks, ValueOf, SelectCommandOf));
 
         var content = ContentOf(current);
         ShowsFields = content == StepContent.Fields;
@@ -968,21 +974,21 @@ public sealed class SetupViewModel : Observable
                 .ToList();
 
     /// <summary>
-    /// Names the step owning one field key, for the diagnostics carrying one.
+    /// Anchors one field key on the step owning it, for the diagnostics carrying one.
     /// The one thing this flow uses the field-to-group arrangement for,
     /// and it is placement: the contract says which control a diagnostic is about,
     /// and this side alone knows which screen that control landed on.
-    /// A diagnostic about a control another destination draws answers empty: the check is still listed,
+    /// A diagnostic about a control another destination draws anchors nowhere: the check is still listed,
     /// and it names no step here because no step here fixes it.
     /// </summary>
-    private static Func<string, string> AnchorIn(IReadOnlyList<SetupStepRow> steps, Form? form)
+    private Func<string, CheckAnchor> AnchorIn(IReadOnlyList<SetupStepRow> steps, Form? form)
     {
         if (form is null)
         {
-            return _ => "";
+            return _ => CheckAnchor.Nowhere;
         }
 
-        var owner = new Dictionary<string, string>();
+        var owner = new Dictionary<string, CheckAnchor>();
         foreach (var group in form.Groups)
         {
             if (SetupSteps.Of(steps, group.Key) is not { } step)
@@ -992,11 +998,11 @@ public sealed class SetupViewModel : Observable
 
             foreach (var field in group.Fields)
             {
-                owner[field.Key] = $"step {step.Number} · {step.Label}";
+                owner[field.Key] = CheckAnchor.On(step, FixCommandOf(step.Key, field.Key));
             }
         }
 
-        return key => key.Length > 0 && owner.TryGetValue(key, out var where) ? where : "";
+        return key => key.Length > 0 && owner.TryGetValue(key, out var where) ? where : CheckAnchor.Nowhere;
     }
 
     /// <summary>
@@ -1114,6 +1120,43 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>One write moves the flow: every chip and every Edit link ends here.</summary>
     private void GoTo(string key) => CurrentStep = key;
+
+    /// <summary>
+    /// Way from a pre-publish line to the control it is about, one command per pair and kept,
+    /// so a pass over an unchanged list produces lines that compare equal.
+    /// Keyed on both: a form that moves a field to another group is a different move,
+    /// and the line naming the old step goes with it.
+    /// </summary>
+    private DelegateCommand FixCommandOf(string stepKey, string fieldKey)
+    {
+        Assert.That(stepKey.Length > 0, "a fix command is identified by the step it moves to");
+        Assert.That(fieldKey.Length > 0, "a fix command is identified by the field it reveals");
+
+        var key = $"{stepKey} {fieldKey}";
+        if (_fix.TryGetValue(key, out var command))
+        {
+            return command;
+        }
+
+        command = new DelegateCommand(() => Fix(stepKey, fieldKey));
+        _fix[key] = command;
+        return command;
+    }
+
+    /// <summary>
+    /// Stands the reader on the step and opens the fold hiding the control, most controls standing behind one.
+    /// A press and never a render pass, which is what the fold takes
+    /// (<see cref="Fields.ViewModel.FoldViewModel.Shown"/>).
+    /// </summary>
+    private void Fix(string stepKey, string fieldKey)
+    {
+        GoTo(stepKey);
+
+        if (_groups.TryGetValue(stepKey, out var group) && group.Folded.Any(field => field.Key == fieldKey))
+        {
+            group.Fold.Shown = true;
+        }
+    }
 
     private void Back()
     {

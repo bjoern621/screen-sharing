@@ -112,7 +112,8 @@
               <controls:CheckItem Margin="0,0,0,9"
                                   Text="{Binding Text}"
                                   State="{Binding State}"
-                                  FixedInStep="{Binding FixedInStep}" />
+                                  FixedInStep="{Binding Anchor.Label}"
+                                  Fix="{Binding Anchor.Fix}" />
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

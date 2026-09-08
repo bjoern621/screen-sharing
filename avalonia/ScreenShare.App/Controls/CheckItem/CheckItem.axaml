@@ -39,12 +39,39 @@
                                  Classes="muted"
                                  LineHeight="{StaticResource LineHeightSmall}" />
 
-            <TextBlock Name="FixIn"
+            <!--
+              The way to the control at fault, pressable where the list carries one.
+              The padding is the room a hover fill needs, and the margins take it back off the layout:
+              the label keeps the body's left edge, and the row below keeps its own gap.
+            -->
+            <Button Name="FixIn"
+                    Theme="{StaticResource LinkButton}"
+                    HorizontalAlignment="Left"
+                    Padding="7,3"
+                    Margin="-7,0,0,-3"
+                    Command="{TemplateBinding Fix}"
+                    IsVisible="{Binding $parent[controls:CheckItem].Fix, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <TextBlock Classes="hint"
+                         Text="{TemplateBinding FixedInStep}"
+                         TextWrapping="Wrap"
+                         TextTrimming="None" />
+            </Button>
+
+            <!-- Named step with no way to it: a hint, the list still saying where the fault is fixed. -->
+            <TextBlock Name="FixHint"
                        Text="{TemplateBinding FixedInStep}"
                        Classes="hint"
                        TextWrapping="Wrap"
-                       TextTrimming="None"
-                       IsVisible="{Binding $parent[controls:CheckItem].FixedInStep, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                       TextTrimming="None">
+              <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="$parent[controls:CheckItem].FixedInStep"
+                           Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                  <Binding Path="$parent[controls:CheckItem].Fix"
+                           Converter="{x:Static ObjectConverters.IsNull}" />
+                </MultiBinding>
+              </TextBlock.IsVisible>
+            </TextBlock>
           </StackPanel>
         </Grid>
       </ControlTemplate>

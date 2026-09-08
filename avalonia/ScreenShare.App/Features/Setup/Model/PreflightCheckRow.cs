@@ -14,11 +14,8 @@ public sealed record PreflightCheckRow
 
     public required CheckState State { get; init; }
 
-    /// <summary>
-    /// Step owning the control at fault, so an unresolved line is not a dead end.
-    /// Empty where the form named no field.
-    /// </summary>
-    public required string FixedInStep { get; init; }
+    /// <summary>Step owning the control at fault, and the press reaching it.</summary>
+    public required CheckAnchor Anchor { get; init; }
 
     public bool IsResolved => State == CheckState.Passed;
 }
@@ -33,15 +30,16 @@ public sealed record PreflightCheckRow
 public static class PreflightChecks
 {
     /// <summary>Diagnostics as lines, in the order the form ranked them.</summary>
-    /// <param name="stepOf">
-    /// Names the step owning one field key.
-    /// Answers empty for a key no step holds, and for a diagnostic about the combination rather than a field.
+    /// <param name="anchorOf">
+    /// Anchors one field key on the step owning it.
+    /// Answers <see cref="CheckAnchor.Nowhere"/> for a key no step holds,
+    /// and for a diagnostic about the combination rather than a field.
     /// </param>
     public static IReadOnlyList<PreflightCheckRow> Of(
-        IReadOnlyList<Diagnostic> diagnostics, Func<string, string> stepOf)
+        IReadOnlyList<Diagnostic> diagnostics, Func<string, CheckAnchor> anchorOf)
     {
         Assert.NotNull(diagnostics, "building the list needs the diagnostics the form carried");
-        Assert.NotNull(stepOf, "a line needs somewhere to look up the step that owns its field");
+        Assert.NotNull(anchorOf, "a line needs somewhere to look up the step that owns its field");
 
         if (diagnostics.Count == 0)
         {
@@ -53,7 +51,7 @@ public static class PreflightChecks
             {
                 Text = Copy.Statements.Of(diagnostic.Text),
                 State = StateOf(diagnostic.Severity),
-                FixedInStep = stepOf(diagnostic.FieldKey),
+                Anchor = anchorOf(diagnostic.FieldKey),
             })
             .ToList();
     }
@@ -66,8 +64,22 @@ public static class PreflightChecks
     {
         Text = Copy.Cards.PreflightClear,
         State = CheckState.Passed,
-        FixedInStep = "",
+        Anchor = CheckAnchor.Nowhere,
     };
+
+    /// <summary>
+    /// Steps a blocking line names, one entry per line, empty for a line naming no field.
+    /// The strip marks its chips from this, so the mark and the list count the same lines.
+    /// </summary>
+    public static IReadOnlyList<string> BlockedSteps(IReadOnlyList<PreflightCheckRow> checks)
+    {
+        Assert.NotNull(checks, "the blocked steps come out of the list the form's diagnostics became");
+
+        return checks
+            .Where(check => check.State == CheckState.Blocking)
+            .Select(check => check.Anchor.StepKey)
+            .ToList();
+    }
 
     /// <summary>
     /// Exhaustive, so a severity added to the contract fails here,
