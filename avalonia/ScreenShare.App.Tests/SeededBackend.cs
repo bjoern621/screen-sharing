@@ -704,6 +704,15 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
+    /// <summary>Presses recorded, the seeded state staying where the test put it, as the links do.</summary>
+    public int DiscordUnlinks { get; private set; }
+
+    public Task UnlinkDiscordAsync(CancellationToken cancellation = default)
+    {
+        DiscordUnlinks++;
+        return Task.CompletedTask;
+    }
+
     /// <summary>Synthetic publishers, none until a test states a set.</summary>
     public TestStreamState TestStreams { get; set; } = new();
 

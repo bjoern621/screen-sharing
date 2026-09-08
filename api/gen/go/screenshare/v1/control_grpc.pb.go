@@ -60,6 +60,7 @@ const (
 	ControlService_ForgetPortalConsent_FullMethodName    = "/screenshare.v1.ControlService/ForgetPortalConsent"
 	ControlService_CreateGroup_FullMethodName            = "/screenshare.v1.ControlService/CreateGroup"
 	ControlService_LinkDiscord_FullMethodName            = "/screenshare.v1.ControlService/LinkDiscord"
+	ControlService_UnlinkDiscord_FullMethodName          = "/screenshare.v1.ControlService/UnlinkDiscord"
 	ControlService_OpenLog_FullMethodName                = "/screenshare.v1.ControlService/OpenLog"
 	ControlService_OpenLogsFolder_FullMethodName         = "/screenshare.v1.ControlService/OpenLogsFolder"
 	ControlService_Subscribe_FullMethodName              = "/screenshare.v1.ControlService/Subscribe"
@@ -359,6 +360,12 @@ type ControlServiceClient interface {
 	// The call answers when the link landed, failed or was cancelled,
 	// and the stored settings moving is announced like any other settings write.
 	LinkDiscord(ctx context.Context, in *LinkDiscordRequest, opts ...grpc.CallOption) (*LinkDiscordResponse, error)
+	// Drops this install's link to a Discord account (docs/discord-mode.md).
+	//
+	// The secret leaving the stored settings is the whole of it:
+	// nothing is revoked at the manager, no browser opens,
+	// and an install holding no link is left holding none.
+	UnlinkDiscord(ctx context.Context, in *UnlinkDiscordRequest, opts ...grpc.CallOption) (*UnlinkDiscordResponse, error)
 	// OpenLog opens one run log in the machine's default application,
 	// OpenLogsFolder the directory holding them.
 	// Backend methods because the files are the backend's:
@@ -824,6 +831,16 @@ func (c *controlServiceClient) LinkDiscord(ctx context.Context, in *LinkDiscordR
 	return out, nil
 }
 
+func (c *controlServiceClient) UnlinkDiscord(ctx context.Context, in *UnlinkDiscordRequest, opts ...grpc.CallOption) (*UnlinkDiscordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnlinkDiscordResponse)
+	err := c.cc.Invoke(ctx, ControlService_UnlinkDiscord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) OpenLog(ctx context.Context, in *OpenLogRequest, opts ...grpc.CallOption) (*OpenLogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(OpenLogResponse)
@@ -1193,6 +1210,12 @@ type ControlServiceServer interface {
 	// The call answers when the link landed, failed or was cancelled,
 	// and the stored settings moving is announced like any other settings write.
 	LinkDiscord(context.Context, *LinkDiscordRequest) (*LinkDiscordResponse, error)
+	// Drops this install's link to a Discord account (docs/discord-mode.md).
+	//
+	// The secret leaving the stored settings is the whole of it:
+	// nothing is revoked at the manager, no browser opens,
+	// and an install holding no link is left holding none.
+	UnlinkDiscord(context.Context, *UnlinkDiscordRequest) (*UnlinkDiscordResponse, error)
 	// OpenLog opens one run log in the machine's default application,
 	// OpenLogsFolder the directory holding them.
 	// Backend methods because the files are the backend's:
@@ -1370,6 +1393,9 @@ func (UnimplementedControlServiceServer) CreateGroup(context.Context, *CreateGro
 }
 func (UnimplementedControlServiceServer) LinkDiscord(context.Context, *LinkDiscordRequest) (*LinkDiscordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method LinkDiscord not implemented")
+}
+func (UnimplementedControlServiceServer) UnlinkDiscord(context.Context, *UnlinkDiscordRequest) (*UnlinkDiscordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnlinkDiscord not implemented")
 }
 func (UnimplementedControlServiceServer) OpenLog(context.Context, *OpenLogRequest) (*OpenLogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method OpenLog not implemented")
@@ -2145,6 +2171,24 @@ func _ControlService_LinkDiscord_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_UnlinkDiscord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlinkDiscordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).UnlinkDiscord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_UnlinkDiscord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).UnlinkDiscord(ctx, req.(*UnlinkDiscordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_OpenLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(OpenLogRequest)
 	if err := dec(in); err != nil {
@@ -2384,6 +2428,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LinkDiscord",
 			Handler:    _ControlService_LinkDiscord_Handler,
+		},
+		{
+			MethodName: "UnlinkDiscord",
+			Handler:    _ControlService_UnlinkDiscord_Handler,
 		},
 		{
 			MethodName: "OpenLog",

@@ -315,6 +315,13 @@ public interface IBackend
     Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default);
 
     /// <summary>
+    /// Drops this install's link to a Discord account, the secret leaving the stored settings.
+    /// Nothing is revoked at the manager and no browser opens, so the call answers at once,
+    /// and an install holding no link is left holding none.
+    /// </summary>
+    Task UnlinkDiscordAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Opens an external viewer for one stream over one transport.
     /// A leg that cannot carry the stream's format is refused with the format named,
     /// rather than opening a viewer that connects and receives nothing.

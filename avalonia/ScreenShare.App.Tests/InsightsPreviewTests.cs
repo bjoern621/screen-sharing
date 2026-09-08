@@ -209,6 +209,9 @@ public sealed class InsightsPreviewTests
         public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
             => _seed.LinkDiscordAsync(relay, cancellation);
 
+        public Task UnlinkDiscordAsync(CancellationToken cancellation = default)
+            => _seed.UnlinkDiscordAsync(cancellation);
+
         public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
             => _seed.TestStreamsAsync(cancellation);
 

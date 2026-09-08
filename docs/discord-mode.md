@@ -62,11 +62,17 @@ What a shell learns is `DiscordState.linked`, `DiscordState.account_name` and `D
 Holding a link and the manager resolving it are two facts, and `DiscordState.link_refused` carries the second.
 A refused link stays stored and stays linked, so the mode moves neither field:
 folded into one, the source would decide whether this install is linked at all.
-Linking again is what clears a refusal, and no number of passes does.
+A refusal is cleared by a link drawn again or dropped, and by no number of passes.
 The channel is the one half the mode drops, no pass following one while the group comes from a key,
 so the app states the link in one sentence wherever it states it.
 Links survive a restart; they are the one thing `discordd` stores,
 a handful per account with the oldest aging out on every draw past the cap.
+
+Unlinking drops the secret and the account label from the settings, and reaches nobody.
+The manager keeps its row until that row ages out.
+Presence stops on the next pass, so the lease lapses as a leaver's does.
+No other setting moves: where the group comes from is a control of its own,
+and Discord mode with no link refuses what it refuses on any unlinked install.
 
 ## One pass of the poll
 

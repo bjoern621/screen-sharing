@@ -216,6 +216,8 @@ type Backend interface {
 	// LinkDiscord runs the consent flow against relay's manager and stores the secret it lands with.
 	// It holds the call for as long as the person takes, bounded by ctx and its own window.
 	LinkDiscord(ctx context.Context, relay settings.Relay) error
+	// UnlinkDiscord drops the stored link secret, reaching nothing.
+	UnlinkDiscord() error
 	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
 	// holding them.
 	OpenLog(path string) error

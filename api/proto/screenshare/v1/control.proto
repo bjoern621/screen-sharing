@@ -347,6 +347,13 @@ service ControlService {
   // and the stored settings moving is announced like any other settings write.
   rpc LinkDiscord(LinkDiscordRequest) returns (LinkDiscordResponse);
 
+  // Drops this install's link to a Discord account (docs/discord-mode.md).
+  //
+  // The secret leaving the stored settings is the whole of it:
+  // nothing is revoked at the manager, no browser opens,
+  // and an install holding no link is left holding none.
+  rpc UnlinkDiscord(UnlinkDiscordRequest) returns (UnlinkDiscordResponse);
+
   // OpenLog opens one run log in the machine's default application,
   // OpenLogsFolder the directory holding them.
   // Backend methods because the files are the backend's:
@@ -795,6 +802,11 @@ message LinkDiscordRequest {
 // The secret lands in the stored settings rather than here:
 // one write changes what this machine is linked as, and it is the backend's.
 message LinkDiscordResponse {}
+
+// The link the settings hold is the one a call drops, so the request names none.
+message UnlinkDiscordRequest {}
+
+message UnlinkDiscordResponse {}
 
 message CreateGroupRequest {
   // The relay the group is drawn at,

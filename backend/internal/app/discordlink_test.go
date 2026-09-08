@@ -133,3 +133,54 @@ func TestTheLinkedAccountReachesAShell(t *testing.T) {
 		})
 	}
 }
+
+// Unlinking drops what the link flow stored, so an install hands its Discord identity back
+// without a browser leg.
+
+func TestUnlinkingDropsTheSecretAndTheAccount(t *testing.T) {
+	isolateConfig(t)
+	a := discordApp(&fakeDiscord{})
+
+	if err := a.UnlinkDiscord(); err != nil {
+		t.Fatalf("unlinking answered %v, want the link dropped", err)
+	}
+
+	r := a.GetSettings().Relay
+	if r.DiscordLink != "" || r.DiscordAccount != "" || r.DiscordAvatar != "" {
+		t.Fatalf("the settings hold %q, %q and %q, want none of the three", r.DiscordLink, r.DiscordAccount, r.DiscordAvatar)
+	}
+	if a.discordWire().Linked {
+		t.Fatal("the state draws this install as linked")
+	}
+}
+
+// A second call names the state that already holds (docs/development-principles.md, "Idempotency").
+func TestUnlinkingAnUnlinkedInstallSucceeds(t *testing.T) {
+	isolateConfig(t)
+	a := discordApp(&fakeDiscord{})
+
+	if err := a.UnlinkDiscord(); err != nil {
+		t.Fatalf("the first call answered %v, want the link dropped", err)
+	}
+	if err := a.UnlinkDiscord(); err != nil {
+		t.Fatalf("a second call answered %v, want the state it names", err)
+	}
+	if a.discordWire().Linked {
+		t.Fatal("the state draws this install as linked")
+	}
+}
+
+// A refusal is about the secret it was recorded against, so dropping that secret drops it too.
+func TestUnlinkingClearsARefusal(t *testing.T) {
+	isolateConfig(t)
+	a := discordApp(&fakeDiscord{})
+	a.discordLast.Store(&discordSnapshot{Refused: true})
+
+	if err := a.UnlinkDiscord(); err != nil {
+		t.Fatalf("unlinking answered %v, want the link dropped", err)
+	}
+
+	if a.discordWire().Refused {
+		t.Fatal("the state stands on a refusal about a link that is gone")
+	}
+}

@@ -202,6 +202,9 @@ internal sealed class DeferredBackend : IBackend
     public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
         => _seed.LinkDiscordAsync(relay, cancellation);
 
+    public Task UnlinkDiscordAsync(CancellationToken cancellation = default)
+        => _seed.UnlinkDiscordAsync(cancellation);
+
     public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.TestStreamsAsync(cancellation);
 
@@ -505,6 +508,9 @@ internal sealed class PublishingBackend : IBackend
 
     public Task LinkDiscordAsync(RelaySettings relay, CancellationToken cancellation = default)
         => _seed.LinkDiscordAsync(relay, cancellation);
+
+    public Task UnlinkDiscordAsync(CancellationToken cancellation = default)
+        => _seed.UnlinkDiscordAsync(cancellation);
 
     public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
         => _seed.TestStreamsAsync(cancellation);

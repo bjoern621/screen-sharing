@@ -99,6 +99,24 @@ public sealed class LinkDiscordTests
         Assert.Equal("Link Discord again", settings.LinkLabel);
     }
 
+    /// <summary>
+    /// A link is handed back where it is drawn, and the press reaches the backend that stores it.
+    /// The button stands beside a link alone, an install holding none having nothing to hand back.
+    /// </summary>
+    [Fact]
+    public async Task ALinkedInstallHandsTheLinkBack()
+    {
+        var backend = new SeededBackend("linux") { Discord = new DiscordState { Linked = true } };
+        var settings = await DialogAsync(backend);
+
+        Assert.True(settings.IsDiscordLinked);
+        Assert.Equal("Unlink Discord", settings.UnlinkLabel);
+
+        settings.UnlinkDiscord.Execute(null);
+
+        await Eventually(() => backend.DiscordUnlinks == 1);
+    }
+
     /// <summary>The manager sits beside the relay, so a machine pointed at none has nothing to link against.</summary>
     [Fact]
     public async Task AMachineWithNoRelayCannotLink()

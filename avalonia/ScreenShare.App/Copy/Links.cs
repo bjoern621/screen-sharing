@@ -77,6 +77,16 @@ public static class Links
         return state?.Linked == true ? "Link a different account" : "Link Discord";
     }
 
+    /// <summary>
+    /// What the button handing the link back says, and what its press does.
+    /// One offer whatever the manager answers, the press dropping a stored secret and reaching nobody,
+    /// so neither word follows the state <see cref="Label"/> does.
+    /// </summary>
+    public const string UnlinkLabel = "Unlink Discord";
+
+    public const string UnlinkTip =
+        "Removes this computer's Discord link. Following a voice channel needs a link, so link again to use one.";
+
     /// <summary>What the press does, on the state <see cref="Label"/> follows.</summary>
     public static string Tip(DiscordState? state)
     {

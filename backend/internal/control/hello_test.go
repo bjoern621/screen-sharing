@@ -134,6 +134,7 @@ func (f *fakeBackend) StopTestStreams()                                  {}
 func (f *fakeBackend) ForgetPortalConsent() error                        { return f.err }
 func (f *fakeBackend) OpenLog(string) error                              { return f.err }
 func (f *fakeBackend) LinkDiscord(context.Context, settings.Relay) error { return nil }
+func (f *fakeBackend) UnlinkDiscord() error                              { return nil }
 func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
 }

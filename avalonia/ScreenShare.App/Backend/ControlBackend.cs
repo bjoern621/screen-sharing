@@ -325,6 +325,12 @@ public sealed class ControlBackend : IBackend
             cancellation);
     }
 
+    /// <inheritdoc />
+    public Task UnlinkDiscordAsync(CancellationToken cancellation = default)
+        => ReadAsync(
+            c => c.UnlinkDiscordAsync(new UnlinkDiscordRequest(), cancellationToken: cancellation),
+            cancellation);
+
 
     /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)

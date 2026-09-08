@@ -146,11 +146,21 @@
                 wizard step where a stream picks its group (docs/discord-mode.md, "Linking, once per install").
                 The press opens the browser and takes as long as the person does, so the button waits on it.
               -->
-              <Button HorizontalAlignment="Left"
-                      Content="{Binding LinkLabel}"
-                      Command="{Binding LinkDiscord}"
-                      controls:Pending.IsActive="{Binding LinkDiscord.IsRunning}"
-                      ToolTip.Tip="{Binding LinkTip}" />
+              <StackPanel Orientation="Horizontal"
+                          HorizontalAlignment="Left"
+                          Spacing="{StaticResource GapTight}">
+                <Button Content="{Binding LinkLabel}"
+                        Command="{Binding LinkDiscord}"
+                        controls:Pending.IsActive="{Binding LinkDiscord.IsRunning}"
+                        ToolTip.Tip="{Binding LinkTip}" />
+
+                <!-- Beside a link alone: an install holding none has none to hand back. -->
+                <Button Content="{Binding UnlinkLabel}"
+                        Command="{Binding UnlinkDiscord}"
+                        controls:Pending.IsActive="{Binding UnlinkDiscord.IsRunning}"
+                        IsVisible="{Binding IsDiscordLinked}"
+                        ToolTip.Tip="{Binding UnlinkTip}" />
+              </StackPanel>
 
               <!-- Beside the button rather than only on its hover, as the update check's reason is. -->
               <SelectableTextBlock Classes="reason"

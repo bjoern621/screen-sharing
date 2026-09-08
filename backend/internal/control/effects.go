@@ -527,6 +527,14 @@ func (s *Server) LinkDiscord(ctx context.Context, req *screensharev1.LinkDiscord
 	return &screensharev1.LinkDiscordResponse{}, nil
 }
 
+// UnlinkDiscord drops the stored link, and answers what a shell already reads on the state stream.
+func (s *Server) UnlinkDiscord(ctx context.Context, req *screensharev1.UnlinkDiscordRequest) (*screensharev1.UnlinkDiscordResponse, error) {
+	if err := s.backend.UnlinkDiscord(); err != nil {
+		return nil, fromBackend("cannot unlink Discord", err)
+	}
+	return &screensharev1.UnlinkDiscordResponse{}, nil
+}
+
 // OpenLog opens one run log in the machine's default application.
 //
 // The path comes off an ExitInfo the backend handed out and a shell constructs none,

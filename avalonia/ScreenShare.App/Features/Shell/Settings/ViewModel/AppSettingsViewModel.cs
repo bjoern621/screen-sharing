@@ -56,7 +56,13 @@ public sealed class AppSettingsViewModel : Observable
     /// </summary>
     private readonly PendingCommand _linkDiscord;
 
-    /// <summary>What the last link attempt answered where it failed, empty otherwise.</summary>
+    /// <summary>
+    /// Hands this install's link back, the secret leaving the stored settings.
+    /// A round trip that reaches nothing outside this machine, so the wait is one call long.
+    /// </summary>
+    private readonly PendingCommand _unlinkDiscord;
+
+    /// <summary>What the last press on either button answered where it failed, empty otherwise.</summary>
     private string _linkFailed = "";
 
     /// <param name="backend">Reaches the log directory, which is the backend's own (<c>docs/ipc-api.md</c>).</param>
@@ -99,6 +105,10 @@ public sealed class AppSettingsViewModel : Observable
         // The manager runs beside the relay, so a machine pointed at none has nothing to link against.
         _linkDiscord = new PendingCommand(
             () => LinkDiscordAsync(backend), dispatch, () => LinkRefusal().Length == 0);
+
+        // Nothing gates the press: dropping a link reaches no manager, and an install holding none
+        // is left holding none. The link it drops is what the button stands beside (IsDiscordLinked).
+        _unlinkDiscord = new PendingCommand(() => UnlinkDiscordAsync(backend), dispatch);
 
         // News that the draft, or the form behind it, moved.
         // The button's own ground is in the draft, so a relay typed on a wizard step reaches this pass.
@@ -192,8 +202,22 @@ public sealed class AppSettingsViewModel : Observable
     /// </summary>
     public PendingCommand LinkDiscord => _linkDiscord;
 
+    /// <summary>
+    /// Hands the link back, the button standing beside a link alone
+    /// (<see cref="IsDiscordLinked"/>).
+    /// </summary>
+    public PendingCommand UnlinkDiscord => _unlinkDiscord;
+
     /// <summary>What the link button says, which follows the state it is pressed from.</summary>
     public string LinkLabel { get => _linkLabel; private set => Set(ref _linkLabel, value); }
+
+    /// <summary>
+    /// What the unlink button says, and what its press does.
+    /// Read off the copy rather than written by a pass: one offer whatever the manager answered.
+    /// </summary>
+    public string UnlinkLabel => Links.UnlinkLabel;
+
+    public string UnlinkTip => Links.UnlinkTip;
 
     /// <summary>What the press does, since the label is three words.</summary>
     public string LinkTip { get => _linkTip; private set => Set(ref _linkTip, value); }
@@ -306,6 +330,31 @@ public sealed class AppSettingsViewModel : Observable
         try
         {
             await backend.LinkDiscordAsync(relay).ConfigureAwait(false);
+            _dispatch(Apply);
+        }
+        catch (BackendUnavailableException e)
+        {
+            _dispatch(() => LinkFailed(e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+            _dispatch(() => LinkFailed(""));
+        }
+    }
+
+    /// <summary>
+    /// Hands the link back.
+    /// Nothing is written here either: the secret leaves the stored settings on the backend's side,
+    /// and the settings-changed announcement is what moves the draft.
+    /// </summary>
+    private async Task UnlinkDiscordAsync(IBackend backend)
+    {
+        _linkFailed = "";
+        Apply();
+
+        try
+        {
+            await backend.UnlinkDiscordAsync().ConfigureAwait(false);
             _dispatch(Apply);
         }
         catch (BackendUnavailableException e)

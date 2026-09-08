@@ -98,14 +98,40 @@ func linkHandler(landed chan<- landedLink) http.HandlerFunc {
 	}
 }
 
-// storeDiscordLink writes the two fields the flow changes and announces the move,
+// storeDiscordLink stores the link the browser leg landed.
+func (a *App) storeDiscordLink(link landedLink) {
+	assert.Assert(link.secret != "", "a landed link carries its secret")
+
+	if err := a.writeDiscordLink(link); err != nil {
+		logger.Warnf("the link secret is not persisted, so this install unlinks on the next start: %v", err)
+	}
+}
+
+// UnlinkDiscord drops this install's link to a Discord account (docs/discord-mode.md).
+//
+// Local: the secret is what names this install at the manager, so dropping it ends what it named.
+// No other setting moves: where the group comes from is a control of its own,
+// and Discord mode with no link states its own refusal (discord.go).
+//
+// Idempotent: an install holding no link is left holding none.
+func (a *App) UnlinkDiscord() error {
+	// The zero link is the unlinked state: no secret, and no account to label one.
+	if err := a.writeDiscordLink(landedLink{}); err != nil {
+		return fmt.Errorf("the settings file keeps the link, so it returns on the next start: %v", err)
+	}
+	return nil
+}
+
+// writeDiscordLink puts link where the settings hold one and announces the move,
 // so a shell holding a draft re-reads rather than overwriting it on its next save.
 //
 // The Discord state goes out with it: a pass runs only in Discord mode (discord.go),
 // so nothing else tells a shell that an install with the toggle still off is linked,
 // or which account it is linked as.
-func (a *App) storeDiscordLink(link landedLink) {
-	assert.Assert(link.secret != "", "a landed link carries its secret")
+func (a *App) writeDiscordLink(link landedLink) error {
+	assert.Assert(
+		link.secret != "" || (link.account == "" && link.avatar == ""),
+		"a link with no secret names no account", link.account)
 
 	a.settingsMu.Lock()
 	a.settings.Relay.DiscordLink = link.secret
@@ -114,16 +140,15 @@ func (a *App) storeDiscordLink(link landedLink) {
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	// A fresh secret has no pass behind it, and the answer standing was about the one it replaces:
-	// a refusal recorded against that one says nothing about this.
+	// An answer standing is about the secret it was recorded against:
+	// a fresh secret has no pass behind it, and a dropped one leaves nothing to refuse.
 	// The next pass lands the channel within one poll interval (watch.go).
 	a.discordLast.Store(&discordSnapshot{})
 
-	if err := settings.Save(s); err != nil {
-		logger.Warnf("the link secret is not persisted, so this install unlinks on the next start: %v", err)
-	}
+	err := settings.Save(s)
 	a.emit(wire.SettingsChangedEvent())
 	a.emit(wire.DiscordStateEvent(a.discordWire()))
+	return err
 }
 
 // linkPage answers the person's browser tab, plain text being what every browser renders.
