@@ -6,7 +6,7 @@ namespace ScreenShare.App.Copy;
 /// Wording for the release published beside the running build.
 ///
 /// Two surfaces read from here.
-/// The status band states one short line beside the version, at the width a band has.
+/// The status band states one short line in the running build's place, at the width a band has.
 /// The dialog behind that line states the same fact at length, and offers the restart.
 ///
 /// Why a copy asks nothing, or installs nothing, comes from the backend as a statement
@@ -14,8 +14,11 @@ namespace ScreenShare.App.Copy;
 /// </summary>
 public static class Updates
 {
-    /// <summary>Tooltip on the version, which is the control that asks.</summary>
+    /// <summary>Tooltip on the band's release control where its press asks for a check.</summary>
     public const string Check = "Check for updates";
+
+    /// <summary>Tooltip on that control where its press opens the dialog instead.</summary>
+    public const string Details = "Show update details";
 
     /// <summary>Band line while the release page is being read.</summary>
     public const string Checking = "Checking for updates";
@@ -75,6 +78,13 @@ public static class Updates
         UpdateStage.Failed => Statements.Of(state.Failure),
         _ => "",
     };
+
+    /// <summary>
+    /// Tooltip for a band whose release control carries a line rather than the build.
+    /// It names the build a bug report needs, then what the press does.
+    /// </summary>
+    public static string Tip(string build, string action)
+        => build.Length > 0 ? $"Running {build}. {action}" : action;
 
     /// <summary>
     /// A version as a reader reads one, with the "v" the tags wear.

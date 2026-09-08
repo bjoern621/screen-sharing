@@ -65,7 +65,7 @@ public sealed class UpdateBandTests
         Assert.True(band.CanCheck);
         Assert.Equal(Updates.Current, band.Line);
         Assert.False(band.OpensDialog);
-        Assert.True(band.ShowsPlainLine);
+        Assert.False(band.ShowsPlainLine);
         Assert.False(band.CanInstall);
     }
 
@@ -86,7 +86,7 @@ public sealed class UpdateBandTests
         });
 
         Assert.True(band.OpensDialog);
-        Assert.True(band.Open.CanExecute(null));
+        Assert.True(band.Press.CanExecute(null));
         Assert.True(band.CanInstall);
         Assert.Contains("v0.5.0", band.Title);
         Assert.Equal(Updates.Restart, band.Body);
@@ -159,6 +159,83 @@ public sealed class UpdateBandTests
         band.Check.Execute(null);
 
         await Eventually(() => backend.UpdateChecks == 1);
+    }
+
+    /// <summary>
+    /// One control in the band, so its press is whatever the state affords:
+    /// a found release opens the dialog and asks the backend nothing.
+    /// </summary>
+    [Fact]
+    public void ThePressOpensTheDialogWhereThereIsARelease()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Update = new UpdateState { Stage = UpdateStage.Available, Running = "0.4.0", Latest = "v0.5.0" },
+        };
+
+        var band = Flows.Updates(backend);
+        band.Apply();
+
+        var opened = 0;
+        band.OpenRequested += () => opened++;
+
+        Assert.True(band.Press.CanExecute(null));
+        band.Press.Execute(null);
+
+        Assert.Equal(1, opened);
+        Assert.Equal(0, backend.UpdateChecks);
+    }
+
+    /// <summary>
+    /// The same control checks where there is nothing to open, which is what the build alone stands for.
+    /// </summary>
+    [Fact]
+    public async Task ThePressChecksWhereThereIsNothingToOpen()
+    {
+        var backend = new SeededBackend("linux")
+        {
+            Update = new UpdateState { Stage = UpdateStage.Unchecked, Running = "0.4.0" },
+        };
+
+        var band = Flows.Updates(backend);
+        band.Apply();
+
+        Assert.True(band.Press.CanExecute(null));
+        band.Press.Execute(null);
+
+        await Eventually(() => backend.UpdateChecks == 1);
+    }
+
+    /// <summary>
+    /// A check already out refuses the press, the band having said so in the control's own words.
+    /// The settings dialog keeps its button, <see cref="UpdateViewModel.CanCheck"/> answering
+    /// whether this install checks at all.
+    /// </summary>
+    [Fact]
+    public void ACheckUnderWayRefusesThePress()
+    {
+        var band = Band(new UpdateState { Stage = UpdateStage.Checking, Running = "0.4.0" });
+
+        Assert.True(band.IsChecking);
+        Assert.Equal(Updates.Checking, band.Line);
+        Assert.False(band.Press.CanExecute(null));
+        Assert.True(band.CanCheck);
+    }
+
+    /// <summary>
+    /// An install that asks nothing offers no press either, the tip carrying the reason.
+    /// </summary>
+    [Fact]
+    public void AnInstallThatChecksNothingRefusesThePress()
+    {
+        var band = Band(new UpdateState
+        {
+            Stage = UpdateStage.Off,
+            Unchecked = new Text { Code = TextCode.UpdateCheckOff },
+        });
+
+        Assert.False(band.Press.CanExecute(null));
+        Assert.Equal(band.CheckHint, band.PressHint);
     }
 
     /// <summary>

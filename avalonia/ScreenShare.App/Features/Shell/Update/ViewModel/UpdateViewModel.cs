@@ -9,7 +9,7 @@ namespace ScreenShare.App.Features.Shell.Update.ViewModel;
 /// <summary>
 /// What the app says about the release published beside the running build, for both surfaces that say it.
 ///
-/// The status band draws <see cref="Line"/> beside the version and presses <see cref="Check"/>.
+/// The status band draws <see cref="Line"/> in the running build's place and presses <see cref="Press"/>.
 /// The dialog behind that line draws the same state at length and presses <see cref="Install"/>.
 /// One owner, so the line in the band and the sentence in the dialog cannot disagree.
 ///
@@ -41,7 +41,10 @@ public sealed class UpdateViewModel : Observable
         // so a control a reader sees enabled is one the backend would accept.
         Check = new PendingCommand(CheckAsync, dispatch, () => CanCheck);
         Install = new PendingCommand(InstallAsync, dispatch, () => CanInstall);
-        Open = new DelegateCommand(() => OpenRequested?.Invoke(), () => OpensDialog);
+        Press = new DelegateCommand(Pressed, () => OpensDialog || (CanCheck && !IsChecking));
+
+        // The band has one control, so what it looks like has to move with a check nobody here started.
+        Check.Changed += Apply;
     }
 
     /// <summary>Asks the backend to read the published release, and to fetch it where it installs one.</summary>
@@ -50,8 +53,11 @@ public sealed class UpdateViewModel : Observable
     /// <summary>Starts the staged release, after which the app closes.</summary>
     public PendingCommand Install { get; }
 
-    /// <summary>Asks for the dialog behind the band's line.</summary>
-    public DelegateCommand Open { get; }
+    /// <summary>
+    /// The band's one control, which stands where the running build does.
+    /// It opens the dialog where there is a release to act on, and asks for a check where there is not.
+    /// </summary>
+    public DelegateCommand Press { get; }
 
     /// <summary>
     /// Raised where the reader pressed the band's line and the dialog is to open.
@@ -115,6 +121,27 @@ public sealed class UpdateViewModel : Observable
         _dispatch(() => RestartRequested?.Invoke());
     }
 
+    /// <summary>
+    /// Opens the dialog or asks for a check, whichever the state affords.
+    /// The verdict is re-asked here rather than trusted from the render the binding was drawn on:
+    /// a check landing between the two turns a build into a found release.
+    /// </summary>
+    private void Pressed()
+    {
+        if (!Press.CanExecute(null))
+        {
+            return;
+        }
+
+        if (OpensDialog)
+        {
+            OpenRequested?.Invoke();
+            return;
+        }
+
+        Check.Execute(null);
+    }
+
     private void Landed(string refused)
     {
         _dispatch(() =>
@@ -132,8 +159,10 @@ public sealed class UpdateViewModel : Observable
     private bool _opensDialog;
     private bool _showsPlainLine;
     private bool _canCheck;
+    private bool _isChecking;
     private bool _canInstall;
     private string _checkHint = Updates.Check;
+    private string _pressHint = Updates.Check;
     private string _title = "";
     private string _body = "";
     private string _held = "";
@@ -158,14 +187,19 @@ public sealed class UpdateViewModel : Observable
     public bool OpensDialog { get => _opensDialog; private set => Set(ref _opensDialog, value); }
 
     /// <summary>
-    /// Whether the band draws the line as text rather than as a control.
-    /// A progress line and a failure are both read rather than pressed,
-    /// and a failure is selectable because that is the string a bug report carries.
+    /// Whether the band draws the line as text in place of its control.
+    /// A failure alone falls here, that string being what a reader selects and puts in a bug report.
     /// </summary>
     public bool ShowsPlainLine { get => _showsPlainLine; private set => Set(ref _showsPlainLine, value); }
 
     /// <summary>Whether the version is a control at all, which an install that asks nothing is not.</summary>
     public bool CanCheck { get => _canCheck; private set => Set(ref _canCheck, value); }
+
+    /// <summary>
+    /// Whether a read of the release is out, either as this view's own call or as the backend's own stage.
+    /// The band says so in the control's words and refuses a second press off the same field.
+    /// </summary>
+    public bool IsChecking { get => _isChecking; private set => Set(ref _isChecking, value); }
 
     /// <summary>Whether a staged release is there to install.</summary>
     public bool CanInstall { get => _canInstall; private set => Set(ref _canInstall, value); }
@@ -175,6 +209,9 @@ public sealed class UpdateViewModel : Observable
     /// A disabled control leaves a reason rather than a dead end.
     /// </summary>
     public string CheckHint { get => _checkHint; private set => Set(ref _checkHint, value); }
+
+    /// <summary>What <see cref="Press"/> does, for the tip the band draws the build into.</summary>
+    public string PressHint { get => _pressHint; private set => Set(ref _pressHint, value); }
 
     /// <summary>Dialog heading, naming the release it is about.</summary>
     public string Title { get => _title; private set => Set(ref _title, value); }
@@ -217,10 +254,12 @@ public sealed class UpdateViewModel : Observable
         IsFailure = _refused.Length > 0 || stage == UpdateStage.Failed;
         OpensDialog = !IsFailure
             && stage is UpdateStage.Available or UpdateStage.Fetching or UpdateStage.Ready;
-        ShowsPlainLine = ShowsLine && !OpensDialog;
+        ShowsPlainLine = ShowsLine && IsFailure;
 
         CanCheck = state is not null && stage != UpdateStage.Off;
+        IsChecking = Check.IsRunning || stage == UpdateStage.Checking;
         CheckHint = stage == UpdateStage.Off ? Statements.Of(state?.Unchecked) : Updates.Check;
+        PressHint = OpensDialog ? Updates.Details : CheckHint;
 
         CanInstall = stage == UpdateStage.Ready;
 
@@ -241,10 +280,11 @@ public sealed class UpdateViewModel : Observable
 
         Check.Refresh();
         Install.Refresh();
-        Open.Refresh();
+        Press.Refresh();
 
         Assert.That(ShowsLine == (Line.Length > 0), "the band line and the flag drawing it agree", ShowsLine, Line);
         Assert.That(!OpensDialog || ShowsLine, "a line that opens the dialog is a line that is drawn", OpensDialog);
+        Assert.That(!ShowsPlainLine || IsFailure, "the band draws plain text for a failure alone", ShowsPlainLine);
         Assert.That(!CanInstall || CanCheck, "a release only installs where this copy checks at all", CanInstall);
         Assert.That(ShowsHeld == (Held.Length > 0), "the held reason and its text agree", ShowsHeld, Held);
         Assert.That(HasPage == (PageUrl.Length > 0), "the release page and the flag offering it agree", HasPage);

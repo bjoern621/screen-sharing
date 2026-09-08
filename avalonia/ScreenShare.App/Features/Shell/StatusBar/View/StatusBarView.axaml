@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Shell.StatusBar.ViewModel"
              xmlns:sys="using:System"
-             xmlns:controls="using:ScreenShare.App.Controls"
              x:Class="ScreenShare.App.Features.Shell.StatusBar.View.StatusBarView"
              x:DataType="vm:StatusBarViewModel">
 
@@ -26,11 +25,13 @@
                   VerticalAlignment="Center">
 
         <!--
-          The build, in every destination.
-          The app's own fact rather than one screen's, and the one band drawn on every platform:
-          the title bar is the app's on Windows and macOS alone (avalonia/README.md).
+          One slot for the release, in every destination.
+          The build is the app's own fact rather than one screen's, and this is the one band drawn on every
+          platform: the title bar is the app's on Windows and macOS alone (avalonia/README.md).
+          What a check found stands here instead of the build, so the band never says the same thing twice,
+          and the tip keeps the build a hover away for a bug report.
 
-          A button rather than a label, the version being what asks for a release check.
+          A button rather than a label, the slot being what asks for a check and what opens the dialog.
           It keeps the muted face either way, so a band of figures does not grow a control
           that competes with the one on the far side.
           Where this copy checks nothing the button is disabled and its tip says why,
@@ -39,29 +40,18 @@
         <Button Theme="{StaticResource LinkButton}"
                 Foreground="{DynamicResource MutedBrush}"
                 Margin="-7,0,-7,0"
-                Content="{Binding Version}"
-                IsVisible="{Binding ShowsVersion}"
-                Command="{Binding Updates.Check}"
-                ToolTip.Tip="{Binding Updates.CheckHint}"
-                controls:Pending.IsActive="{Binding Updates.Check.IsRunning}"
+                Content="{Binding Release}"
+                IsVisible="{Binding ShowsRelease}"
+                Command="{Binding Updates.Press}"
+                ToolTip.Tip="{Binding ReleaseHint}"
                 VerticalAlignment="Center" />
 
         <!--
-          What the check found, beside the version that asked for it.
-          Two controls for two kinds of line: one a reader acts on, and one they copy.
-          A found release is a button opening the dialog,
-          and a failure is selectable text, that being the string a bug report carries
+          A failing check takes that same slot as text rather than as a control:
+          it is the string a bug report carries
           (CLAUDE.md, "Every error message is selectable and copyable").
         -->
-        <Button Theme="{StaticResource LinkButton}"
-                Margin="-7,0,-7,0"
-                Content="{Binding Updates.Line}"
-                IsVisible="{Binding Updates.OpensDialog}"
-                Command="{Binding Updates.Open}"
-                VerticalAlignment="Center" />
-
-        <SelectableTextBlock Classes="muted"
-                             Classes.danger="{Binding Updates.IsFailure}"
+        <SelectableTextBlock Classes="muted danger"
                              Text="{Binding Updates.Line}"
                              IsVisible="{Binding Updates.ShowsPlainLine}"
                              TextWrapping="Wrap"

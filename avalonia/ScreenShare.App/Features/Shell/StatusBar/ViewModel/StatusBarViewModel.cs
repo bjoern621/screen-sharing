@@ -4,6 +4,7 @@ using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.Update.ViewModel;
 using ScreenShare.App.Mvvm;
+using UpdateCopy = ScreenShare.App.Copy.Updates;
 
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 
@@ -20,7 +21,7 @@ public sealed class StatusBarViewModel : Observable
 {
     /// <param name="updates">
     /// What the app says about the release published beside this build, owned once for the window.
-    /// The band draws its line and its version presses the check;
+    /// The band puts its line where the build stands and presses it;
     /// the dialog behind that line reads the same view model
     /// (<c>Features/Shell/Update/ViewModel/UpdateViewModel.cs</c>).
     /// </param>
@@ -29,10 +30,14 @@ public sealed class StatusBarViewModel : Observable
         Assert.NotNull(updates, "a status band states what it knows about the published release");
 
         Updates = updates;
+
+        // The release slot is composed out of what the update view model derived,
+        // so a refusal or a check landing there re-renders the band without waiting for the shell's next pass.
+        updates.PropertyChanged += (_, _) => Render();
     }
 
     /// <summary>
-    /// The published release, as the band states it: the version's own control and the line beside it.
+    /// The published release, as the band states it: one control, and the failure that takes its place.
     /// Held rather than mirrored, so the band and the dialog read one answer.
     /// </summary>
     public UpdateViewModel Updates { get; }
@@ -75,8 +80,9 @@ public sealed class StatusBarViewModel : Observable
     private bool _showsMetrics;
     private string _hint = "";
     private bool _showsHint;
-    private string _version = "";
-    private bool _showsVersion;
+    private string _release = "";
+    private bool _showsRelease;
+    private string _releaseHint = "";
 
     /// <summary>Whether this destination has figures worth stating.</summary>
     public bool ShowsMetrics { get => _showsMetrics; private set => Set(ref _showsMetrics, value); }
@@ -90,18 +96,39 @@ public sealed class StatusBarViewModel : Observable
     public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
 
     /// <summary>
-    /// The running build, marked as a version so it reads as one beside figures that are measurements.
+    /// The band's one line about the release: what a check found, or the running build where it found nothing.
+    /// The build is marked as a version so it reads as one beside figures that are measurements.
     /// </summary>
-    public string Version { get => _version; private set => Set(ref _version, value); }
+    public string Release { get => _release; private set => Set(ref _release, value); }
 
-    /// <summary>Whether a build has been answered yet.</summary>
-    public bool ShowsVersion { get => _showsVersion; private set => Set(ref _showsVersion, value); }
+    /// <summary>
+    /// Whether that control is drawn.
+    /// A failure takes its place as selectable text, and a build nothing has answered leaves the slot empty.
+    /// </summary>
+    public bool ShowsRelease { get => _showsRelease; private set => Set(ref _showsRelease, value); }
+
+    /// <summary>
+    /// What the control says on hover: what the press does, and the build behind a line that displaced it.
+    /// </summary>
+    public string ReleaseHint { get => _releaseHint; private set => Set(ref _releaseHint, value); }
+
+    /// <summary>
+    /// Renders the release the band composes from, then the band.
+    /// Idempotent.
+    /// </summary>
+    public void Apply()
+    {
+        Updates.Apply();
+        Render();
+    }
 
     /// <summary>
     /// One render function.
     /// Every output on every pass, so a viewer figure cannot outlive a step back into setup.
+    /// Reads the update view model rather than rendering it, so a pass driven by that model's own change
+    /// does not re-enter it.
     /// </summary>
-    public void Apply()
+    private void Render()
     {
         ShowsMetrics = _figuresLoad.Count > 0;
 
@@ -113,15 +140,23 @@ public sealed class StatusBarViewModel : Observable
         ShowsHint = Hint.Length > 0;
 
         // Every destination, the build being the app's rather than one screen's.
-        Version = _build.Length > 0 ? "v" + _build : "";
-        ShowsVersion = Version.Length > 0;
+        var build = _build.Length > 0 ? "v" + _build : "";
 
-        // The version's own control and the line beside it, rendered on this pass so the two agree.
-        Updates.Apply();
+        // One control for the release, so a found release displaces the build rather than standing beside it.
+        // A failure takes the slot as selectable text and leaves no control at all.
+        var line = Updates.IsFailure ? "" : Updates.Line;
+        Release = line.Length > 0 ? line : build;
+        ShowsRelease = !Updates.IsFailure && Release.Length > 0;
+        ReleaseHint = line.Length > 0 ? UpdateCopy.Tip(build, Updates.PressHint) : Updates.PressHint;
 
         Assert.That(ShowsMetrics == (Load.Count > 0), "the figures and the flag drawing them agree", ShowsMetrics, Load.Count);
         Assert.That(ShowsHint == (Hint.Length > 0), "the trailing hint and its text agree", ShowsHint, Hint);
-        Assert.That(ShowsVersion == (Version.Length > 0), "the version and its text agree", ShowsVersion, Version);
+        Assert.That(
+            ShowsRelease == (Release.Length > 0 && !Updates.IsFailure),
+            "the release control and its text agree", ShowsRelease, Release);
+        Assert.That(
+            !(ShowsRelease && Updates.ShowsPlainLine),
+            "the band says one thing about the release", ShowsRelease, Updates.ShowsPlainLine);
     }
 
     /// <summary>
