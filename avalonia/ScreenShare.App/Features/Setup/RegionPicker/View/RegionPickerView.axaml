@@ -2,7 +2,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Setup.RegionPicker.Model"
+             xmlns:regions="using:ScreenShare.App.Features.Setup.RegionPicker.View"
              xmlns:ti="using:TablerIcons"
+             xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              xmlns:vm="using:ScreenShare.App.Features.Setup.RegionPicker.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.RegionPicker.View.RegionPickerView"
              x:DataType="vm:RegionPickerViewModel">
@@ -10,9 +12,56 @@
   <!--
     The drawn rectangle, in place of the text control the form's own would otherwise be drawn as.
     A rectangle is dragged over the desktop, so the drag is the way in and the value reads back beside it.
+    Over both, the rectangle as it stands: the same picture the screen grid draws, cropped to it.
   -->
 
   <controls:CardColumn Spacing="{StaticResource GapTight}" IsVisible="{Binding IsVisible}">
+
+    <!--
+      Width from the layout and height from the rectangle's own shape, so a wide rectangle reads as one
+      (RegionCrop.cs).
+    -->
+    <Border Classes="tile"
+            Width="288"
+            HorizontalAlignment="Left"
+            IsVisible="{Binding HasPreview}">
+      <Panel>
+        <regions:RegionCrop SourceWidth="{Binding SourceWidth}"
+                            SourceHeight="{Binding SourceHeight}"
+                            CropX="{Binding CropX}"
+                            CropY="{Binding CropY}"
+                            CropWidth="{Binding CropWidth}"
+                            CropHeight="{Binding CropHeight}">
+          <tiles:StreamTile Source="{Binding Tile}" IsVisible="{Binding HasTile}" />
+        </regions:RegionCrop>
+
+        <!--
+          Two sentences for an empty box, from opposite sides, as the screen grid takes them:
+          the screen is opening or was refused, and once there is a tile its own three take over.
+        -->
+        <SelectableTextBlock Classes="hint"
+                             Text="{Binding Placeholder}"
+                             IsVisible="{Binding HasPlaceholder}"
+                             TextAlignment="Center"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Margin="12" />
+
+        <SelectableTextBlock Classes="hint"
+                             Text="{Binding Tile.Notice}"
+                             IsVisible="{Binding Tile.HasNotice, FallbackValue=False}"
+                             TextAlignment="Center"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Margin="12" />
+      </Panel>
+    </Border>
+
+    <TextBlock Classes="hint"
+               TextWrapping="Wrap"
+               TextTrimming="None"
+               IsVisible="{Binding HasNotice}"
+               Text="{Binding Notice}" />
 
     <!-- Selectable: the numbers are what a reader carries into a bug report. -->
     <SelectableTextBlock Classes="figure"

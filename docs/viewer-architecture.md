@@ -9,7 +9,7 @@ Three ways to watch, each with its own decoder.
 | the shell's tile grid | a receiving pipeline in the backend, its decoded frames reaching the window over the frame channel | the frame channel |
 | the relay's own player page | the page fetches the stream itself, this side decoding and serving nothing | a browser |
 
-Two more surfaces consume the frame channel without being a way to watch, neither picture reaching the relay: the insights screen's preview and the wizard's screen picker.
+Two more surfaces consume the frame channel without being a way to watch, neither picture reaching the relay: the insights screen's preview and the share question's choosers.
 
 The tile grid runs where the frame channel's handle type is built, which is Windows and Linux.
 On macOS a tile says so rather than falling back to a copy through system memory, and the native player covers that machine.
@@ -387,7 +387,7 @@ The shell's own rule is narrower, opening them while the share question is on sc
 Five frames a second is what tells one screen from another.
 The size is a bound the scaler fixates inside, and the reduction happens at the source rather than in the render chain: a preview that did not reduce its own frames would upload whole desktops for a picture drawn at a fraction of one.
 
-**Where a session cannot read one output apart from another there is no picture and the catalog says so**, so the wizard offers the plain list instead of opening captures that would all be refused.
+**Where a session cannot read one output apart from another there is no picture and the catalog says so**, so the share question offers the plain list instead of opening captures that would all be refused.
 
 ## The native player
 

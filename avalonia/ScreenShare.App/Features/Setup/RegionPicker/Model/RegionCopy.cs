@@ -15,6 +15,13 @@ public static class RegionCopy
     /// <summary>Before anything is drawn.</summary>
     public const string Nothing = "No rectangle drawn yet. Draw one to set what viewers see.";
 
+    /// <summary>
+    /// A rectangle no single screen holds, which one screen capture cannot show.
+    /// The stream may still carry it, so this is about the picture and not about sharing.
+    /// </summary>
+    public const string NoScreen =
+        "The rectangle crosses more than one screen, so there is no preview. Draw one inside a single screen to see it.";
+
     /// <summary>The rectangle as a reader reads one back: the size, then where it sits.</summary>
     public static string Region(int x, int y, int width, int height)
         => $"{width} × {height} at {x}, {y}";

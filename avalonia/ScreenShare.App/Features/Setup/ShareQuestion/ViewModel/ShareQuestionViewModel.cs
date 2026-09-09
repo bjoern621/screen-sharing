@@ -34,6 +34,9 @@ public sealed class ShareQuestionViewModel : Observable
     private readonly FormSession _form;
     private readonly Session _session;
 
+    /// <summary>Screens this question has asked the backend to read, converged once per pass.</summary>
+    private readonly MonitorPreviews _previews;
+
     /// <summary>View drawing this question is on screen with the window in front. Written by that view.</summary>
     private bool _showing;
 
@@ -61,8 +64,12 @@ public sealed class ShareQuestionViewModel : Observable
 
         Group = new FieldGroupViewModel(_form.Write);
 
+        // One owner for every screen this question reads: the grid wants the ones it draws
+        // and the rectangle wants the one it sits on.
+        _previews = new MonitorPreviews(backend, session, dispatch, Apply);
+
         Screens = new ScreenPickerViewModel(
-            backend, session, dispatch,
+            session, _previews,
             monitor => _form.Write(ShareLayout.MonitorKey, new FieldValue { Number = monitor }));
 
         Windows = new WindowPickerViewModel(
@@ -70,7 +77,7 @@ public sealed class ShareQuestionViewModel : Observable
             handle => _form.Write(ShareLayout.WindowKey, new FieldValue { Text = handle }));
 
         Region = new RegionPickerViewModel(
-            drawRegion, dispatch,
+            session, _previews, drawRegion, dispatch,
             region => _form.Write(ShareLayout.RegionKey, new FieldValue { Text = region }));
 
         Windows.Changed += Apply;
@@ -203,7 +210,11 @@ public sealed class ShareQuestionViewModel : Observable
         // The choosers first, the rows below being what none of them drew.
         Screens.Apply(FieldOf(group, ShareLayout.MonitorKey), _inDialog);
         Windows.Apply(FieldOf(group, ShareLayout.WindowKey), words, _inDialog);
-        Region.Apply(Group.Visible(ShareLayout.RegionKey));
+        Region.Apply(Group.Visible(ShareLayout.RegionKey), _inDialog && _showing);
+
+        // After both, so one converge answers what the whole question wants
+        // and neither chooser closes the other's screens.
+        _previews.Converge([.. Screens.Wanted, .. Region.Wanted]);
 
         Kind = Group.Visible(ShareLayout.KindKey);
         Reconcile.Onto(Rest, [.. Group.Fields.Where(Generic)]);

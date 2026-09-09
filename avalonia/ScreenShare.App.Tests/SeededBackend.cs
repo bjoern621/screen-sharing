@@ -291,7 +291,7 @@ internal sealed class SeededBackend : IBackend
         // Two outputs: one tile looks the same whether rows are keyed by index or by position,
         // and one screen leaves nothing to pick between.
         catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 0, Width = 2560, Height = 1440, RefreshHz = 144, Primary = true });
-        catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 1, Width = 1920, Height = 1080, RefreshHz = 60 });
+        catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 1, Width = 1920, Height = 1080, OffsetX = 2560, RefreshHz = 60 });
 
         // Legs the relay serves a player page for, as the backend's tables answer them.
         // Neither is a leg a player opens by address.

@@ -29,7 +29,7 @@ A screen both read is two rows.
 | DRM/KMS scanout | `kmsgrab` | no capture element |
 
 Both frameworks have a row on every platform, so no platform decides the engine for the user.
-The stream and the wizard's monitor preview take one rectangle, a preview cropped differently being a picture that lies about what is shared.
+The stream and the monitor preview take one rectangle, a preview cropped differently being a picture that lies about what is shared.
 
 ## What a capture is pointed at
 
