@@ -154,14 +154,8 @@ jobs:
           CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
           PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
         run: |
-          # Git for Windows' own mingw64\bin comes off PATH first, as it does in `task dev`
-          # and for the reason stated there: it ships an older libstdc++-6.dll,
-          # Windows resolves an imported DLL by walking PATH,
-          # and the frame channel links GStreamer's Direct3D 11 library through it.
-          # A binary that starts under the appended prefix dies before main
-          # with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) under Git's.
-          $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -notmatch 'Git\\mingw64' }) -join ';'
-          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+          $msys2 = "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+          $env:PATH = "$env:PATH;$msys2"
 
           # A pwsh step reports the exit code of its last command,
           # so a failed build in front of a passing test suite reports green.
@@ -170,6 +164,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet -C backend ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # The prefix goes in front for the run alone.
+          # Windows resolves an imported DLL by walking PATH,
+          # this image carries rival copies of the mingw runtime (Git for Windows, Strawberry Perl),
+          # and one reached before MSYS2's kills the process before main,
+          # STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139).
+          # Appended is what every other step wants, MSYS2 shipping an ffmpeg of its own,
+          # and nothing here spawns one.
+          $env:PATH = "$msys2;$env:PATH"
           go test -C backend -ldflags "-extldflags=-fuse-ld=lld" -run '^$' ./internal/receive
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet test avalonia/ScreenShare.App.sln
