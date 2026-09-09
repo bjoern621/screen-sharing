@@ -140,6 +140,9 @@ jobs:
       # as Taskfile.yml does. The image carries Strawberry Perl's `gcc` and `pkg-config`
       # ahead of the appended prefix, and that pkg-config resolves against
       # C:/Strawberry/c/lib/pkgconfig, where no GStreamer module lives.
+      #
+      # `-s -w` for the reason build:windows states in Taskfile.yml,
+      # so a push links the binary a tag links.
       - name: Check
         env:
           CGO_ENABLED: "1"
@@ -151,7 +154,7 @@ jobs:
           # A pwsh step reports the exit code of its last command,
           # so a failed build in front of a passing test suite reports green.
           # Each one is checked instead.
-          go build -C backend ./...
+          go build -C backend -ldflags "-s -w" ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet -C backend ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

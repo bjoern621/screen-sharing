@@ -164,12 +164,13 @@ tasks:
         cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/tools/dev-stop.ps1'
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
-      # gcc and pkg-config by path, for the reason build:windows states.
+      # gcc and pkg-config by path, and `-s -w`, for the reasons build:windows states.
+      # A dev run links what a packaged one links, so it meets the same linker.
       - platforms: [windows]
         cmd: >-
           PATH="$(echo "$PATH" | sed -E 's#[^;]*[gG]it[\\/]+mingw64[\\/]+bin;?##g');{{.MSYS2_MINGW}}/bin"
           CC='{{.MSYS2_MINGW}}/bin/gcc.exe' PKG_CONFIG='{{.MSYS2_MINGW}}/bin/pkg-config.exe'
-          go run ./cmd/backend
+          go run -ldflags "-s -w" ./cmd/backend
 
   dev:stop:
     desc: Stop a backend a previous `task dev` left holding the control pipe
@@ -209,9 +210,15 @@ tasks:
       # package:windows passes the run's VERSION down;
       # a build asked for here keeps the source default,
       # the mark of a binary nobody released (backend/cmd/backend/main.go).
+      #
+      # `-s -w` drops the debug info the external link hands MSYS2's ld,
+      # which dies on it above a size the backend has now reached
+      # and reports `collect2.exe: error: ld returned 5 exit status` alone.
+      # A crash report loses nothing: Go reads a traceback off the pclntab,
+      # which `-s` and `-w` leave in place.
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
-          go build -ldflags "-X main.version={{default "dev" .STAMP}} -X main.channel={{default "" .CHANNEL}}"
+          go build -ldflags "-s -w -X main.version={{default "dev" .STAMP}} -X main.channel={{default "" .CHANNEL}}"
           -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
       # so both executables go into build/windows/redist first (docs/packaging.md, "Windows").
