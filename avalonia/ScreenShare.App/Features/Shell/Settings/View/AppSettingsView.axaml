@@ -85,11 +85,29 @@
                               Margin="0,0,0,-18"
                               IsVisible="{Binding CrashReports, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-              <Button HorizontalAlignment="Left"
-                      Content="{x:Static model:AppSettingsCopy.OpenLogsFolder}"
-                      Command="{Binding OpenLogsFolder}"
-                      controls:Pending.IsActive="{Binding OpenLogsFolder.IsRunning}"
-                      ToolTip.Tip="{x:Static model:AppSettingsCopy.OpenLogsFolderTip}" />
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}">
+                <Button Content="{x:Static model:AppSettingsCopy.OpenLogsFolder}"
+                        Command="{Binding OpenLogsFolder}"
+                        controls:Pending.IsActive="{Binding OpenLogsFolder.IsRunning}"
+                        ToolTip.Tip="{x:Static model:AppSettingsCopy.OpenLogsFolderTip}" />
+
+                <Button Content="{x:Static model:AppSettingsCopy.SendReport}"
+                        Command="{Binding SendReport}"
+                        controls:Pending.IsActive="{Binding SendReport.IsRunning}"
+                        ToolTip.Tip="{x:Static model:AppSettingsCopy.SendReportTip}" />
+              </StackPanel>
+
+              <!--
+                Selectable and wrapping, as the update band's line is:
+                the stored name is what a reader carries into a bug report,
+                and a refusal is what they carry into a message about the send.
+              -->
+              <SelectableTextBlock Classes="hint"
+                                   Classes.danger="{Binding ReportLineIsFailure}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="None"
+                                   IsVisible="{Binding ReportLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Text="{Binding ReportLine}" />
             </StackPanel>
 
             <StackPanel Spacing="{StaticResource GapTight}">

@@ -52,6 +52,8 @@ type fakeBackend struct {
 	// Apart from err, a link being read where every effect refuses.
 	link        string
 	linkRefusal error
+	// reportID is the name a sent report is stored under, answered where err is nil.
+	reportID string
 }
 
 func (f *fakeBackend) Settings() settings.Settings                    { return f.settings }
@@ -140,6 +142,7 @@ func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 }
 
 func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
+func (f *fakeBackend) SendReport() (string, error)        { return f.reportID, f.err }
 func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
 
 func (f *fakeBackend) UpdateState() update.State { return update.State{} }

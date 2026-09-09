@@ -492,6 +492,14 @@ public interface IBackend
     Task OpenLogsFolderAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// Sends one report to the group service beside the stored relay and answers the name it was stored under:
+    /// what this machine is, the settings with every secret blanked, and the newest run logs.
+    /// Refused where the settings name no relay.
+    /// A repeat sends a second report, the departure <see cref="OpenInBrowserAsync"/> states.
+    /// </summary>
+    Task<string> SendReportAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// What this install knows about the release published beside it:
     /// which build is running, which is published, how far a download has got,
     /// and why this copy asks nothing or replaces nothing.

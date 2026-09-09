@@ -240,6 +240,60 @@ public sealed class AppSettingsTests
     }
 
     /// <summary>
+    /// The name the service stored the report under is what a reader quotes,
+    /// so the press draws it rather than leaving it in a log the reader would have to go and find.
+    /// </summary>
+    [Fact]
+    public async Task SendingAReportDrawsTheStoredName()
+    {
+        var panel = await PanelAsync();
+        panel.Backend.ReportId = "7f3a91c2";
+
+        panel.Settings.SendReport.Execute(null);
+        await Eventually(() => panel.Settings.ReportLine.Contains("7f3a91c2"));
+
+        Assert.False(panel.Settings.ReportLineIsFailure);
+    }
+
+    /// <summary>
+    /// A send the backend refused is the backend's sentence, drawn where the press was
+    /// (<c>docs/ipc-api.md</c>, "Errors").
+    /// </summary>
+    [Fact]
+    public async Task ARefusedReportDrawsWhyItWasRefused()
+    {
+        var panel = await PanelAsync();
+        panel.Backend.ReportRefusal = "the settings name no relay";
+
+        panel.Settings.SendReport.Execute(null);
+        await Eventually(() => panel.Settings.ReportLineIsFailure);
+
+        Assert.Contains("no relay", panel.Settings.ReportLine);
+    }
+
+    /// <summary>
+    /// A second press is a second report, and the line under the button is about the send it stands under:
+    /// a refusal left behind by the press before it would name a report this one did not send.
+    /// </summary>
+    [Fact]
+    public async Task ASecondPressReplacesWhatTheFirstAnswered()
+    {
+        var panel = await PanelAsync();
+        panel.Backend.ReportRefusal = "the settings name no relay";
+
+        panel.Settings.SendReport.Execute(null);
+        await Eventually(() => panel.Settings.ReportLineIsFailure);
+
+        panel.Backend.ReportRefusal = "";
+        panel.Backend.ReportId = "b21d0e44";
+        panel.Settings.SendReport.Execute(null);
+        await Eventually(() => panel.Settings.ReportLine.Contains("b21d0e44"));
+
+        Assert.False(panel.Settings.ReportLineIsFailure);
+        Assert.Equal(2, panel.Backend.ReportsSent);
+    }
+
+    /// <summary>
     /// The synthetic set is a testing aid rather than a reading off a stream,
     /// so its one control stands here and the insights screen carries nothing about it.
     /// The backend converges the set on the write, which is what makes the toggle the whole of starting it

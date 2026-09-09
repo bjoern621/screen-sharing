@@ -63,6 +63,7 @@ const (
 	ControlService_UnlinkDiscord_FullMethodName          = "/screenshare.v1.ControlService/UnlinkDiscord"
 	ControlService_OpenLog_FullMethodName                = "/screenshare.v1.ControlService/OpenLog"
 	ControlService_OpenLogsFolder_FullMethodName         = "/screenshare.v1.ControlService/OpenLogsFolder"
+	ControlService_SendReport_FullMethodName             = "/screenshare.v1.ControlService/SendReport"
 	ControlService_Subscribe_FullMethodName              = "/screenshare.v1.ControlService/Subscribe"
 	ControlService_SubscribeAudioLevels_FullMethodName   = "/screenshare.v1.ControlService/SubscribeAudioLevels"
 	ControlService_SubscribePointer_FullMethodName       = "/screenshare.v1.ControlService/SubscribePointer"
@@ -373,6 +374,21 @@ type ControlServiceClient interface {
 	// and it is the only side that knows which still exist under the name it handed out.
 	OpenLog(ctx context.Context, in *OpenLogRequest, opts ...grpc.CallOption) (*OpenLogResponse, error)
 	OpenLogsFolder(ctx context.Context, in *OpenLogsFolderRequest, opts ...grpc.CallOption) (*OpenLogsFolderResponse, error)
+	// Sends one report to the group service beside the stored relay:
+	// what this machine is, the settings with every secret blanked,
+	// and the newest run logs, each capped at its tail (backend/internal/report).
+	//
+	// The press is the consent, so SettingsApp.send_crash_reports leaves this alone.
+	// That setting covers the report a crash sends unasked, on the next start.
+	//
+	// A second call sends a second report and answers a second id,
+	// the departure from idempotency OpenInBrowser states:
+	// what the effect leaves behind is a store this process does not own,
+	// and nothing reads back to tell a second call that it had already happened.
+	//
+	// Refused with FAILED_PRECONDITION where the settings name no relay,
+	// a report going to the group service of the deployment in use.
+	SendReport(ctx context.Context, in *SendReportRequest, opts ...grpc.CallOption) (*SendReportResponse, error)
 	// Delivers what changed, for as long as the shell holds the call.
 	// events.proto states why every event carries a whole state,
 	// and why a shell that acted still waits for the event.
@@ -861,6 +877,16 @@ func (c *controlServiceClient) OpenLogsFolder(ctx context.Context, in *OpenLogsF
 	return out, nil
 }
 
+func (c *controlServiceClient) SendReport(ctx context.Context, in *SendReportRequest, opts ...grpc.CallOption) (*SendReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendReportResponse)
+	err := c.cc.Invoke(ctx, ControlService_SendReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[0], ControlService_Subscribe_FullMethodName, cOpts...)
@@ -1223,6 +1249,21 @@ type ControlServiceServer interface {
 	// and it is the only side that knows which still exist under the name it handed out.
 	OpenLog(context.Context, *OpenLogRequest) (*OpenLogResponse, error)
 	OpenLogsFolder(context.Context, *OpenLogsFolderRequest) (*OpenLogsFolderResponse, error)
+	// Sends one report to the group service beside the stored relay:
+	// what this machine is, the settings with every secret blanked,
+	// and the newest run logs, each capped at its tail (backend/internal/report).
+	//
+	// The press is the consent, so SettingsApp.send_crash_reports leaves this alone.
+	// That setting covers the report a crash sends unasked, on the next start.
+	//
+	// A second call sends a second report and answers a second id,
+	// the departure from idempotency OpenInBrowser states:
+	// what the effect leaves behind is a store this process does not own,
+	// and nothing reads back to tell a second call that it had already happened.
+	//
+	// Refused with FAILED_PRECONDITION where the settings name no relay,
+	// a report going to the group service of the deployment in use.
+	SendReport(context.Context, *SendReportRequest) (*SendReportResponse, error)
 	// Delivers what changed, for as long as the shell holds the call.
 	// events.proto states why every event carries a whole state,
 	// and why a shell that acted still waits for the event.
@@ -1402,6 +1443,9 @@ func (UnimplementedControlServiceServer) OpenLog(context.Context, *OpenLogReques
 }
 func (UnimplementedControlServiceServer) OpenLogsFolder(context.Context, *OpenLogsFolderRequest) (*OpenLogsFolderResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method OpenLogsFolder not implemented")
+}
+func (UnimplementedControlServiceServer) SendReport(context.Context, *SendReportRequest) (*SendReportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendReport not implemented")
 }
 func (UnimplementedControlServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
@@ -2225,6 +2269,24 @@ func _ControlService_OpenLogsFolder_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_SendReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).SendReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_SendReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).SendReport(ctx, req.(*SendReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -2440,6 +2502,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OpenLogsFolder",
 			Handler:    _ControlService_OpenLogsFolder_Handler,
+		},
+		{
+			MethodName: "SendReport",
+			Handler:    _ControlService_SendReport_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

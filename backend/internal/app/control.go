@@ -225,8 +225,9 @@ func (b controlBackend) LinkDiscord(ctx context.Context, relay settings.Relay) e
 
 func (b controlBackend) UnlinkDiscord() error { return b.app.UnlinkDiscord() }
 
-func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }
-func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder() }
+func (b controlBackend) OpenLog(path string) error   { return b.app.OpenLog(path) }
+func (b controlBackend) OpenLogsFolder() error       { return b.app.OpenLogsFolder() }
+func (b controlBackend) SendReport() (string, error) { return b.app.SendReport() }
 
 func (b controlBackend) UpdateState() update.State { return b.app.UpdateState() }
 func (b controlBackend) CheckUpdate() error        { return b.app.CheckUpdate() }

@@ -13,13 +13,13 @@ import (
 )
 
 // sendReport builds one bundle and delivers it to the group service beside the stored relay
-// (internal/report). ReportLastCrash is the one caller.
+// (internal/report). SendReport and ReportLastCrash are the callers, one per kind.
 // The stored settings name the relay: a report is about the deployment in use.
 func (a *App) sendReport(kind string, include ...string) (string, error) {
 	s := a.GetSettings()
 	base, ok := s.Relay.GroupService()
 	if !ok {
-		return "", errors.New("a report goes to the relay's group service, and the settings name no relay")
+		return "", errors.New("the settings name no relay, and a report goes to the group service beside one. Name a relay first")
 	}
 	dir, err := ffmpeg.LogDir()
 	if err != nil {
@@ -31,6 +31,24 @@ func (a *App) sendReport(kind string, include ...string) (string, error) {
 		return "", err
 	}
 	return a.groups.SendReport(base, &bundle)
+}
+
+// SendReport delivers a report a reader asked for, and answers the name it was stored under.
+//
+// Consent is the press, so App.SendsCrashReport is not read here.
+// That setting covers the send nobody is standing in front of, which is the crash one.
+//
+// No marker and no gate on a repeat.
+// A second press is a second report of its own moment,
+// where a crash is one event and gets one report.
+func (a *App) SendReport() (string, error) {
+	id, err := a.sendReport(report.KindManual)
+	if err != nil {
+		logger.Warnf("the report did not go out: %v", err)
+		return "", err
+	}
+	logger.Infof("sent report %s", id)
+	return id, nil
 }
 
 // ReportLastCrash sends a report about the newest unreported crash

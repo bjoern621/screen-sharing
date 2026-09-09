@@ -65,6 +65,14 @@ public sealed class AppSettingsViewModel : Observable
     /// <summary>What the last press on either button answered where it failed, empty otherwise.</summary>
     private string _linkFailed = "";
 
+    /// <summary>
+    /// What the last report press answered: the name it was stored under, or the refusal it came back with.
+    /// Both empty before the first press, and cleared by the next one, a line about a send being about
+    /// the send it is standing under.
+    /// </summary>
+    private string _reportId = "";
+    private string _reportFailure = "";
+
     /// <param name="backend">Reaches the log directory, which is the backend's own (<c>docs/ipc-api.md</c>).</param>
     /// <param name="form">Draft this window holds, and where a write leaves through.</param>
     /// <param name="session">Running state: the build this window talks to, and the Discord link.</param>
@@ -105,6 +113,11 @@ public sealed class AppSettingsViewModel : Observable
         // The logs are the backend's files: it writes them, rotates them, and is the side that knows
         // which still exist.
         OpenLogsFolder = new PendingCommand(() => backend.OpenLogsFolderAsync(), dispatch);
+
+        // The bundle is the backend's to build: it owns the logs, the settings it blanks the secrets out of,
+        // and the relay the report goes to.
+        // Nothing gates the press. A machine with no relay is refused by the backend, in its own words.
+        SendReport = new PendingCommand(() => SendReportAsync(backend), dispatch);
 
         // The manager runs beside the relay, so a machine pointed at none has nothing to link against.
         _linkDiscord = new PendingCommand(
@@ -154,6 +167,22 @@ public sealed class AppSettingsViewModel : Observable
     public DelegateCommand CloseCommand { get; }
 
     public PendingCommand OpenLogsFolder { get; }
+
+    /// <summary>Sends one report to the relay, and answers under <see cref="ReportLine"/>.</summary>
+    public PendingCommand SendReport { get; }
+
+    private string _reportLine = "";
+    private bool _reportLineIsFailure;
+
+    /// <summary>
+    /// What the last report press answered, empty before the first one.
+    /// Drawn selectable, the stored name being what a reader carries into a bug report and a refusal
+    /// what they carry into a message about the send itself.
+    /// </summary>
+    public string ReportLine { get => _reportLine; private set => Set(ref _reportLine, value); }
+
+    /// <summary>Whether <see cref="ReportLine"/> is a refusal rather than a name.</summary>
+    public bool ReportLineIsFailure { get => _reportLineIsFailure; private set => Set(ref _reportLineIsFailure, value); }
 
     /// <summary>The app group of the resolved form, holding the fields below and their write path.</summary>
     public FieldGroupViewModel Group { get; }
@@ -292,6 +321,11 @@ public sealed class AppSettingsViewModel : Observable
         IsDiscordLinked = discord?.Linked ?? false;
         DiscordLine = _linkFailed.Length > 0 ? _linkFailed : AppSettingsCopy.DiscordLine(discord);
         DiscordLineIsFailure = _linkFailed.Length > 0 || Links.StateIsFailure(discord);
+        ReportLine = _reportFailure.Length > 0
+            ? _reportFailure
+            : _reportId.Length > 0 ? AppSettingsCopy.ReportSent(_reportId) : "";
+        ReportLineIsFailure = _reportFailure.Length > 0;
+
         DiscordAvatar = discord?.Avatar ?? ByteString.Empty;
         LinkLabel = Links.Label(discord);
         LinkTip = Links.Tip(discord);
@@ -391,6 +425,39 @@ public sealed class AppSettingsViewModel : Observable
     private void LinkFailed(string reason)
     {
         _linkFailed = reason;
+        Apply();
+    }
+
+    /// <summary>
+    /// Sends one report and keeps what came back.
+    /// The line is cleared as the press starts, so the name under the button is the name of the send
+    /// that is running rather than the one before it.
+    /// A cancelled call clears it and says nothing, nothing having been refused.
+    /// </summary>
+    private async Task SendReportAsync(IBackend backend)
+    {
+        ReportLanded("", "");
+
+        try
+        {
+            var id = await backend.SendReportAsync().ConfigureAwait(false);
+            _dispatch(() => ReportLanded(id, ""));
+        }
+        catch (BackendUnavailableException e)
+        {
+            _dispatch(() => ReportLanded("", e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+            _dispatch(() => ReportLanded("", ""));
+        }
+    }
+
+    /// <summary>Takes what a report press answered, on the UI loop.</summary>
+    private void ReportLanded(string id, string failure)
+    {
+        _reportId = id;
+        _reportFailure = failure;
         Apply();
     }
 

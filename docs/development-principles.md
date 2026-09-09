@@ -100,9 +100,10 @@ A second, different request is not a repeat.
 `StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path.
 `ApplyToStream` names a transition on purpose, and a second one is a second restart.
 
-The third departure is the handful of effects that end in a program this process does not own: `OpenLog`, `OpenLogsFolder` and `OpenInBrowser` hand a path or an address to the desktop.
-A second call opens a second window, because there is no state to read back that would say the first one is still there:
-the browser owns the tab, the file manager owns its window, and neither reports.
+The third departure is the handful of effects that land somewhere this process does not own: `OpenLog`, `OpenLogsFolder` and `OpenInBrowser` hand a path or an address to the desktop,
+and `SendReport` leaves a bundle in a store beside the relay.
+A second call opens a second window or stores a second report, because there is no state to read back that would say the first one is there:
+the browser owns the tab, the file manager owns its window, the service owns what it stored, and none of them reports.
 An effect of this kind states no state and is offered as an action rather than as something with a tick beside it,
 so the departure stays visible in the interface instead of only in the code.
 

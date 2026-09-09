@@ -2,7 +2,11 @@ package control
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
@@ -32,5 +36,36 @@ func TestStartPublishRepeatsADiscordStream(t *testing.T) {
 
 	if _, err := server.StartPublish(context.Background(), &screensharev1.StartPublishRequest{Settings: draft}); err != nil {
 		t.Errorf("starting the stream already publishing answered %v, want the repeat to succeed", err)
+	}
+}
+
+// The name the service stored the report under is what a reader quotes,
+// so it crosses the contract rather than being logged where the press cannot see it.
+func TestSendReportAnswersTheStoredName(t *testing.T) {
+	backend := &probedBackend{}
+	backend.reportID = "7f3a91c2"
+	server := New(backend, events.New(), "test")
+
+	sent, err := server.SendReport(context.Background(), &screensharev1.SendReportRequest{})
+	if err != nil {
+		t.Fatalf("sending a report answered %v, want the send to succeed", err)
+	}
+	if got := sent.GetReportId(); got != backend.reportID {
+		t.Errorf("report id = %q, want %q", got, backend.reportID)
+	}
+}
+
+// A report goes to the group service of the deployment in use,
+// and settings naming no relay are a moment that is wrong rather than a request that is
+// (docs/ipc-api.md).
+func TestSendReportRefusesWithNoRelay(t *testing.T) {
+	backend := &probedBackend{}
+	backend.err = errors.New("the settings name no relay")
+	server := New(backend, events.New(), "test")
+
+	if _, err := server.SendReport(context.Background(), &screensharev1.SendReportRequest{}); err == nil {
+		t.Fatal("sending a report to no relay succeeded, want a refusal")
+	} else if got := status.Code(err); got != codes.FailedPrecondition {
+		t.Errorf("code = %s, want %s", got, codes.FailedPrecondition)
 	}
 }

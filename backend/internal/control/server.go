@@ -222,6 +222,10 @@ type Backend interface {
 	// holding them.
 	OpenLog(path string) error
 	OpenLogsFolder() error
+	// SendReport builds one report bundle and delivers it to the group service beside the stored
+	// relay, answering the name it was stored under.
+	// A press is what asks for it, so the automatic-send setting is not consulted.
+	SendReport() (reportID string, err error)
 	// UpdateState is what this install knows about the release published beside it, reaching nothing.
 	UpdateState() update.State
 	// CheckUpdate reads the published release and fetches it where this install replaces its own

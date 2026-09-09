@@ -32,6 +32,18 @@ public static class AppSettingsCopy
 
     public const string OpenLogsFolderTip = "Opens the folder holding the run logs in the file manager.";
 
+    public const string SendReport = "Send a report";
+
+    public const string SendReportTip =
+        "Sends the newest run logs, this computer's details and your settings with every secret removed to the relay.";
+
+    /// <summary>
+    /// Carries the name the report was stored under, which is what a reader quotes.
+    /// Selectable where it is drawn,
+    /// for the reason an error text is (<c>CLAUDE.md</c>, "Every error message is selectable and copyable").
+    /// </summary>
+    public static string ReportSent(string id) => $"Report sent ({id}). Quote that name when you report the problem.";
+
     public const string UpdatesHeading = "Updates";
 
     public const string CheckNow = "Check for updates";

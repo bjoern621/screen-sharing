@@ -900,6 +900,23 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
+    /// <summary>Counts the reports asked for, a repeat sending a second one.</summary>
+    public int ReportsSent { get; private set; }
+
+    /// <summary>The name a send answers with, standing for what the service stored it under.</summary>
+    public string ReportId { get; set; } = "report-1";
+
+    /// <summary>What a send is refused with, empty where the fixture lets it through.</summary>
+    public string ReportRefusal { get; set; } = "";
+
+    public Task<string> SendReportAsync(CancellationToken cancellation = default)
+    {
+        ReportsSent++;
+        return ReportRefusal.Length > 0
+            ? Task.FromException<string>(new BackendUnavailableException(ReportRefusal))
+            : Task.FromResult(ReportId);
+    }
+
     /// <summary>
     /// What the fixture says about the published release, settable per test.
     /// The unchecked stage by default: a fixture that reached a forge would be a test with a network in it.

@@ -569,6 +569,18 @@ func (s *Server) OpenLogsFolder(ctx context.Context, req *screensharev1.OpenLogs
 	return &screensharev1.OpenLogsFolderResponse{}, nil
 }
 
+// SendReport delivers one report bundle to the group service beside the stored relay,
+// and sends a second one on a second call, as OpenLog opens a second window.
+func (s *Server) SendReport(ctx context.Context, req *screensharev1.SendReportRequest) (*screensharev1.SendReportResponse, error) {
+	id, err := s.backend.SendReport()
+	if err != nil {
+		// A well-formed request whose moment is wrong, on CheckUpdate's terms:
+		// a report goes to the deployment in use, and the settings may name none.
+		return nil, failedPrecondition("cannot send a report: %v", err)
+	}
+	return &screensharev1.SendReportResponse{ReportId: id}, nil
+}
+
 // CheckUpdate reads the published release, and fetches it where this install replaces its own files.
 //
 // Returns as soon as the work is under way, the download outliving the call.

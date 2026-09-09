@@ -362,6 +362,22 @@ service ControlService {
   rpc OpenLog(OpenLogRequest) returns (OpenLogResponse);
   rpc OpenLogsFolder(OpenLogsFolderRequest) returns (OpenLogsFolderResponse);
 
+  // Sends one report to the group service beside the stored relay:
+  // what this machine is, the settings with every secret blanked,
+  // and the newest run logs, each capped at its tail (backend/internal/report).
+  //
+  // The press is the consent, so SettingsApp.send_crash_reports leaves this alone.
+  // That setting covers the report a crash sends unasked, on the next start.
+  //
+  // A second call sends a second report and answers a second id,
+  // the departure from idempotency OpenInBrowser states:
+  // what the effect leaves behind is a store this process does not own,
+  // and nothing reads back to tell a second call that it had already happened.
+  //
+  // Refused with FAILED_PRECONDITION where the settings name no relay,
+  // a report going to the group service of the deployment in use.
+  rpc SendReport(SendReportRequest) returns (SendReportResponse);
+
   // --- Stream ------------------------------------------------------------------
 
   // Delivers what changed, for as long as the shell holds the call.
@@ -836,6 +852,14 @@ message OpenLogResponse {}
 message OpenLogsFolderRequest {}
 
 message OpenLogsFolderResponse {}
+
+message SendReportRequest {}
+
+message SendReportResponse {
+  // What the service stored the report under, which is what a reader quotes
+  // to whoever reads it at the other end.
+  string report_id = 1;
+}
 
 // --- Stream requests --------------------------------------------------------------
 
