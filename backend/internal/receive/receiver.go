@@ -382,7 +382,9 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		}
 		logger.Warnf("stream %q ended: %s", r.name, message)
 		if debug != "" {
-			logger.Debugf("stream %q pipeline error: %s", r.name, debug)
+			// GStreamer's own text for a whole error class names neither the element
+			// nor what it choked on, so the debug string is the only record of either.
+			logger.Warnf("stream %q pipeline error: %s", r.name, debug)
 		}
 		// The consumers are told on the call they are blocked reading.
 		// ReceiveExit carries the same fact to every shell on the event stream, and
