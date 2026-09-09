@@ -118,6 +118,7 @@ jobs:
             mingw-w64-x86_64-gstreamer
             mingw-w64-x86_64-gst-plugins-base
             mingw-w64-x86_64-gst-plugins-bad
+            mingw-w64-x86_64-lld
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -128,6 +129,39 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "10.0.302"
+
+      # Temporary. `ld` dies on the backend's link and reports `ld returned 5 exit status`
+      # with no other word, so this reports which variants of the link survive it.
+      # The commit that picks one takes this step and the lld package back out.
+      - name: Link probe
+        continue-on-error: true
+        env:
+          CGO_ENABLED: "1"
+          CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
+          PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
+        run: |
+          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+          ld --version | Select-Object -First 1
+          go version
+
+          function Probe($name, $ldflags, $cflags) {
+            if ($cflags -eq $null) { Remove-Item Env:CGO_CFLAGS -ErrorAction SilentlyContinue }
+            else { $env:CGO_CFLAGS = $cflags }
+
+            $out = "$env:RUNNER_TEMP\probe.exe"
+            if ($ldflags) { go build -C backend -ldflags "$ldflags" -o "$out" ./cmd/backend }
+            else { go build -C backend -o "$out" ./cmd/backend }
+
+            Write-Host "PROBE ${name}: exit $LASTEXITCODE"
+            Remove-Item -Force "$out" -ErrorAction SilentlyContinue
+          }
+
+          Probe "baseline" "" $null
+          Probe "go-debug-stripped" "-s -w" $null
+          Probe "c-debug-dropped" "" "-O2"
+          Probe "both-stripped" "-s -w" "-O2"
+          Probe "no-high-entropy-va" "-extldflags=-Wl,--disable-high-entropy-va" $null
+          Probe "lld" "-extldflags=-fuse-ld=lld" $null
 
       # Compilation and the shell's suite. The Go suite spawns ffmpeg and builds pipelines,
       # neither of which is installed here.
