@@ -7,6 +7,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/applink"
+	"bjoernblessin.de/screenshare/internal/group"
 )
 
 // The page a button on a stated activity lands a browser on (docs/discord-mode.md).
@@ -37,15 +38,18 @@ Watching needs MirrorMe installed, and a seat in the voice channel the stream is
 `))
 
 // serveWatch answers the page naming one stream of one group.
+//
+// The name is held against the rule a publish is checked against before the link is built:
+// what arrives here is an address somebody typed, where applink asserts over one its caller computed.
 func (s *Service) serveWatch(w http.ResponseWriter, r *http.Request) {
-	group, stream := r.PathValue("group"), r.PathValue("stream")
-	if group == "" || stream == "" {
+	groupID, stream := r.PathValue("group"), r.PathValue("stream")
+	if groupID == "" || !group.NameHolds(stream) {
 		http.Error(w, "This address names no stream to open.", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := watchPage.Execute(w, watchLink{Link: template.URL(applink.FormatWatch(group, stream))}); err != nil {
+	if err := watchPage.Execute(w, watchLink{Link: template.URL(applink.FormatWatch(groupID, stream))}); err != nil {
 		logger.Warnf("a watch page did not reach the browser that asked for it: %v", err)
 	}
 }

@@ -74,3 +74,18 @@ func TestAWatchPageTakesNoSecret(t *testing.T) {
 		t.Errorf("the page carries no credential, carried %s", body)
 	}
 }
+
+// A name outside what a stream may carry inside its group is refused here,
+// the link this route builds being asserted against a name its caller computed
+// (internal/applink, internal/group).
+func TestAWatchPageNamingNoStreamOfAGroupIsRefused(t *testing.T) {
+	server, _, _ := serve(t, nil)
+
+	for _, path := range []string{"/watch/G1/bob/", "/watch/G1/bob/monitor-0/", "/watch/G1/a/b/c"} {
+		resp := get(t, server.URL+path)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("%s opens nothing, got %s", path, resp.Status)
+		}
+	}
+}
