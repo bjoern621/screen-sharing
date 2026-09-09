@@ -84,7 +84,8 @@ func TestTheBrowserLegLandsTheSecretAndTheAccount(t *testing.T) {
 	landed := make(chan landedLink, 1)
 
 	w := httptest.NewRecorder()
-	linkHandler(landed)(w, httptest.NewRequest(http.MethodGet, "/?linkSecret=fresh&account=bob", nil))
+	linkHandler("the-nonce", landed)(w,
+		httptest.NewRequest(http.MethodGet, "/?nonce=the-nonce&linkSecret=fresh&account=bob", nil))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("the browser leg answers %d, want %d", w.Code, http.StatusOK)
@@ -182,5 +183,53 @@ func TestUnlinkingClearsARefusal(t *testing.T) {
 
 	if a.discordWire().Refused {
 		t.Fatal("the state stands on a refusal about a link that is gone")
+	}
+}
+
+// The listener answers a loopback port, which any page in the user's browser can reach and guess at.
+// The nonce is what separates the landing this call opened from a secret somebody else chose:
+// without it a page spraying ports links this install to an account of the attacker's.
+func TestALandingCarryingAnotherNonceLandsNothing(t *testing.T) {
+	landed := make(chan landedLink, 1)
+	server := httptest.NewServer(linkHandler("the-nonce", landed))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/?nonce=guessed&linkSecret=chosen-elsewhere")
+	if err != nil {
+		t.Fatalf("landing a link: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("a landing under another nonce is refused, got %s", resp.Status)
+	}
+	select {
+	case link := <-landed:
+		t.Fatalf("a refused landing passed on %q", link.secret)
+	default:
+	}
+}
+
+func TestALandingCarryingTheNonceLands(t *testing.T) {
+	landed := make(chan landedLink, 1)
+	server := httptest.NewServer(linkHandler("the-nonce", landed))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/?nonce=the-nonce&linkSecret=drawn&account=bob")
+	if err != nil {
+		t.Fatalf("landing a link: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("a landing under the nonce is taken, got %s", resp.Status)
+	}
+	select {
+	case link := <-landed:
+		if link.secret != "drawn" || link.account != "bob" {
+			t.Fatalf("the landing passed on %+v", link)
+		}
+	default:
+		t.Fatal("a landing under the nonce passes its link on")
 	}
 }

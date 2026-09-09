@@ -2,10 +2,14 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -20,6 +24,12 @@ import (
 // A person is clicking through one consent screen, so minutes cover it,
 // and the manager ages its half of the start out on the same order (internal/discordapi).
 const linkWindow = 5 * time.Minute
+
+// linkNonceBytes is the entropy tying a landing to the start that opened it.
+//
+// 32, as a link secret: the listener answers a loopback port a page in the user's browser can
+// reach and guess at, so guessing the nonce lands a secret of that page's choosing on this install.
+const linkNonceBytes = 32
 
 // LinkDiscord links this install to a Discord account (docs/discord-mode.md).
 //
@@ -36,6 +46,11 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 		return errors.New("Discord is linked through the relay's manager, and no relay is named to reach one at")
 	}
 
+	nonce, err := drawLinkNonce()
+	if err != nil {
+		return err
+	}
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return fmt.Errorf("no loopback port for the link to land on: %v", err)
@@ -46,11 +61,12 @@ func (a *App) LinkDiscord(ctx context.Context, relay settings.Relay) error {
 
 	// Buffered, so the handler never blocks on a caller that already gave up.
 	landed := make(chan landedLink, 1)
-	server := &http.Server{Handler: linkHandler(landed)}
+	server := &http.Server{Handler: linkHandler(nonce, landed)}
 	go server.Serve(listener)
 	defer server.Close()
 
-	if err := openInShell(base + "/link?port=" + strconv.Itoa(port)); err != nil {
+	start := base + "/link?port=" + strconv.Itoa(port) + "&nonce=" + url.QueryEscape(nonce)
+	if err := openInShell(start); err != nil {
 		return fmt.Errorf("the browser did not open for the link: %v", err)
 	}
 
@@ -76,11 +92,35 @@ type landedLink struct {
 	avatar string
 }
 
+// drawLinkNonce draws the nonce one link's landing has to carry.
+//
+// A predictable nonce is a secret landed by whoever predicted it,
+// so a source that cannot answer leaves as an error rather than a weaker draw.
+func drawLinkNonce() (string, error) {
+	raw := make([]byte, linkNonceBytes)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("no nonce could be drawn for the link: %v", err)
+	}
+	// URL-safe alphabet, the nonce travelling as a query parameter in both directions.
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
 // linkHandler answers the browser leg and passes on what it carried, one link at most.
-func linkHandler(landed chan<- landedLink) http.HandlerFunc {
+//
+// A landing naming another nonce is refused and passes nothing on.
+// Any page in the user's browser reaches this listener by guessing its port,
+// and what such a page lands is a secret naming an account somebody else consented as.
+func linkHandler(nonce string, landed chan<- landedLink) http.HandlerFunc {
+	assert.Assert(nonce != "", "a handler names the nonce its landing carries")
 	assert.IsNotNil(landed, "a handler passes its link somewhere")
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("nonce")), []byte(nonce)) != 1 {
+			linkPage(w, http.StatusForbidden,
+				"This page did not come from a link the app started. Start the link again from the app.")
+			return
+		}
+
 		secret := r.URL.Query().Get("linkSecret")
 		if secret == "" {
 			linkPage(w, http.StatusBadRequest, "The link came back without a secret. Start the link again from the app.")

@@ -162,11 +162,17 @@ func TestTokensTradeAndRefusals(t *testing.T) {
 // startLink begins a link and answers the state the authorize redirect carries.
 func startLink(t *testing.T, server *httptest.Server) string {
 	t.Helper()
+	return startLinkWithNonce(t, server, "the-nonce")
+}
+
+// startLinkWithNonce is startLink under a nonce the caller reads back off the landing.
+func startLinkWithNonce(t *testing.T, server *httptest.Server, nonce string) string {
+	t.Helper()
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
 
-	resp, err := client.Get(server.URL + "/link?port=8123")
+	resp, err := client.Get(server.URL + "/link?port=8123&nonce=" + url.QueryEscape(nonce))
 	if err != nil {
 		t.Fatalf("starting a link: %v", err)
 	}
@@ -208,7 +214,8 @@ func TestLinkFlowLandsTheSecretOnLoopback(t *testing.T) {
 	// and this trade is the one read of them (internal/app, storeDiscordLink).
 	location := resp.Header.Get("Location")
 	want := "http://127.0.0.1:8123/?linkSecret=drawn-secret&account=bob" +
-		"&avatar=https%3A%2F%2Fcdn.discordapp.com%2Favatars%2Fu1%2Fhash1.png%3Fsize%3D64"
+		"&avatar=https%3A%2F%2Fcdn.discordapp.com%2Favatars%2Fu1%2Fhash1.png%3Fsize%3D64" +
+		"&nonce=the-nonce"
 	if location != want {
 		t.Fatalf("the secret, the account and its picture land on the port the start named, got %s", location)
 	}
@@ -289,5 +296,60 @@ func TestALinkSecretSurvivesTheRedirect(t *testing.T) {
 	}
 	if got := landed.Query().Get("linkSecret"); got != secret {
 		t.Fatalf("the app reads the secret %q, want %q", got, secret)
+	}
+}
+
+// The listener the secret lands on answers a loopback port any page in a browser can reach,
+// so the start names a nonce and the landing carries it back (internal/app, linkHandler).
+func TestALinkStartNeedsANonce(t *testing.T) {
+	server, _, _ := serve(t, nil)
+
+	resp := get(t, server.URL+"/link?port=8123")
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("a start naming no nonce is refused, got %s", resp.Status)
+	}
+}
+
+func TestALandingCarriesTheNonceItsStartNamed(t *testing.T) {
+	server, _, _ := serve(t, nil)
+	state := startLinkWithNonce(t, server, "the-nonce")
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(server.URL + "/link/callback?code=good-code&state=" + url.QueryEscape(state))
+	if err != nil {
+		t.Fatalf("finishing a link: %v", err)
+	}
+	defer resp.Body.Close()
+
+	landed, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("the redirect is no address: %v", err)
+	}
+	if got := landed.Query().Get("nonce"); got != "the-nonce" {
+		t.Fatalf("the landing carries the nonce %q, want the one the start named", got)
+	}
+}
+
+// A start takes no credential and holds memory for its whole window,
+// so what is held is capped and the oldest goes.
+func TestStartedLinksAreCapped(t *testing.T) {
+	service := New(fakeBroker{}, &fakeLinks{}, &fakeOAuth{})
+	handler := service.Handler("test")
+
+	for range startsHeld + 50 {
+		handler.ServeHTTP(httptest.NewRecorder(),
+			httptest.NewRequest(http.MethodGet, "/link?port=8123&nonce=n", nil))
+	}
+
+	service.mu.Lock()
+	held := len(service.pending)
+	service.mu.Unlock()
+
+	if held > startsHeld {
+		t.Fatalf("%d starts held, want at most %d", held, startsHeld)
 	}
 }

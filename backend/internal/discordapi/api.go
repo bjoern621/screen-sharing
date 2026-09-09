@@ -36,6 +36,16 @@ const linkWindow = 10 * time.Minute
 // bodyLimit bounds a request body, a link secret being 44 characters of base64.
 const bodyLimit = 4096
 
+// startsHeld bounds how many started links wait for a callback at once.
+//
+// A start takes no credential, so the window alone bounds nothing:
+// what is held is capped and the oldest goes.
+// Far above the people linking at one moment, and small enough that a flood costs a page of memory.
+const startsHeld = 1024
+
+// nonceLimit bounds the nonce a start names, which reaches loopback untouched.
+const nonceLimit = 128
+
 // Broker answers presence and trades tokens (internal/channelgroup).
 type Broker interface {
 	Presence(linkSecret string) (channelgroup.Answer, error)
@@ -66,9 +76,12 @@ type Service struct {
 	pending map[string]pendingLink
 }
 
-// pendingLink is one started link: where the secret lands, and when the start ages out.
+// pendingLink is one started link: where the secret lands, what the landing carries, and when
+// the start ages out.
 type pendingLink struct {
-	port    int
+	port int
+	// nonce is the app's own, echoed to loopback so it can tell this landing from any other.
+	nonce   string
 	started time.Time
 }
 
@@ -187,10 +200,17 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 //
 // The state ties the callback to this start:
 // drawn here, spent there, and aged out where no callback ever comes.
+// The nonce ties the landing to the app that opened the start,
+// this side holding it and reading none of it.
 func (s *Service) startLink(w http.ResponseWriter, r *http.Request) {
 	port, err := strconv.Atoi(r.URL.Query().Get("port"))
 	if err != nil || port < 1 || port > 65535 {
 		refuse(w, http.StatusBadRequest, "a link start names the loopback port the app listens on")
+		return
+	}
+	nonce := r.URL.Query().Get("nonce")
+	if nonce == "" || len(nonce) > nonceLimit {
+		refuse(w, http.StatusBadRequest, "a link start names the nonce its landing carries")
 		return
 	}
 
@@ -203,7 +223,8 @@ func (s *Service) startLink(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	s.expire()
-	s.pending[state] = pendingLink{port: port, started: s.now()}
+	s.capStarts()
+	s.pending[state] = pendingLink{port: port, nonce: nonce, started: s.now()}
 	s.mu.Unlock()
 
 	http.Redirect(w, r, s.oauth.AuthorizeURL(state), http.StatusFound)
@@ -249,9 +270,9 @@ func (s *Service) finishLink(w http.ResponseWriter, r *http.Request) {
 	// The account and its picture ride back with the secret, this trade being the one read of who consented.
 	// The app labels its stored link with them and this side keeps no copy.
 	http.Redirect(w, r,
-		fmt.Sprintf("http://127.0.0.1:%d/?linkSecret=%s&account=%s&avatar=%s",
+		fmt.Sprintf("http://127.0.0.1:%d/?linkSecret=%s&account=%s&avatar=%s&nonce=%s",
 			link.port, url.QueryEscape(secret), url.QueryEscape(identity.Username),
-			url.QueryEscape(identity.AvatarURL)),
+			url.QueryEscape(identity.AvatarURL), url.QueryEscape(link.nonce)),
 		http.StatusFound)
 }
 
@@ -262,6 +283,23 @@ func (s *Service) expire() {
 		if now.Sub(link.started) > linkWindow {
 			delete(s.pending, state)
 		}
+	}
+}
+
+// capStarts drops the oldest starts until one more fits.
+//
+// The oldest rather than the newest: a flood then costs the starts it outran
+// and leaves the next one after it standing.
+// Caller holds mu.
+func (s *Service) capStarts() {
+	for len(s.pending) >= startsHeld {
+		oldest, at := "", time.Time{}
+		for state, link := range s.pending {
+			if at.IsZero() || link.started.Before(at) {
+				oldest, at = state, link.started
+			}
+		}
+		delete(s.pending, oldest)
 	}
 }
 

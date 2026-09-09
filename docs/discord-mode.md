@@ -33,16 +33,20 @@ sequenceDiagram
     participant D as discordd
     participant O as Discord
 
-    A->>B: open GET /link?port=n
+    A->>B: open GET /link?port=n, nonce attached
     B->>D: GET /link?port=n
     D->>B: redirect to Discord authorize, identify scope
     B->>O: authorize
     O->>B: redirect to GET /link/callback, code attached
     B->>D: GET /link/callback
     D->>O: trade code, read the account
-    D->>B: redirect to 127.0.0.1:n, link secret, account and picture attached
+    D->>B: redirect to 127.0.0.1:n, link secret, account, picture and nonce attached
     B->>A: link secret
 ```
+
+The secret lands on a loopback port, which any page open in the browser reaches by guessing it.
+So the app draws a nonce with the start and takes the one landing carrying it back.
+The manager holds that nonce for the length of the flow and reads none of it.
 
 The link secret is 32 bytes naming this install as that Discord user.
 It sits in the settings the way a group key does and carries the same trust:
