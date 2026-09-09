@@ -154,6 +154,13 @@ jobs:
           CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
           PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
         run: |
+          # Git for Windows' own mingw64\bin comes off PATH first, as it does in `task dev`
+          # and for the reason stated there: it ships an older libstdc++-6.dll,
+          # Windows resolves an imported DLL by walking PATH,
+          # and the frame channel links GStreamer's Direct3D 11 library through it.
+          # A binary that starts under the appended prefix dies before main
+          # with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) under Git's.
+          $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -notmatch 'Git\\mingw64' }) -join ';'
           $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
 
           # A pwsh step reports the exit code of its last command,
