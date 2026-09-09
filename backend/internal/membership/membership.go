@@ -76,7 +76,18 @@ type Registry struct {
 	held map[string]map[string]lease
 	// looks is each group's last reading of the relay, keyed the same way.
 	looks map[string]*look
-	relay Relay
+	// releasedUntil is when each released member's last token stops being worth presenting,
+	// keyed by prefix and then by member id.
+	//
+	// A group with no live member is not enforced, so without this the last member out keeps
+	// whatever they open next on the token they still hold.
+	// Dropped when that token could no longer be signed for anybody, which is what closes the set:
+	// a member who comes back states presence and holds a lease again.
+	releasedUntil map[string]map[string]time.Time
+	// tokenWindow is how long a token this service's tokens are signed for stays presentable,
+	// which is how long a released member is worth closing (internal/groupsvc, TokenWindow).
+	tokenWindow time.Duration
+	relay       Relay
 	// now is read rather than time.Now called directly,
 	// so a test can let a lease lapse without waiting one out.
 	now func() time.Time
@@ -137,14 +148,19 @@ type Answer struct {
 	Unread []relay.Unread
 }
 
-func New(live Relay) *Registry {
+// New is a registry enforcing against this relay,
+// holding a released member worth closing for as long as a token stays presentable.
+func New(live Relay, tokenWindow time.Duration) *Registry {
 	assert.IsNotNil(live, "a registry enforces against a relay")
+	assert.Assert(tokenWindow > 0, "a released member is closed for some length of time", tokenWindow.String())
 
 	r := &Registry{
-		held:  map[string]map[string]lease{},
-		looks: map[string]*look{},
-		relay: live,
-		now:   time.Now,
+		held:          map[string]map[string]lease{},
+		looks:         map[string]*look{},
+		releasedUntil: map[string]map[string]time.Time{},
+		tokenWindow:   tokenWindow,
+		relay:         live,
+		now:           time.Now,
 	}
 	assert.IsNotNil(r.now, "a registry reads the clock its leases are measured on")
 	return r
@@ -234,6 +250,12 @@ func (r *Registry) Release(groupKey group.Key, secret group.MemberSecret) (Answe
 	delete(r.held[prefix], id)
 	if len(r.held[prefix]) == 0 {
 		delete(r.held, prefix)
+	}
+	if holds {
+		if r.releasedUntil[prefix] == nil {
+			r.releasedUntil[prefix] = map[string]time.Time{}
+		}
+		r.releasedUntil[prefix][id] = now.Add(r.tokenWindow)
 	}
 	r.mu.Unlock()
 
@@ -399,6 +421,34 @@ func (r *Registry) Swept(groupKey group.Key, subject string) bool {
 	return live
 }
 
+// PublishPrefix is where this subject's own streams live inside the group,
+// and false for a subject holding no live lease.
+//
+// The name a member claimed is what their paths lead with,
+// so the grant a token carries is written from the lease rather than from anything the caller sent
+// (internal/groupsvc).
+func (r *Registry) PublishPrefix(groupKey group.Key, subject string) (string, bool) {
+	assert.Assert(len(groupKey) == group.KeyBytes, "a member's prefix derives from a whole group key", len(groupKey))
+
+	prefix := groupKey.Prefix()
+	name, held := r.member(prefix, subject)
+	if !held {
+		return "", false
+	}
+	return group.MemberPrefix(prefix, name), true
+}
+
+// releasedRecently reports whether this subject released a lease
+// while a token naming it could still be presented.
+func (r *Registry) releasedRecently(prefix, id string) bool {
+	now := r.now()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	until, held := r.releasedUntil[prefix][id]
+	return held && until.After(now)
+}
+
 // live reports whether any member of this group holds a lease.
 func (r *Registry) live(prefix string) bool {
 	now := r.now()
@@ -440,10 +490,21 @@ func (r *Registry) Reap(now time.Time) []Result {
 			lapsed = append(lapsed, prefix)
 		}
 	}
+	// A released member stops being worth closing once no token naming them could still be presented.
+	for prefix, released := range r.releasedUntil {
+		for id, until := range released {
+			if !until.After(now) {
+				delete(released, id)
+			}
+		}
+		if len(released) == 0 {
+			delete(r.releasedUntil, prefix)
+		}
+	}
 	// A group nobody holds a lease in keeps no look either,
 	// a look being read against the leases and a group key being something anybody can draw one of.
 	for prefix := range r.looks {
-		if len(r.held[prefix]) == 0 {
+		if len(r.held[prefix]) == 0 && len(r.releasedUntil[prefix]) == 0 {
 			delete(r.looks, prefix)
 		}
 	}

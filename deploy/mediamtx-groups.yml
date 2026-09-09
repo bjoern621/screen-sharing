@@ -84,16 +84,21 @@ srt: yes
 srtAddress: :8890
 
 pathDefaults:
-  # A read announces itself to the group service,
+  # A connection announces itself to the group service,
   # which closes it where no live member of that group holds it.
   # A token cannot do that job: it is checked at the handshake and not again,
   # so a member whose presence lapsed opens a connection with the one they still hold.
   # The hook is a no-op for a group nobody has stated presence at.
   #
+  # Both directions, a publisher who left otherwise standing until the next sweep reaches it.
+  # One script for the two, MTX_PATH being the whole of what it reports.
+  #
   # The path is the deployment's to provide, the way the certificate paths below are:
   # the script is deploy/reconcile-on-read.sh in this repository, a host places it here,
-  # and a development relay points MTX_PATHDEFAULTS_RUNONREAD at the copy in its own checkout.
+  # and a development relay points MTX_PATHDEFAULTS_RUNONREAD and its publish counterpart
+  # at the copy in its own checkout.
   runOnRead: /etc/mediamtx/reconcile-on-read.sh
+  runOnPublish: /etc/mediamtx/reconcile-on-read.sh
 
 # --- The listeners the proxy fronts ----------------------------------------------
 #

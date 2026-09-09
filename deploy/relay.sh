@@ -49,4 +49,5 @@ cd "$dev"
 MTX_RTSPSERVERCERT="$cert" MTX_RTSPSERVERKEY="$key" \
 	MTX_RTMPSERVERCERT="$cert" MTX_RTMPSERVERKEY="$key" \
 	MTX_PATHDEFAULTS_RUNONREAD="$root/deploy/reconcile-on-read.sh" \
+	MTX_PATHDEFAULTS_RUNONPUBLISH="$root/deploy/reconcile-on-read.sh" \
 	mediamtx "$root/deploy/mediamtx-groups.yml"

@@ -15,7 +15,7 @@ import (
 func TestReadNamesEveryGroupHoldingALease(t *testing.T) {
 	first, firstSecret := mustKey(t), mustSecret(t)
 	second, secondSecret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, first, firstSecret, "Björn")
 	stated(t, registry, second, secondSecret, "Alice")
@@ -37,7 +37,7 @@ func TestReadNamesEveryGroupHoldingALease(t *testing.T) {
 
 func TestReadLeavesOutAGroupWhoseLeasesLapsed(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 	stated(t, registry, groupKey, secret, "Björn")
 
 	at := registry.now().Add(Lease + time.Second)
@@ -51,7 +51,7 @@ func TestReadLeavesOutAGroupWhoseLeasesLapsed(t *testing.T) {
 func TestReadReportsWhoIsPublishing(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	live.live = []relay.Session{
 		{Segment: "srtconns", ID: "pushing", Path: groupKey.Prefix() + "desk",
@@ -73,7 +73,7 @@ func TestReadReportsWhoIsPublishing(t *testing.T) {
 // so counting each one leaves the churn a reader came for buried under the poll rate.
 func TestANewLeaseIsCountedOnceAcrossRefreshes(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	past(registry)
@@ -86,7 +86,7 @@ func TestANewLeaseIsCountedOnceAcrossRefreshes(t *testing.T) {
 
 func TestALeaseStatedAgainAfterLapsingCountsAgain(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	at := registry.now().Add(Lease + time.Second)
@@ -100,7 +100,7 @@ func TestALeaseStatedAgainAfterLapsingCountsAgain(t *testing.T) {
 
 func TestAReleaseIsCounted(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 	stated(t, registry, groupKey, secret, "Björn")
 
 	if _, err := registry.Release(groupKey, secret); err != nil {
@@ -116,7 +116,7 @@ func TestAReleaseIsCounted(t *testing.T) {
 // so it succeeds and is not a departure to count.
 func TestAReleaseOfNothingIsNotCounted(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	if _, err := registry.Release(groupKey, secret); err != nil {
 		t.Fatalf("releasing: %v", err)
@@ -129,7 +129,7 @@ func TestAReleaseOfNothingIsNotCounted(t *testing.T) {
 
 func TestALapsedLeaseIsCounted(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 	stated(t, registry, groupKey, secret, "Björn")
 
 	at := registry.now().Add(Lease + time.Second)
@@ -144,7 +144,7 @@ func TestALapsedLeaseIsCounted(t *testing.T) {
 func TestAClosedConnectionIsCountedUnderItsTransport(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	live.live = []relay.Session{
 		{Segment: "srtconns", ID: "theirs", Path: groupKey.Prefix() + "desk",
@@ -165,7 +165,7 @@ func TestAClosedConnectionIsCountedUnderItsTransport(t *testing.T) {
 func TestARefusedKickIsCountedApart(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{refuse: map[string]error{"theirs": errors.New("no")}}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	live.live = []relay.Session{
 		{Segment: "srtconns", ID: "theirs", Path: groupKey.Prefix() + "desk",
@@ -185,7 +185,7 @@ func TestARefusedKickIsCountedApart(t *testing.T) {
 func TestAListThatWouldNotAnswerIsCountedUnderItsSegment(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{listErr: errors.New("connection refused")}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 

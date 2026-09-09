@@ -14,7 +14,9 @@ import (
 
 // service records what each request carried and answers what the route it names answers.
 type service struct {
-	body   map[string]map[string]any
+	body map[string]map[string]any
+	// header is the Authorization each route was reached with.
+	header map[string]string
 	query  map[string]string
 	answer map[string]any
 	status int
@@ -23,10 +25,12 @@ type service struct {
 func started(t *testing.T, s *service) (*Client, string) {
 	t.Helper()
 	s.body, s.query = map[string]map[string]any{}, map[string]string{}
+	s.header = map[string]string{}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		route := r.Method + " " + r.URL.Path
 		s.query[route] = r.URL.RawQuery
+		s.header[route] = r.Header.Get("Authorization")
 		if r.Body != nil {
 			var body map[string]any
 			json.NewDecoder(r.Body).Decode(&body)
@@ -63,8 +67,8 @@ func TestTheWireCarriesTheNamesTheServiceReads(t *testing.T) {
 	}
 }
 
-// The index takes its group in the query, a GET having no body a cache or a proxy honours.
-func TestTheIndexNamesTheGroupInTheQuery(t *testing.T) {
+// The index reads the streams the answer carries.
+func TestTheIndexReadsWhatItAnswers(t *testing.T) {
 	s := &service{answer: map[string]any{
 		"prefix":  "abc/",
 		"streams": []map[string]any{{"name": "standup", "ready": true, "format": "h264"}},
@@ -77,9 +81,6 @@ func TestTheIndexNamesTheGroupInTheQuery(t *testing.T) {
 	}
 	if len(streams) != 1 || streams[0].Name != "standup" || !streams[0].Ready {
 		t.Errorf("Streams = %+v, want the one stream the index answered", streams)
-	}
-	if got := s.query["GET /streams"]; got != "groupKey=a-group-key" {
-		t.Errorf("the index was asked %q, want the group key under groupKey", got)
 	}
 }
 
@@ -218,5 +219,23 @@ func TestNoSecretReachesAnErrorText(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), key) {
 		t.Errorf("the failure reads %q, which carries the group key out of the app", err)
+	}
+}
+
+// A request line reaches every proxy log between here and the service,
+// so the key that buys a listing rides in a header and the address carries none.
+func TestTheIndexIsAskedWithTheKeyInAHeader(t *testing.T) {
+	s := &service{answer: map[string]any{"streams": []any{}}}
+	client, base := started(t, s)
+
+	if _, err := client.Streams(base, "a-group-key"); err != nil {
+		t.Fatalf("listing streams: %v", err)
+	}
+
+	if got := s.header["GET /streams"]; got != "Bearer a-group-key" {
+		t.Errorf("the listing was asked under %q, want the key in a bearer", got)
+	}
+	if strings.Contains(s.query["GET /streams"], "a-group-key") {
+		t.Errorf("the address carried the key: %q", s.query["GET /streams"])
 	}
 }

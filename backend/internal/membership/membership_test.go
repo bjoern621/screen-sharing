@@ -18,6 +18,10 @@ import (
 // it acts on the group it was given and no other,
 // and a second run over unchanged leases does nothing.
 
+// testTokenWindow stands in for the window the service signs its tokens for,
+// which is how long a released member stays worth closing (internal/groupsvc, TokenWindow).
+const testTokenWindow = 5 * time.Minute
+
 // fakeRelay stands in for the relay's connection lists and its kicks.
 type fakeRelay struct {
 	live    []relay.Session
@@ -88,7 +92,7 @@ func stated(t *testing.T, r *Registry, groupKey group.Key, secret group.MemberSe
 // the id it is known by, the name it holds, and how long the lease it just stated runs.
 func TestAMemberStatesItsOwnPresence(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	answered := stated(t, registry, groupKey, secret, "Björn")
 	if answered.MemberID != groupKey.MemberID(secret) {
@@ -110,7 +114,7 @@ func TestAMemberStatesItsOwnPresence(t *testing.T) {
 func TestRefreshingIsTheSameCallAsClaiming(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	answered := stated(t, registry, groupKey, secret, "Björn")
@@ -129,7 +133,7 @@ func TestRefreshingIsTheSameCallAsClaiming(t *testing.T) {
 func TestANameHeldByAnotherMemberIsRefused(t *testing.T) {
 	groupKey := mustKey(t)
 	first, second := mustSecret(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, groupKey, first, "Björn")
 	if _, err := registry.State(groupKey, second, "Björn"); !errors.Is(err, ErrNameTaken) {
@@ -147,7 +151,7 @@ func TestANameHeldByAnotherMemberIsRefused(t *testing.T) {
 // which is the case a first-claim-wins rule has to let through.
 func TestAMemberKeepsItsOwnNameOnEveryRefresh(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	if _, err := registry.State(groupKey, secret, "Björn"); err != nil {
@@ -160,7 +164,7 @@ func TestAMemberKeepsItsOwnNameOnEveryRefresh(t *testing.T) {
 func TestANameALapsedMemberHeldIsFree(t *testing.T) {
 	groupKey := mustKey(t)
 	first, second := mustSecret(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	stated(t, registry, groupKey, first, "Björn")
 	at := time.Now().Add(Lease + time.Second)
@@ -174,7 +178,7 @@ func TestANameALapsedMemberHeldIsFree(t *testing.T) {
 // A member states a name to be known by, so a claim carrying none is refused and nothing is stored.
 func TestAMemberWithNoDisplayNameIsRefused(t *testing.T) {
 	groupKey := mustKey(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	if _, err := registry.State(groupKey, mustSecret(t), "  "); err == nil {
 		t.Fatal("a member with no display name was taken")
@@ -188,7 +192,7 @@ func TestAMemberWithNoDisplayNameIsRefused(t *testing.T) {
 func TestMembershipClosesWhatANonMemberHolds(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stranger := relay.Session{Segment: "srtconns", ID: "theirs", Path: groupKey.Prefix() + "desk",
 		User: "whoever", State: "read", RemoteAddr: "10.0.0.4:5000"}
@@ -228,7 +232,7 @@ func TestMembershipClosesWhatANonMemberHolds(t *testing.T) {
 func TestAMemberIsLeftAlone(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	live.live = []relay.Session{
 		{Segment: "rtspsessions", ID: "watching", Path: groupKey.Prefix() + "desk",
@@ -248,7 +252,7 @@ func TestASecondRunOverUnchangedLeasesClosesNothing(t *testing.T) {
 	live := &fakeRelay{live: []relay.Session{
 		{Segment: "srtconns", ID: "goes", Path: groupKey.Prefix() + "desk", User: "whoever", State: "read"},
 	}}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	before := len(live.kicked)
@@ -273,7 +277,7 @@ func TestAConnectionOutsideTheGroupIsNotTouched(t *testing.T) {
 		{Segment: "srtconns", ID: "reader", Path: elsewhere.Prefix() + "standup", User: "anybody", State: "read"},
 	}}
 
-	stated(t, New(live), here, mustSecret(t), "Björn")
+	stated(t, New(live, testTokenWindow), here, mustSecret(t), "Björn")
 	if len(live.kicked) != 0 {
 		t.Errorf("enforcing one group closed %v", live.kicked)
 	}
@@ -287,7 +291,7 @@ func TestAGroupWithNoLiveMembersIsNotEnforced(t *testing.T) {
 		{Segment: "srtconns", ID: "unknown", Path: groupKey.Prefix() + "desk", User: "whoever", State: "read"},
 	}}
 
-	result := New(live).Reconcile(groupKey.Prefix())
+	result := New(live, testTokenWindow).Reconcile(groupKey.Prefix())
 	if result.Enforced {
 		t.Error("a group nobody stated presence in reported as enforced")
 	}
@@ -302,7 +306,7 @@ func TestALapsedLeaseLosesBothWhatItWatchesAndWhatItShares(t *testing.T) {
 	groupKey := mustKey(t)
 	leaving, staying := mustSecret(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, leaving, "Bob")
 	stated(t, registry, groupKey, staying, "Alice")
@@ -333,7 +337,7 @@ func TestALapsedLeaseIsClosedByTheCallThatNoticesIt(t *testing.T) {
 	groupKey := mustKey(t)
 	lapsing, watching := mustSecret(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, lapsing, "Bob")
 	stated(t, registry, groupKey, watching, "Alice")
@@ -362,7 +366,7 @@ func TestEveryConnectionOneNonMemberHoldsGoes(t *testing.T) {
 		{Segment: "webrtcsessions", ID: "three", Path: groupKey.Prefix() + "c", User: "bob", State: "read"},
 	}}
 
-	stated(t, New(live), groupKey, mustSecret(t), "Alice")
+	stated(t, New(live, testTokenWindow), groupKey, mustSecret(t), "Alice")
 	if len(live.kicked) != 3 {
 		t.Errorf("one non-member on three streams left %d connections open: %v", 3-len(live.kicked), live.kicked)
 	}
@@ -378,7 +382,7 @@ func TestAKickTheRelayRefusedIsReported(t *testing.T) {
 		},
 		refuse: map[string]error{"stubborn": errors.New("session not found")},
 	}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, mustSecret(t), "Alice")
 	result := registry.Reconcile(groupKey.Prefix())
@@ -398,7 +402,7 @@ func TestAKickTheRelayRefusedIsReported(t *testing.T) {
 func TestListsThatCouldNotBeReadTravelWithTheAnswer(t *testing.T) {
 	groupKey := mustKey(t)
 	live := &fakeRelay{listErr: errors.New("the relay answered 500")}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, mustSecret(t), "Alice")
 	if result := registry.Reconcile(groupKey.Prefix()); len(result.Unread) != 1 {
@@ -411,7 +415,7 @@ func TestReleasingAMemberClosesWhatItHeld(t *testing.T) {
 	groupKey := mustKey(t)
 	leaving, staying := mustSecret(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, leaving, "Bob")
 	stated(t, registry, groupKey, staying, "Alice")
@@ -434,12 +438,13 @@ func TestReleasingAMemberClosesWhatItHeld(t *testing.T) {
 }
 
 // A release closes what the leaver itself holds, by its own id, whether or not anybody is left.
-// The carve-out is about a run: a group with no live member is not enforced,
-// so a connection nobody released stays open until somebody states presence again.
+// The carve-out narrows to what nobody released:
+// a connection under a subject no lease and no release names stays open until somebody
+// states presence again.
 func TestTheLastMemberLeavingClosesWhatItHeld(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	live.live = []relay.Session{
@@ -456,11 +461,48 @@ func TestTheLastMemberLeavingClosesWhatItHeld(t *testing.T) {
 	}
 
 	past(registry)
-	if registry.Reconcile(groupKey.Prefix()).Enforced {
-		t.Error("a group the last member left reported as enforced")
+	if !registry.Reconcile(groupKey.Prefix()).Enforced {
+		t.Error("a group holding a member released inside the token window reported as left alone")
 	}
 	if !slices.Equal(live.kicked, []string{"mine"}) {
-		t.Errorf("a group with no live member closed %v", live.kicked)
+		t.Errorf("a group with no live member closed %v, want the connection nobody released left alone", live.kicked)
+	}
+}
+
+// The relay checks a token at the handshake and not again,
+// so the last member out opens another on the one they still hold.
+// A group with no live member enforces against them until that token could no longer be presented.
+func TestAReleasedMemberIsClosedWhileTheirTokenCouldStillBePresented(t *testing.T) {
+	groupKey, secret := mustKey(t), mustSecret(t)
+	live := &fakeRelay{}
+	registry := New(live, testTokenWindow)
+	id := groupKey.MemberID(secret)
+
+	stated(t, registry, groupKey, secret, "Björn")
+	if _, err := registry.Release(groupKey, secret); err != nil {
+		t.Fatalf("releasing a member: %v", err)
+	}
+
+	live.live = []relay.Session{
+		{Segment: "srtconns", ID: "again", Path: groupKey.Prefix() + "desk", User: id, State: "read"},
+	}
+	past(registry)
+	registry.Reconcile(groupKey.Prefix())
+	if !slices.Contains(live.kicked, "again") {
+		t.Fatalf("a released member came back and was left alone, closed %v", live.kicked)
+	}
+
+	// Past the window the token is worth nothing, so the subject is one nobody accounts for again.
+	at := registry.now().Add(testTokenWindow + time.Minute)
+	registry.now = func() time.Time { return at }
+	registry.Reap(at)
+
+	live.live = []relay.Session{
+		{Segment: "srtconns", ID: "later", Path: groupKey.Prefix() + "desk", User: id, State: "read"},
+	}
+	registry.Reconcile(groupKey.Prefix())
+	if slices.Contains(live.kicked, "later") {
+		t.Errorf("a group with no live member enforced past the token window, closed %v", live.kicked)
 	}
 }
 
@@ -471,7 +513,7 @@ func TestAMemberStatingPresenceDuringTheRelayReadIsLeftAlone(t *testing.T) {
 	groupKey := mustKey(t)
 	holding, returning := mustSecret(t), mustSecret(t)
 	live := &during{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, holding, "Alice")
 	live.live = []relay.Session{
@@ -547,7 +589,7 @@ func until(t *testing.T, reached func() bool) {
 func TestOneLookAtTheRelayAnswersEveryRequestInsideTheWindow(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, secret, "Björn")
 	if live.reads != 1 {
@@ -574,7 +616,7 @@ func TestOneLookAtTheRelayAnswersEveryRequestInsideTheWindow(t *testing.T) {
 func TestAnAnswerCarriesTheListsThatWouldNotAnswer(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &fakeRelay{listErr: errors.New("the relay answered 500")}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	answered := stated(t, registry, groupKey, secret, "Björn")
 	if len(answered.Unread) != 1 {
@@ -590,7 +632,7 @@ func TestAnAnswerCarriesTheListsThatWouldNotAnswer(t *testing.T) {
 // Releasing names the state it wants true, so a member who holds no lease is already in it.
 func TestReleasingAMemberWhoHoldsNoLeaseIsASuccess(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	answered, err := registry.Release(groupKey, secret)
 	if err != nil {
@@ -618,7 +660,7 @@ func TestPublishingIsReadOffTheRelay(t *testing.T) {
 	groupKey := mustKey(t)
 	publishing, watching := mustSecret(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, publishing, "Bob")
 	stated(t, registry, groupKey, watching, "Alice")
@@ -657,7 +699,7 @@ func TestTheViewStatesNothing(t *testing.T) {
 	live := &fakeRelay{live: []relay.Session{
 		{Segment: "srtconns", ID: "stranger", Path: groupKey.Prefix() + "desk", User: "whoever", State: "read"},
 	}}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	if members := registry.View(groupKey).Members; len(members) != 0 {
 		t.Errorf("a group nobody stated presence in carries %+v", members)
@@ -682,7 +724,7 @@ func TestTheReaperClosesWhatALapsedLeaseHeld(t *testing.T) {
 	groupKey := mustKey(t)
 	lapsing, staying := mustSecret(t), mustSecret(t)
 	live := &fakeRelay{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	started := time.Now()
 	at := started
@@ -727,7 +769,7 @@ func TestAClosedConnectionIsNamedTheWayTheIndexNamesIt(t *testing.T) {
 		{Segment: "srtconns", Transport: "srt", ID: "one", Path: groupKey.Prefix() + "desk",
 			User: "stranger", State: "read"},
 	}}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, mustSecret(t), "Alice")
 	result := registry.Reconcile(groupKey.Prefix())
@@ -761,7 +803,7 @@ func TestAClosedConnectionIsNamedTheWayTheIndexNamesIt(t *testing.T) {
 func TestAStatementCrossingAReleaseAnswers(t *testing.T) {
 	groupKey, secret := mustKey(t), mustSecret(t)
 	live := &during{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	released := make(chan struct{})
 	live.crossing = func() {
@@ -785,7 +827,7 @@ func TestAReleaseCrossingAStatementAnswers(t *testing.T) {
 	groupKey := mustKey(t)
 	leaving, staying := mustSecret(t), mustSecret(t)
 	live := &during{}
-	registry := New(live)
+	registry := New(live, testTokenWindow)
 
 	stated(t, registry, groupKey, staying, "Alice")
 	stated(t, registry, groupKey, leaving, "Bob")
@@ -811,7 +853,7 @@ func TestAReleaseCrossingAStatementAnswers(t *testing.T) {
 // so both read one set of leases and a credential outlives its subject's presence by nothing.
 func TestASubjectNoLiveMemberHoldsIsSwept(t *testing.T) {
 	groupKey, secret, absent := mustKey(t), mustSecret(t), mustSecret(t)
-	registry := New(&fakeRelay{})
+	registry := New(&fakeRelay{}, testTokenWindow)
 
 	// A group nobody states presence in is one a run leaves alone, whatever the subject.
 	if registry.Swept(groupKey, groupKey.MemberID(absent)) {

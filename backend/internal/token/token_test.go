@@ -30,7 +30,7 @@ func mustSigner(t *testing.T) *Signer {
 func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	s := mustSigner(t)
 
-	signed, err := s.Sign("group", GroupPermissions("ABCD/"), time.Now(), time.Minute)
+	signed, err := s.Sign("group", GroupPermissions("ABCD/", "ABCD/"), time.Now(), time.Minute)
 	if err != nil {
 		t.Fatalf("signing: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestATokenFitsTheStreamIdThatCarriesIt(t *testing.T) {
 	s := mustSigner(t)
 	prefix := strings.Repeat("A", 26) + "/"
 
-	signed, err := s.Sign(strings.Repeat("A", 26), GroupPermissions(prefix), time.Now(), time.Minute)
+	signed, err := s.Sign(strings.Repeat("A", 26), GroupPermissions(prefix, prefix), time.Now(), time.Minute)
 	if err != nil {
 		t.Fatalf("signing: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 	s := mustSigner(t)
 	now := time.Unix(1_700_000_000, 0)
 
-	signed, err := s.Sign("group", GroupPermissions("ABCD/"), now, 90*time.Second)
+	signed, err := s.Sign("group", GroupPermissions("ABCD/", "ABCD/"), now, 90*time.Second)
 	if err != nil {
 		t.Fatalf("signing: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 	s := mustSigner(t)
 
-	signed, err := s.Sign("group", GroupPermissions("ABCD/"), time.Now(), time.Minute)
+	signed, err := s.Sign("group", GroupPermissions("ABCD/", "ABCD/"), time.Now(), time.Minute)
 	if err != nil {
 		t.Fatalf("signing: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 // A grant is anchored at the start of the prefix.
 // Unanchored, one group's token would open every group whose id merely contains it.
 func TestAGrantReachesOneGroupAndNoOther(t *testing.T) {
-	permissions := GroupPermissions("ABCD/")
+	permissions := GroupPermissions("ABCD/", "ABCD/")
 	if len(permissions) != 2 {
 		t.Fatalf("a group is granted %+v, want publishing and reading", permissions)
 	}
@@ -208,5 +208,26 @@ func TestAKeyIsNamedByWhatItPublishes(t *testing.T) {
 	}
 	if first.KeyID() == second.KeyID() {
 		t.Errorf("two keys are named one thing: %s", first.KeyID())
+	}
+}
+
+// The publish half is written against one member's own prefix and the read half against the group's,
+// so a grant a caller builds from two prefixes carries both and mixes neither.
+func TestAGrantSeparatesPublishingFromReading(t *testing.T) {
+	permissions := GroupPermissions("ABCD/", "ABCD/bob/")
+
+	for _, p := range permissions {
+		switch p.Action {
+		case ActionPublish:
+			if p.Path != "~^ABCD/bob/" {
+				t.Errorf("publishing is granted on %q, want the member's own prefix", p.Path)
+			}
+		case ActionRead:
+			if p.Path != "~^ABCD/" {
+				t.Errorf("reading is granted on %q, want the group's prefix", p.Path)
+			}
+		default:
+			t.Errorf("a group's grant carries the action %q", p.Action)
+		}
 	}
 }

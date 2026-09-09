@@ -40,7 +40,7 @@ func keyedService(t *testing.T) (*Service, *keyed) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	keys := &keyed{}
-	return New(signer, paths(nil), membership.New(&carrying{}), keys, nil), keys
+	return New(signer, paths(nil), membership.New(&carrying{}, TokenWindow), keys, nil), keys
 }
 
 // A member's SRT handshake carries the derived passphrase,

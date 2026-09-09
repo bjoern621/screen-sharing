@@ -88,7 +88,7 @@ func main() {
 	// and the SRT keys riding the same credential.
 	// None reaches the relay as anything a group token could.
 	enforcer := relayConnections{host: *relayHost, apiPort: *relayAPIPort, client: client}
-	members := membership.New(enforcer)
+	members := membership.New(enforcer, groupsvc.TokenWindow)
 	go reap(members)
 
 	srtKeys := relayKeys{host: *relayHost, apiPort: *relayAPIPort, client: client}

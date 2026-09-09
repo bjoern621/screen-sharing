@@ -99,9 +99,10 @@ $env:MTX_RTSPSERVERCERT = $cert
 $env:MTX_RTSPSERVERKEY  = $key
 $env:MTX_RTMPSERVERCERT = $cert
 $env:MTX_RTMPSERVERKEY  = $key
-# The read hook is a shell script and nothing here runs one,
-# so this relay reports no read and enforcement waits for the group service's next reconcile.
+# The hooks are a shell script and nothing here runs one,
+# so this relay reports no connection and enforcement waits for the group service's next reconcile.
 $env:MTX_PATHDEFAULTS_RUNONREAD = ""
+$env:MTX_PATHDEFAULTS_RUNONPUBLISH = ""
 
 # From the relay's own directory, because MediaMTX draws the MoQ pair beside whatever it runs in.
 Push-Location $dev

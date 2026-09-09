@@ -49,7 +49,7 @@ func service(t *testing.T, streams ...string) *Service {
 	if err != nil {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
-	return New(signer, paths(streams), membership.New(&carrying{}), &keyed{}, nil)
+	return New(signer, paths(streams), membership.New(&carrying{}, TokenWindow), &keyed{}, nil)
 }
 
 // callRaw makes one request and returns its status and body as it stands,
@@ -313,7 +313,7 @@ func TestTheIndexCarriesTheIngestRateAndReaderCount(t *testing.T) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	relayStreams := rated{path: groupKey.ID() + "/standup", inMbps: 42.5, readers: 3}
-	s := New(signer, relayStreams, membership.New(&carrying{}), &keyed{}, nil)
+	s := New(signer, relayStreams, membership.New(&carrying{}, TokenWindow), &keyed{}, nil)
 
 	_, body := call(t, s, "GET", listing(groupKey), "")
 
@@ -344,5 +344,140 @@ func TestEveryAnswerNamesTheVersionServing(t *testing.T) {
 		if got, want := w.Header().Get("Server"), "groupd/0.6.1"; got != want {
 			t.Errorf("%s answers as %q, want %q", target, got, want)
 		}
+	}
+}
+
+// callWithHeader makes one request carrying a header, and returns its status and decoded body.
+func callWithHeader(t *testing.T, s *Service, method, target, name, value string) (int, map[string]any) {
+	t.Helper()
+	r := httptest.NewRequest(method, target, nil)
+	r.RemoteAddr = "192.0.2.1:1234"
+	r.Header.Set(name, value)
+	w := httptest.NewRecorder()
+	s.Handler("test").ServeHTTP(w, r)
+
+	var body map[string]any
+	json.NewDecoder(w.Body).Decode(&body)
+	return w.Code, body
+}
+
+// A request line reaches every proxy log between the caller and here,
+// so the key that buys a listing travels in a header.
+func TestTheIndexTakesTheGroupKeyInAHeader(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := service(t, groupKey.Prefix()+"bob")
+
+	status, body := callWithHeader(t, s, "GET", "/streams", "Authorization", "Bearer "+groupKey.String())
+
+	if status != http.StatusOK {
+		t.Fatalf("a header names the group, got %d", status)
+	}
+	if body["prefix"] != groupKey.Prefix() {
+		t.Fatalf("the listing answers for %v, want %q", body["prefix"], groupKey.Prefix())
+	}
+	if streams, _ := body["streams"].([]any); len(streams) != 1 {
+		t.Fatalf("the group's one stream is listed, got %v", body["streams"])
+	}
+}
+
+func TestTheMembersViewTakesTheGroupKeyInAHeader(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := service(t)
+
+	status, body := callWithHeader(t, s, "GET", "/members", "Authorization", "Bearer "+groupKey.String())
+
+	if status != http.StatusOK {
+		t.Fatalf("a header names the group, got %d", status)
+	}
+	if _, held := body["members"]; !held {
+		t.Fatalf("the view answers the group's members, got %v", body)
+	}
+}
+
+// The relay outlives the apps that reach it, so a caller built before the header is still answered.
+func TestTheIndexStillTakesTheGroupKeyInTheQuery(t *testing.T) {
+	groupKey, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+	s := service(t, groupKey.Prefix()+"bob")
+
+	status, body := call(t, s, "GET", listing(groupKey), "")
+
+	if status != http.StatusOK {
+		t.Fatalf("the query still names the group, got %d", status)
+	}
+	if body["prefix"] != groupKey.Prefix() {
+		t.Fatalf("the listing answers for %v, want %q", body["prefix"], groupKey.Prefix())
+	}
+}
+
+// callFrom makes one request from a peer, carrying the forwarded address where one is given.
+func callFrom(t *testing.T, s *Service, method, target, peer, forwarded string) int {
+	t.Helper()
+	r := httptest.NewRequest(method, target, nil)
+	r.RemoteAddr = peer
+	if forwarded != "" {
+		r.Header.Set("X-Forwarded-For", forwarded)
+	}
+	w := httptest.NewRecorder()
+	s.Handler("test").ServeHTTP(w, r)
+	return w.Code
+}
+
+// Behind the proxy every caller on the internet reaches this service from loopback,
+// so the bound is kept against the address the proxy forwarded.
+func TestTheCreationBoundIsPerForwardedAddress(t *testing.T) {
+	s := service(t)
+
+	for i := range CreationsPerHour {
+		if status := callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", "198.51.100.7"); status != http.StatusOK {
+			t.Fatalf("creation %d of %d was refused", i, CreationsPerHour)
+		}
+	}
+	if status := callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", "198.51.100.7"); status != http.StatusTooManyRequests {
+		t.Errorf("creation past one address's bound answered %d, want a refusal", status)
+	}
+	if status := callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", "198.51.100.8"); status != http.StatusOK {
+		t.Errorf("another address answered %d, want a bound of its own", status)
+	}
+}
+
+// The manager reaches this service beside it and states no forwarded address,
+// so a flood somebody else sent through the proxy leaves Discord mode drawing groups.
+func TestTheDeploymentsOwnProcessIsNotBounded(t *testing.T) {
+	s := service(t)
+
+	for range CreationsPerHour {
+		callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", "203.0.113.9")
+	}
+	if status := callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", "203.0.113.9"); status != http.StatusTooManyRequests {
+		t.Fatalf("the forwarded address is bounded, got %d", status)
+	}
+
+	for i := range CreationsPerHour + 10 {
+		if status := callFrom(t, s, "POST", "/groups", "127.0.0.1:5000", ""); status != http.StatusOK {
+			t.Fatalf("creation %d from the deployment's own process was refused", i)
+		}
+	}
+}
+
+// A header is the caller's own claim, so one from anywhere but the proxy names no bucket.
+func TestAForwardedAddressFromOutsideIsNotRead(t *testing.T) {
+	s := service(t)
+
+	for range CreationsPerHour {
+		if status := callFrom(t, s, "POST", "/groups", "192.0.2.5:1234", "198.51.100.1"); status != http.StatusOK {
+			t.Fatal("a creation inside the bound was refused")
+		}
+	}
+	if status := callFrom(t, s, "POST", "/groups", "192.0.2.5:1234", "198.51.100.2"); status != http.StatusTooManyRequests {
+		t.Errorf("a caller naming another forwarded address answered %d, want its own bound kept", status)
 	}
 }

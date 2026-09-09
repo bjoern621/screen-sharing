@@ -44,7 +44,7 @@ func enforcing(t *testing.T, live ...relay.Session) (*Service, *carrying) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	relayed := &carrying{live: live}
-	return New(signer, paths(nil), membership.New(relayed), &keyed{}, nil), relayed
+	return New(signer, paths(nil), membership.New(relayed, TokenWindow), &keyed{}, nil), relayed
 }
 
 func mustKey(t *testing.T) group.Key {
@@ -567,5 +567,99 @@ func TestAnIndexGroupKeyTheServiceCannotReadIsRefused(t *testing.T) {
 
 	if status, _ := call(t, service, "GET", "/streams?groupKey=not-a-key", ""); status != 400 {
 		t.Error("the index took a group key it cannot read")
+	}
+}
+
+// A grant covering the whole prefix lets any member publish under any other member's name,
+// and a viewer's list shows that stream beside the name it was published under.
+// So the publish half is scoped to the member the token names, and the read half stays the group's.
+func TestATokenPublishesUnderItsOwnMembersNameAlone(t *testing.T) {
+	key, secret := mustKey(t), mustSecret(t)
+	service, _ := enforcing(t)
+
+	if status, body := call(t, service, "PUT", "/members", presence(key, secret, "Bob")); status != 200 {
+		t.Fatalf("stating presence answered %d: %v", status, body)
+	}
+
+	status, body := call(t, service, "POST", "/tokens",
+		`{"groupKey":"`+key.String()+`","memberSecret":"`+secret.String()+`"}`)
+	if status != 200 {
+		t.Fatalf("a member's token was refused with %d: %v", status, body)
+	}
+	claimed := claims(t, body["relayAccessToken"].(string))
+
+	own := group.MemberPrefix(key.Prefix(), "Bob")
+	if !strings.Contains(claimed, `{"action":"publish","path":"~^`+own+`"}`) {
+		t.Errorf("the token grants %s, and publishing is not held to this member's own name", claimed)
+	}
+	if !strings.Contains(claimed, `{"action":"read","path":"~^`+key.Prefix()+`"}`) {
+		t.Errorf("the token grants %s, and reading is not the whole group's", claimed)
+	}
+}
+
+// The first app in a group states presence before it asks for a token,
+// so a request naming no member is one bootstrapping an empty group and grants the whole prefix.
+func TestATokenNamingNoMemberPublishesUnderTheWholeGroup(t *testing.T) {
+	key := mustKey(t)
+	service, _ := enforcing(t)
+
+	status, body := call(t, service, "POST", "/tokens", `{"groupKey":"`+key.String()+`"}`)
+	if status != 200 {
+		t.Fatalf("a bootstrapping token was refused with %d: %v", status, body)
+	}
+
+	claimed := claims(t, body["relayAccessToken"].(string))
+	if !strings.Contains(claimed, `{"action":"publish","path":"~^`+key.Prefix()+`"}`) {
+		t.Errorf("the token grants %s, want the whole group's prefix", claimed)
+	}
+}
+
+// The relay checks a token at the handshake and not again, so a member who left opens a connection
+// on the one they still hold.
+// A group with no live member is not enforced, which would leave the last one out standing:
+// what they held when they released is closed again for as long as that token could be presented.
+func TestTheLastMemberOutIsClosedOnATokenTheyStillHold(t *testing.T) {
+	key, secret := mustKey(t), mustSecret(t)
+	id, path := key.MemberID(secret), key.Prefix()+"Bob/monitor-0"
+	service, relayed := enforcing(t)
+
+	if status, body := call(t, service, "PUT", "/members", presence(key, secret, "Bob")); status != 200 {
+		t.Fatalf("stating presence answered %d: %v", status, body)
+	}
+	released := `{"groupKey":"` + key.String() + `","memberSecret":"` + secret.String() + `"}`
+	if status, _ := call(t, service, "DELETE", "/members", released); status != 200 {
+		t.Fatal("releasing the member failed")
+	}
+
+	// Back on the token they were last issued, into a group nobody else is in.
+	relayed.live = append(relayed.live, relay.Session{
+		Segment: "srtconns", ID: "again", Path: path, User: id, State: "read", Transport: "srt",
+	})
+	// One look at the relay per group per membership.SweepWindow, and the release above took this
+	// group's. The reconnect is read off the next one.
+	time.Sleep(membership.SweepWindow)
+
+	if status, _ := callRaw(t, service, "POST", "/reconcile", `{"path":"`+path+`"}`); status != http.StatusNoContent {
+		t.Fatal("the read hook was refused")
+	}
+	if !slices.Contains(relayed.kicked, "again") {
+		t.Errorf("the released member is still watching, closed %v", relayed.kicked)
+	}
+}
+
+// An app that has stated no presence yet holds what it opened:
+// membership nobody stated is not a group nobody is in, and a run closes nothing there.
+func TestAGroupNobodyStatedPresenceInIsLeftAlone(t *testing.T) {
+	key := mustKey(t)
+	path := key.Prefix() + "Bob/monitor-0"
+	service, relayed := enforcing(t, relay.Session{
+		Segment: "srtconns", ID: "untouched", Path: path, User: "somebody", Transport: "srt",
+	})
+
+	if status, _ := callRaw(t, service, "POST", "/reconcile", `{"path":"`+path+`"}`); status != http.StatusNoContent {
+		t.Fatal("the read hook was refused")
+	}
+	if len(relayed.kicked) != 0 {
+		t.Errorf("a group nobody stated presence in closed %v", relayed.kicked)
 	}
 }

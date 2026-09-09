@@ -46,8 +46,8 @@ type Connection struct {
 // so a run reports the whole of what it saw rather than the half it acted on.
 type Result struct {
 	Prefix string `json:"prefix"`
-	// Enforced is false for a group with no live member,
-	// where a run is a no-op rather than a removal of everybody.
+	// Enforced is false for a group this run left alone,
+	// one holding neither a live member nor a member released inside the token window.
 	Enforced bool `json:"enforced"`
 	// Members is what the live members call themselves, for a person reading a run.
 	Members []string     `json:"members"`
@@ -91,9 +91,15 @@ func (r *Registry) sweep(prefix string) (Result, []relay.Session) {
 			live[id] = held.displayName
 		}
 	}
+	released := 0
+	for _, until := range r.releasedUntil[prefix] {
+		if until.After(now) {
+			released++
+		}
+	}
 	r.mu.Unlock()
 
-	if len(live) == 0 {
+	if len(live) == 0 && released == 0 {
 		return Result{Prefix: prefix, Members: []string{}, Kicked: []Connection{}}, nil
 	}
 
@@ -116,6 +122,14 @@ func (r *Registry) sweep(prefix string) (Result, []relay.Session) {
 		// and a member that states presence across one holds a lease by the moment its kick would land.
 		name, member := r.member(prefix, session.User)
 		if member {
+			result.Kept++
+			kept = append(kept, session)
+			continue
+		}
+		// A group nobody holds a lease in is enforced against its released members alone.
+		// Everything else there belongs to an app that has stated no presence yet,
+		// which is the case a run leaves alone.
+		if len(live) == 0 && !r.releasedRecently(prefix, session.User) {
 			result.Kept++
 			kept = append(kept, session)
 			continue

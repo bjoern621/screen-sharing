@@ -42,7 +42,7 @@ sequenceDiagram
     participant G as groupd
     participant M as MediaMTX
 
-    V->>G: GET /streams, groupKey in query
+    V->>G: GET /streams, group key in a header
     G->>M: API, list paths
     M-->>G: every path on the relay
     Note over G: keeps children of prefix only
@@ -100,7 +100,7 @@ Membership is therefore enforced by closing connections, against the presence le
 
 ## What a leak costs
 
-One grant covers both actions, so a leak publishes into the group as well as reading it.
+A leaked token reads every stream of the group and publishes under the one member it names.
 A leaked token lasts five minutes.
 A leaked group key lasts until the group draws a new one, which is `POST /groups` again.
 A leaked member secret on its own buys nothing: every route that takes one takes the group key beside it.

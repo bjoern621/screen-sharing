@@ -40,6 +40,19 @@ func SpellName(name string) string {
 	return spelled
 }
 
+// MemberPrefix leads every path one member of a group publishes under:
+// their group's prefix, their own name as one segment, and the separator.
+//
+// What a publish grant is written against (internal/token), against the path a publish lands at.
+// One segment whatever the name holds, matching the member half SpellName cuts out of a whole
+// stream name: a name carrying a separator of its own is spelled inside its segment either way.
+func MemberPrefix(prefix, displayName string) string {
+	assert.Assert(prefix != "", "a member's paths stand under their group's prefix", displayName)
+	assert.Assert(displayName != "", "a member publishes under a name", prefix)
+
+	return prefix + spellSegment(displayName) + separator
+}
+
 // NameOf is the name a spelled path segment stands for, and false for one this app did not spell.
 //
 // A stream published by something else lives under a name of its own choosing,

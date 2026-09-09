@@ -33,7 +33,7 @@ func reporting(t *testing.T) (*Service, *stored) {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
 	reports := &stored{}
-	return New(signer, nil, membership.New(&carrying{}), &keyed{}, reports), reports
+	return New(signer, nil, membership.New(&carrying{}, TokenWindow), &keyed{}, reports), reports
 }
 
 // A report is taken without a group key:

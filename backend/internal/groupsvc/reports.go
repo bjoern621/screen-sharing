@@ -39,7 +39,8 @@ func (s *Service) takeReport(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusNotFound, "this relay keeps no reports")
 		return
 	}
-	if !s.allowReport(caller(r)) {
+	who, bounded := caller(r)
+	if bounded && !s.allowReport(who) {
 		refuse(w, http.StatusTooManyRequests, "too many reports sent from here in the last hour")
 		return
 	}

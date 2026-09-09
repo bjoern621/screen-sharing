@@ -212,7 +212,8 @@ func (s *Service) Handler(version string) http.Handler {
 // Nothing is stored because there is nothing to store:
 // the group exists by somebody holding the key, and the prefix is that key's own digest.
 func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
-	if !s.allowCreation(caller(r)) {
+	who, bounded := caller(r)
+	if bounded && !s.allowCreation(who) {
 		refuse(w, http.StatusTooManyRequests, "too many groups created from here in the last hour")
 		return
 	}
@@ -291,12 +292,20 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Publishing is held to the name this member claimed, where the leases name one.
+	// A request naming no member is the first app in an empty group,
+	// which has no claim yet and gets the whole prefix for the window.
+	publishUnder := prefix
+	if own, held := s.members.PublishPrefix(groupKey, subject); held {
+		publishUnder = own
+	}
+
 	// Ahead of every connection the token buys,
 	// so the relay knows the prefix's SRT keys before the first handshake carries them.
 	s.keySrt(groupKey)
 
 	now := s.now()
-	signed, err := s.signer.Sign(subject, token.GroupPermissions(prefix), now, TokenWindow)
+	signed, err := s.signer.Sign(subject, token.GroupPermissions(prefix, publishUnder), now, TokenWindow)
 	if err != nil {
 		s.refuseToken(w, http.StatusInternalServerError, "no token could be signed")
 		return
@@ -316,7 +325,7 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 // A stream lives in a group, so a request naming no key is asking about streams nobody holds,
 // and it is refused rather than answered with a listing of everything outside every group.
 func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
-	encoded := strings.TrimSpace(r.URL.Query().Get("groupKey"))
+	encoded := strings.TrimSpace(groupKeyIn(r))
 	if encoded == "" {
 		refuse(w, http.StatusBadRequest, "a stream lives in a group, and this request names none")
 		return
@@ -432,7 +441,7 @@ func (s *Service) releaseMember(w http.ResponseWriter, r *http.Request) {
 // The group key in the query, as the index takes it and for the same reason:
 // a GET has no body a cache or a proxy will honour.
 func (s *Service) viewMembers(w http.ResponseWriter, r *http.Request) {
-	groupKey, ok := groupOf(w, r.URL.Query().Get("groupKey"))
+	groupKey, ok := groupOf(w, groupKeyIn(r))
 	if !ok {
 		return
 	}
@@ -490,6 +499,19 @@ func readBody(w http.ResponseWriter, r *http.Request, into any) bool {
 		return false
 	}
 	return true
+}
+
+// groupKeyIn reads the group key a GET names: the Authorization header, or the query behind it.
+//
+// The header, because a request line is what every proxy between the caller and here writes to a log,
+// and a GET has no body a cache or a proxy will honour.
+// The query is read behind it for a caller built before the header,
+// this service outliving the apps that reach it, and it is the one place a key still lands in a log.
+func groupKeyIn(r *http.Request) string {
+	if bearer, held := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); held {
+		return bearer
+	}
+	return r.URL.Query().Get("groupKey")
 }
 
 // groupOf reads the group a request names, and refuses the caller where it names none.
@@ -568,22 +590,49 @@ func recordWithin(record map[string][]time.Time, caller string, bound int, now t
 	return true
 }
 
-// caller is who a request is from, for the creation bound alone.
+// caller is who a request is from and whether a bound is kept against them.
 //
-// The remote address and never a forwarded header: a header is the client's own claim,
-// so bounding by one bounds by a number the caller picks.
-// Behind a reverse proxy this is the proxy's address,
-// which leaves the real bound to the proxy and makes this one a backstop.
-func caller(r *http.Request) string {
+// Behind the proxy every caller on the internet arrives from loopback,
+// so the peer alone buckets the whole internet together with the manager running beside this service.
+// What a bound means anything against there is the address the proxy forwarded.
+//
+// The header is read from a loopback peer alone.
+// A header is the client's own claim, so one read from anywhere else bounds by a value
+// the caller picks, and the last entry is the one the proxy appended to whatever arrived.
+//
+// A loopback peer naming no forwarded address is the deployment's own process,
+// which is unbounded: reaching this port already means running on the relay's host,
+// and a bound shared with the internet stops Discord mode on a flood somebody else sent.
+func caller(r *http.Request) (address string, bounded bool) {
 	// SplitHostPort rather than a cut at the first colon:
 	// an IPv6 address carries colons of its own and is bracketed,
 	// so "[2001:db8::1]:53321" cut that way yields "[2001",
 	// bucketing every IPv6 caller under one key.
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
 	}
-	return host
+
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() {
+		return host, true
+	}
+	forwarded := forwardedFor(r)
+	if forwarded == "" {
+		return host, false
+	}
+	return forwarded, true
+}
+
+// forwardedFor is the address the proxy in front recorded, empty where it recorded none.
+// The last entry: a client may send a list of its own, and the proxy appends the peer it saw.
+func forwardedFor(r *http.Request) string {
+	header := r.Header.Get("X-Forwarded-For")
+	if header == "" {
+		return ""
+	}
+	entries := strings.Split(header, ",")
+	return strings.TrimSpace(entries[len(entries)-1])
 }
 
 func answer(w http.ResponseWriter, body any) {

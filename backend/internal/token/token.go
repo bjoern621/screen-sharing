@@ -89,21 +89,26 @@ type Permission struct {
 	Path   string `json:"path"`
 }
 
-// GroupPermissions is what a holder of one prefix may do: publish and read every stream under it,
-// and nothing outside it.
+// GroupPermissions is what a token may do: read every stream under readPrefix,
+// and publish under publishPrefix.
 //
-// One builder for a group's prefix and for the public one, the grant being the same shape:
-// a public token drops the secret needed to ask for it, never a permission this states.
+// Two prefixes, because the two questions differ.
+// A member reads whatever their group shares, and publishes where their own name leads,
+// so a stream a listing shows beside a member is one that member opened
+// (internal/group, MemberPrefix).
+// The two are equal for a token naming no member, which is the whole group's prefix.
 //
-// The expression is anchored at the start of the prefix,
+// Each expression is anchored at the start of its prefix,
 // an unanchored one granting every group whose id merely contains this one's.
-func GroupPermissions(prefix string) []Permission {
-	assert.Assert(prefix != "", "a group's permissions name the prefix they are granted on")
+func GroupPermissions(readPrefix, publishPrefix string) []Permission {
+	assert.Assert(readPrefix != "", "a group's permissions name the prefix they are read on")
+	assert.Assert(publishPrefix != "", "a group's permissions name the prefix they publish on")
+	assert.Assert(strings.HasPrefix(publishPrefix, readPrefix),
+		"a publisher's prefix stands inside the group it reads", publishPrefix, readPrefix)
 
-	path := "~^" + regexpQuote(prefix)
 	out := []Permission{
-		{Action: ActionPublish, Path: path},
-		{Action: ActionRead, Path: path},
+		{Action: ActionPublish, Path: "~^" + regexpQuote(publishPrefix)},
+		{Action: ActionRead, Path: "~^" + regexpQuote(readPrefix)},
 	}
 
 	for _, p := range out {

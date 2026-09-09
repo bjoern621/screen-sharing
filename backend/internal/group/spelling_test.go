@@ -104,3 +104,39 @@ func TestAPathCarriesANameOutsideTheAlphabet(t *testing.T) {
 		t.Errorf("the path's name reads back as (%q, %v)", read, ok)
 	}
 }
+
+// A grant is written against MemberPrefix and a publish lands under Path,
+// so the two agree on where one member's streams begin, whatever their name holds.
+func TestAMemberPrefixLeadsThatMembersPublishedPath(t *testing.T) {
+	key, err := NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+
+	for _, name := range []string{"Bob", "Björn", "a b", "a/b", "_odd_"} {
+		path, err := key.Path(name + "/monitor-0")
+		if err != nil {
+			t.Fatalf("%q publishes nothing: %v", name, err)
+		}
+		prefix := MemberPrefix(key.Prefix(), name)
+		if !strings.HasPrefix(path, prefix) {
+			t.Errorf("%q publishes at %q, which does not start with %q", name, path, prefix)
+		}
+	}
+}
+
+// One member's prefix leads no other member's path.
+func TestAMemberPrefixLeadsNoOtherMembersPath(t *testing.T) {
+	key, err := NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+
+	theirs, err := key.Path("Eve/monitor-0")
+	if err != nil {
+		t.Fatalf("Eve publishes nothing: %v", err)
+	}
+	if mine := MemberPrefix(key.Prefix(), "Bob"); strings.HasPrefix(theirs, mine) {
+		t.Errorf("%q starts with %q", theirs, mine)
+	}
+}

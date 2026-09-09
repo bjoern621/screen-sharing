@@ -75,7 +75,7 @@ The relay reads one at the handshake and not again, so a connection outlives its
 Enforcement therefore closes connections.
 A sweep lists every connection under the group's prefix and closes each one whose subject no live member id matches.
 That takes what a lapsed member was watching and what they were sharing.
-It runs on every statement of presence in that group, on every release, on the sweep, and on every read the relay announces (`deploy/reconcile-on-read.sh`), so a lapse lands at the first of the four.
+It runs on every statement of presence in that group, on every release, on the sweep, and on every connection the relay announces, a read and a publish alike (`deploy/reconcile-on-read.sh`), so a lapse lands at the first of the four.
 The sweep is what bounds the wait where a group's remaining members are all idle, and it is the service's only timer.
 
 The read hook is what covers the window a token leaves open.
@@ -83,8 +83,10 @@ A member whose lease lapsed comes back on a token that has not expired, the read
 
 ## What a run leaves alone
 
-A group with no live member is not enforced.
+A group with no live member is enforced against its released members alone.
 Membership nobody stated is not the same as a group nobody is in, and enforcing the empty case would close the connections of an app that has not stated its presence.
+The member who released is the exception: the token they hold outlives the lease they gave up,
+so what that subject opens is closed for as long as such a token could still be presented.
 
 A run that could not read one of the relay's lists says so in `unread`, and a close the relay refused lands in `failed`.
 Both are a member possibly still watching, so neither is folded into the count of what was closed.
@@ -125,7 +127,10 @@ A new key moves every remaining member's streams to a new prefix and leaves ever
 ## Tokens name a member
 
 `POST /tokens` signs the member id where the request names a member secret, and the relay lists and logs a connection under that subject.
-The grant does not move with it: membership decides who may connect, and the token's prefix decides what they reach.
+Reading is the group's and publishing is that member's own:
+a token reaches every stream under the prefix and publishes under the name that member claimed,
+so a stream a listing shows beside a member is one that member opened.
+A request naming no member has no claim to write a grant from and publishes under the whole prefix, which is the first app in an empty group.
 
 The subject meets the sweep's own test before it is signed, so a credential a run would close is refused.
 A group with no live member sweeps nothing, and every subject is signed there.
@@ -149,7 +154,7 @@ So a bot serving a voice channel, holding what a member holds, states presence f
 | --- | --- | --- |
 | `POST /tokens` | the deployment's name, through the proxy | group key, and the member secret where the caller holds one |
 | `PUT /members`, `DELETE /members` | the deployment's name, through the proxy | group key and member secret, in the body |
-| `GET /members` | the deployment's name, through the proxy | group key, in the query |
+| `GET /members` | the deployment's name, through the proxy | group key, in a header |
 | `POST /reconcile` | loopback | a relay path, and it grants nothing and answers nothing |
 
 A member's app reaches the group service at the relay's own name, one certificate covering both (`settings.Relay.GroupService`).

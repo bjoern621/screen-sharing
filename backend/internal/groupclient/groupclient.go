@@ -228,7 +228,7 @@ func (c *Client) Token(base, groupKey, memberSecret string) (string, error) {
 		Expires string `json:"expires"`
 	}
 	body := map[string]string{"groupKey": groupKey, "memberSecret": memberSecret}
-	if err := c.send(http.MethodPost, base+"/tokens", body, &answer); err != nil {
+	if err := c.send(http.MethodPost, base+"/tokens", "", body, &answer); err != nil {
 		return "", err
 	}
 	if answer.Token == "" {
@@ -263,16 +263,11 @@ func (c *Client) Streams(base, groupKey string) ([]Stream, error) {
 		return nil, errors.New("a stream index is answered by a group service, and no relay is named to ask one of")
 	}
 
-	address := base + "/streams"
-	if groupKey != "" {
-		address += "?groupKey=" + url.QueryEscape(groupKey)
-	}
-
 	var answer struct {
 		Prefix  string   `json:"prefix"`
 		Streams []Stream `json:"streams"`
 	}
-	if err := c.send(http.MethodGet, address, nil, &answer); err != nil {
+	if err := c.send(http.MethodGet, base+"/streams", groupKey, nil, &answer); err != nil {
 		return nil, err
 	}
 	return answer.Streams, nil
@@ -291,7 +286,7 @@ func (c *Client) CreateGroup(base string) (groupKey, groupID string, err error) 
 		GroupKey string `json:"groupKey"`
 		GroupID  string `json:"groupId"`
 	}
-	if err := c.send(http.MethodPost, base+"/groups", map[string]string{}, &answer); err != nil {
+	if err := c.send(http.MethodPost, base+"/groups", "", map[string]string{}, &answer); err != nil {
 		return "", "", err
 	}
 	if answer.GroupKey == "" {
@@ -322,7 +317,7 @@ func (c *Client) State(base, groupKey, memberSecret, displayName string) (Member
 		"memberSecret": memberSecret,
 		"displayName":  displayName,
 	}
-	if err := c.send(http.MethodPut, base+"/members", body, &answer); err != nil {
+	if err := c.send(http.MethodPut, base+"/members", "", body, &answer); err != nil {
 		return Membership{}, err
 	}
 	if answer.MemberID == "" {
@@ -349,12 +344,14 @@ func (c *Client) Release(base, groupKey, memberSecret string) error {
 		Released bool   `json:"released"`
 	}
 	body := map[string]string{"groupKey": groupKey, "memberSecret": memberSecret}
-	return c.send(http.MethodDelete, base+"/members", body, &answer)
+	return c.send(http.MethodDelete, base+"/members", "", body, &answer)
 }
 
 // send makes one call and decodes its answer, or the reason there is none.
 // A nil body is a request that carries none, which is what a GET is.
-func (c *Client) send(method, address string, body any, into any) error {
+// groupKey names the group in a header where the route takes no body to name it in,
+// and is empty where the body already carries it (internal/groupsvc, groupKeyIn).
+func (c *Client) send(method, address, groupKey string, body any, into any) error {
 	assert.Assert(address != "", "a call names the route it reaches", method)
 	assert.IsNotNil(into, "a call names where its answer is read into", method, spoken(address))
 
@@ -373,6 +370,9 @@ func (c *Client) send(method, address string, body any, into any) error {
 	}
 	if payload != nil {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	if groupKey != "" {
+		request.Header.Set("Authorization", "Bearer "+groupKey)
 	}
 
 	resp, err := c.http.Do(request)
