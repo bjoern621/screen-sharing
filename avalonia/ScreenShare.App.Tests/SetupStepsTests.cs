@@ -69,6 +69,26 @@ public sealed class SetupStepsTests
         Assert.Equal(flow.Steps[0].Key, flow.Steps.Single(step => step.IsCurrent).Key);
     }
 
+    /// <summary>
+    /// What the stream shares is decided at the press that starts one,
+    /// so the wizard carries no step for it and reads none back.
+    /// </summary>
+    [Fact]
+    public async Task TheShareGroupIsNoStepOfTheWizard()
+    {
+        var backend = new SeededBackend("linux");
+        var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
+        var flow = await FlowAsync();
+
+        // Fixture carries one, so what follows tests a filter and not a form missing the group.
+        Assert.Contains(form.Groups, group => GroupPlacement.InPicker(group.Key));
+
+        Assert.DoesNotContain(flow.Steps, step => GroupPlacement.InPicker(step.Key));
+        Assert.DoesNotContain(
+            flow.Review.Tiles,
+            tile => tile.Heading == Fields.Group(ShareLayout.GroupKey).Title);
+    }
+
     [Fact]
     public async Task EveryStepInTheStripDrawsAForm()
     {
@@ -88,13 +108,6 @@ public sealed class SetupStepsTests
             {
                 Assert.True(flow.ShowsQuality);
                 Assert.True(flow.Quality.IsResolved);
-                continue;
-            }
-
-            if (step.Key == ShareLayout.GroupKey)
-            {
-                Assert.True(flow.ShowsShare);
-                Assert.True(flow.Share.Group.IsResolved);
                 continue;
             }
 

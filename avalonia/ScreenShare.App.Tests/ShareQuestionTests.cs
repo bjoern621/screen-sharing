@@ -1,7 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Setup.Model;
-using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
+using ScreenShare.App.Features.Setup.ShareQuestion.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
 
@@ -14,27 +14,27 @@ namespace ScreenShare.App.Tests;
 /// A chooser drawn above it would ask which screen before anything said a screen was being shared,
 /// so each chooser follows the control the backend leaves visible under the picked kind.
 /// </summary>
-public sealed class ShareStepTests
+public sealed class ShareQuestionTests
 {
-    /// <summary>One view of the question, standing in for the control that reports it is on screen.</summary>
-    private static readonly object Watcher = new();
-
-    /// <summary>Flow on the share step with the window in front, which is what puts the question up.</summary>
-    private static SetupViewModel OnShareStep()
+    /// <summary>
+    /// The question as the start press puts it up, with the window in front.
+    /// The press waits on an answer no test gives, so the dialog stands open behind what follows.
+    /// </summary>
+    private static ShareQuestionViewModel Asked()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
         var session = new Session(backend, action => action());
         session.Start();
         session.Stop();
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = ShareLayout.GroupKey;
-        flow.Share.SetShowing(Watcher, true);
-        return flow;
+        var picker = Flows.Picker(backend, session);
+        picker.AskAsync();
+        picker.Question.SetShowing(true);
+        return picker.Question;
     }
 
     /// <summary>Picks one entry of the kind, the way a press on its card does.</summary>
-    private static void PickKind(ShareStepViewModel share, string kind)
+    private static void PickKind(ShareQuestionViewModel share, string kind)
         => share.Group.Fields
             .Single(control => control.Key == ShareLayout.KindKey)
             .Options.Single(option => option.Value == kind)
@@ -47,7 +47,7 @@ public sealed class ShareStepTests
     [Fact]
     public void TheKindLeadsAndNoTargetIsDrawnTwice()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
 
         Assert.NotNull(share.Kind);
         Assert.Equal(ShareLayout.KindKey, share.Kind.Key);
@@ -81,19 +81,19 @@ public sealed class ShareStepTests
         session.Start();
         session.Stop();
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = ShareLayout.GroupKey;
-        flow.Share.SetShowing(Watcher, true);
+        var picker = Flows.Picker(backend, session);
+        picker.AskAsync();
+        picker.Question.SetShowing(true);
 
-        Assert.False(flow.Share.Screens.IsVisible);
-        Assert.Contains(flow.Share.Rest, field => field.Key == ShareLayout.MonitorKey);
+        Assert.False(picker.Question.Screens.IsVisible);
+        Assert.Contains(picker.Question.Rest, field => field.Key == ShareLayout.MonitorKey);
     }
 
     /// <summary>A screen is picked off a picture of it, and only once a screen is what is being shared.</summary>
     [Fact]
     public void TheScreenGridDrawsUnderTheScreenKindAlone()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
 
         Assert.True(share.Screens.IsVisible);
         Assert.False(share.Windows.IsVisible);
@@ -124,13 +124,13 @@ public sealed class ShareStepTests
         session.Start();
         session.Stop();
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = ShareLayout.GroupKey;
-        flow.Share.SetShowing(Watcher, true);
+        var picker = Flows.Picker(backend, session);
+        picker.AskAsync();
+        picker.Question.SetShowing(true);
 
         Assert.Equal([0, 1], backend.Previewed);
 
-        PickKind(flow.Share, "window");
+        PickKind(picker.Question, "window");
 
         Assert.Empty(backend.Previewed);
     }
@@ -142,7 +142,7 @@ public sealed class ShareStepTests
     [Fact]
     public void TheWindowListNamesAndSizesEveryHandleItOffers()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
         PickKind(share, "window");
 
         Assert.Equal(["4242", "5150"], share.Windows.Windows.Select(row => row.Handle));
@@ -155,7 +155,7 @@ public sealed class ShareStepTests
     [Fact]
     public void PickingAWindowWritesTheSetting()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
         PickKind(share, "window");
 
         share.Windows.Windows.Single(row => row.Handle == "5150").Select.Execute(null);
@@ -172,7 +172,7 @@ public sealed class ShareStepTests
     [Fact]
     public void AnUndrawnRegionSaysWhatToDo()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
         PickKind(share, "region");
 
         Assert.True(share.Region.IsVisible);
@@ -184,7 +184,7 @@ public sealed class ShareStepTests
     [Fact]
     public void ADrawnRegionReadsBackAsSizeAndPlace()
     {
-        var share = OnShareStep().Share;
+        var share = Asked();
         PickKind(share, "region");
 
         share.Group.Fields.Single(control => control.Key == ShareLayout.RegionKey).Text = "100,200,1280x720";
@@ -205,12 +205,12 @@ public sealed class ShareStepTests
         session.Start();
         session.Stop();
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = ShareLayout.GroupKey;
+        var picker = Flows.Picker(backend, session);
+        picker.AskAsync();
 
-        Assert.False(flow.Share.Asks);
-        Assert.False(flow.Share.Screens.IsVisible);
-        Assert.False(flow.Share.Windows.IsVisible);
-        Assert.False(flow.Share.Region.IsVisible);
+        Assert.False(picker.Question.Asks);
+        Assert.False(picker.Question.Screens.IsVisible);
+        Assert.False(picker.Question.Windows.IsVisible);
+        Assert.False(picker.Question.Region.IsVisible);
     }
 }

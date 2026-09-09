@@ -5,7 +5,7 @@ using ScreenShare.App.Features.Insights.Model;
 using ScreenShare.App.Features.Insights.ViewModel;
 using ScreenShare.App.Features.Setup.RegionPicker.View;
 using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
-using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
+using ScreenShare.App.Features.Setup.ShareQuestion.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Shell.Go.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
@@ -135,11 +135,11 @@ public sealed class ShellViewModel : Observable
 
         // What the stream shares, drawn on the wizard's own step and again over the window at the press
         // that starts one. One model behind both placements, so the reader meets one question
-        // (Features/Setup/ShareStep/ViewModel/ShareStepViewModel.cs).
-        ShareStep = new ShareStepViewModel(backend, _form, _session, RegionOverlay.DrawAsync, dispatch);
+        // (Features/Setup/ShareQuestion/ViewModel/ShareQuestionViewModel.cs).
+        ShareQuestion = new ShareQuestionViewModel(backend, _form, _session, RegionOverlay.DrawAsync, dispatch);
 
         // The dialog around it, built before the flow that opens it.
-        SharePicker = new SharePickerViewModel(ShareStep, _form);
+        SharePicker = new SharePickerViewModel(ShareQuestion, _form);
 
         // The check about the Discord link leads to the settings dialog, which is why it is built first.
         Setup = new SetupViewModel(
@@ -244,7 +244,7 @@ public sealed class ShellViewModel : Observable
     /// What the stream shares, one question drawn on the wizard's step and inside the dialog below.
     /// Held here because both placements take the one model.
     /// </summary>
-    public ShareStepViewModel ShareStep { get; }
+    public ShareQuestionViewModel ShareQuestion { get; }
 
     /// <summary>The dialog putting that question over the window at the press that starts a stream.</summary>
     public SharePickerViewModel SharePicker { get; }

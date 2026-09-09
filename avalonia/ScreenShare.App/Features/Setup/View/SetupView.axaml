@@ -10,7 +10,6 @@
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
-             xmlns:sharestep="using:ScreenShare.App.Features.Setup.ShareStep.View"
              xmlns:relaycheck="using:ScreenShare.App.Features.Setup.RelayCheck.View"
              xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              xmlns:ti="using:TablerIcons"
@@ -132,16 +131,6 @@
           -->
           <Panel IsVisible="{Binding ShowsAudio}">
             <audio:AudioStepView DataContext="{Binding Audio}" />
-          </Panel>
-
-          <!--
-            The share group's own layout: the kind above the chooser it names,
-            rather than a grid of screens over a question that has not been asked yet (Setup/ShareStep).
-            The dialog at the start press draws this same model.
-            The wrapper is load-bearing, as on the audio group above.
-          -->
-          <Panel IsVisible="{Binding ShowsShare}">
-            <sharestep:ShareStepView DataContext="{Binding Share}" />
           </Panel>
 
           <!--

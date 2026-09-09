@@ -9,7 +9,7 @@ using ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
 using ScreenShare.App.Features.Setup.WindowPicker.ViewModel;
 using ScreenShare.App.Mvvm;
 
-namespace ScreenShare.App.Features.Setup.ShareStep.ViewModel;
+namespace ScreenShare.App.Features.Setup.ShareQuestion.ViewModel;
 
 /// <summary>
 /// What the stream shares, as one question: the kind first, then the one chooser it names
@@ -21,27 +21,21 @@ namespace ScreenShare.App.Features.Setup.ShareStep.ViewModel;
 /// leaves one chooser on screen with no gate here.
 /// Anything else the group grows keeps its generic row (<see cref="Rest"/>).
 ///
-/// <b>One question drawn twice.</b>
-/// The wizard's share step and the dialog at the press that starts a stream draw this one model,
-/// so the question looks the same in both places (<c>docs/ipc-api.md</c>, "The rule").
-/// Which of them is on screen is two named inputs, one per owner, and the answer is their union.
+/// <b>Asked at the press that starts a stream.</b>
+/// What is shared is somebody's answer per stream rather than a machine's settled one,
+/// so it is drawn in the dialog that press puts up and on no wizard step
+/// (<see cref="Fields.Model.GroupPlacement"/>).
 ///
 /// <b>Outputs</b> past those inputs. The answer leaves through the draft:
 /// the choosers write where every other control writes, and the press that starts a stream reads it back.
 /// </summary>
-public sealed class ShareStepViewModel : Observable
+public sealed class ShareQuestionViewModel : Observable
 {
     private readonly FormSession _form;
     private readonly Session _session;
 
-    /// <summary>
-    /// Views drawing this question that are being looked at.
-    /// A set rather than a flag: the question is drawn in two places, and a screen is read while either looks at it.
-    /// </summary>
-    private readonly HashSet<object> _watchers = [];
-
-    /// <summary>Reader stands on the wizard's share step. Written by the flow.</summary>
-    private bool _onStep;
+    /// <summary>View drawing this question is on screen with the window in front. Written by that view.</summary>
+    private bool _showing;
 
     /// <summary>Dialog over the window is up. Written by the picker.</summary>
     private bool _inDialog;
@@ -53,7 +47,7 @@ public sealed class ShareStepViewModel : Observable
     private bool _rendering;
     private bool _again;
 
-    public ShareStepViewModel(
+    public ShareQuestionViewModel(
         IBackend backend, FormSession form, Session session, Func<Task<string>> drawRegion, Action<Action> dispatch)
     {
         Assert.NotNull(backend, "the share question reads what this machine has to offer");
@@ -143,13 +137,6 @@ public sealed class ShareStepViewModel : Observable
 
     // --- Inputs -------------------------------------------------------------------
 
-    /// <summary>Named write of whether the reader stands on the wizard's share step.</summary>
-    public void SetOnStep(bool onStep)
-    {
-        _onStep = onStep;
-        Apply();
-    }
-
     /// <summary>Named write of whether the dialog over the window is up.</summary>
     public void SetInDialog(bool inDialog)
     {
@@ -158,24 +145,14 @@ public sealed class ShareStepViewModel : Observable
     }
 
     /// <summary>
-    /// Named write of whether one view of this question is being looked at, idempotent.
-    /// Called by each view, tree membership and window activation being visible to the control
+    /// Named write of whether the view of this question is being looked at, idempotent.
+    /// Called by that view, tree membership and window activation being visible to the control
     /// and the platform alone.
     /// </summary>
-    public void SetShowing(object viewer, bool showing)
+    public void SetShowing(bool showing)
     {
-        Assert.NotNull(viewer, "a view reporting what it draws names itself");
-
-        if (showing)
-        {
-            _watchers.Add(viewer);
-        }
-        else
-        {
-            _watchers.Remove(viewer);
-        }
-
-        Screens.SetShowing(_watchers.Count > 0);
+        _showing = showing;
+        Screens.SetShowing(_showing);
         Apply();
     }
 
@@ -211,9 +188,6 @@ public sealed class ShareStepViewModel : Observable
         }
     }
 
-    /// <summary>Whether the question is on screen at all, which is what a screen capture follows.</summary>
-    private bool Drawn => _onStep || _inDialog;
-
     private void Render()
     {
         _form.Sync();
@@ -227,8 +201,8 @@ public sealed class ShareStepViewModel : Observable
         Group.Apply(group, words, form?.Settings, _form.IsAnswered);
 
         // The choosers first, the rows below being what none of them drew.
-        Screens.Apply(FieldOf(group, ShareLayout.MonitorKey), Drawn);
-        Windows.Apply(FieldOf(group, ShareLayout.WindowKey), words, Drawn);
+        Screens.Apply(FieldOf(group, ShareLayout.MonitorKey), _inDialog);
+        Windows.Apply(FieldOf(group, ShareLayout.WindowKey), words, _inDialog);
         Region.Apply(Group.Visible(ShareLayout.RegionKey));
 
         Kind = Group.Visible(ShareLayout.KindKey);

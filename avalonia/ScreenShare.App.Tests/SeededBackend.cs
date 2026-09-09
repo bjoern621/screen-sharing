@@ -1041,9 +1041,31 @@ internal sealed class SeededBackend : IBackend
             });
         }
 
+        // A kind naming a target nobody picked builds no capture, so the publish path refuses it
+        // and the refusal anchors on no control
+        // (backend/internal/form/share_test.go, TestAnUnpickedTargetBlocksThePublish).
+        if (AsksWhatToShare && Unpicked(settings.Publish))
+        {
+            form.Publishable = false;
+            form.Diagnostics.Add(new Diagnostic
+            {
+                Severity = Severity.Error,
+                FieldKey = "",
+                Text = Say(TextCode.PublishRefused),
+            });
+        }
+
         Assert.That(form.Groups.Count == Groups().Count, "a resolved group per seeded group", form.Groups.Count);
         return form;
     }
+
+    /// <summary>Whether the picked kind names a target the draft leaves empty.</summary>
+    private static bool Unpicked(PublishSettings publish) => publish.ShareKind switch
+    {
+        "window" => publish.ShareWindow.Length == 0,
+        "region" => publish.ShareRegion.Length == 0,
+        _ => false,
+    };
 
     /// <summary>
     /// What the draft is predicted to cost, moving with the quantizer:
@@ -1563,8 +1585,8 @@ internal sealed class SeededBackend : IBackend
         },
         new()
         {
-            // What the stream shares, which the shell draws in the picker over the window as well as on
-            // its own wizard step (backend/internal/form/groups.go).
+            // What the stream shares, drawn in the picker over the window
+            // (backend/internal/form/groups.go).
             Key = "share",
             Fields =
             [

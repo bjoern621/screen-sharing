@@ -303,7 +303,7 @@ public sealed class StartSharingTests
     public void AVerdictWithNoStreamBehindItGreysNothing()
     {
         var gate = PublishGate.Of(
-            true, inForce: true, "", publish: null, new RelayStatus { Reachable = true }, starting: false);
+            true, inForce: true, "", publish: null, new RelayStatus { Reachable = true }, starting: false, asks: false);
 
         Assert.Equal(PublishCommit.Start, gate.Commit);
         Assert.False(gate.InForce);
@@ -321,8 +321,8 @@ public sealed class StartSharingTests
         var relay = new RelayStatus { Reachable = true };
 
         Assert.Equal(
-            PublishGate.Of(true, false, "", publish, relay, starting: false),
-            PublishGate.Of(true, false, "", publish, relay, starting: false));
+            PublishGate.Of(true, false, "", publish, relay, starting: false, asks: false),
+            PublishGate.Of(true, false, "", publish, relay, starting: false, asks: false));
     }
 
     /// <summary>The pass runs on every keystroke, so an unchanged commit has to notify nothing.</summary>

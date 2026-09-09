@@ -74,13 +74,20 @@ public sealed record PublishGate
     /// <param name="publish">What is publishing. Null before the running state has been read.</param>
     /// <param name="relay">Relay snapshot. Null before one has been read.</param>
     /// <param name="starting">Whether a commit this flow asked for is still in flight.</param>
+    /// <param name="asks">
+    /// Whether the press puts the share question up before it commits
+    /// (<see cref="SharePicker.ViewModel.SharePickerViewModel.Asks"/>).
+    /// A press that asks is offered on settings the form refuses, the dialog it opens being the one way
+    /// to the control that clears them, and the dialog carries the verdict instead.
+    /// </param>
     public static PublishGate Of(
         bool publishable,
         bool inForce,
         string unreachable,
         PublishState? publish,
         RelayStatus? relay,
-        bool starting)
+        bool starting,
+        bool asks)
     {
         Assert.NotNull(unreachable, "the gate reads the backend's own sentence, or the empty one");
 
@@ -91,9 +98,14 @@ public sealed record PublishGate
         // a stream that ended between the resolve and this pass leaves a start to offer on the draft.
         var running = commit == PublishCommit.Apply && inForce;
 
+        // A start that asks reaches a question before it reaches the stream,
+        // so the form's verdict on the draft is the dialog's to draw rather than this button's to obey.
+        // An apply asks nothing: a running stream already reads a target.
+        var asked = asks && commit == PublishCommit.Start;
+
         var gate = new PublishGate
         {
-            CanStartSharing = publishable && !starting && blocked.Length == 0 && !running,
+            CanStartSharing = (publishable || asked) && !starting && blocked.Length == 0 && !running,
             Commit = commit,
             Blocked = blocked,
             InForce = running,

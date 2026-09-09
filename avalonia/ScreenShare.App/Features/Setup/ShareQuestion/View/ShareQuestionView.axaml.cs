@@ -1,9 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
-using ScreenShare.App.Features.Setup.ShareStep.ViewModel;
+using ScreenShare.App.Features.Setup.ShareQuestion.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 
-namespace ScreenShare.App.Features.Setup.ShareStep.View;
+namespace ScreenShare.App.Features.Setup.ShareQuestion.View;
 
 /// <summary>
 /// Markup, and the one fact the markup cannot state: whether this question is being looked at.
@@ -11,15 +11,12 @@ namespace ScreenShare.App.Features.Setup.ShareStep.View;
 /// The answer decides more than a subscription here.
 /// The screen chooser's pictures come off a screen capture per monitor the backend opened because this
 /// surface asked, so a question nobody is looking at stops reading the screens rather than merely
-/// stopping drawing them (<see cref="ShareStepViewModel"/>).
-///
-/// The question is drawn in two places and the model takes both answers,
-/// so each view reports for itself and the model holds the union.
+/// stopping drawing them (<see cref="ShareQuestionViewModel"/>).
 ///
 /// Nothing here sets or reads a widget property: it writes one input of the view model
 /// and leaves the render function to decide what that means.
 /// </summary>
-public sealed partial class ShareStepView : UserControl
+public sealed partial class ShareQuestionView : UserControl
 {
     /// <summary>
     /// Whether this view is on screen in a window that is in front.
@@ -29,9 +26,9 @@ public sealed partial class ShareStepView : UserControl
     private readonly ShowingWatch _showing;
 
     /// <summary>View model last told, so the one being left can be told this view stopped drawing it.</summary>
-    private ShareStepViewModel? _told;
+    private ShareQuestionViewModel? _told;
 
-    public ShareStepView()
+    public ShareQuestionView()
     {
         InitializeComponent();
         _showing = new ShowingWatch(this, Tell);
@@ -62,13 +59,13 @@ public sealed partial class ShareStepView : UserControl
     /// </summary>
     private void Tell(bool showing)
     {
-        var current = DataContext as ShareStepViewModel;
+        var current = DataContext as ShareQuestionViewModel;
         if (!ReferenceEquals(current, _told))
         {
-            _told?.SetShowing(this, false);
+            _told?.SetShowing(false);
             _told = current;
         }
 
-        current?.SetShowing(this, showing);
+        current?.SetShowing(showing);
     }
 }

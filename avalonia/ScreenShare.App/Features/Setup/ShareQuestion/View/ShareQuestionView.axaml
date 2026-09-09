@@ -3,10 +3,10 @@
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:regions="using:ScreenShare.App.Features.Setup.RegionPicker.View"
              xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
-             xmlns:vm="using:ScreenShare.App.Features.Setup.ShareStep.ViewModel"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ShareQuestion.ViewModel"
              xmlns:windows="using:ScreenShare.App.Features.Setup.WindowPicker.View"
-             x:Class="ScreenShare.App.Features.Setup.ShareStep.View.ShareStepView"
-             x:DataType="vm:ShareStepViewModel">
+             x:Class="ScreenShare.App.Features.Setup.ShareQuestion.View.ShareQuestionView"
+             x:DataType="vm:ShareQuestionViewModel">
 
   <!--
     What the stream shares: the kind, then the one chooser that kind names.

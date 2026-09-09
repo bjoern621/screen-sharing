@@ -16,6 +16,10 @@ namespace ScreenShare.App.Features.Fields.Model;
 /// so the dialog over the window draws it and a reader who never publishes still reaches it
 /// (<see cref="Shell.Settings.ViewModel.AppSettingsViewModel"/>).
 ///
+/// The share group holds one question somebody answers per stream rather than per machine,
+/// so it belongs to the press that starts one and is drawn in the dialog that press puts up
+/// (<see cref="Setup.SharePicker.ViewModel.SharePickerViewModel"/>).
+///
 /// The wizard draws every other group.
 /// Defaulting to it makes a group the backend adds a step that appears with nothing here to edit
 /// (<see cref="Setup.Model.SetupSteps"/>).
@@ -29,12 +33,12 @@ public static class GroupPlacement
     /// <summary>What the app does for itself: what it reports, and what it reads on start.</summary>
     public const string AppGroup = "app";
 
-    /// <summary>Complement of the two placements below, so every group the form carries is drawn once.</summary>
+    /// <summary>Complement of the three placements below, so every group the form carries is drawn once.</summary>
     public static bool InSetup(string key)
     {
         Assert.That(key.Length > 0, "placing a group names the group being placed");
 
-        return !InViewer(key) && !InAppSettings(key);
+        return !InViewer(key) && !InAppSettings(key) && !InPicker(key);
     }
 
     public static bool InViewer(string key)
@@ -49,5 +53,17 @@ public static class GroupPlacement
         Assert.That(key.Length > 0, "placing a group names the group being placed");
 
         return key == AppGroup;
+    }
+
+    /// <summary>
+    /// Whether the dialog at the start press draws this group.
+    /// The key is the share layout's, that being where every key of the group is spelled
+    /// (<see cref="Setup.Model.ShareLayout"/>).
+    /// </summary>
+    public static bool InPicker(string key)
+    {
+        Assert.That(key.Length > 0, "placing a group names the group being placed");
+
+        return key == Setup.Model.ShareLayout.GroupKey;
     }
 }

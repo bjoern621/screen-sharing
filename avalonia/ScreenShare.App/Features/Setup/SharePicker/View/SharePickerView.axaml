@@ -1,7 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:model="using:ScreenShare.App.Features.Setup.SharePicker.Model"
-             xmlns:sharestep="using:ScreenShare.App.Features.Setup.ShareStep.View"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:setup="using:ScreenShare.App.Features.Setup.Model"
+             xmlns:sharequestion="using:ScreenShare.App.Features.Setup.ShareQuestion.View"
              xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Setup.SharePicker.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.SharePicker.View.SharePickerView"
@@ -11,9 +13,8 @@
   <!--
     What the stream shares, asked at the press that starts it.
 
-    The question is the wizard's own, drawn over the window rather than in a destination:
+    Drawn over the window rather than in a destination:
     the question belongs to the press and not to a screen (Features/Fields/Model/GroupPlacement.cs).
-    One model behind both, so a reader meets the same three choosers wherever the question comes up.
   -->
 
   <UserControl.KeyBindings>
@@ -37,7 +38,7 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
 
-      <Grid RowDefinitions="Auto,*,Auto" Margin="{StaticResource InsetSection}">
+      <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="{StaticResource InsetSection}">
 
         <StackPanel Grid.Row="0" Margin="0,0,0,14">
           <TextBlock Classes="heading" Text="{x:Static model:SharePickerCopy.Title}" />
@@ -49,10 +50,23 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-          <sharestep:ShareStepView DataContext="{Binding Step}" />
+          <sharequestion:ShareQuestionView DataContext="{Binding Question}" />
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2"
+        <!--
+          What stands between these settings and the air, over the button that will not press.
+          Anchored nowhere: every screen fixing one of these is behind this dialog
+          (SharePicker/ViewModel/SharePickerViewModel.cs).
+        -->
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Blocking}" Margin="0,14,0,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="setup:PreflightCheckRow">
+              <controls:CheckItem Margin="0,0,0,9" Text="{Binding Text}" State="{Binding State}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Spacing="{StaticResource GapTight}"

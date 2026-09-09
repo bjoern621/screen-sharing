@@ -1,6 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.SharePicker.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using Xunit;
@@ -10,13 +11,10 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Grid is a second path to <c>publish.monitor</c>, so picking writes what the list writes and nothing else.
 /// Each picture costs a backend capture,
-/// so it is asked for once per screen, while the share question is on screen with the window in front.
+/// so it is asked for once per screen, while the dialog is up with the window in front.
 /// </summary>
 public sealed class ScreenPickerTests
 {
-    /// <summary>One view of the share question, standing in for the control that reports it is on screen.</summary>
-    private static readonly object Watcher = new();
-
     /// <summary>
     /// Reads every state once and stops before the reconnect delay, so nothing is left dialling behind the assertions.
     /// </summary>
@@ -26,33 +24,36 @@ public sealed class ScreenPickerTests
         session.Stop();
     }
 
-    /// <summary>Flow on the share step with the window in front, the only state the grid draws pictures in.</summary>
-    private static SetupViewModel OnShareStep(SeededBackend backend, bool showing = true)
+    /// <summary>
+    /// Dialog up with the window in front, the only state the grid draws pictures in.
+    /// The press that opens it waits on an answer no test gives, so the returned dialog stands open.
+    /// </summary>
+    private static SharePickerViewModel Asked(SeededBackend backend, bool showing = true)
     {
         var session = new Session(backend, action => action());
         Load(session);
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = ShareLayout.GroupKey;
-        flow.Share.SetShowing(Watcher, showing);
-        return flow;
+        var picker = Flows.Picker(backend, session);
+        picker.AskAsync();
+        picker.Question.SetShowing(showing);
+        return picker;
     }
 
     [Fact]
     public void TheGridOffersEveryEnumeratedScreenAndMarksTheOneTheDraftNames()
     {
-        var flow = OnShareStep(new SeededBackend("linux") { AsksWhatToShare = true });
+        var picker = Asked(new SeededBackend("linux") { AsksWhatToShare = true });
 
-        Assert.True(flow.Share.Screens.IsVisible);
-        Assert.Equal([0, 1], flow.Share.Screens.Screens.Select(screen => screen.Monitor));
-        Assert.All(flow.Share.Screens.Screens, screen => Assert.True(screen.IsEnabled));
+        Assert.True(picker.Question.Screens.IsVisible);
+        Assert.Equal([0, 1], picker.Question.Screens.Screens.Select(screen => screen.Monitor));
+        Assert.All(picker.Question.Screens.Screens, screen => Assert.True(screen.IsEnabled));
 
         // Label is composed here from the catalog row, the backend sending no name for a screen.
-        Assert.Contains("2560", flow.Share.Screens.Screens[0].Label);
-        Assert.Contains("144", flow.Share.Screens.Screens[0].Label);
+        Assert.Contains("2560", picker.Question.Screens.Screens[0].Label);
+        Assert.Contains("144", picker.Question.Screens.Screens[0].Label);
 
-        Assert.True(flow.Share.Screens.Screens[0].IsSelected);
-        Assert.False(flow.Share.Screens.Screens[1].IsSelected);
+        Assert.True(picker.Question.Screens.Screens[0].IsSelected);
+        Assert.False(picker.Question.Screens.Screens[1].IsSelected);
     }
 
     /// <summary>Mark follows the draft rather than the press, the form answering with the value being what moves it.</summary>
@@ -60,15 +61,15 @@ public sealed class ScreenPickerTests
     public void PickingAScreenWritesTheSettingAndMovesTheMark()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
-        var flow = OnShareStep(backend);
+        var picker = Asked(backend);
 
-        flow.Share.Screens.Screens[1].Select.Execute(null);
+        picker.Question.Screens.Screens[1].Select.Execute(null);
 
-        Assert.False(flow.Share.Screens.Screens[0].IsSelected);
-        Assert.True(flow.Share.Screens.Screens[1].IsSelected);
+        Assert.False(picker.Question.Screens.Screens[0].IsSelected);
+        Assert.True(picker.Question.Screens.Screens[1].IsSelected);
 
         // Grid and list are one value read twice, not two controls kept in step.
-        var list = flow.Share.Group.Fields.Single(field => field.Key == ShareLayout.MonitorKey);
+        var list = picker.Question.Group.Fields.Single(field => field.Key == ShareLayout.MonitorKey);
         Assert.Equal("1", list.Options.Single(option => option.IsSelected).Value);
     }
 
@@ -80,30 +81,29 @@ public sealed class ScreenPickerTests
     public void EveryScreenIsAskedForOnceWhileTheGridIsDrawn()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
-        var flow = OnShareStep(backend);
+        var picker = Asked(backend);
 
         Assert.Equal([0, 1], backend.Previewed);
 
-        flow.Share.Apply();
-        flow.Share.Apply();
+        picker.Question.Apply();
+        picker.Question.Apply();
 
         Assert.Equal([0, 1], backend.PreviewStarts);
     }
 
-    /// <summary>Wizard renders every step's model on every pass, so being rendered is not what opens a capture.</summary>
+    /// <summary>The question renders whenever the draft moves, so being rendered is not what opens a capture.</summary>
     [Fact]
-    public void NoScreenIsReadFromAnotherStep()
+    public void NoScreenIsReadWhileTheDialogIsDown()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
         var session = new Session(backend, action => action());
         Load(session);
 
-        var flow = Flows.Setup(backend, session);
-        flow.CurrentStep = "encoder";
-        flow.Share.SetShowing(Watcher, true);
+        var picker = Flows.Picker(backend, session);
+        picker.Question.SetShowing(true);
 
-        Assert.False(flow.Share.Screens.IsVisible);
-        Assert.Empty(flow.Share.Screens.Screens);
+        Assert.False(picker.Question.Screens.IsVisible);
+        Assert.Empty(picker.Question.Screens.Screens);
         Assert.Empty(backend.Previewed);
         Assert.Empty(backend.PreviewStarts);
     }
@@ -113,30 +113,30 @@ public sealed class ScreenPickerTests
     /// for as long as the app is open.
     /// </summary>
     [Fact]
-    public void LeavingTheStepStopsReadingTheScreens()
+    public void ClosingTheDialogStopsReadingTheScreens()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
-        var flow = OnShareStep(backend);
+        var picker = Asked(backend);
 
         Assert.Equal([0, 1], backend.Previewed);
 
-        flow.CurrentStep = "encoder";
+        picker.CancelCommand.Execute(null);
 
         Assert.Empty(backend.Previewed);
-        Assert.False(flow.Share.Screens.IsVisible);
+        Assert.False(picker.Question.Screens.IsVisible);
     }
 
-    /// <summary>Step and window are separate facts, so either one turning false is enough.</summary>
+    /// <summary>Dialog and window are separate facts, so either one turning false is enough.</summary>
     [Fact]
     public void AWindowThatWentBehindStopsReadingTheScreens()
     {
         var backend = new SeededBackend("linux") { AsksWhatToShare = true };
-        var flow = OnShareStep(backend);
+        var picker = Asked(backend);
 
-        flow.Share.SetShowing(Watcher, false);
+        picker.Question.SetShowing(false);
 
         Assert.Empty(backend.Previewed);
-        Assert.False(flow.Share.Screens.IsVisible);
+        Assert.False(picker.Question.Screens.IsVisible);
     }
 
     /// <summary>
@@ -155,8 +155,8 @@ public sealed class ScreenPickerTests
 
         Assert.Equal([1], session.PreviewedMonitors.Select(previewed => previewed.Monitor));
 
-        // Building the flow renders once with nothing being looked at, and that pass closes the leftover.
-        Flows.Setup(backend, session);
+        // Building the question renders once with the dialog down, and that pass closes the leftover.
+        Flows.Picker(backend, session);
 
         Assert.Empty(backend.Previewed);
     }
@@ -179,51 +179,51 @@ public sealed class ScreenPickerTests
             },
         };
 
-        var flow = OnShareStep(backend);
+        var picker = Asked(backend);
 
-        Assert.False(flow.Share.Screens.IsVisible);
+        Assert.False(picker.Question.Screens.IsVisible);
         Assert.Empty(backend.Previewed);
-        Assert.True(flow.Share.Screens.HasNotice);
-        Assert.Contains("Wayland", flow.Share.Screens.Notice);
+        Assert.True(picker.Question.Screens.HasNotice);
+        Assert.Contains("Wayland", picker.Question.Screens.Notice);
     }
 
     /// <summary>
     /// A subscription naming a screen nothing is reading is refused once and never retried,
-    /// so a tile made while the start is in flight sits dark for as long as the reader stays on the step.
+    /// so a tile made while the start is in flight sits dark for as long as the dialog stands.
     /// </summary>
     [Fact]
     public void AScreenThatIsNotBeingReadYetCarriesNoTile()
     {
-        var flow = OnShareStep(new SeededBackend("linux") { AsksWhatToShare = true });
+        var picker = Asked(new SeededBackend("linux") { AsksWhatToShare = true });
 
-        Assert.All(flow.Share.Screens.Screens, screen => Assert.Null(screen.Tile));
-        Assert.All(flow.Share.Screens.Screens, screen => Assert.True(screen.HasPlaceholder));
+        Assert.All(picker.Question.Screens.Screens, screen => Assert.Null(screen.Tile));
+        Assert.All(picker.Question.Screens.Screens, screen => Assert.True(screen.HasPlaceholder));
     }
 
     [Fact]
     public void AScreenTheBackendIsReadingCarriesATileNamingIt()
     {
-        var flow = OnShareStep(Reading(0, 1));
-        var tile = flow.Share.Screens.Screens[1].Tile;
+        var picker = Asked(Reading(0, 1));
+        var tile = picker.Question.Screens.Screens[1].Tile;
 
         Assert.NotNull(tile);
         Assert.Equal(TileSourceKind.MonitorPreview, tile.Source.Kind);
         Assert.Equal(1, tile.Source.Monitor);
-        Assert.False(flow.Share.Screens.Screens[1].HasPlaceholder);
+        Assert.False(picker.Question.Screens.Screens[1].HasPlaceholder);
     }
 
     /// <summary>Form resolves on every keystroke, so a pass rebuilding the tiles re-subscribes that often.</summary>
     [Fact]
     public void ARenderPassKeepsTheTilesItAlreadyHas()
     {
-        var flow = OnShareStep(Reading(0, 1));
-        var before = flow.Share.Screens.Screens.Select(screen => screen.Tile).ToList();
+        var picker = Asked(Reading(0, 1));
+        var before = picker.Question.Screens.Screens.Select(screen => screen.Tile).ToList();
 
         Assert.All(before, Assert.NotNull);
 
-        flow.Share.Apply();
+        picker.Question.Apply();
 
-        Assert.Equal(before, flow.Share.Screens.Screens.Select(screen => screen.Tile));
+        Assert.Equal(before, picker.Question.Screens.Screens.Select(screen => screen.Tile));
     }
 
     /// <summary>Fixture already reading these screens, which is what puts a tile on a row.</summary>
