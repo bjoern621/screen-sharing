@@ -23,6 +23,8 @@ over `POST /groups`, `PUT /members`, `DELETE /members`, `POST /tokens` and `GET 
 Discord's side is a bot over the gateway with the `GUILD_VOICE_STATES` intent,
 which answers who sits in which voice channel of every guild the bot is invited to.
 Every voice channel the bot can see counts, with nothing to configure per guild.
+The invite grants no permission, `scope=bot&permissions=0`:
+the intents carry what the manager reads, and it reaches none of Discord's HTTP API.
 
 ## Linking, once per install
 
@@ -169,6 +171,12 @@ so a guild's next seeding states its whole occupancy and leaves whoever it does 
 
 A channel empty for a minute retires its mapping.
 The next occupancy draws a fresh group, so a prefix outlives no session.
+
+The SRT passphrase is the one thing leaving does not take back.
+It derives from the group key, so a leaver keeps the value their channel is keyed with until that group retires,
+which an occupied channel puts off for as long as somebody sits in it.
+It opens nothing: every leg takes a token beside it, and the manager stops brokering one the moment the channel is left.
+What it is still worth is decrypting SRT packets somebody captured off the wire.
 
 ## What is where
 
