@@ -16,7 +16,14 @@ a deployment on the internet and a development machine alike.
 | `relay.sh`, `relay.ps1` | a person starting a relay on this machine |
 
 A deployment mounts none of this.
-The container images carry the files (`packaging/nix/relay-image.nix`, `packaging/nix/proxy-image.nix`).
+The relay and proxy images carry the files (`packaging/nix/relay-image.nix`, `packaging/nix/proxy-image.nix`),
+so an edit here reaches a running relay through a release and the image tag a cluster pins (`docs/packaging.md`).
+A deployment's environment overrides what differs per host,
+the certificate paths (`MTX_RTSPSERVERCERT` and its siblings), the addresses WebRTC announces, the site address the proxy binds (`SCREENSHARE_DOMAIN`).
+Permissions come from `mediamtx-groups.yml` alone.
+
+No Kubernetes manifest lives here.
+The pod, the secrets, the certificate and those environment values belong to the cluster repository that pins the tag.
 
 ## Running one here
 
