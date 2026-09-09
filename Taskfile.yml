@@ -164,12 +164,13 @@ tasks:
         cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/tools/dev-stop.ps1'
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
-      # gcc and pkg-config by path, for the reason build:windows states.
+      # gcc and pkg-config by path, and lld as the linker, for the reasons build:windows states.
+      # A dev run links the same binary a packaged one does, so it meets the same linker.
       - platforms: [windows]
         cmd: >-
           PATH="$(echo "$PATH" | sed -E 's#[^;]*[gG]it[\\/]+mingw64[\\/]+bin;?##g');{{.MSYS2_MINGW}}/bin"
           CC='{{.MSYS2_MINGW}}/bin/gcc.exe' PKG_CONFIG='{{.MSYS2_MINGW}}/bin/pkg-config.exe'
-          go run ./cmd/backend
+          go run -ldflags "-extldflags=-fuse-ld=lld" ./cmd/backend
 
   dev:stop:
     desc: Stop a backend a previous `task dev` left holding the control pipe
@@ -209,9 +210,16 @@ tasks:
       # package:windows passes the run's VERSION down;
       # a build asked for here keeps the source default,
       # the mark of a binary nobody released (backend/cmd/backend/main.go).
+      #
+      # -fuse-ld=lld picks the linker MSYS2's lld package supplies.
+      # GNU ld dies on this binary and reports `collect2.exe: error: ld returned 5 exit status`
+      # with no other word, whether the debug info Go and cgo emit is stripped or kept
+      # and whether the image asks for high-entropy ASLR or not (binutils 2.46).
+      # It links the same binary a few thousand bytes smaller,
+      # so shaving the input is a fix that lasts until the next commit.
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"
-          go build -ldflags "-X main.version={{default "dev" .STAMP}} -X main.channel={{default "" .CHANNEL}}"
+          go build -ldflags "-extldflags=-fuse-ld=lld -X main.version={{default "dev" .STAMP}} -X main.channel={{default "" .CHANNEL}}"
           -o '{{.ROOT_DIR}}/build/bin/mirrorme-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary,
       # so both executables go into build/windows/redist first (docs/packaging.md, "Windows").

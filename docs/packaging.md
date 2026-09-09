@@ -317,7 +317,7 @@ The backend links GStreamer through cgo and no cross toolchain builds that from 
 Install MSYS2, then from its MINGW64 shell:
 
 ```bash
-pacman -S mingw-w64-x86_64-{toolchain,pkgconf,gstreamer,glib-networking} \
+pacman -S mingw-w64-x86_64-{toolchain,pkgconf,lld,gstreamer,glib-networking} \
           mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
 ```
 
@@ -341,3 +341,11 @@ Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, so `bundle:windows` names
 A build reporting `build constraints exclude all Go files` for a go-gst package ran against a `go` that found no C compiler and disabled cgo, which excludes every file in a binding whose files are all cgo.
 The extra tell is a `go: downloading go1.26.4` line, which a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
 The build task asks for cgo outright so this surfaces as the missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
+
+Every Windows recipe links through lld, `-ldflags "-extldflags=-fuse-ld=lld"`, the dev run and the check on a push included.
+GNU ld dies on the backend and reports `collect2.exe: error: ld returned 5 exit status` with no other word.
+It dies the same way with Go's debug info stripped, with cgo's own dropped, and with high-entropy ASLR off.
+What it does link is a smaller binary, and no commit is asked to keep the binary under a size.
+
+A linker's mistakes surface at load rather than at compile, which a build reports nothing about.
+So the Windows check starts a cgo test binary with no test selected, once the build is through.

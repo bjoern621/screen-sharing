@@ -104,6 +104,7 @@ jobs:
       # d3d11 puts gst-plugins-bad on the list, the .pc file living there.
       # The runtime plugins and gst-launch-1.0 belong to the packaged build, so release.yml
       # installs more than this.
+      # lld is the linker the backend links through, which build:windows in Taskfile.yml explains.
       #
       # update: false, the action caching its package set:
       # a full `pacman -Syu` on every push spends more than the compile it precedes.
@@ -130,39 +131,6 @@ jobs:
         with:
           dotnet-version: "10.0.302"
 
-      # Temporary. `ld` dies on the backend's link and reports `ld returned 5 exit status`
-      # with no other word, so this reports which variants of the link survive it.
-      # The commit that picks one takes this step and the lld package back out.
-      - name: Link probe
-        continue-on-error: true
-        env:
-          CGO_ENABLED: "1"
-          CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
-          PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
-        run: |
-          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
-          ld --version | Select-Object -First 1
-          go version
-
-          function Probe($name, $ldflags, $cflags) {
-            if ($cflags -eq $null) { Remove-Item Env:CGO_CFLAGS -ErrorAction SilentlyContinue }
-            else { $env:CGO_CFLAGS = $cflags }
-
-            $out = "$env:RUNNER_TEMP\probe.exe"
-            if ($ldflags) { go build -C backend -ldflags "$ldflags" -o "$out" ./cmd/backend }
-            else { go build -C backend -o "$out" ./cmd/backend }
-
-            Write-Host "PROBE ${name}: exit $LASTEXITCODE"
-            Remove-Item -Force "$out" -ErrorAction SilentlyContinue
-          }
-
-          Probe "baseline" "" $null
-          Probe "go-debug-stripped" "-s -w" $null
-          Probe "c-debug-dropped" "" "-O2"
-          Probe "both-stripped" "-s -w" "-O2"
-          Probe "no-high-entropy-va" "-extldflags=-Wl,--disable-high-entropy-va" $null
-          Probe "lld" "-extldflags=-fuse-ld=lld" $null
-
       # Compilation and the shell's suite. The Go suite spawns ffmpeg and builds pipelines,
       # neither of which is installed here.
       #
@@ -174,6 +142,12 @@ jobs:
       # as Taskfile.yml does. The image carries Strawberry Perl's `gcc` and `pkg-config`
       # ahead of the appended prefix, and that pkg-config resolves against
       # C:/Strawberry/c/lib/pkgconfig, where no GStreamer module lives.
+      #
+      # The link goes through lld, for the reason build:windows states in Taskfile.yml,
+      # and the run after it starts what that link produced.
+      # Nothing else here does, and a linker is the one part of a build
+      # whose mistakes surface at load rather than at compile.
+      # A cgo package with no test selected: the binary still starts, resolves its imports and exits.
       - name: Check
         env:
           CGO_ENABLED: "1"
@@ -185,8 +159,10 @@ jobs:
           # A pwsh step reports the exit code of its last command,
           # so a failed build in front of a passing test suite reports green.
           # Each one is checked instead.
-          go build -C backend ./...
+          go build -C backend -ldflags "-extldflags=-fuse-ld=lld" ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet -C backend ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go test -C backend -ldflags "-extldflags=-fuse-ld=lld" -run '^$' ./internal/receive
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet test avalonia/ScreenShare.App.sln
