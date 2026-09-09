@@ -96,9 +96,9 @@ pathDefaults:
   # The script is deploy/reconcile-on-read.sh in this repository,
   # and the relay image installs it at the path below (packaging/nix/relay-image.nix).
   # A development relay has that directory nowhere and points MTX_PATHDEFAULTS_RUNONREAD
-  # and its publish counterpart at the copy in its own checkout.
+  # and MTX_PATHDEFAULTS_RUNONAVAILABLE at the copy in its own checkout.
   runOnRead: /etc/mediamtx/reconcile-on-read.sh
-  runOnPublish: /etc/mediamtx/reconcile-on-read.sh
+  runOnAvailable: /etc/mediamtx/reconcile-on-read.sh
 
 # --- The listeners the proxy fronts ----------------------------------------------
 #

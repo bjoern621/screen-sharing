@@ -9,7 +9,7 @@
 # the service runs that group's presence leases against the relay,
 # and anything no live member holds goes.
 #
-# Both runOnRead and runOnPublish, a publisher who left otherwise standing
+# Both runOnRead and runOnAvailable, a publisher who left otherwise standing
 # until a sweep or another member's poll reaches them (deploy/mediamtx-groups.yml).
 # MediaMTX sets MTX_PATH for each, which is the whole of what this reports.
 # A group with no live member is left alone, save for a member released inside the token window,
