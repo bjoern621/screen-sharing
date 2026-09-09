@@ -43,9 +43,13 @@ func Connect(botToken string, roster *voiceroster.Roster) (*Gateway, error) {
 	session.AddHandler(func(s *discordgo.Session, e *discordgo.GuildCreate) {
 		// The guild's whole voice occupancy arrives with it,
 		// which is what seeds the roster at connect and after every resume.
+		// Stated whole, so an occupant who left while this connection was down
+		// is left here rather than standing in the roster until they join again.
+		standing := make([]voiceroster.Presence, 0, len(e.VoiceStates))
 		for _, vs := range e.VoiceStates {
-			roster.Apply(presenceFor(s, e.Guild, vs))
+			standing = append(standing, presenceFor(s, e.Guild, vs))
 		}
+		roster.ApplyGuild(e.Guild.ID, standing)
 	})
 
 	session.AddHandler(func(s *discordgo.Session, e *discordgo.VoiceStateUpdate) {

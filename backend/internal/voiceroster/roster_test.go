@@ -144,3 +144,45 @@ func TestOccupantsCountsAChannel(t *testing.T) {
 		t.Fatalf("an empty channel counts zero, counted %d", n)
 	}
 }
+
+// A gateway seeds a guild by stating its whole occupancy,
+// so a leave nothing delivered while the connection was down lands with the next seeding.
+func TestSeedingAGuildLeavesWhoeverItDoesNotName(t *testing.T) {
+	var left []Presence
+	r := New(func(p Presence) { left = append(left, p) })
+
+	r.Apply(occupy("u1", "g1", "c1", "Bob"))
+	r.Apply(occupy("u2", "g1", "c1", "Eve"))
+	r.Apply(occupy("u3", "g2", "c3", "Kim"))
+
+	r.ApplyGuild("g1", []Presence{occupy("u1", "g1", "c1", "Bob")})
+
+	if len(left) != 1 || left[0].UserID != "u2" {
+		t.Fatalf("a seeding leaves the occupant it does not name, got %+v", left)
+	}
+	if _, ok := r.Where("u2"); ok {
+		t.Fatal("an occupant the seeding did not name is nowhere")
+	}
+	if _, ok := r.Where("u1"); !ok {
+		t.Fatal("an occupant the seeding named stands where it put them")
+	}
+	if _, ok := r.Where("u3"); !ok {
+		t.Fatal("another guild's occupant is left alone")
+	}
+}
+
+func TestSeedingTheSameOccupancyTwiceFiresNothing(t *testing.T) {
+	var left []Presence
+	r := New(func(p Presence) { left = append(left, p) })
+
+	standing := []Presence{occupy("u1", "g1", "c1", "Bob"), occupy("u2", "g1", "c2", "Eve")}
+	r.ApplyGuild("g1", standing)
+	r.ApplyGuild("g1", standing)
+
+	if len(left) != 0 {
+		t.Fatalf("an occupancy already true fires nothing, got %d leaves", len(left))
+	}
+	if n := r.Occupants("g1", "c1"); n != 1 {
+		t.Fatalf("the seeded occupancy stands, counted %d in c1", n)
+	}
+}

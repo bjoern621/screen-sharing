@@ -82,18 +82,26 @@ func (r *Roster) Apply(p Presence) {
 	}
 }
 
-// DropGuild forgets every presence in one guild, leaving each of its channels.
+// ApplyGuild states one guild's whole occupancy, leaving every occupant it does not name.
 //
-// The gateway calls it where the bot loses a guild:
-// without it those occupants stand in the roster forever,
-// and their channels' sessions never count as empty.
-func (r *Roster) DropGuild(guildID string) {
-	assert.Assert(guildID != "", "a drop names the guild it forgets")
+// What a gateway's guild payload lands through.
+// A payload names who stands in a channel and nothing about who stopped,
+// so a leave delivered while the connection was down lands here.
+// Idempotent: an occupancy already true changes nothing and fires nothing.
+func (r *Roster) ApplyGuild(guildID string, standing []Presence) {
+	assert.Assert(guildID != "", "an occupancy names the guild it is of")
+
+	named := make(map[string]bool, len(standing))
+	for _, p := range standing {
+		assert.Assert(p.GuildID == guildID, "an occupancy holds one guild's presences", p.GuildID)
+		r.Apply(p)
+		named[p.UserID] = true
+	}
 
 	r.mu.Lock()
 	var left []Presence
 	for userID, p := range r.byUser {
-		if p.GuildID == guildID {
+		if p.GuildID == guildID && !named[userID] {
 			left = append(left, p)
 			delete(r.byUser, userID)
 		}
@@ -106,6 +114,15 @@ func (r *Roster) DropGuild(guildID string) {
 	for _, p := range left {
 		r.onLeave(p)
 	}
+}
+
+// DropGuild forgets every presence in one guild, leaving each of its channels.
+//
+// The gateway calls it where the bot loses a guild:
+// without it those occupants stand in the roster forever,
+// and their channels' sessions never count as empty.
+func (r *Roster) DropGuild(guildID string) {
+	r.ApplyGuild(guildID, nil)
 }
 
 // Where answers the presence this roster holds for one user, ok=false for a user in no channel.

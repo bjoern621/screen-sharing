@@ -160,6 +160,8 @@ The leave event lands the release, so the cut is seconds behind the channel.
 Where the event is missed, the lease lapses on its own within `groupd`'s sweep,
 the fallback costing nothing extra.
 A leaver's own app learns the same fact on its next pass and empties its group state.
+A gateway that was down carried no event at all,
+so a guild's next seeding states its whole occupancy and leaves whoever it does not name.
 
 A channel empty for a minute retires its mapping.
 The next occupancy draws a fresh group, so a prefix outlives no session.
