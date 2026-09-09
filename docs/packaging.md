@@ -341,7 +341,3 @@ Its `ldd`, `cygpath` and `MINGW_PREFIX` are Git's too, so `bundle:windows` names
 A build reporting `build constraints exclude all Go files` for a go-gst package ran against a `go` that found no C compiler and disabled cgo, which excludes every file in a binding whose files are all cgo.
 The extra tell is a `go: downloading go1.26.4` line, which a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
 The build task asks for cgo outright so this surfaces as the missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
-
-Every Windows recipe links with `-ldflags "-s -w"`, the dev run and the check on a push included.
-MSYS2's `ld` dies on the debug info the external link hands it once the backend is large enough, and reports `collect2.exe: error: ld returned 5 exit status` with no other word.
-The flags cost nothing a crash report reads: Go builds a traceback from the pclntab, which neither flag touches.
