@@ -25,9 +25,9 @@ import (
 // env adds to this process's environment rather than replacing it, so a child keeps everything
 // the app was started with (GstChildEnv fills it).
 // redact hides the run's secrets in whatever is written to the log, and nil hides nothing.
-// The command line is the first thing the log carries and it spells the relay token and the SRT
-// passphrase out in full, so a log offered to whoever is helping carries both out with it
-// (transport.Redact builds the function).
+// A gst child is handed placeholders and writes its pipeline out with the values put back,
+// so a log offered to whoever is helping carries them without this
+// (transport.Redact builds the function, transport.Hidden the arguments).
 type superviseConfig struct {
 	exe         string
 	env         []string
@@ -65,10 +65,13 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A supervised child is one this app wrote, so its secrets cross in the environment
+	// and its arguments carry a placeholder each (internal/transport, childsecrets.go).
+	// The redactor finding one here is a secret about to reach argv,
+	// which every process on the machine reads.
 	commandLine := fmt.Sprintf("%s %s", cfg.exe, strings.Join(cfg.args, " "))
-	if cfg.redact != nil {
-		commandLine = cfg.redact(commandLine)
-	}
+	assert.Assert(cfg.redact == nil || cfg.redact(commandLine) == commandLine,
+		"a supervised child's arguments carry no secret", cfg.tag)
 	fmt.Fprintf(logFile, "%s\n\n", commandLine)
 
 	// The stderr copier and the stdout tee write the one log, so the writes are serialized to keep
@@ -114,13 +117,20 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	readers.Add(1)
 	go func() {
 		defer readers.Done()
-		io.Copy(io.MultiWriter(log, tail), stderr)
+		// The child puts the values back before it plays and says so in its own words,
+		// so what it wrote is hidden on the way to the log and to the tail (runlog.go).
+		said := hiding(io.MultiWriter(log, tail), cfg.redact)
+		io.Copy(said, stderr)
+		said.Flush()
 	}()
 	if cfg.parseStdout != nil {
 		readers.Add(1)
 		go func() {
 			defer readers.Done()
-			cfg.parseStdout(io.TeeReader(stdout, log))
+			// The parser reads the stream as the child wrote it, and the log copy is hidden.
+			logged := hiding(log, cfg.redact)
+			cfg.parseStdout(io.TeeReader(stdout, logged))
+			logged.Flush()
 		}()
 	}
 

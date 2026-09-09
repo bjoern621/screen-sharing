@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/release"
+	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/update"
 )
 
@@ -143,6 +144,10 @@ func runPipeline(elements []string) int {
 		}
 		break
 	}
+
+	// The secrets crossed in the environment and the arguments carry a placeholder each,
+	// argv being readable by every process on the machine (internal/transport, childsecrets.go).
+	elements = transport.Revealed(elements, os.LookupEnv)
 
 	if err := gstrun.RunWithOptions(ctx, strings.Join(elements, " "), options, os.Stdout); err != nil {
 		// Supervisor tails stderr,

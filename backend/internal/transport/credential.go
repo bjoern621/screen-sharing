@@ -39,12 +39,9 @@ const Redacted = "<redacted>"
 // The passphrase in particular is the group's and outlives every token, so a log offered to whoever
 // is helping is exactly how it leaves.
 func Redact(s settings.Settings, text string) string {
-	for _, secret := range []string{s.Relay.Token, s.Relay.SrtPassphrase()} {
-		if secret == "" {
-			continue
-		}
-		text = strings.ReplaceAll(text, secret, Redacted)
-		if escaped := url.QueryEscape(secret); escaped != secret {
+	for _, secret := range secretsOf(s) {
+		text = strings.ReplaceAll(text, secret.value, Redacted)
+		if escaped := url.QueryEscape(secret.value); escaped != secret.value {
 			text = strings.ReplaceAll(text, escaped, Redacted)
 		}
 	}

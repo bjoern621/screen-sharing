@@ -173,16 +173,21 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	// viewer a reconnect.
 	socket := gstControlSocket(tag)
 
+	// The subcommand leads, so this executable plays a pipeline rather than starting a second
+	// backend (cmd/backend).
+	// The control flag follows it, so the pipeline starts at the word gst-launch would start at.
+	args := append(append([]string{GstSubcommand}, gstChildArgs(s, socket, meterArg != "")...), pipeline...)
+
 	started, err := supervise(superviseConfig{
 		exe: exe,
-		env: GstChildEnv(),
-		// The subcommand leads, so this executable plays a pipeline rather than starting a second
-		// backend (cmd/backend).
-		// The control flag follows it, so the pipeline starts at the word gst-launch would start at.
-		args: append(append([]string{GstSubcommand}, gstChildArgs(s, socket, meterArg != "")...), pipeline...),
+		// The relay token and the SRT passphrase cross in the environment and the arguments carry
+		// a placeholder each, argv being readable by every process on the machine
+		// (internal/transport, childsecrets.go).
+		env:  append(GstChildEnv(), transport.SecretEnv(s)...),
+		args: transport.Hidden(s, args),
 		tag:  tag,
-		// The pipeline spells the relay token and the SRT passphrase out in full, and the log is a file
-		// the app offers to open and a reader forwards.
+		// The child writes its own pipeline out with the values put back,
+		// and the log is a file the app offers to open and a reader forwards.
 		redact:      func(text string) string { return transport.Redact(s, text) },
 		extraFiles:  files,
 		parseStdout: parseStdout,

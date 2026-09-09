@@ -2,6 +2,7 @@ package transport
 
 import (
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -89,5 +90,100 @@ func TestSettingsCarryingNoSecretChangeNothing(t *testing.T) {
 	line := "srt://relay:8890?streamid=publish:alice"
 	if got := Redact(s, line); got != line {
 		t.Errorf("a run carrying no secret was rewritten: %q", got)
+	}
+}
+
+// A child's arguments are readable by every process on the machine, where its environment is not.
+// So a pipeline crosses carrying a placeholder per secret,
+// and the child puts the values back out of variables only its owner can read.
+func TestASecretCrossesToAChildOutOfTheArguments(t *testing.T) {
+	s := testStream()
+	s.Relay.Token = "eyJhbGciOiJFUzI1NiJ9.payload.signature"
+	s.Relay.GroupKey = mustGroupKey(t).String()
+	passphrase := s.Relay.SrtPassphrase()
+
+	args := []string{
+		"gst-publish",
+		"srtsink", "uri=srt://relay:8890?streamid=publish:g/alice:jwt:" + s.Relay.Token,
+		"passphrase=" + passphrase,
+		"rtspclientsink", "location=rtsps://relay:8322/g/alice?jwt=" + s.Relay.Token,
+	}
+
+	hidden := Hidden(s, args)
+	for _, arg := range hidden {
+		if strings.Contains(arg, s.Relay.Token) {
+			t.Errorf("%q reaches the child's arguments carrying the token", arg)
+		}
+		if strings.Contains(arg, passphrase) {
+			t.Errorf("%q reaches the child's arguments carrying the passphrase", arg)
+		}
+	}
+
+	// The values ride in the environment the child is started with.
+	env := SecretEnv(s)
+	held := map[string]string{}
+	for _, entry := range env {
+		name, value, _ := strings.Cut(entry, "=")
+		held[name] = value
+	}
+
+	revealed := Revealed(hidden, func(name string) (string, bool) {
+		value, ok := held[name]
+		return value, ok
+	})
+	if !slices.Equal(revealed, args) {
+		t.Errorf("the child read back %v, want the pipeline it was built from", revealed)
+	}
+}
+
+// A machine outside a group carries neither secret, so nothing is hidden and nothing is passed.
+func TestAPipelineWithNoSecretsIsPassedThrough(t *testing.T) {
+	s := testStream()
+	s.Relay.Token = ""
+	s.Relay.GroupKey = ""
+
+	args := []string{"gst-publish", "videotestsrc", "!", "fakesink"}
+	if got := Hidden(s, args); !slices.Equal(got, args) {
+		t.Errorf("Hidden = %v, want the arguments unchanged", got)
+	}
+	if got := SecretEnv(s); len(got) != 0 {
+		t.Errorf("SecretEnv = %v, want nothing to pass", got)
+	}
+}
+
+// Against the elements a publish really builds rather than a fixture spelling of them,
+// so a carriage form added to a transport is covered by the hiding on the next run of this.
+func TestTheRealPublishElementsCrossWithNoSecretInThem(t *testing.T) {
+	s := testStream()
+	s.Relay.Token = "eyJhbGciOiJFUzI1NiJ9.payload.signature"
+	s.Relay.GroupKey = mustGroupKey(t).String()
+	passphrase := s.Relay.SrtPassphrase()
+
+	built := map[string][]string{
+		"the SRT sink":      SRT{}.GstSink(s),
+		"the SRT source":    SRT{}.GstSource(s, "bob"),
+		"the publish args":  SRT{}.PublishArgs(s),
+		"the watch address": {SRT{}.WatchURL(s, "bob")},
+	}
+
+	for leg, args := range built {
+		hidden := Hidden(s, args)
+		for _, arg := range hidden {
+			if strings.Contains(arg, s.Relay.Token) || strings.Contains(arg, passphrase) {
+				t.Errorf("%s reaches a child carrying a secret: %q", leg, arg)
+			}
+		}
+		revealed := Revealed(hidden, func(name string) (string, bool) {
+			switch name {
+			case TokenVar:
+				return s.Relay.Token, true
+			case PassphraseVar:
+				return passphrase, true
+			}
+			return "", false
+		})
+		if !slices.Equal(revealed, args) {
+			t.Errorf("%s read back as %v, want what it was built as", leg, revealed)
+		}
 	}
 }

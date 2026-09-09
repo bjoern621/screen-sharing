@@ -179,3 +179,15 @@ Each transport states its own credential form, and `plan.md` covers the group mo
 
 Every named relay carries a group service, and its address follows the relay's: the proxy's own name off a trusted network, `http://<host>:9443` where this network reaches the relay directly (`settings.Relay.GroupService`).
 A machine that has named no relay has nothing to ask, so it holds no token, derives no prefix and builds bare names.
+
+## What a sharer's own machine exposes
+
+The settings file holds the group key and the Discord link secret in the clear, owner-readable, so anything running as that user is in the group.
+
+A publish runs in a child, and a process's arguments are readable by every user on the machine.
+A GStreamer capture is a child this app wrote: it is handed a placeholder per secret and reads the values out of its environment, which its owner alone can read.
+An ffmpeg capture parses the address it is given, so the SRT passphrase and the relay token stand in its arguments.
+The passphrase is the durable half, being the group's where a token lasts five minutes.
+
+A relay on a private address is reached over plain HTTP, the group key and the link secret with it (`settings.Relay.OnTrustedNetwork`).
+That is a decision about the network the deployment named, and any device on it reads both.
