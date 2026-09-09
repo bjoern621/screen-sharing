@@ -12,6 +12,7 @@ package linkstore
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -106,12 +107,15 @@ func (s *Store) Draw(userID string) (secret string, err error) {
 }
 
 // Resolve answers which user a secret names, ok=false for a secret this store never drew.
+//
+// Compared in constant time, the secret being the whole proof of identity:
+// a compare that stops at the first differing byte answers a caller how far it got.
 func (s *Store) Resolve(secret string) (Link, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for _, row := range s.rows {
-		if row.Secret == secret {
+		if subtle.ConstantTimeCompare([]byte(row.Secret), []byte(secret)) == 1 {
 			return Link{UserID: row.UserID}, true
 		}
 	}
