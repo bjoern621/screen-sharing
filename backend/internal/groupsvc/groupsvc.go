@@ -185,10 +185,8 @@ func New(signer *token.Signer, streams Streams, members *membership.Registry, sr
 
 // Handler is the service's routes, answering under the version given (version.go).
 //
-// A group key travels in the request body, never in the path:
-// a key in a URL is a key in every proxy log between here and the client.
-// The index and the members view are the exceptions and take theirs in the query,
-// a GET having no body a cache or proxy will honour.
+// A group key travels in the request body, and in a header on the two GETs that carry none:
+// a key in a request line is a key in every proxy log between here and the client (groupKeyIn).
 func (s *Service) Handler(version string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /groups", s.createGroup)
@@ -265,7 +263,8 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 
 	// Naming a member secret moves the subject from the group to the member it derives,
 	// which lets enforcement tell one member's connections from another's at the relay.
-	// The grant does not move with it: membership decides who may connect, never what they reach.
+	// Reading stays the group's, and publishing moves with the subject
+	// to the prefix that member's own name leads.
 	named := strings.TrimSpace(body.MemberSecret) != ""
 	if named {
 		secret, err := group.ParseMemberSecret(body.MemberSecret)
@@ -437,9 +436,7 @@ func (s *Service) releaseMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // viewMembers answers who is in a group without stating anything.
-//
-// The group key in the query, as the index takes it and for the same reason:
-// a GET has no body a cache or a proxy will honour.
+// It takes its group key the way the index does, a GET carrying no body to name one in (groupKeyIn).
 func (s *Service) viewMembers(w http.ResponseWriter, r *http.Request) {
 	groupKey, ok := groupOf(w, groupKeyIn(r))
 	if !ok {

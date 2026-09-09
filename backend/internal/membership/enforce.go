@@ -67,10 +67,12 @@ type Failed struct {
 	Reason string `json:"reason"`
 }
 
-// Reconcile closes every connection under the prefix that no live member of that group holds.
+// Reconcile closes what no live member of the group holds, against the leases as they stand.
 //
-// Idempotent by construction: it acts on what the relay reports against the leases as they stand,
+// Idempotent by construction: it acts on what the relay reports against those leases,
 // so a second run over an unchanged pair finds nothing to do.
+// A group nobody stated presence in is left alone,
+// save for a member released while a token naming them could still be presented (sweep).
 // A refused kick is carried in the Result rather than retried here,
 // a caller that reports a removal which did not happen being worse than one that says so.
 func (r *Registry) Reconcile(prefix string) Result {

@@ -254,7 +254,7 @@ func (c *Client) Forget() {
 	c.held, c.expires, c.from = "", time.Time{}, origin{}
 }
 
-// Streams is what the relay carries under this key's prefix, or the public streams without a key.
+// Streams is what the relay carries under this key's prefix.
 // The narrowing is the service's: a listing filtered here arrived carrying every group's streams.
 func (c *Client) Streams(base, groupKey string) ([]Stream, error) {
 	assert.IsNotNil(c.http, "a client calls through a transport")

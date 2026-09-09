@@ -23,8 +23,8 @@ type Reports interface {
 // Sending is open for the reason creation is:
 // a report is most needed where the settings hold no working group,
 // so a key would lock out exactly the caller the route exists for.
-// Behind a reverse proxy the address is the proxy's,
-// which makes this a backstop the way CreationsPerHour is.
+// The address is the one the proxy forwarded where a proxy is in front, as CreationsPerHour's is
+// (caller).
 const ReportsPerHour = 30
 
 // reportBodyLimit is how much of a report is read, bytes.

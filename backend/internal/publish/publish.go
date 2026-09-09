@@ -163,6 +163,10 @@ func For(capture string) (Publisher, error) {
 // Every check a publish is refused for runs here, the command being what a run executes.
 // A caller holding settings against the engines needs no second validation path, and the line
 // the UI displays is one the publish button can start.
+//
+// The line spells the relay token and the SRT passphrase out, this being the command as it runs
+// rather than as a child is handed it (internal/transport, childsecrets.go).
+// Whatever shows it owes it a redaction (transport.Redact).
 func Command(s settings.Settings) (string, error) {
 	p, err := For(s.Publish.Capture)
 	if err != nil {

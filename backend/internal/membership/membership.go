@@ -17,14 +17,15 @@
 // (internal/relay, sessions.go).
 // Removal is closing what a lapsed member already holds.
 //
-// This is the one place in the service that keeps anything, and it keeps two things:
-// the leases, and one look at the relay's connections per group, held for SweepWindow.
+// This is the one place in the service that keeps anything, and it keeps three:
+// the leases, one look at the relay's connections per group held for SweepWindow,
+// and each released member for as long as a token naming them could still be presented.
 //
 // A run brings the relay to the leases as they stand,
 // and a second run over unchanged leases closes nothing,
-// which is what lets it run on every statement of presence and on every read the relay reports.
+// which is what lets it run on every statement of presence and on every connection the relay reports.
 //
-// A group with no live members is not enforced at all.
+// A group with no live member is enforced against its released members alone.
 // Membership nobody stated is not the same as a group nobody is in,
 // and enforcing the empty case would close the connections of an app that stated no presence.
 package membership
@@ -68,7 +69,7 @@ const SweepWindow = time.Second
 var ErrNameTaken = errors.New("that name is taken in this group")
 
 // Registry is every group somebody has stated presence in.
-// Safe for concurrent use: mu guards held and looks, and the relay is reached outside it.
+// Safe for concurrent use: mu guards what is kept, and the relay is reached outside it.
 type Registry struct {
 	mu sync.Mutex
 	// held is each group's leases, keyed by the group's path prefix and then by member id.
@@ -81,7 +82,7 @@ type Registry struct {
 	//
 	// A group with no live member is not enforced, so without this the last member out keeps
 	// whatever they open next on the token they still hold.
-	// Dropped when that token could no longer be signed for anybody, which is what closes the set:
+	// Dropped once such a token has expired, which is what closes the set:
 	// a member who comes back states presence and holds a lease again.
 	releasedUntil map[string]map[string]time.Time
 	// tokenWindow is how long a token this service's tokens are signed for stays presentable,
@@ -235,9 +236,8 @@ func (r *Registry) State(groupKey group.Key, secret group.MemberSecret, displayN
 // Idempotent: a member holding no lease is already in the state this names,
 // so it answers Released false and succeeds.
 //
-// What this member holds is closed by its own id, whether or not the group has anybody left:
-// a group with no live member is not enforced,
-// so the run that follows would leave the last member holding what it opened.
+// What this member holds is closed by its own id, whether or not the group has anybody left.
+// The release is remembered with it, so a token they already hold buys nothing back while it lasts.
 func (r *Registry) Release(groupKey group.Key, secret group.MemberSecret) (Answer, error) {
 	assert.Assert(len(groupKey) == group.KeyBytes, "presence is released in a whole group", len(groupKey))
 	assert.Assert(len(secret) == group.MemberSecretBytes, "a member releases presence with a whole secret", len(secret))

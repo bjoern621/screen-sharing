@@ -12,7 +12,7 @@ a deployment on the internet and a development machine alike.
 | --- | --- |
 | `mediamtx-groups.yml` | MediaMTX, on every start. Ports, listeners, and the key set it checks each token against |
 | `Caddyfile` | the reverse proxy, fronting the group service and the HLS listener under one name on 443 |
-| `reconcile-on-read.sh` | MediaMTX itself, as `pathDefaults.runOnRead`, reporting each starting read to `POST /reconcile` |
+| `reconcile-on-read.sh` | MediaMTX itself, as `pathDefaults.runOnRead` and `runOnPublish`, reporting each starting connection to `POST /reconcile` |
 | `relay.sh`, `relay.ps1` | a person starting a relay on this machine |
 
 A deployment mounts none of this.
@@ -32,7 +32,8 @@ so a relay started by itself refuses every publisher.
 A self-signed certificate and a signing key are drawn into `dev-relay/` where none is there, and kept.
 A certificate trusted once stays trusted,
 and a token issued before a restart still verifies after one.
-The certificate and the hook path reach MediaMTX as environment overrides,
+The certificate reaches MediaMTX as an environment override, and so does the hook path on a machine
+that keeps the script somewhere other than where the relay image installs it,
 so the file itself stays the one a deployment reads.
 
 ## Reports

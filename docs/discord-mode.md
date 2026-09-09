@@ -12,7 +12,8 @@ and the stored key waits where it is for the choice to come back.
 The app never holds the group key in this mode.
 `discordd` draws the group, keeps the key and every member secret,
 and answers the app with the derived facts alone: prefix, SRT passphrase, members, tokens.
-Leaving needs nothing revoked, since nothing worth revoking was ever handed out.
+Leaving withdraws no group key and no member secret, the app having held neither.
+The SRT passphrase is the one derived value that outlives a leave (Leaving).
 
 ## The manager
 
@@ -93,7 +94,7 @@ sequenceDiagram
     D->>G: POST /groups, first member in this channel only
     D->>G: PUT /members, this member's secret, Discord nick
     G-->>D: the group: members, lease
-    D->>G: GET /streams, group key in query
+    D->>G: GET /streams, group key in a header
     G-->>D: this group's streams
     D-->>A: channel, prefix, SRT passphrase, members, streams
 ```

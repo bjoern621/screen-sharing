@@ -25,7 +25,7 @@ sequenceDiagram
     Note over A: prefix = digest of the group key
 
     A->>G: POST /tokens, sends groupKey and memberSecret
-    G-->>A: JWT granting prefix, subject is this member's id, 5 min
+    G-->>A: JWT, read the prefix and publish under this member, 5 min
     A->>M: publish prefix/name, token attached
     M->>M: check signature, match path
     M-->>A: live
@@ -49,7 +49,7 @@ sequenceDiagram
     G-->>V: this group's streams
 
     V->>G: POST /tokens, sends groupKey and memberSecret
-    G-->>V: JWT granting prefix
+    G-->>V: JWT granting the prefix to read
     V->>M: read prefix/name, token attached
     M-->>V: video
 ```
@@ -95,7 +95,7 @@ Membership is therefore enforced by closing connections, against the presence le
 | `GET /streams` | group key | no, a prefix is not a group key |
 | `PUT /members`, `DELETE /members`, `GET /members` | group key, and the member secret on the two that state and release | no |
 | `POST /reconcile` | nothing, on loopback only | a path names a group and buys a run against the leases that group's own members stated, answered with no content |
-| publish | JWT | no, the grant is `~^prefix` and the relay matches it |
+| publish | JWT | no, the grant is `~^prefix<member>/` and the relay matches it |
 | read | JWT | no, the grant is `~^prefix` and the relay matches it |
 
 ## What a leak costs
