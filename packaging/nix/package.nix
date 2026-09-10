@@ -186,6 +186,10 @@ let
     modRoot = "backend";
     subPackages = [ "cmd/backend" ];
 
+    # cmd/backend holds no test, and the check phase spends two minutes compiling for none.
+    # The suite runs on every push (.github/workflows/check.yml).
+    doCheck = false;
+
     # Unstamped the binary answers "dev" to the handshake, which is what a window then shows
     # (backend/cmd/backend/main.go).
     #
