@@ -113,6 +113,10 @@ done
 # a plugin pulls in libraries the backend itself never links,
 # and ldd resolves one level per call on some builds.
 #
+# ldd loads the file to read what it imports, a tenth of a second apiece over several hundred files,
+# so a level is walked with one ldd per core, each writing to a file of its own:
+# several processes on one pipe interleave mid-line.
+#
 # Flat beside the binary, where the Windows loader looks first
 # for the process and for anything the process loads later, plugins included.
 declare -A seen
@@ -128,22 +132,30 @@ for module in "${gio_modules[@]}"; do
     queue+=("$bin/$gio_module_dir/$module")
 done
 
+answers=$(mktemp -d)
+trap 'rm -rf "$answers"' EXIT
+
 while [ ${#queue[@]} -gt 0 ]; do
     current=("${queue[@]}")
     queue=()
+    rm -f "$answers"/*
+    i=0
     for file in "${current[@]}"; do
-        while read -r dll; do
-            if [ -z "$dll" ] || [ -n "${seen[$dll]:-}" ]; then
-                continue
-            fi
-            seen[$dll]=1
-            copied=$((copied + 1))
-            cp -f "$dll" "$bin/"
-            queue+=("$bin/$(basename "$dll")")
-        done < <(ldd "$file" 2>/dev/null | awk '$3 != "" { print $3 }' |
-            cygpath -m -f - 2>/dev/null |
-            awk -v p="$prefix/" 'index(tolower($0), tolower(p)) == 1')
-    done
+        printf '%s\0%s\0' "$i" "$file"
+        i=$((i + 1))
+    done |
+        ANSWERS="$answers" xargs -0 -P "$(nproc)" -n 2 sh -c 'ldd "$2" 2>/dev/null > "$ANSWERS/$1"' sh
+    while read -r dll; do
+        if [ -z "$dll" ] || [ -n "${seen[$dll]:-}" ]; then
+            continue
+        fi
+        seen[$dll]=1
+        copied=$((copied + 1))
+        cp -f "$dll" "$bin/"
+        queue+=("$bin/$(basename "$dll")")
+    done < <(cat "$answers"/* | awk '$3 != "" { print $3 }' |
+        cygpath -m -f - 2>/dev/null |
+        awk -v p="$prefix/" 'index(tolower($0), tolower(p)) == 1')
 done
 
 # The backend links GStreamer, so an empty closure is a broken walk
