@@ -56,8 +56,16 @@ UninstallDisplayIcon={app}\mirrorme.exe
 UninstallDisplayName=MirrorMe
 ; LZMA2 over a tree carrying the whole GStreamer plugin set,
 ; which is most of what this installer weighs.
+; Solid, so the tree is one stream the block threads can split:
+; a stream per file leaves every DLL inside a single block.
+; Four block threads, one per core of the runner that compiles this.
+; A block boundary loses only the matches across it,
+; so the ratio cost is a fraction of a percent.
+; The separate process is the 64-bit one, which is where four blocks' memory fits.
 Compression=lzma2/max
 SolidCompression=yes
+LZMANumBlockThreads=4
+LZMAUseSeparateProcess=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
 

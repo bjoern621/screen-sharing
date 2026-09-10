@@ -91,9 +91,14 @@ if (Test-Path $ffmpegLicense) {
     Copy-Item $ffmpegLicense $stage
 }
 
-# Compress-Archive refuses to overwrite,
-# and a rebuilt package replaces the one built before it rather than failing here.
+# The runtime's zip writer directly.
+# Compress-Archive wraps the same writer and hands it every file through the pipeline,
+# which over this tree costs a minute the writer alone spends on the deflate.
+# The last argument keeps the base directory.
+# A rebuilt package replaces the one built before it, which the writer refuses to do itself.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (Test-Path $zip) { Remove-Item $zip }
-Compress-Archive -Path $stage -DestinationPath $zip
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+    $stage, $zip, [System.IO.Compression.CompressionLevel]::Optimal, $true)
 
 Write-Host "packaged $zip"
