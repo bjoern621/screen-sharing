@@ -1,0 +1,40 @@
+# The MSYS2 toolchain the Windows package is built with,
+# and the GStreamer it links and bundles (docs/packaging.md, "Building on Windows").
+#
+# One action rather than a package list in each workflow:
+# the package cache is keyed on the list,
+# and a release run can read only what a run on main saved (.github/workflows/cache.yml).
+#
+# update: false, so a build takes the package versions the pinned installer snapshot names,
+# the pin being this action's SHA.
+# A full `pacman -Syuu` on every run takes GStreamer and gcc from the day,
+# ahead of what the check on a push compiles against.
+name: MSYS2 toolchain
+description: Installs the MINGW64 toolchain and the GStreamer the Windows backend links and bundles
+
+outputs:
+  msys2-location:
+    description: Where the installation went. Read as MSYS2_ROOT by Taskfile.yml.
+    value: ${{ steps.msys2.outputs.msys2-location }}
+
+runs:
+  using: composite
+  steps:
+    - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+      id: msys2
+      with:
+        msystem: MINGW64
+        update: false
+        install: >-
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-pkgconf
+          mingw-w64-x86_64-gstreamer
+          mingw-w64-x86_64-gst-plugins-base
+          mingw-w64-x86_64-gst-plugins-good
+          mingw-w64-x86_64-gst-plugins-bad
+          mingw-w64-x86_64-gst-plugins-ugly
+          mingw-w64-x86_64-gst-plugins-rs
+          mingw-w64-x86_64-gst-rtsp-server
+          mingw-w64-x86_64-gst-libav
+          mingw-w64-x86_64-glib-networking
+          mingw-w64-x86_64-lld

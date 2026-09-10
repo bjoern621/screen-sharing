@@ -1,0 +1,61 @@
+# The caches a release run restores, saved where a release run can read them.
+#
+# A run reads the entries its own ref saved and the ones the default branch saved.
+# A release runs on its tag, one ref per release,
+# so an entry it saves serves no run after it and every release pays the whole build.
+# The entries below are saved from main, and release.yml restores without saving.
+#
+# An entry unread for seven days is evicted, which the schedule stays ahead of.
+
+name: cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packaging/flatpak/**
+      - .github/actions/flatpak/**
+      - .github/actions/msys2/**
+      - .github/workflows/cache.yml
+  schedule:
+    - cron: "0 3 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The flatpak-builder state directory over every module ahead of the app:
+  # ffmpeg, the Rust plugins and the rest compile once per manifest change.
+  # The app module takes a staged build this job has none of,
+  # and --stop-at ends the run before that module's sources are read.
+  # A module's definition reaches beyond the manifest,
+  # the Rust plugins taking their crate set from the lock and sources files beside it,
+  # so the key covers the directory.
+  flatpak:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/flatpak
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .flatpak-builder
+          key: flatpak-${{ hashFiles('packaging/flatpak/*') }}
+          restore-keys: flatpak-
+
+      # The build directories go: the cache holds each module's result,
+      # and a source tree beside it doubles the entry.
+      - name: Build the modules ahead of the app
+        run: |
+          flatpak-builder --user --force-clean --delete-build-dirs --stop-at=mirrorme \
+            build/flatpak-build packaging/flatpak/de.bjoernblessin.MirrorMe.yml
+
+  # MSYS2's package cache for the list the action installs, saved by the action itself.
+  msys2:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/msys2

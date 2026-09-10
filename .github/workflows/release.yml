@@ -92,21 +92,14 @@ jobs:
           mkdir -p build/dist
           tar -xzf incoming/*.tar.gz -C build/dist
 
-      - name: Install flatpak-builder
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder
-          flatpak remote-add --user --if-not-exists \
-            flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user --noninteractive flathub \
-            org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 \
-            org.freedesktop.Sdk.Extension.rust-stable//25.08
+      - uses: ./.github/actions/flatpak
 
-      # flatpak-builder keeps each module's build state here and skips a module whose
-      # definition is unchanged, which is what stops ffmpeg compiling on every run.
-      # The key is the manifest directory: a module's definition reaches beyond the manifest,
-      # the Rust plugins taking their crate set from a lock file and a sources file beside it.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Every module ahead of the app, built and saved by cache.yml on main,
+      # which flatpak-builder skips over as long as each definition is unchanged.
+      # Restored without a save: a release runs on its tag,
+      # and an entry saved there is readable by no run after it.
+      # The app module reads its sources from a directory, which is rebuilt on every run.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .flatpak-builder
           key: flatpak-${{ hashFiles('packaging/flatpak/*') }}
@@ -142,33 +135,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The toolchain and the GStreamer development files the backend links,
-      # and the gst-launch-1.0.exe it spawns.
-      # The same package list docs/packaging.md names.
-      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+      # The toolchain, the GStreamer development files the backend links,
+      # and the runtime the zip bundles.
+      # Its package cache is the one cache.yml saves on main for this list.
+      - uses: ./.github/actions/msys2
         id: msys2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-gstreamer
-            mingw-w64-x86_64-gst-plugins-base
-            mingw-w64-x86_64-gst-plugins-good
-            mingw-w64-x86_64-gst-plugins-bad
-            mingw-w64-x86_64-gst-plugins-ugly
-            mingw-w64-x86_64-gst-plugins-rs
-            mingw-w64-x86_64-gst-rtsp-server
-            mingw-w64-x86_64-gst-libav
-            mingw-w64-x86_64-glib-networking
-            mingw-w64-x86_64-lld
 
+      # The Go build cache check.yml saves on every push to main, restored without a save.
+      # The check compiles the same packages through the same gcc,
+      # so what is left for this job is the link.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
-          cache: true
-          cache-dependency-path: backend/go.sum
+          cache: false
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/AppData/Local/go-build
+          key: go-windows-${{ hashFiles('backend/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-windows-${{ hashFiles('backend/go.sum') }}-
+            go-windows-
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

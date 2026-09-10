@@ -53,6 +53,7 @@ Every dependency this repository resolves is pinned, so the tree decides which t
 | Nix package set: ffmpeg, GStreamer, the .NET SDK, Go, AMF, MediaMTX | input revisions in `flake.nix`, recorded in `flake.lock` | editing the revision, then `nix flake lock` |
 | Go modules | `backend/go.sum` | `go get`, then `go mod tidy` |
 | NuGet packages | exact versions in each `.csproj`, hashed in `packaging/nix/deps.json` | editing the version, then regenerating `packaging/nix/deps.json` |
+| MSYS2 packages: the Windows toolchain and the GStreamer the zip bundles | the setup-msys2 action's SHA in `.github/actions/msys2`, whose installer snapshot fixes the package database | replacing the SHA |
 | CI actions | commit SHAs in `.github/workflows` | replacing the SHA and the version comment beside it |
 
 The Nix inputs name revisions rather than branches, which leaves `nix flake update` with nothing to do.
@@ -322,7 +323,7 @@ pacman -S mingw-w64-x86_64-{toolchain,pkgconf,lld,gstreamer,glib-networking} \
 ```
 
 Go is not in that list: it comes from a Windows install of Go, MSYS2 shipping a trimmed one that would need `GOROOT` named for it.
-`.github/workflows` installs the same set.
+`.github/actions/msys2` installs the same set.
 
 A development run takes the launcher from MSYS2, whose prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the run.
 Appended rather than prepended, MSYS2 shipping an ffmpeg of its own that a prefix in front would move every capture and encode onto.

@@ -1,0 +1,16 @@
+# flatpak-builder and the runtime the manifest names, for every job that runs it.
+name: flatpak-builder
+description: Installs flatpak-builder and the freedesktop runtime, SDK and Rust extension the manifest builds against
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y flatpak flatpak-builder
+        flatpak remote-add --user --if-not-exists \
+          flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+        flatpak install --user --noninteractive flathub \
+          org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 \
+          org.freedesktop.Sdk.Extension.rust-stable//25.08

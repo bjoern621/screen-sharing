@@ -106,8 +106,9 @@ jobs:
       # installs more than this.
       # lld is the linker the backend links through, which build:windows in Taskfile.yml explains.
       #
-      # update: false, the action caching its package set:
-      # a full `pacman -Syu` on every push spends more than the compile it precedes.
+      # update: false, as the packaged build takes it (.github/actions/msys2):
+      # both install the versions the action's installer snapshot names,
+      # so the binary checked here and the one shipped link one GStreamer and compile through one gcc.
       - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         id: msys2
         with:
@@ -121,11 +122,25 @@ jobs:
             mingw-w64-x86_64-gst-plugins-bad
             mingw-w64-x86_64-lld
 
+      # The build cache is saved on every push under a key naming the commit,
+      # and the nearest one is restored:
+      # setup-go's own cache saves once per go.sum change, and every cgo package it holds is stale by the next push.
+      # release.yml restores the same entry on a tag, where only what main saved is readable,
+      # so the link is what its build has left to do.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
-          cache: true
-          cache-dependency-path: backend/go.sum
+          cache: false
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/AppData/Local/go-build
+          key: go-windows-${{ hashFiles('backend/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-windows-${{ hashFiles('backend/go.sum') }}-
+            go-windows-
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -142,6 +157,9 @@ jobs:
       # as Taskfile.yml does. The image carries Strawberry Perl's `gcc` and `pkg-config`
       # ahead of the appended prefix, and that pkg-config resolves against
       # C:/Strawberry/c/lib/pkgconfig, where no GStreamer module lives.
+      # Both spelled with forward slashes, the form Taskfile.yml derives from MSYS2_ROOT:
+      # Go hashes the CC string into every cgo package's cache key,
+      # so a build naming the compiler another way reuses nothing this one compiled.
       #
       # The link goes through lld, for the reason build:windows states in Taskfile.yml,
       # and the run after it starts what that link produced.
@@ -151,10 +169,11 @@ jobs:
       - name: Check
         env:
           CGO_ENABLED: "1"
-          CC: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\gcc.exe
-          PKG_CONFIG: ${{ steps.msys2.outputs.msys2-location }}\mingw64\bin\pkg-config.exe
         run: |
-          $msys2 = "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+          $root = "${{ steps.msys2.outputs.msys2-location }}".Replace('\', '/')
+          $env:CC = "$root/mingw64/bin/gcc.exe"
+          $env:PKG_CONFIG = "$root/mingw64/bin/pkg-config.exe"
+          $msys2 = "$root/mingw64/bin"
           $env:PATH = "$env:PATH;$msys2"
 
           # A pwsh step reports the exit code of its last command,
