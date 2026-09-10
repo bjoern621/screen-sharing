@@ -61,11 +61,14 @@ jobs:
       - name: Package
         run: bash packaging/linux/package.sh
 
+      # compression-level 0 on every upload here: each file is an archive already,
+      # and a second deflate over it costs the upload time and saves nothing.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-tarball
           path: build/dist/*.tar.gz
           if-no-files-found: error
+          compression-level: 0
 
   # The Flatpak, for the distributions the tarball leaves out:
   # that artifact takes GStreamer from the machine and the backend links symbols 1.26 introduced.
@@ -119,6 +122,7 @@ jobs:
           name: linux-flatpak
           path: build/dist/*.flatpak
           if-no-files-found: error
+          compression-level: 0
 
   # The Windows zip, which carries its own ffmpeg and GStreamer because Windows has no
   # dependency manager the app can lean on (docs/packaging.md).
@@ -213,6 +217,7 @@ jobs:
             build/dist/*.zip
             build/dist/*-setup.exe
           if-no-files-found: error
+          compression-level: 0
 
   # The flake's package, which is what a NixOS install reads. Nothing is uploaded: a Nix
   # user builds from the flake rather than downloading an artifact, so what this proves
