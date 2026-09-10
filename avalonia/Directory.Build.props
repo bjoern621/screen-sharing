@@ -28,4 +28,15 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
+  <!--
+    MSBuild reads every environment variable as a property, so the run's VERSION stamp
+    arrives here as $(Version) (docs/packaging.md, "The build stamp").
+    A run behind no release stamps 0.0.0.dev.<commit>, four fields NuGet refuses at restore.
+    The assembly carries the number where the stamp is one, and 0.0.0 for a build nobody released,
+    the same reading packaging/windows/installer.ps1 gives the file-version resource.
+  -->
+  <PropertyGroup>
+    <Version Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', '^[0-9]+\.[0-9]+\.[0-9]+$'))">0.0.0</Version>
+  </PropertyGroup>
+
 </Project>
